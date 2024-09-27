@@ -69,16 +69,9 @@ impl Application{
         })
     }
 
-    //Init: initializes and sets up environment(including loading plugins and setting options?)
-    //Event Handling: listens for user input and system events(events can include keystrokes, mouse actions, and signals from the operating system)
-        //When an event occurs (e.g., a key is pressed), trigger the corresponding handler function or callback
-    //Handler Execution: executes and performs the necessary actions based on the event
-        //(For example, if a user presses "Ctrl+S", the corresponding handler might save the current buffer to disk)
-    //Redraw and Display: Updates display (or redraws the screen) to reflect any changes resulting from the event handling
     pub fn run(&mut self, file_path: String) -> Result<(), Box<dyn Error>>{
         let path = PathBuf::from(file_path).canonicalize()?;
         
-        // open doc
         self.document = Document::open(path, Application::cursor_semantics())?;
         self.ui.set_file_name(self.document.file_name());
         self.ui.set_document_length(self.document.len());
@@ -102,7 +95,7 @@ impl Application{
             self.ui.update_layouts(self.mode);
             self.ui.render(&mut self.host_terminal, self.mode)?;
             self.handle_event()?;
-            if self.should_quit(){
+            if self.should_quit{
                 return Ok(());
             }
         }
@@ -115,23 +108,10 @@ impl Application{
         }
     }
 
-    pub fn mode(&self) -> Mode{
-        self.mode
-    }
-    pub fn set_mode(&mut self, mode: Mode){
-        self.mode = mode
-    }
-    pub fn should_quit(&self) -> bool{
-        self.should_quit
-    }
-    pub fn set_should_quit(&mut self, should_quit: bool){
-        self.should_quit = should_quit
-    }
-
     pub fn handle_event(&mut self) -> Result<(), Box<dyn Error>>{
         match event::read()?{
             event::Event::Key(key_event) => {
-                Ok(match (key_event, self.mode()){
+                Ok(match (key_event, self.mode){
                     // Insert Mode
                     //(KeyEvent{modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT, code, ..}, Mode::Insert) => {Action::}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Right,         ..}, Mode::Insert) => {self.move_cursor_word_end()}
@@ -235,14 +215,6 @@ impl Application{
         }
     }
 
-    pub fn restore_terminal(&mut self) -> Result<(), Box<dyn Error>>{
-        restore_terminal(&mut self.host_terminal, self.supports_keyboard_enhancement)
-    }
-
-
-
-
-
     fn backspace(&mut self){
         self.document.backspace();
 
@@ -262,7 +234,7 @@ impl Application{
         //if parse_command(editor, ui.util_bar().text()).is_ok(){
             self.ui.util_bar_mut().clear();
             self.ui.util_bar_mut().set_offset(0);
-            self.set_mode(Mode::Insert);
+            self.mode = Mode::Insert;
         //}
         //ui.scroll(editor);
 
@@ -279,7 +251,7 @@ impl Application{
     fn command_mode_exit(&mut self){
         self.ui.util_bar_mut().clear();
         self.ui.util_bar_mut().set_offset(0);
-        self.set_mode(Mode::Insert);
+        self.mode = Mode::Insert;
     }
     fn command_mode_extend_selection_end(&mut self){
         self.ui.util_bar_mut().extend_selection_end();
@@ -517,7 +489,7 @@ impl Application{
         self.ui.util_bar_mut().set_offset(0);
         self.ui.util_bar_alternate_mut().set_offset(0);
         self.ui.set_util_bar_alternate_focused(false);
-        self.set_mode(Mode::Insert);
+        self.mode = Mode::Insert;
     }
     fn find_replace_mode_extend_selection_end(&mut self){
         if self.ui.util_bar_alternate_focused(){
@@ -634,7 +606,7 @@ impl Application{
                 
                 self.ui.util_bar_mut().clear();
                 self.ui.util_bar_mut().set_offset(0);
-                self.set_mode(Mode::Insert);
+                self.mode = Mode::Insert;
             }
         }
     }
@@ -687,7 +659,7 @@ impl Application{
     fn goto_mode_exit(&mut self){
         self.ui.util_bar_mut().clear();
         self.ui.util_bar_mut().set_offset(0);
-        self.set_mode(Mode::Insert);
+        self.mode = Mode::Insert;
     }
     fn goto_mode_extend_selection_end(&mut self){
         self.ui.util_bar_mut().extend_selection_end();
@@ -968,13 +940,13 @@ impl Application{
     }
     fn quit(&mut self){
         if self.ui.document_modified(){
-            self.set_mode(Mode::Warning(WarningKind::FileIsModified));
+            self.mode = Mode::Warning(WarningKind::FileIsModified);
         }else{
-            self.set_should_quit(true);
+            self.should_quit = true;
         }
     }
     fn quit_ignoring_changes(&mut self){
-        self.set_should_quit(true);
+        self.should_quit = true;
     }
     fn resize(&mut self, x: u16, y: u16){
         self.ui.set_terminal_size(x, y);
@@ -1007,7 +979,7 @@ impl Application{
                 self.ui.set_document_modified(self.document.is_modified());
             }
             Err(_) => {
-                self.set_mode(Mode::Warning(WarningKind::FileSaveFailed));
+                self.mode = Mode::Warning(WarningKind::FileSaveFailed);
             }
         }
     }
@@ -1060,15 +1032,21 @@ impl Application{
         self.ui.set_document_modified(self.document.is_modified());
     }
     fn set_mode_command(&mut self){
-        self.set_mode(Mode::Command)
+        self.mode = Mode::Command;
     }
     fn set_mode_find_replace(&mut self){
-        self.set_mode(Mode::FindReplace)
+        self.mode = Mode::FindReplace;
     }
     fn set_mode_goto(&mut self){
-        self.set_mode(Mode::Goto)
+        self.mode = Mode::Goto;
     }
-    fn warning_mode_exit(&mut self){self.set_mode(Mode::Insert)}
+    fn warning_mode_exit(&mut self){
+        self.mode = Mode::Insert;
+    }
+
+    pub fn restore_terminal(&mut self) -> Result<(), Box<dyn Error>>{
+        restore_terminal(&mut self.host_terminal, self.supports_keyboard_enhancement)
+    }
 }
 
 fn setup_terminal() -> Result<(Terminal<CrosstermBackend<std::io::Stdout>>, bool), Box<dyn Error>>{

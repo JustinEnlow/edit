@@ -15,6 +15,8 @@ pub enum CursorSemantics{
     // default selection has width of 1
     Block
 }
+
+#[derive(PartialEq)]
 pub enum Direction{
     Forward,
     Backward,
@@ -122,13 +124,36 @@ impl Selection{
             CursorSemantics::Bar => self.head,
             CursorSemantics::Block => {
                 if self.head >= self.anchor{
-                    self.head - 1
+                    self.head - 1   //prev_grapheme_boundary(text, self.head)
                 }else{
                     self.head
                 }
             }
         }
     }
+
+    //pub fn put_cursor(self, text: &Rope, char_idx: usize, movement: Movement) -> Self{
+    //    match movement{
+    //        Movement::Extend => {
+    //            let anchor = if self.head >= self.anchor && char_idx < self.anchor {
+    //                next_grapheme_boundary(text, self.anchor)
+    //            } else if self.head < self.anchor && char_idx >= self.anchor {
+    //                prev_grapheme_boundary(text, self.anchor)
+    //            } else {
+    //                self.anchor
+    //            };
+    //
+    //            if anchor <= char_idx {
+    //                Self::new(anchor, next_grapheme_boundary(text, char_idx))
+    //            } else {
+    //                Self::new(anchor, char_idx)
+    //            }
+    //        }
+    //        Movement::Move => {
+    //            Self::Point(char_idx)
+    //        }
+    //    }
+    //}
 
     //TODO: handle block cursor semantics
     pub fn is_extended(&self) -> bool{
@@ -304,6 +329,27 @@ impl Selection{
         let stored_line_position = text_util::offset_from_line_start(head, text);
             
         Selection{anchor, head, stored_line_position}
+    }
+
+    /// returns the direction of [Selection]
+    /// ```
+    /// # use ropey::Rope;
+    /// # use edit::selection::{Selection, Direction};
+    /// 
+    /// let text = Rope::from("idk\nsome\nshit\n");
+    /// 
+    /// let selection = Selection::new(0, 5, &text);
+    /// assert!(selection.direction() == Direction::Forward);
+    /// 
+    /// let selection = Selection::new(5, 0, &text);
+    /// assert!(selection.direction() == Direction::Backward);
+    /// ```
+    pub fn direction(&self) -> Direction{
+        if self.head < self.anchor{ //< self.cursor()?
+            Direction::Backward
+        }else{
+            Direction::Forward
+        }
     }
 
     /// Sets [Selection] direction to specified direction.
