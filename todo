@@ -1,0 +1,8 @@
+TODO
+
+[ ] history: undo/redo
+[ ] handle hard_tab/soft_tab
+[ ] set CursorSemantics from CursorStyle
+[ ] properly handle non-ascii text
+[ ] lsp integration
+[ ] colorize syntax/selections/etc.
