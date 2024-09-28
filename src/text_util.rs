@@ -95,9 +95,11 @@ pub fn slice_is_all_spaces(line: &str, start_of_slice: usize, end_of_slice: usiz
 /// let distance = text_util::distance_to_next_multiple_of_tab_width(selection, &text);
 /// assert!(distance == 3);
 /// ```
-pub fn distance_to_next_multiple_of_tab_width(cursor: Selection, text: &Rope) -> usize{
-    if offset_from_line_start(cursor.head(), text) % TAB_WIDTH != 0{
-        TAB_WIDTH - (cursor.stored_line_position() % TAB_WIDTH)
+pub fn distance_to_next_multiple_of_tab_width(selection: Selection, text: &Rope) -> usize{
+    //if cursor.stored_line_position() % TAB_WIDTH != 0{
+    if offset_from_line_start(selection.head(), text) % TAB_WIDTH != 0{ //TODO: should this use selection.cursor() instead?
+        //TAB_WIDTH - (cursor.stored_line_position() % TAB_WIDTH)
+        TAB_WIDTH - (offset_from_line_start(selection.head(), text) % TAB_WIDTH)
     }else{
         0
     }
