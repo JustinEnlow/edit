@@ -64,7 +64,7 @@ impl Application{
             mode: Mode::Insert,
             host_terminal: terminal,
             supports_keyboard_enhancement,
-            document: Document::new(Application::cursor_semantics()),
+            document: Document::new(),
             ui: UserInterface::new(terminal_size),
         })
     }
@@ -72,7 +72,7 @@ impl Application{
     pub fn run(&mut self, file_path: String) -> Result<(), Box<dyn Error>>{
         let path = PathBuf::from(file_path).canonicalize()?;
         
-        self.document = Document::open(path, Application::cursor_semantics())?;
+        self.document = Document::open(path)?;
         self.ui.set_file_name(self.document.file_name());
         self.ui.set_document_length(self.document.len());
         
@@ -777,7 +777,7 @@ impl Application{
     fn move_cursor_document_start(&mut self){
         let text = self.document.text().clone();
 
-        self.document.selections_mut().move_cursors_document_start();
+        self.document.selections_mut().move_cursors_document_start(&text);
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text){

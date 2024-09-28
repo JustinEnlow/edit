@@ -1,5 +1,5 @@
 use crate::view::View;
-use crate::selection::{CursorSemantics, Selection, Selections};
+use crate::selection::{Selection, Selections};
 use std::fs::{self, File};
 use std::error::Error;
 use std::io::{BufReader, BufWriter};
@@ -24,24 +24,24 @@ pub struct Document{
     last_saved_text: Rope,
 }
 impl Document{
-    pub fn open(path: PathBuf, cursor_semantics: CursorSemantics) -> Result<Self, Box<dyn Error>>{
+    pub fn open(path: PathBuf) -> Result<Self, Box<dyn Error>>{
         let text = Rope::from_reader(BufReader::new(File::open(&path)?))?;
     
         Ok(Self{
             text: text.clone(),
             file_path: Some(path.clone()),
             modified: false,
-            selections: Selections::default(cursor_semantics),
+            selections: Selections::new(vec![Selection::new(0, 0)], 0, &text.clone()),
             client_view: View::default(),
             last_saved_text: text.clone(),
         })
     }
-    pub fn new(cursor_semantics: CursorSemantics) -> Self{
+    pub fn new() -> Self{
         Self{
             text: Rope::new(),
             file_path: None,
             modified: false,
-            selections: Selections::default(cursor_semantics),
+            selections: Selections::new(vec![Selection::new(0, 0)], 0, &Rope::new()),
             client_view: View::default(),
             last_saved_text: Rope::new(),
         }
@@ -122,13 +122,12 @@ impl Document{
     /// ```
     /// # use ropey::Rope;
     /// # use edit::document::Document;
-    /// # use edit::selection::CursorSemantics;
     /// 
-    /// let mut doc = Document::new(CursorSemantics::Bar).with_text(Rope::from("idk"));
+    /// let mut doc = Document::new().with_text(Rope::from("idk"));
     /// doc.enter();
     /// assert!(doc.text().clone() == Rope::from("\nidk"));
     /// ```
-    pub fn enter(&mut self){        
+    pub fn enter(&mut self){
         //for cursor in self.cursors.iter_mut(){
         //    Document::enter_at_cursor(cursor, &mut self.lines, &mut self.modified);
         //}
@@ -195,16 +194,16 @@ impl Document{
     /// ```
     /// # use ropey::Rope;
     /// # use edit::document::Document;
-    /// # use edit::selection::{Selection, Selections, CursorSemantics};
+    /// # use edit::selection::{Selection, Selections};
     /// 
     /// // normal use. selection not extended
-    /// let mut doc = Document::new(CursorSemantics::Bar).with_text(Rope::from("idk\nsome\nshit\n"));
+    /// let mut doc = Document::new().with_text(Rope::from("idk\nsome\nshit\n"));
     /// doc.insert_char('x');
     /// assert!(doc.text().clone() == Rope::from("xidk\nsome\nshit\n"));
     /// 
     /// // with selection extended
     /// let text = Rope::from("idk\nsome\nshit\n");
-    /// let mut doc = Document::new(CursorSemantics::Bar).with_text(text.clone()).with_selections(Selections::new(vec![Selection::new(0, 1, &text)], 0, &text, CursorSemantics::Bar));
+    /// let mut doc = Document::new().with_text(text.clone()).with_selections(Selections::new(vec![Selection::new(0, 1)], 0, &text));
     /// doc.insert_char('x');
     /// assert!(doc.text().clone() == Rope::from("xdk\nsome\nshit\n"));
     /// ```
@@ -238,9 +237,8 @@ impl Document{
     /// ```
     /// # use ropey::Rope;
     /// # use edit::document::{Document, TAB_WIDTH};
-    /// # use edit::selection::CursorSemantics;
     /// 
-    /// let mut doc = Document::new(CursorSemantics::Bar).with_text(Rope::from("idk\nsome\nshit\n"));
+    /// let mut doc = Document::new().with_text(Rope::from("idk\nsome\nshit\n"));
     /// let mut spaces = String::new();
     /// for x in 0..TAB_WIDTH{
     ///     spaces.push(' ');
@@ -276,28 +274,28 @@ impl Document{
     /// ```
     /// # use ropey::Rope;
     /// # use edit::document::Document;
-    /// # use edit::selection::{Selection, Selections, CursorSemantics};
+    /// # use edit::selection::{Selection, Selections};
     /// 
     /// // will not delete past end of doc
     /// let text = Rope::from("idk");
-    /// let mut doc = Document::new(CursorSemantics::Bar).with_text(text.clone()).with_selections(Selections::new(vec![Selection::new(3, 3, &text)], 0, &text, CursorSemantics::Bar));
+    /// let mut doc = Document::new().with_text(text.clone()).with_selections(Selections::new(vec![Selection::new(3, 3)], 0, &text));
     /// doc.delete();
     /// assert!(doc.text().clone() == Rope::from("idk"));
     /// 
     /// // no selection
-    /// let mut doc = Document::new(CursorSemantics::Bar).with_text(Rope::from("idk\nsome\nshit\n"));
+    /// let mut doc = Document::new().with_text(Rope::from("idk\nsome\nshit\n"));
     /// doc.delete();
     /// assert!(doc.text().clone() == Rope::from("dk\nsome\nshit\n"));
     /// 
     /// // with selection head > anchor
     /// let text = Rope::from("idk\nsome\nshit\n");
-    /// let mut doc = Document::new(CursorSemantics::Bar).with_text(text.clone()).with_selections(Selections::new(vec![Selection::new(0, 2, &text)], 0, &text, CursorSemantics::Bar));
+    /// let mut doc = Document::new().with_text(text.clone()).with_selections(Selections::new(vec![Selection::new(0, 2)], 0, &text));
     /// doc.delete();
     /// assert!(doc.text().clone() == Rope::from("k\nsome\nshit\n"));
     /// 
     /// // with selection head < anchor
     /// let text = Rope::from("idk\nsome\nshit\n");
-    /// let mut doc = Document::new(CursorSemantics::Bar).with_text(text.clone()).with_selections(Selections::new(vec![Selection::new(1, 2, &text)], 0, &text, CursorSemantics::Bar));
+    /// let mut doc = Document::new().with_text(text.clone()).with_selections(Selections::new(vec![Selection::new(1, 2)], 0, &text));
     /// doc.delete();
     /// assert!(doc.text().clone() == Rope::from("ik\nsome\nshit\n"));
     /// ```
@@ -363,22 +361,22 @@ impl Document{
     /// ```
     /// # use ropey::Rope;
     /// # use edit::document::Document;
-    /// # use edit::selection::{Selection, Selections, CursorSemantics};
+    /// # use edit::selection::{Selection, Selections};
     /// 
     /// let text = Rope::from("idk\nsome\nshit\n");
     /// 
     /// // without selection deletes previous char
-    /// let mut doc = Document::new(CursorSemantics::Bar).with_text(text.clone()).with_selections(Selections::new(vec![Selection::new(0, 1, &text)], 0, &text, CursorSemantics::Bar));
+    /// let mut doc = Document::new().with_text(text.clone()).with_selections(Selections::new(vec![Selection::new(0, 1)], 0, &text));
     /// doc.backspace();
     /// assert!(doc.text().clone() == Rope::from("dk\nsome\nshit\n"));
     /// 
     /// // backspace at start of line appends current line to end of previous line
-    /// let mut doc = Document::new(CursorSemantics::Bar).with_text(text.clone()).with_selections(Selections::new(vec![Selection::new(4, 4, &text)], 0, &text, CursorSemantics::Bar));
+    /// let mut doc = Document::new().with_text(text.clone()).with_selections(Selections::new(vec![Selection::new(4, 4)], 0, &text));
     /// doc.backspace();
     /// assert!(doc.text().clone() == Rope::from("idksome\nshit\n"));
     /// 
     /// // with selection
-    /// let mut doc = Document::new(CursorSemantics::Bar).with_text(text.clone()).with_selections(Selections::new(vec![Selection::new(0, 2, &text)], 0, &text, CursorSemantics::Bar));
+    /// let mut doc = Document::new().with_text(text.clone()).with_selections(Selections::new(vec![Selection::new(0, 2)], 0, &text));
     /// doc.backspace();
     /// assert!(doc.text().clone() == Rope::from("k\nsome\nshit\n"));
     /// ```

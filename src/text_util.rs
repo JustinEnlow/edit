@@ -91,7 +91,7 @@ pub fn slice_is_all_spaces(line: &str, start_of_slice: usize, end_of_slice: usiz
 ///     tab.push(' ');
 /// }
 /// let text = Rope::from(format!("{}idk\n", tab));
-/// let selection = Selection::new(1, 1, &text);
+/// let selection = Selection::new(1, 1);
 /// let distance = text_util::distance_to_next_multiple_of_tab_width(selection, &text);
 /// assert!(distance == 3);
 /// ```
@@ -113,7 +113,7 @@ pub fn distance_to_next_multiple_of_tab_width(selection: Selection, text: &Rope)
 /// # use edit::text_util;
 /// 
 /// let text = Rope::from("idk\nsome\nshit\n");
-/// let selection = Selection::new(2, 2, &text);
+/// let selection = Selection::new(2, 2);
 /// assert!(text_util::offset_from_line_start(selection.head(), &text) == 2);
 /// ```
 // TODO: maybe this really does belong in [Selection] in selection.rs?
