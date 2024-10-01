@@ -221,7 +221,7 @@ impl Document{
     }
     fn insert_char_at_cursor(mut selection: Selection, text: &Rope, char: char) -> (Selection, Rope){
         let mut new_text = text.clone();
-        if selection.is_extended(){
+        if selection.is_extended(crate::selection::CursorSemantics::Bar){
             (new_text, selection) = Document::delete_at_cursor(selection.clone(), text);
         }
         new_text.insert_char(selection.head(), char);
@@ -310,14 +310,14 @@ impl Document{
         let mut new_text = text.clone();
 
         if selection.head() < text.len_chars(){ //can this be guaranteed by the Selection type? make invalid state impossible?
-            if selection.is_extended(){
+            if selection.is_extended(crate::selection::CursorSemantics::Bar){
                 if selection.head() < selection.anchor(){
                     new_text.remove(selection.head()..selection.anchor());
-                    selection.move_to(selection.head(), text);
+                    selection.put_cursor(selection.head(), text, crate::selection::Movement::Move, crate::selection::CursorSemantics::Bar);
                 }
                 else if selection.head() > selection.anchor(){
                     new_text.remove(selection.anchor()..selection.head());
-                    selection.move_to(selection.anchor(), text);
+                    selection.put_cursor(selection.anchor(), text, crate::selection::Movement::Move, crate::selection::CursorSemantics::Bar);
                 }
             }else{
                 new_text.remove(selection.head()..selection.head()+1);
@@ -396,7 +396,7 @@ impl Document{
                 cursor_line_position
             );
             
-            if selection.is_extended(){
+            if selection.is_extended(crate::selection::CursorSemantics::Bar){
                 (self.text, *selection) = Document::delete_at_cursor(selection.clone(), &self.text);
             }else{
                 if is_deletable_soft_tab{

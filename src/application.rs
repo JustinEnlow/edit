@@ -1,4 +1,4 @@
-use edit::selection::CursorSemantics;
+use edit::selection::{CursorSemantics, Movement};
 use ratatui::{backend::CrosstermBackend, Terminal};
 use edit::document::Document;
 use crate::ui::UserInterface;
@@ -23,7 +23,7 @@ use crossterm::event::{self, KeyCode, KeyEvent, KeyModifiers};
         // SteadyUnderScore
         // BlinkingBar
         // SteadyBar
-const CURSOR_STYLE: cursor::SetCursorStyle = cursor::SetCursorStyle::SteadyBar;
+const CURSOR_STYLE: cursor::SetCursorStyle = cursor::SetCursorStyle::SteadyBlock;
 const VIEW_SCROLL_AMOUNT: usize = 1;
 
 
@@ -101,17 +101,10 @@ impl Application{
         }
     }
 
-    fn cursor_semantics() -> CursorSemantics{
-        match CURSOR_STYLE{
-            cursor::SetCursorStyle::BlinkingBar | cursor::SetCursorStyle::SteadyBar => CursorSemantics::Bar,
-            _ => CursorSemantics::Block
-        }
-    }
-
     pub fn handle_event(&mut self) -> Result<(), Box<dyn Error>>{
         match event::read()?{
             event::Event::Key(key_event) => {
-                Ok(match (key_event, self.mode){
+                match (key_event, self.mode){
                     // Insert Mode
                     //(KeyEvent{modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT, code, ..}, Mode::Insert) => {Action::}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Right,         ..}, Mode::Insert) => {self.move_cursor_word_end()}
@@ -208,13 +201,17 @@ impl Application{
     
                     // unhandled keybinds
                     _ => {self.no_op();}
-                })
+                }
             },
-            event::Event::Resize(x, y) => {Ok(self.resize(x, y))}
-            _ => {Ok(self.no_op())}
+            event::Event::Resize(x, y) => self.resize(x, y),
+            _ => self.no_op(),
         }
+
+        Ok(())
     }
 
+    fn add_selection_above(&mut self){}
+    fn add_selection_below(&mut self){}
     fn backspace(&mut self){
         self.document.backspace();
 
@@ -229,6 +226,25 @@ impl Application{
         self.ui.set_document_modified(self.document.is_modified());
 
         self.ui.set_document_length(self.document.len());
+    }
+    fn collapse_selections(&mut self){
+        let text = self.document.text().clone();
+
+        for selection in self.document.selections_mut().iter_mut(){
+            selection.collapse(&text, CursorSemantics::Bar);
+        }
+
+        let selections = self.document.selections().clone();
+        if self.document.view_mut().scroll_following_cursor(&selections, &text){
+            self.ui.set_text_in_view(self.document.view().text(&text));
+            self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
+            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections));
+            self.ui.set_document_cursor_position(selections.cursor_positions(&text));
+            self.ui.set_document_modified(self.document.is_modified());
+        }else{
+            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections));
+            self.ui.set_document_cursor_position(selections.cursor_positions(&text));
+        }
     }
     fn command_mode_accept(&mut self){
         //if parse_command(editor, ui.util_bar().text()).is_ok(){
@@ -345,7 +361,10 @@ impl Application{
     fn extend_selection_down(&mut self){
         let text = self.document.text().clone();
 
-        self.document.selections_mut().extend_selections_down(&text);
+        //self.document.selections_mut().extend_selections_down(&text);
+        for selection in self.document.selections_mut().iter_mut(){
+            selection.extend_down(&text);
+        }
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text){
@@ -362,7 +381,10 @@ impl Application{
     fn extend_selection_end(&mut self){
         let text = self.document.text().clone();
 
-        self.document.selections_mut().extend_selections_end(&text);
+        //self.document.selections_mut().extend_selections_end(&text);
+        for selection in self.document.selections_mut().iter_mut(){
+            selection.extend_line_text_end(&text);
+        }
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text){
@@ -379,7 +401,10 @@ impl Application{
     fn extend_selection_home(&mut self){
         let text = self.document.text().clone();
 
-        self.document.selections_mut().extend_selections_home(&text);
+        //self.document.selections_mut().extend_selections_home(&text);
+        for selection in self.document.selections_mut().iter_mut(){
+            selection.extend_home(&text);
+        }
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text){
@@ -396,7 +421,10 @@ impl Application{
     fn extend_selection_left(&mut self){
         let text = self.document.text().clone();
 
-        self.document.selections_mut().extend_selections_left(&text);
+        //self.document.selections_mut().extend_selections_left(&text);
+        for selection in self.document.selections_mut().iter_mut(){
+            selection.extend_left(&text);
+        }
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text){
@@ -410,10 +438,34 @@ impl Application{
             self.ui.set_document_cursor_position(selections.cursor_positions(&text));
         }
     }
+    fn extend_selection_page_up(&mut self){
+        let text = self.document.text().clone();
+        let view = self.document.view().clone();
+
+        for selection in self.document.selections_mut().iter_mut(){
+            selection.extend_page_up(&text, &view);
+        }
+
+        //update ui
+    }
+    fn extend_selection_page_down(&mut self){
+        let text = self.document.text().clone();
+        let view = self.document.view().clone();
+
+        for selection in self.document.selections_mut().iter_mut(){
+            selection.extend_page_down(&text, &view);
+        }
+
+        //update ui
+    }
     fn extend_selection_right(&mut self){
         let text = self.document.text().clone();
 
-        self.document.selections_mut().extend_selections_right(&text);
+        //self.document.selections_mut().extend_selections_right(&text);
+        for selection in self.document.selections_mut().iter_mut(){
+            //selection.move_right(&text, Movement::Extend);
+            selection.extend_right(&text);
+        }
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text){
@@ -430,7 +482,10 @@ impl Application{
     fn extend_selection_up(&mut self){
         let text = self.document.text().clone();
 
-        self.document.selections_mut().extend_selections_up(&text);
+        //self.document.selections_mut().extend_selections_up(&text);
+        for selection in self.document.selections_mut().iter_mut(){
+            selection.extend_up(&text);
+        }
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text){
@@ -595,7 +650,15 @@ impl Application{
         if let Ok(line_number) = self.ui.util_bar().text().parse::<usize>(){
             if line_number.saturating_sub(1) < self.ui.document_length(){
                 let text =  self.document.text().clone();
-                self.document.selections_mut().go_to(&text, line_number.saturating_sub(1));
+                
+                //self.document.selections_mut().go_to(&text, line_number.saturating_sub(1));
+                self.document.selections_mut().clear_non_primary_selections();
+                self.document.selections_mut().first_mut().set_from_line_number(
+                    line_number.saturating_sub(1), 
+                    &text, 
+                    Movement::Move
+                );
+                
                 let selections = self.document.selections().clone();
                 self.document.view_mut().scroll_following_cursor(&selections, &text);
                 self.ui.set_text_in_view(self.document.view().text(&text));
@@ -760,7 +823,11 @@ impl Application{
     fn move_cursor_document_end(&mut self){
         let text = self.document.text().clone();
 
-        self.document.selections_mut().move_cursors_document_end(&text);
+        //self.document.selections_mut().move_cursors_document_end(&text);
+        self.document.selections_mut().clear_non_primary_selections();
+        for selection in self.document.selections_mut().iter_mut(){
+            selection.move_doc_end(&text);
+        }
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text){
@@ -777,7 +844,11 @@ impl Application{
     fn move_cursor_document_start(&mut self){
         let text = self.document.text().clone();
 
-        self.document.selections_mut().move_cursors_document_start(&text);
+        //self.document.selections_mut().move_cursors_document_start(&text);
+        self.document.selections_mut().clear_non_primary_selections();
+        for selection in self.document.selections_mut().iter_mut(){
+            selection.move_doc_start(&text);
+        }
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text){
@@ -794,7 +865,10 @@ impl Application{
     fn move_cursor_down(&mut self){
         let text = self.document.text().clone();
 
-        self.document.selections_mut().move_cursors_down(&text);
+        //self.document.selections_mut().move_cursors_down(&text);
+        for selection in self.document.selections_mut().iter_mut(){
+            selection.move_down(&text);
+        }
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text){
@@ -811,7 +885,10 @@ impl Application{
     fn move_cursor_left(&mut self){
         let text = self.document.text().clone();
 
-        self.document.selections_mut().move_cursors_left(&text);
+        //self.document.selections_mut().move_cursors_left(&text);
+        for selection in self.document.selections_mut().iter_mut(){
+            selection.move_left(&text);
+        }
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text){
@@ -828,7 +905,10 @@ impl Application{
     fn move_cursor_line_end(&mut self){
         let text = self.document.text().clone();
 
-        self.document.selections_mut().move_cursors_end(&text);
+        //self.document.selections_mut().move_cursors_end(&text);
+        for selection in self.document.selections_mut().iter_mut(){
+            selection.move_line_text_end(&text);
+        }
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text){
@@ -845,7 +925,10 @@ impl Application{
     fn move_cursor_line_start(&mut self){
         let text = self.document.text().clone();
 
-        self.document.selections_mut().move_cursors_home(&text);
+        //self.document.selections_mut().move_cursors_home(&text);
+        for selection in self.document.selections_mut().iter_mut(){
+            selection.move_home(&text);
+        }
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text){
@@ -863,7 +946,10 @@ impl Application{
         let text = self.document.text().clone();
         let view = self.document.view().clone();
 
-        self.document.selections_mut().move_cursors_page_down(&text, &view);
+        //self.document.selections_mut().move_cursors_page_down(&text, &view);
+        for selection in self.document.selections_mut().iter_mut(){
+            selection.move_page_down(&text, &view);
+        }
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text){
@@ -881,7 +967,10 @@ impl Application{
         let text = self.document.text().clone();
         let view = self.document.view().clone();
 
-        self.document.selections_mut().move_cursors_page_up(&text, &view);
+        //self.document.selections_mut().move_cursors_page_up(&text, &view);
+        for selection in self.document.selections_mut().iter_mut(){
+            selection.move_page_up(&text, &view);
+        }
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text){
@@ -898,7 +987,14 @@ impl Application{
     fn move_cursor_right(&mut self){
         let text = self.document.text().clone();
 
-        self.document.selections_mut().move_cursors_right(&text);
+        //self.document.selections_mut().move_cursors_right(&text);
+        for selection in self.document.selections_mut().iter_mut(){
+            selection.move_right(&text);
+            //if selection.is_extended(edit::selection::CURSOR_SEMANTICS){
+            //    selection.collapse(&text, edit::selection::CURSOR_SEMANTICS);
+            //}
+            //*selection = edit::selection::Selection::move_horizontally(selection.clone(), 1, &text, edit::selection::Movement::Move, edit::selection::Direction::Forward)
+        }
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text){
@@ -915,7 +1011,10 @@ impl Application{
     fn move_cursor_up(&mut self){
         let text = self.document.text().clone();
 
-        self.document.selections_mut().move_cursors_up(&text);
+        //self.document.selections_mut().move_cursors_up(&text);
+        for selection in self.document.selections_mut().iter_mut(){
+            selection.move_up(&text);
+        }
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text){
@@ -1030,6 +1129,12 @@ impl Application{
         self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections));
         self.ui.set_document_cursor_position(selections.cursor_positions(&text));
         self.ui.set_document_modified(self.document.is_modified());
+    }
+    fn select_all(&mut self){
+        let text = self.document.text().clone();
+
+        self.document.selections_mut().clear_non_primary_selections();
+        self.document.selections_mut().first_mut().select_all(&text);
     }
     fn set_mode_command(&mut self){
         self.mode = Mode::Command;
