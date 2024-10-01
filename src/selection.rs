@@ -436,6 +436,12 @@ impl Selection{
     /// assert!(test(Selection::new(1, 0), Selection::with_stored_line_position(0, 6, 1), 5, &text, Movement::Extend, CursorSemantics::Block));
     /// assert!(test(Selection::new(5, 6), Selection::with_stored_line_position(6, 0, 0), 0, &text, Movement::Extend, CursorSemantics::Block));
     /// assert!(test(Selection::new(6, 5), Selection::with_stored_line_position(6, 0, 0), 0, &text, Movement::Extend, CursorSemantics::Block));
+    /// 
+    /// // test putting cursor at end of text
+    /// assert!(test(Selection::new(0, 0), Selection::with_stored_line_position(14, 14, 0), 14, &text, Movement::Move, CursorSemantics::Bar));
+    /// assert!(test(Selection::new(0, 0), Selection::with_stored_line_position(0, 14, 0), 14, &text, Movement::Extend, CursorSemantics::Bar));
+    /// assert!(test(Selection::new(0, 1), Selection::with_stored_line_position(14, 15, 0), 14, &text, Movement::Move, CursorSemantics::Block));
+    /// assert!(test(Selection::new(0, 1), Selection::with_stored_line_position(0, 15, 0), 14, &text, Movement::Extend, CursorSemantics::Block));
     /// ```
     // TODO: should put_cursor preserve previous head/anchor ordering?
     pub fn put_cursor(&mut self, to: usize, text: &Rope, movement: Movement, semantics: CursorSemantics){
@@ -450,7 +456,8 @@ impl Selection{
                 match movement{
                     Movement::Move => {
                         self.anchor = to;
-                        self.head = to.saturating_add(1).min(text.len_chars());
+                        //self.head = to.saturating_add(1).min(text.len_chars());
+                        self.head = to.saturating_add(1).min(text.len_chars().saturating_add(1));   //allowing one more char past text.len_chars() for block cursor
                     }
                     Movement::Extend => {
                         let new_anchor = if self.head >= self.anchor && to < self.anchor{
@@ -463,7 +470,8 @@ impl Selection{
 
                         if new_anchor <= to{
                             self.anchor = new_anchor;
-                            self.head = to.saturating_add(1).min(text.len_chars());
+                            //self.head = to.saturating_add(1).min(text.len_chars());
+                            self.head = to.saturating_add(1).min(text.len_chars().saturating_add(1))    //allowing one more char past text.len_chars() for block cursor
                         }else{
                             self.anchor = new_anchor;
                             self.head = to;
@@ -629,7 +637,7 @@ impl Selection{
     ///     selection == expected
     /// }
     /// 
-    /// let text = Rope::from("idk\n");
+    /// let text = Rope::from("idk\nsome\nshit\n");
     /// 
     /// // head < anchor
     /// assert!(test(Selection::new(4, 0), Selection::with_stored_line_position(0, 0, 0), &text, CursorSemantics::Bar));
@@ -637,11 +645,15 @@ impl Selection{
     /// 
     /// // anchor < head
     /// assert!(test(Selection::new(0, 4), Selection::with_stored_line_position(4, 4, 0), &text, CursorSemantics::Bar));
-    /// assert!(test(Selection::new(0, 4), Selection::with_stored_line_position(3, 4, 3), &text, CursorSemantics::Block));  //i think this should be with_stored_line_position(4, 5, 0)
+    /// assert!(test(Selection::new(0, 4), Selection::with_stored_line_position(4, 5, 0), &text, CursorSemantics::Block));
+    /// 
+    /// // test setting cursor to end of text
+    /// assert!(test(Selection::new(0, 14), Selection::with_stored_line_position(14, 14, 0), &text, CursorSemantics::Bar));
+    /// assert!(test(Selection::new(0, 14), Selection::with_stored_line_position(14, 15, 0), &text, CursorSemantics::Block));
     /// ```
     pub fn collapse(&mut self, text: &Rope, semantics: CursorSemantics){
-        self.put_cursor(self.cursor(semantics), text, Movement::Move, semantics);
-        //self.put_cursor(self.head, text, Movement::Move, semantics);
+        //self.put_cursor(self.cursor(semantics), text, Movement::Move, semantics);
+        self.put_cursor(self.head, text, Movement::Move, semantics);
     }
 
     /// Moves cursor right.
