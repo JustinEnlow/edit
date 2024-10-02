@@ -313,11 +313,11 @@ impl Document{
             if selection.is_extended(crate::selection::CursorSemantics::Bar){
                 if selection.head() < selection.anchor(){
                     new_text.remove(selection.head()..selection.anchor());
-                    selection.put_cursor(selection.head(), text, crate::selection::Movement::Move, crate::selection::CursorSemantics::Bar);
+                    selection.put_cursor(selection.head(), text, crate::selection::Movement::Move, crate::selection::CursorSemantics::Bar, true);
                 }
                 else if selection.head() > selection.anchor(){
                     new_text.remove(selection.anchor()..selection.head());
-                    selection.put_cursor(selection.anchor(), text, crate::selection::Movement::Move, crate::selection::CursorSemantics::Bar);
+                    selection.put_cursor(selection.anchor(), text, crate::selection::Movement::Move, crate::selection::CursorSemantics::Bar, true);
                 }
             }else{
                 new_text.remove(selection.head()..selection.head()+1);
