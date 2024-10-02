@@ -545,55 +545,6 @@ impl Selection{
         self.put_cursor(new_position, text, movement, semantics, true);
     }
 
-    /// Moves cursor to specified line number.
-    /// #### Invariants:
-    /// - selection is collapsed
-    /// - selection stays within doc bounds
-    /// - preserves stored line position
-    /// - TODO: ensure head/anchor are grapheme aligned
-    /// 
-    /// # Example
-    /// 
-    /// ```
-    /// # use ropey::Rope;
-    /// # use edit::selection::{Selection, Movement};
-    /// 
-    /// fn test(mut selection: Selection, expected: Selection, line_number: usize, text: &Rope, movement: Movement) -> bool{
-    ///     selection.set_from_line_number(line_number, &text, movement);
-    ///     println!("expected: {:#?}\ngot: {:#?}\n", expected, selection);
-    ///     selection == expected
-    /// }
-    /// 
-    /// let text = Rope::from("idk\nsomething\nelse");
-    /// 
-    /// // normal use
-    /// assert!(test(Selection::new(0, 0), Selection::with_stored_line_position(14, 14, 0), 2, &text, Movement::Move));
-    /// assert!(test(Selection::new(0, 0), Selection::with_stored_line_position(0, 14, 0), 2, &text, Movement::Extend));
-    /// 
-    /// // no change when line num > doc length
-    /// //assert!(test(Selection::new(0, 0), Selection::new(0, 0), 5, &text, Movement::Move));
-    /// //assert!(test(Selection::new(0, 0), Selection::new(0, 0), 5, &text, Movement::Extend));
-    /// assert!(test(Selection::new(0, 0), Selection::with_stored_line_position(14, 14, 0), 5, &text, Movement::Move));
-    /// assert!(test(Selection::new(0, 0), Selection::with_stored_line_position(0, 14, 0), 5, &text, Movement::Extend));
-    /// 
-    /// // restricts cursor to line end when stored_line_position > line width
-    /// assert!(test(Selection::new(13, 13), Selection::with_stored_line_position(3, 3, 9), 0, &text, Movement::Move));
-    /// assert!(test(Selection::new(13, 13), Selection::with_stored_line_position(13, 3, 9), 0, &text, Movement::Extend));
-    /// ```
-    // TODO: handle block cursor semantics
-    pub fn set_from_line_number(&mut self, line_number: usize, text: &Rope, movement: Movement){
-        let line_number = line_number.min(text.len_lines().saturating_sub(1));  //restrict line_number to doc length(-1 because len_lines is 1 based)
-
-        let current_line = text.char_to_line(self.cursor(CursorSemantics::Bar));
-        let (amount, direction) = if line_number < current_line{
-            (current_line.saturating_sub(line_number), Direction::Backward)
-        }else{
-            (line_number.saturating_sub(current_line), Direction::Forward)
-        };
-
-        self.move_vertically(amount, text, movement, direction, CursorSemantics::Bar);
-    }
-
     /// Aligns [Selection] anchor with head.
     /// #### Invariants:
     /// - selection is within text bounds
@@ -1329,24 +1280,6 @@ impl Selection{
     /// assert!(selection == expected_selection);
     /// ```
     pub fn extend_doc_end(&mut self, text: &Rope){
-        self.put_cursor(text.len_chars(), text, Movement::Extend, CursorSemantics::Bar, true);
-    }
-    
-    /// Extends selection to encompass whole doc.
-    /// # Example
-    /// ```
-    /// # use ropey::Rope;
-    /// # use edit::selection::Selection;
-    /// 
-    /// let text = Rope::from("idk\nsome\nshit\n");
-    /// let mut selection = Selection::new(4, 4);
-    /// let expected_selection = Selection::with_stored_line_position(0, 14, 0);
-    /// selection.select_all(&text);
-    /// println!("expected: {:#?}\ngot: {:#?}", expected_selection, selection);
-    /// assert!(selection == expected_selection);
-    /// ```
-    pub fn select_all(&mut self, text: &Rope){
-        self.put_cursor(0, text, Movement::Move, CursorSemantics::Bar, true);
         self.put_cursor(text.len_chars(), text, Movement::Extend, CursorSemantics::Bar, true);
     }
 

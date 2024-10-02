@@ -309,6 +309,7 @@ impl Document{
     fn delete_at_cursor(mut selection: Selection, text: &Rope) -> (Rope, Selection){
         let mut new_text = text.clone();
 
+        //can't delete with select all because head would be >= text.len_chars() depending on cursor semantics
         if selection.head() < text.len_chars(){ //can this be guaranteed by the Selection type? make invalid state impossible?
             if selection.is_extended(crate::selection::CursorSemantics::Bar){
                 if selection.head() < selection.anchor(){
