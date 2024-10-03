@@ -219,7 +219,7 @@ impl Document{
     /// 
     /// // with selection extended
     /// assert!(test(Selection::new(0, 1), 'x', Rope::from("xdk\nsome\nshit\n"), CursorSemantics::Bar));
-    /// assert!(test(Selection::new(0, 2), 'x', Rope::from("xk\nsome\nshit\n"), CursorSemantics::Block));
+    /// assert!(test(Selection::new(0, 2), 'x', Rope::from("xk\nsome\nshit\n"), CursorSemantics::Block));   //|i:d>k\nsome\nshit\n
     /// ```
     pub fn insert_char(&mut self, c: char, semantics: CursorSemantics){
         //TODO: if use auto-pairs and inserted char has a mapped auto-pair character, insert that char as well
@@ -299,6 +299,7 @@ impl Document{
     ///     doc.delete(semantics);
     ///     println!("{:#?}\n{:#?}\nexpected {:#?}\ngot: {:#?}\n", name, semantics, expected, doc.text().clone());
     ///     doc.text().clone() == expected
+    ///     //doc.selection().clone() == expected_selection
     /// }
     /// 
     /// // will not delete past end of doc
@@ -321,7 +322,12 @@ impl Document{
     /// assert!(test("test5", Selection::new(0, 13), Rope::from("\n"), CursorSemantics::Bar));  //just verifying...
     /// assert!(test("test5", Selection::new(0, 14), Rope::from(""), CursorSemantics::Bar));
     /// assert!(test("test5", Selection::new(0, 15), Rope::from(""), CursorSemantics::Block));  //|idk\nsome\nshit\n: >
+    /// 
+    /// // at 1 less doc end
+    /// assert!(test("test6", Selection::new(13, 13), Rope::from("idk\nsome\nshit"), CursorSemantics::Bar));
+    /// assert!(test("test6", Selection::new(13, 14), Rope::from("idk\nsome\nshit"), CursorSemantics::Block));  //idk\nsome\nshit|:\n> //idk\nsome\nshit|: >
     /// ```
+    // TODO: in tests, verify selection position is as expected after operation too. not just the rope being correct.
     pub fn delete(&mut self, semantics: CursorSemantics){
         for selection in self.selections.iter_mut().rev(){
             (self.text, *selection) = Document::delete_at_cursor(selection.clone(), &self.text, semantics);
@@ -332,37 +338,93 @@ impl Document{
     fn delete_at_cursor(mut selection: Selection, text: &Rope, semantics: CursorSemantics) -> (Rope, Selection){
         let mut new_text = text.clone();
 
-        //can't delete with select all because head would be >= text.len_chars() depending on cursor semantics
-        if selection.head() < text.len_chars(){ //can this be guaranteed by the Selection type? make invalid state impossible?
-        //if selection.cursor(semantics) < text.len_chars(){
-            if selection.is_extended(semantics){
-                //if selection.head() < selection.anchor(){
-                if selection.cursor(semantics) < selection.anchor(){
-                    new_text.remove(selection.head()..selection.anchor());
-                    //new_text.remove(selection.cursor(semantics)..selection.anchor());
-                    //selection.put_cursor(selection.head(), text, Movement::Move, semantics, true);
-                    selection.put_cursor(selection.cursor(semantics), text, Movement::Move, semantics, true);
+//        //can't delete with select all because head would be >= text.len_chars() depending on cursor semantics
+//        if selection.head() < text.len_chars(){ //can this be guaranteed by the Selection type? make invalid state impossible?
+//        //if selection.cursor(semantics) < text.len_chars(){
+//            if selection.is_extended(semantics){
+//                //if selection.head() < selection.anchor(){
+//                if selection.cursor(semantics) < selection.anchor(){
+//                    new_text.remove(selection.head()..selection.anchor());
+//                    //new_text.remove(selection.cursor(semantics)..selection.anchor());
+//                    //selection.put_cursor(selection.head(), text, Movement::Move, semantics, true);
+//                    selection.put_cursor(selection.cursor(semantics), text, Movement::Move, semantics, true);
+//                }
+//                //else if selection.head() > selection.anchor(){
+//                else if selection.cursor(semantics) > selection.anchor(){
+//                    new_text.remove(selection.anchor()..selection.head());
+//                    //new_text.remove(selection.anchor()..selection.cursor(semantics));
+//                    selection.put_cursor(selection.anchor(), text, Movement::Move, semantics, true);
+//                }
+//            }else{
+//                //new_text.remove(selection.head()..selection.head()+1);
+//                new_text.remove(selection.cursor(semantics)..selection.cursor(semantics).saturating_add(1));
+//            }
+//            //TODO: add ability to delete tabs(repeated spaces) from ahead
+//        }//else? //handle cursor at text end
+//        else{
+//            if selection.cursor(semantics) < selection.anchor(){
+//                new_text.remove(selection.head()..selection.cursor(semantics));
+//                selection.put_cursor(selection.cursor(semantics), text, Movement::Move, semantics, true);
+//            }
+//            else if selection.cursor(semantics) > selection.anchor(){
+//                new_text.remove(selection.anchor()..selection.cursor(semantics));
+//                selection.put_cursor(selection.anchor(), text, Movement::Move, semantics, true);
+//            }
+//        }
+        match semantics{
+            CursorSemantics::Bar => {
+                match selection.head().cmp(&selection.anchor()){
+                    //i<dk|\nsome\nshit\n   //i|>\nsome\nshit\n
+                    std::cmp::Ordering::Less => {
+                        new_text.remove(selection.head()..selection.anchor());
+                        selection.put_cursor(selection.head(), text, Movement::Move, semantics, true);
+                    }
+                    //|id>k\nsome\nshit\n   //|>k\nsome\nshit\n
+                    //|idk\nsome\nshit\n>   //|>
+                    std::cmp::Ordering::Greater => {
+                        new_text.remove(selection.anchor()..selection.head());
+                        selection.put_cursor(selection.anchor(), text, Movement::Move, semantics, true);
+                    }
+                    std::cmp::Ordering::Equal => {
+                        //idk\nsome\nshit\n|>   //idk\nsome\nshit\n|>
+                        if selection.head() == text.len_chars(){}
+                        //|>idk\nsome\nshit\n   //|>dk\nsome\nshit\n
+                        else{
+                            new_text.remove(selection.head()..selection.head().saturating_add(1));
+                            selection.put_cursor(selection.anchor(), text, Movement::Move, semantics, true);
+                        }
+                    }
                 }
-                //else if selection.head() > selection.anchor(){
-                else if selection.cursor(semantics) > selection.anchor(){
-                    new_text.remove(selection.anchor()..selection.head());
-                    //new_text.remove(selection.anchor()..selection.cursor(semantics));
-                    selection.put_cursor(selection.anchor(), text, Movement::Move, semantics, true);
+            }
+            CursorSemantics::Block => {
+                match selection.cursor(semantics).cmp(&selection.anchor()){
+                    //i<dk|\nsome\nshit\n   //i\nsome\nshit\n
+                    std::cmp::Ordering::Less => {
+                        new_text.remove(selection.head()..selection.anchor());
+                        selection.put_cursor(selection.cursor(semantics), text, Movement::Move, semantics, true);
+                    }
+                    std::cmp::Ordering::Greater => {
+                        //|idk\nsome\nshit\n: > //|: >
+                        if selection.cursor(semantics) == text.len_chars(){
+                            new_text.remove(selection.anchor()..selection.cursor(semantics));
+                            selection.put_cursor(selection.cursor(semantics), text, Movement::Move, semantics, true);
+                        }
+                        //|i:d>k\nsome\nshit\n  //|:k>\nsome\nshit\n
+                        else{
+                            new_text.remove(selection.anchor()..selection.head());
+                            selection.put_cursor(selection.anchor(), text, Movement::Move, semantics, true);
+                        }
+                    }
+                    std::cmp::Ordering::Equal => {
+                        //idk\nsome\nshit\n|: > //idk\nsome\nshit\n|: >
+                        if selection.cursor(semantics) == text.len_chars(){}
+                        //|:i>dk\nsome\nshit\n  //|:d>k\nsome\nshit\n
+                        else{
+                            new_text.remove(selection.anchor()..selection.head());
+                            selection.put_cursor(selection.anchor(), text, Movement::Move, semantics, true);
+                        }
+                    }
                 }
-            }else{
-                //new_text.remove(selection.head()..selection.head()+1);
-                new_text.remove(selection.cursor(semantics)..selection.cursor(semantics).saturating_add(1));
-            }
-            //TODO: add ability to delete tabs(repeated spaces) from ahead
-        }//else? //handle cursor at text end
-        else{
-            if selection.cursor(semantics) < selection.anchor(){
-                new_text.remove(selection.head()..selection.cursor(semantics));
-                selection.put_cursor(selection.cursor(semantics), text, Movement::Move, semantics, true);
-            }
-            else if selection.cursor(semantics) > selection.anchor(){
-                new_text.remove(selection.anchor()..selection.cursor(semantics));
-                selection.put_cursor(selection.anchor(), text, Movement::Move, semantics, true);
             }
         }
 
@@ -433,10 +495,18 @@ impl Document{
     /// // with selection and head < anchor
     /// assert!(test("test4", Selection::new(2, 0), Rope::from("k\nsome\nshit\n"), CursorSemantics::Bar));
     /// assert!(test("test4", Selection::new(2, 0), Rope::from("k\nsome\nshit\n"), CursorSemantics::Block));
+    /// 
+    /// // at text end
+    /// assert!(test("test5", Selection::new(14, 14), Rope::from("idk\nsome\nshit"), CursorSemantics::Bar));
+    /// assert!(test("test5", Selection::new(14, 15), Rope::from("idk\nsome\nshit"), CursorSemantics::Block));  //idk\nsome\nshit\n|: > //idk\nsome\nshit|: >
+    /// 
+    /// // backspace removes previous tab
     /// ```
+    // TODO: fix panic when cursor at end of text, and backspace called
     pub fn backspace(&mut self, semantics: CursorSemantics){
         for selection in self.selections.iter_mut().rev(){
-            let cursor_line_position = selection.head() - self.text.line_to_char(self.text.char_to_line(selection.head()));
+            //let cursor_line_position = selection.head() - self.text.line_to_char(self.text.char_to_line(selection.head()));
+            let cursor_line_position = selection.cursor(semantics).saturating_sub(self.text.line_to_char(self.text.char_to_line(selection.cursor(semantics))));
 
             let is_deletable_soft_tab = cursor_line_position >= TAB_WIDTH
             // handles case where user adds a space after a tab, and wants to delete only the space
@@ -444,7 +514,8 @@ impl Document{
             // if previous 4 chars are spaces, delete 4. otherwise, use default behavior
             && text_util::slice_is_all_spaces(
                 self.text.line(
-                    self.text.char_to_line(selection.head())
+                    //self.text.char_to_line(selection.head())
+                    self.text.char_to_line(selection.cursor(semantics))
                 ).as_str().unwrap(),
                 cursor_line_position - TAB_WIDTH,
                 cursor_line_position
