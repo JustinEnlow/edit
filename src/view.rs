@@ -1,5 +1,5 @@
 use ropey::Rope;
-use crate::selection::{Selections, Selection2d};
+use crate::selection::{CursorSemantics, Selection2d, Selections};
 use crate::Position;
 
 
@@ -53,9 +53,9 @@ impl View{
         self.vertical_start = self.vertical_start.saturating_sub(amount);
     }
 
-    pub fn scroll_following_cursor(&mut self, selections: &Selections, text: &Rope) -> bool{
+    pub fn scroll_following_cursor(&mut self, selections: &Selections, text: &Rope, semantics: CursorSemantics) -> bool{
         // following last cursor pushed to cursors vec
-        let cursor = selections.last().clone().selection_to_selection2d(text);
+        let cursor = selections.last().clone().selection_to_selection2d(text, semantics);
 
         let mut should_update_client_view = false;
 
@@ -110,11 +110,11 @@ impl View{
 
         client_view_line_numbers
     }
-    pub fn cursor_positions(&self, text: &Rope, selections: &Selections) -> Vec<Position>{
+    pub fn cursor_positions(&self, text: &Rope, selections: &Selections, semantics: CursorSemantics) -> Vec<Position>{
         let mut positions = Vec::new();
         for cursor in selections.iter(){
             if let Some(client_cursor) = Self::cursor_position(
-                cursor.selection_to_selection2d(text),
+                cursor.selection_to_selection2d(text, semantics),
                 self.clone()
             ){
                 positions.push(client_cursor);
