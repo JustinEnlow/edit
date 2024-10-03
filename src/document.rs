@@ -39,7 +39,6 @@ impl Document{
             text: text.clone(),
             file_path: Some(path.clone()),
             modified: false,
-            //selections: Selections::new(vec![Selection::new(0, 0)], 0, &text.clone()),  //TODO: set default selection according to cursor semantics
             selections: match cursor_semantics{
                 CursorSemantics::Bar => Selections::new(vec![Selection::new(0, 0)], 0, &text.clone()),
                 CursorSemantics::Block => Selections::new(vec![Selection::new(0, 1)], 0, &text.clone())
@@ -53,7 +52,6 @@ impl Document{
             text: Rope::new(),
             file_path: None,
             modified: false,
-            //selections: Selections::new(vec![Selection::new(0, 0)], 0, &Rope::new()),   //TODO: set default selection according to cursor semantics
             selections: match cursor_semantics{
                 CursorSemantics::Bar => Selections::new(vec![Selection::new(0, 0)], 0, &Rope::new()),
                 CursorSemantics::Block => Selections::new(vec![Selection::new(0, 1)], 0, &Rope::new())
@@ -266,11 +264,11 @@ impl Document{
     ///     spaces.push(' ');
     /// }
     /// assert!(test(Rope::from(format!("{}idk\nsome\nshit\n", spaces)), CursorSemantics::Bar));
-    /// //assert!(test(Rope::from(format!("{}idk\nsome\nshit\n", spaces)), CursorSemantics::Block));  // i think text_util::distance_to_next_multiple_of_tab_width needs to be updated to use selection.cursor() and CursorSemantics
+    /// assert!(test(Rope::from(format!("{}idk\nsome\nshit\n", spaces)), CursorSemantics::Block));  // i think text_util::distance_to_next_multiple_of_tab_width needs to be updated to use selection.cursor() and CursorSemantics
     /// ```
     pub fn tab(&mut self, semantics: CursorSemantics){
         for selection in self.selections.iter_mut().rev(){
-            let tab_distance = text_util::distance_to_next_multiple_of_tab_width(selection.clone(), &self.text);
+            let tab_distance = text_util::distance_to_next_multiple_of_tab_width(selection.clone(), &self.text, semantics);
             let modified_tab_width = if tab_distance > 0 && tab_distance < TAB_WIDTH{
                 tab_distance
             }else{
@@ -318,6 +316,11 @@ impl Document{
     /// // with selection head < anchor
     /// assert!(test("test4", Selection::new(1, 3), Rope::from("i\nsome\nshit\n"), CursorSemantics::Bar));
     /// assert!(test("test4", Selection::new(1, 3), Rope::from("i\nsome\nshit\n"), CursorSemantics::Block));    //i|d:k>\nsome\nshit\n
+    /// 
+    /// // with whole text selected
+    /// assert!(test("test5", Selection::new(0, 13), Rope::from("\n"), CursorSemantics::Bar));  //just verifying...
+    /// assert!(test("test5", Selection::new(0, 14), Rope::from(""), CursorSemantics::Bar));
+    /// assert!(test("test5", Selection::new(0, 15), Rope::from(""), CursorSemantics::Block));  //|idk\nsome\nshit\n: >
     /// ```
     pub fn delete(&mut self, semantics: CursorSemantics){
         for selection in self.selections.iter_mut().rev(){
@@ -351,6 +354,16 @@ impl Document{
                 new_text.remove(selection.cursor(semantics)..selection.cursor(semantics).saturating_add(1));
             }
             //TODO: add ability to delete tabs(repeated spaces) from ahead
+        }//else? //handle cursor at text end
+        else{
+            if selection.cursor(semantics) < selection.anchor(){
+                new_text.remove(selection.head()..selection.cursor(semantics));
+                selection.put_cursor(selection.cursor(semantics), text, Movement::Move, semantics, true);
+            }
+            else if selection.cursor(semantics) > selection.anchor(){
+                new_text.remove(selection.anchor()..selection.cursor(semantics));
+                selection.put_cursor(selection.anchor(), text, Movement::Move, semantics, true);
+            }
         }
 
         (new_text, selection)

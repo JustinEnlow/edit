@@ -1,7 +1,7 @@
 use ropey::{Rope, RopeSlice};
 use unicode_segmentation::UnicodeSegmentation;
 use crate::document::TAB_WIDTH;
-use crate::selection::Selection;
+use crate::selection::{CursorSemantics, Selection};
 
 //TODO: should be grapheme count instead of char count?
 /// Returns the count of visible graphemes in a line of text.
@@ -83,7 +83,7 @@ pub fn slice_is_all_spaces(line: &str, start_of_slice: usize, end_of_slice: usiz
 /// ```
 /// # use ropey::Rope;
 /// # use edit::document::TAB_WIDTH;
-/// # use edit::selection::Selection;
+/// # use edit::selection::{Selection, CursorSemantics};
 /// # use edit::text_util;
 /// 
 /// let mut tab = String::new();
@@ -92,14 +92,15 @@ pub fn slice_is_all_spaces(line: &str, start_of_slice: usize, end_of_slice: usiz
 /// }
 /// let text = Rope::from(format!("{}idk\n", tab));
 /// let selection = Selection::new(1, 1);
-/// let distance = text_util::distance_to_next_multiple_of_tab_width(selection, &text);
+/// let distance = text_util::distance_to_next_multiple_of_tab_width(selection, &text, CursorSemantics::Bar);
 /// assert!(distance == 3);
 /// ```
-pub fn distance_to_next_multiple_of_tab_width(selection: Selection, text: &Rope) -> usize{
-    //if cursor.stored_line_position() % TAB_WIDTH != 0{
-    if offset_from_line_start(selection.head(), text) % TAB_WIDTH != 0{ //TODO: should this use selection.cursor() instead?
-        //TAB_WIDTH - (cursor.stored_line_position() % TAB_WIDTH)
-        TAB_WIDTH - (offset_from_line_start(selection.head(), text) % TAB_WIDTH)
+pub fn distance_to_next_multiple_of_tab_width(selection: Selection, text: &Rope, semantics: CursorSemantics) -> usize{
+    let next_tab_distance = offset_from_line_start(selection.cursor(semantics), text) % TAB_WIDTH;
+    //if offset_from_line_start(selection.cursor(semantics), text) % TAB_WIDTH != 0{
+    if next_tab_distance != 0{
+        //TAB_WIDTH.saturating_sub(offset_from_line_start(selection.cursor(semantics), text) % TAB_WIDTH)
+        TAB_WIDTH.saturating_sub(next_tab_distance)
     }else{
         0
     }
