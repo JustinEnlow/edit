@@ -293,41 +293,40 @@ impl Document{
     /// # use edit::document::Document;
     /// # use edit::selection::{Selection, Selections, CursorSemantics};
     /// 
-    /// fn test(name: &str, selection: Selection, expected: Rope, semantics: CursorSemantics) -> bool{
+    /// fn test(name: &str, selection: Selection, expected_selection: Selection, expected_text: Rope, semantics: CursorSemantics) -> bool{
     ///     let text = Rope::from("idk\nsome\nshit\n");
     ///     let mut doc = Document::new(semantics).with_text(text.clone()).with_selections(Selections::new(vec![selection], 0, &text));
     ///     doc.delete(semantics);
-    ///     println!("{:#?}\n{:#?}\nexpected {:#?}\ngot: {:#?}\n", name, semantics, expected, doc.text().clone());
-    ///     doc.text().clone() == expected
-    ///     //doc.selection().clone() == expected_selection
+    ///     println!("{:#?}\n{:#?}\nexpected_text {:#?}\ngot: {:#?}\nexpected_selection: {:#?}\ngot: {:#?}\n", name, semantics, expected_text, doc.text().clone(), expected_selection, doc.selections().first().clone());
+    ///     doc.text().clone() == expected_text &&
+    ///     doc.selections().first().clone() == expected_selection
     /// }
     /// 
     /// // will not delete past end of doc
-    /// assert!(test("test1", Selection::new(14, 14), Rope::from("idk\nsome\nshit\n"), CursorSemantics::Bar));
-    /// assert!(test("test1", Selection::new(14, 15), Rope::from("idk\nsome\nshit\n"), CursorSemantics::Block)); //idk\nsome\nshit\n|: >
+    /// assert!(test("test1", Selection::new(14, 14), Selection::new(14, 14), Rope::from("idk\nsome\nshit\n"), CursorSemantics::Bar));
+    /// assert!(test("test1", Selection::new(14, 15), Selection::new(14, 15), Rope::from("idk\nsome\nshit\n"), CursorSemantics::Block)); //idk\nsome\nshit\n|: >
     /// 
     /// // no selection
-    /// assert!(test("test2", Selection::new(0, 0), Rope::from("dk\nsome\nshit\n"), CursorSemantics::Bar));
-    /// assert!(test("test2", Selection::new(0, 1), Rope::from("dk\nsome\nshit\n"), CursorSemantics::Block));    //|:i>dk\nsome\nshit\n
+    /// assert!(test("test2", Selection::new(0, 0), Selection::with_stored_line_position(0, 0, 0), Rope::from("dk\nsome\nshit\n"), CursorSemantics::Bar));
+    /// assert!(test("test2", Selection::new(0, 1), Selection::with_stored_line_position(0, 1, 0), Rope::from("dk\nsome\nshit\n"), CursorSemantics::Block));    //|:i>dk\nsome\nshit\n
     /// 
     /// // with selection head > anchor
-    /// assert!(test("test3", Selection::new(0, 2), Rope::from("k\nsome\nshit\n"), CursorSemantics::Bar));
-    /// assert!(test("test3", Selection::new(0, 2), Rope::from("k\nsome\nshit\n"), CursorSemantics::Block)); //|i:d>k\nsome\nshit\n
+    /// assert!(test("test3", Selection::new(0, 2), Selection::with_stored_line_position(0, 0, 0), Rope::from("k\nsome\nshit\n"), CursorSemantics::Bar));
+    /// assert!(test("test3", Selection::new(0, 2), Selection::with_stored_line_position(0, 1, 0), Rope::from("k\nsome\nshit\n"), CursorSemantics::Block)); //|i:d>k\nsome\nshit\n
     /// 
     /// // with selection head < anchor
-    /// assert!(test("test4", Selection::new(1, 3), Rope::from("i\nsome\nshit\n"), CursorSemantics::Bar));
-    /// assert!(test("test4", Selection::new(1, 3), Rope::from("i\nsome\nshit\n"), CursorSemantics::Block));    //i|d:k>\nsome\nshit\n
+    /// assert!(test("test4", Selection::new(1, 3), Selection::with_stored_line_position(1, 1, 1), Rope::from("i\nsome\nshit\n"), CursorSemantics::Bar));
+    /// assert!(test("test4", Selection::new(1, 3), Selection::with_stored_line_position(1, 2, 1), Rope::from("i\nsome\nshit\n"), CursorSemantics::Block));    //i|d:k>\nsome\nshit\n
     /// 
     /// // with whole text selected
-    /// assert!(test("test5", Selection::new(0, 13), Rope::from("\n"), CursorSemantics::Bar));  //just verifying...
-    /// assert!(test("test5", Selection::new(0, 14), Rope::from(""), CursorSemantics::Bar));
-    /// assert!(test("test5", Selection::new(0, 15), Rope::from(""), CursorSemantics::Block));  //|idk\nsome\nshit\n: >
+    /// assert!(test("test5", Selection::new(0, 13), Selection::with_stored_line_position(0, 0, 0), Rope::from("\n"), CursorSemantics::Bar));  //just verifying...
+    /// assert!(test("test5", Selection::new(0, 14), Selection::with_stored_line_position(0, 0, 0), Rope::from(""), CursorSemantics::Bar));
+    /// assert!(test("test5", Selection::new(0, 15), Selection::with_stored_line_position(0, 1, 0), Rope::from(""), CursorSemantics::Block));  //|idk\nsome\nshit\n: >
     /// 
     /// // at 1 less doc end
-    /// assert!(test("test6", Selection::new(13, 13), Rope::from("idk\nsome\nshit"), CursorSemantics::Bar));
-    /// assert!(test("test6", Selection::new(13, 14), Rope::from("idk\nsome\nshit"), CursorSemantics::Block));  //idk\nsome\nshit|:\n> //idk\nsome\nshit|: >
+    /// assert!(test("test6", Selection::new(13, 13), Selection::with_stored_line_position(13, 13, 4), Rope::from("idk\nsome\nshit"), CursorSemantics::Bar));
+    /// assert!(test("test6", Selection::new(13, 14), Selection::with_stored_line_position(13, 14, 4), Rope::from("idk\nsome\nshit"), CursorSemantics::Block));  //idk\nsome\nshit|:\n> //idk\nsome\nshit|: >
     /// ```
-    // TODO: in tests, verify selection position is as expected after operation too. not just the rope being correct.
     pub fn delete(&mut self, semantics: CursorSemantics){
         for selection in self.selections.iter_mut().rev(){
             (self.text, *selection) = Document::delete_at_cursor(selection.clone(), &self.text, semantics);
@@ -338,95 +337,112 @@ impl Document{
     fn delete_at_cursor(mut selection: Selection, text: &Rope, semantics: CursorSemantics) -> (Rope, Selection){
         let mut new_text = text.clone();
 
-//        //can't delete with select all because head would be >= text.len_chars() depending on cursor semantics
-//        if selection.head() < text.len_chars(){ //can this be guaranteed by the Selection type? make invalid state impossible?
-//        //if selection.cursor(semantics) < text.len_chars(){
-//            if selection.is_extended(semantics){
-//                //if selection.head() < selection.anchor(){
-//                if selection.cursor(semantics) < selection.anchor(){
-//                    new_text.remove(selection.head()..selection.anchor());
-//                    //new_text.remove(selection.cursor(semantics)..selection.anchor());
-//                    //selection.put_cursor(selection.head(), text, Movement::Move, semantics, true);
-//                    selection.put_cursor(selection.cursor(semantics), text, Movement::Move, semantics, true);
-//                }
-//                //else if selection.head() > selection.anchor(){
-//                else if selection.cursor(semantics) > selection.anchor(){
-//                    new_text.remove(selection.anchor()..selection.head());
-//                    //new_text.remove(selection.anchor()..selection.cursor(semantics));
-//                    selection.put_cursor(selection.anchor(), text, Movement::Move, semantics, true);
-//                }
-//            }else{
-//                //new_text.remove(selection.head()..selection.head()+1);
-//                new_text.remove(selection.cursor(semantics)..selection.cursor(semantics).saturating_add(1));
-//            }
-//            //TODO: add ability to delete tabs(repeated spaces) from ahead
-//        }//else? //handle cursor at text end
-//        else{
-//            if selection.cursor(semantics) < selection.anchor(){
-//                new_text.remove(selection.head()..selection.cursor(semantics));
-//                selection.put_cursor(selection.cursor(semantics), text, Movement::Move, semantics, true);
-//            }
-//            else if selection.cursor(semantics) > selection.anchor(){
-//                new_text.remove(selection.anchor()..selection.cursor(semantics));
-//                selection.put_cursor(selection.anchor(), text, Movement::Move, semantics, true);
-//            }
-//        }
-        match semantics{
-            CursorSemantics::Bar => {
-                match selection.head().cmp(&selection.anchor()){
-                    //i<dk|\nsome\nshit\n   //i|>\nsome\nshit\n
-                    std::cmp::Ordering::Less => {
-                        new_text.remove(selection.head()..selection.anchor());
-                        selection.put_cursor(selection.head(), text, Movement::Move, semantics, true);
-                    }
-                    //|id>k\nsome\nshit\n   //|>k\nsome\nshit\n
-                    //|idk\nsome\nshit\n>   //|>
-                    std::cmp::Ordering::Greater => {
+        use std::cmp::Ordering;
+        match selection.cursor(semantics).cmp(&selection.anchor()){
+            Ordering::Less => {
+                //i<dk|\nsome\nshit\n   //i|>\nsome\nshit\n
+                //i<dk|\nsome\nshit\n   //i|:\n>some\nshit\n
+                new_text.remove(selection.head()..selection.anchor());
+                selection.put_cursor(selection.cursor(semantics), text, Movement::Move, semantics, true);
+            }
+            Ordering::Greater => {
+                match semantics{
+                    CursorSemantics::Bar => {
+                        //|id>k\nsome\nshit\n   //|>k\nsome\nshit\n
+                        //|idk\nsome\nshit\n>   //|>
                         new_text.remove(selection.anchor()..selection.head());
                         selection.put_cursor(selection.anchor(), text, Movement::Move, semantics, true);
                     }
-                    std::cmp::Ordering::Equal => {
-                        //idk\nsome\nshit\n|>   //idk\nsome\nshit\n|>
-                        if selection.head() == text.len_chars(){}
-                        //|>idk\nsome\nshit\n   //|>dk\nsome\nshit\n
-                        else{
-                            new_text.remove(selection.head()..selection.head().saturating_add(1));
-                            selection.put_cursor(selection.anchor(), text, Movement::Move, semantics, true);
-                        }
-                    }
-                }
-            }
-            CursorSemantics::Block => {
-                match selection.cursor(semantics).cmp(&selection.anchor()){
-                    //i<dk|\nsome\nshit\n   //i\nsome\nshit\n
-                    std::cmp::Ordering::Less => {
-                        new_text.remove(selection.head()..selection.anchor());
-                        selection.put_cursor(selection.cursor(semantics), text, Movement::Move, semantics, true);
-                    }
-                    std::cmp::Ordering::Greater => {
+                    CursorSemantics::Block => {
                         //|idk\nsome\nshit\n: > //|: >
                         if selection.cursor(semantics) == text.len_chars(){
                             new_text.remove(selection.anchor()..selection.cursor(semantics));
-                            selection.put_cursor(selection.cursor(semantics), text, Movement::Move, semantics, true);
                         }
                         //|i:d>k\nsome\nshit\n  //|:k>\nsome\nshit\n
                         else{
                             new_text.remove(selection.anchor()..selection.head());
-                            selection.put_cursor(selection.anchor(), text, Movement::Move, semantics, true);
                         }
-                    }
-                    std::cmp::Ordering::Equal => {
-                        //idk\nsome\nshit\n|: > //idk\nsome\nshit\n|: >
-                        if selection.cursor(semantics) == text.len_chars(){}
-                        //|:i>dk\nsome\nshit\n  //|:d>k\nsome\nshit\n
-                        else{
-                            new_text.remove(selection.anchor()..selection.head());
-                            selection.put_cursor(selection.anchor(), text, Movement::Move, semantics, true);
-                        }
+                        selection.put_cursor(selection.anchor(), text, Movement::Move, semantics, true);
                     }
                 }
             }
+            Ordering::Equal => {
+                //idk\nsome\nshit\n|>   //idk\nsome\nshit\n|>
+                //idk\nsome\nshit\n|: > //idk\nsome\nshit\n|: >
+                if selection.cursor(semantics) == text.len_chars(){}    //do nothing
+                else{
+                    match semantics{
+                        CursorSemantics::Bar => {
+                            //|>idk\nsome\nshit\n   //|>dk\nsome\nshit\n
+                            new_text.remove(selection.head()..selection.head().saturating_add(1));
+                        }
+                        CursorSemantics::Block => {
+                            //|:i>dk\nsome\nshit\n  //|:d>k\nsome\nshit\n
+                            new_text.remove(selection.anchor()..selection.head());
+                        }
+                    }
+                    selection.put_cursor(selection.anchor(), text, Movement::Move, semantics, true);
+                }
+            }
         }
+        
+//        match semantics{
+//            CursorSemantics::Bar => {
+//                match selection.head().cmp(&selection.anchor()){
+//                    //i<dk|\nsome\nshit\n   //i|>\nsome\nshit\n
+//                    std::cmp::Ordering::Less => {
+//                        new_text.remove(selection.head()..selection.anchor());
+//                        selection.put_cursor(selection.head(), text, Movement::Move, semantics, true);
+//                    }
+//                    //|id>k\nsome\nshit\n   //|>k\nsome\nshit\n
+//                    //|idk\nsome\nshit\n>   //|>
+//                    std::cmp::Ordering::Greater => {
+//                        new_text.remove(selection.anchor()..selection.head());
+//                        selection.put_cursor(selection.anchor(), text, Movement::Move, semantics, true);
+//                    }
+//                    std::cmp::Ordering::Equal => {
+//                        //idk\nsome\nshit\n|>   //idk\nsome\nshit\n|>
+//                        if selection.head() == text.len_chars(){}
+//                        //|>idk\nsome\nshit\n   //|>dk\nsome\nshit\n
+//                        else{
+//                            new_text.remove(selection.head()..selection.head().saturating_add(1));
+//                            selection.put_cursor(selection.anchor(), text, Movement::Move, semantics, true);
+//                        }
+//                    }
+//                }
+//            }
+//            CursorSemantics::Block => {
+//                match selection.cursor(semantics).cmp(&selection.anchor()){
+//                    //i<dk|\nsome\nshit\n   //i\nsome\nshit\n
+//                    std::cmp::Ordering::Less => {
+//                        new_text.remove(selection.head()..selection.anchor());
+//                        selection.put_cursor(selection.cursor(semantics), text, Movement::Move, semantics, true);
+//                    }
+//                    std::cmp::Ordering::Greater => {
+//                        //|idk\nsome\nshit\n: > //|: >
+//                        if selection.cursor(semantics) == text.len_chars(){
+//                            new_text.remove(selection.anchor()..selection.cursor(semantics));
+//                            //selection.put_cursor(selection.cursor(semantics), text, Movement::Move, semantics, true);
+//                            selection.put_cursor(selection.anchor(), text, Movement::Move, semantics, true);
+//                        }
+//                        //|i:d>k\nsome\nshit\n  //|:k>\nsome\nshit\n
+//                        else{
+//                            new_text.remove(selection.anchor()..selection.head());
+//                            selection.put_cursor(selection.anchor(), text, Movement::Move, semantics, true);
+//                        }
+//                    }
+//                    std::cmp::Ordering::Equal => {
+//                        //idk\nsome\nshit\n|: > //idk\nsome\nshit\n|: >
+//                        if selection.cursor(semantics) == text.len_chars(){}
+//                        //|:i>dk\nsome\nshit\n  //|:d>k\nsome\nshit\n
+//                        else{
+//                            new_text.remove(selection.anchor()..selection.head());
+//                            selection.put_cursor(selection.anchor(), text, Movement::Move, semantics, true);
+//                        }
+//                    }
+//                }
+//            }
+//        }
 
         (new_text, selection)
     }
