@@ -80,6 +80,16 @@ impl Document{
             last_saved_text: self.last_saved_text.clone(),
         }
     }
+    pub fn with_view(&self, view: View) -> Self{
+        Self{
+            text: self.text.clone(),
+            file_path: self.file_path.clone(),
+            modified: self.modified,
+            selections: self.selections.clone(),
+            client_view: view,
+            last_saved_text: self.last_saved_text.clone(),
+        }
+    }
     pub fn file_name(&self) -> Option<String>{
         match &self.file_path{
             Some(path) => {
@@ -124,11 +134,6 @@ impl Document{
         self.modified
     }
 
-// AUTO-INDENT
-//#[test]
-//fn auto_indent_works(){
-//    assert!(false);
-//}
     /// Creates a new line in the document.
     /// ```
     /// # use ropey::Rope;
@@ -144,57 +149,32 @@ impl Document{
     /// 
     /// assert!(test(Rope::from("\nidk"), CursorSemantics::Bar));
     /// assert!(test(Rope::from("\nidk"), CursorSemantics::Block));
+    /// 
+    /// //TODO: test auto indent...
     /// ```
     pub fn enter(&mut self, semantics: CursorSemantics){
-        //for cursor in self.cursors.iter_mut(){
-        //    Document::enter_at_cursor(cursor, &mut self.lines, &mut self.modified);
-        //}
+        //self.insert_char('\n', semantics);
+        for selection in self.selections.iter_mut().rev(){
+            (*selection, self.text) = Document::enter_at_cursor(selection.clone(), &self.text, semantics);
+        }
 
-        //TODO: push current state to history?
-        self.insert_char('\n', semantics);
+        self.modified = !(self.text == self.last_saved_text);
     }
-            // auto indent doesn't work correctly if previous line has only whitespace characters
-            // also doesn't auto indent for first line of function bodies, because function declaration
-            // is at lower indentation level
-            //fn enter_at_cursor(cursor: &mut Cursor, lines: &mut Vec<String>, modified: &mut bool){
-            //    *modified = true;
-            //    
-            //    match lines.get_mut(cursor.head.y){
-            //        Some(line) => {
-            //            let start_of_line = get_first_non_whitespace_character_index(line);
-            //            let mut modified_current_line: String = String::new();
-            //            let mut new_line: String = String::new();
-            //            for (index, grapheme) in line[..].graphemes(true).enumerate(){
-            //                if index < cursor.head.x{
-            //                    modified_current_line.push_str(grapheme);
-            //                }
-            //                else{
-            //                    new_line.push_str(grapheme);
-            //                }
-            //            }
-            //            *line = modified_current_line;
-            //            lines.insert(cursor.head.y.saturating_add(1), new_line);
-            //            Document::move_cursor_right(cursor, &lines);
-            //            // auto indent
-            //            if start_of_line != 0{
-            //                for _ in 0..start_of_line{
-            //                    Document::insert_char_at_cursor(' ', cursor, lines, modified);
-            //                }
-            //            }
-            //        }
-            //        None => panic!("No line at cursor position. This should be impossible")
-            //    }
-            //}
+    fn enter_at_cursor(mut selection: Selection, text: &Rope, semantics: CursorSemantics) -> (Selection, Rope){
+        //determine indentation level
 
-//INSERT SELECTION
-//#[test]
-//fn single_cursor_insert_single_line_selection_works(){
-//    assert!(false);
-//}
-//#[test]
-//fn single_cursor_insert_multi_line_selection_works(){
-//    assert!(false);
-//}
+        // insert newline
+        let new_text;
+        (selection, new_text) = Document::insert_char_at_cursor(selection.clone(), text, '\n', semantics);
+
+        // if auto indent, insert proper indentation characters
+
+        (selection, new_text)
+    }
+
+    // TODO: impl and test
+    pub fn cut(&mut self, _clipboard: &str){}
+    pub fn copy(&self, _clipboard: &str){}
     pub fn paste(&mut self, _clipboard: &str){}
 
     /// Inserts specified char, replacing selected text if selection extended.
@@ -239,7 +219,6 @@ impl Document{
         if selection.is_extended(semantics){
             (new_text, selection) = Document::delete_at_cursor(selection.clone(), text, semantics);
         }
-        //new_text.insert_char(selection.head(), char);
         new_text.insert_char(selection.cursor(semantics), char);
         selection.move_right(&new_text, semantics);
 
@@ -317,6 +296,7 @@ impl Document{
     /// // with selection head < anchor
     /// assert!(test("test4", Selection::new(1, 3), Selection::with_stored_line_position(1, 1, 1), Rope::from("i\nsome\nshit\n"), CursorSemantics::Bar));
     /// assert!(test("test4", Selection::new(1, 3), Selection::with_stored_line_position(1, 2, 1), Rope::from("i\nsome\nshit\n"), CursorSemantics::Block));    //i|d:k>\nsome\nshit\n
+    /// //idk... //assert!(test("test3", Selection::new(13, 0), Selection::with_stored_line_position(0, 1, 0), Rope::from("\n"), CursorSemantics::Block)); //<idk\nsome\nshit|\n
     /// 
     /// // with whole text selected
     /// assert!(test("test5", Selection::new(0, 13), Selection::with_stored_line_position(0, 0, 0), Rope::from("\n"), CursorSemantics::Bar));  //just verifying...
@@ -447,29 +427,6 @@ impl Document{
         (new_text, selection)
     }
 
-//BACKSPACE
-//#[test]
-//fn single_cursor_backspace_removes_previous_tab(){
-//    let mut doc = Document::default();
-//    let mut line = String::new();
-//    for _ in 0..TAB_WIDTH{
-//        line.push(' ');
-//    }
-//    line.push_str("something");
-//    doc.lines = vec![line];
-//
-//    let cursor = doc.cursors.get_mut(0).unwrap();
-//    let position = Position::new(TAB_WIDTH, 0);
-//    *cursor = Document::set_cursor_position(cursor, position, &doc.lines).unwrap();
-//    Document::backspace_at_cursor(cursor, &mut doc.lines, &mut doc.modified);
-//    println!("{:?}", doc.lines);
-//    assert!(doc.lines == vec!["something".to_string()]);
-//    println!("{:?}", cursor.head);
-//    assert!(cursor.head.x() == 0);
-//    assert!(cursor.head.y() == 0);
-//    assert!(cursor.anchor.x() == 0);
-//    assert!(cursor.anchor.y() == 0);
-//}
     /// Deletes the previous character, or deletes selection if extended.
     /// #### Invariants:
     /// - will not delete past start of doc
@@ -479,7 +436,7 @@ impl Document{
     /// # Example
     /// ```
     /// # use ropey::Rope;
-    /// # use edit::document::Document;
+    /// # use edit::document::{Document, TAB_WIDTH};
     /// # use edit::selection::{Selection, Selections, CursorSemantics};
     /// 
     /// fn test(name: &str, selection: Selection, expected: Rope, semantics: CursorSemantics) -> bool{
@@ -517,11 +474,20 @@ impl Document{
     /// assert!(test("test5", Selection::new(14, 15), Rope::from("idk\nsome\nshit"), CursorSemantics::Block));  //idk\nsome\nshit\n|: > //idk\nsome\nshit|: >
     /// 
     /// // backspace removes previous tab
+    /// let mut spaces = String::new();
+    /// for x in 0..TAB_WIDTH{
+    ///     spaces.push(' ');
+    /// }
+    /// let text = Rope::from(format!("{}idk\nsome\nshit\n", spaces));
+    /// let semantics = CursorSemantics::Block; //test Bar too
+    /// let selection = Selection::new(TAB_WIDTH, match semantics{CursorSemantics::Bar => TAB_WIDTH, CursorSemantics::Block => TAB_WIDTH.saturating_add(1)});
+    /// let mut doc = Document::new(semantics).with_text(text.clone()).with_selections(Selections::new(vec![selection], 0, &text));
+    /// doc.backspace(semantics);
+    /// assert!(doc.text().clone() == Rope::from("idk\nsome\nshit\n"));
+    /// assert!(doc.selections().first().clone() == Selection::with_stored_line_position(0, match semantics{CursorSemantics::Bar => 0, CursorSemantics::Block => 1}, 0));
     /// ```
-    // TODO: fix panic when cursor at end of text, and backspace called
     pub fn backspace(&mut self, semantics: CursorSemantics){
         for selection in self.selections.iter_mut().rev(){
-            //let cursor_line_position = selection.head() - self.text.line_to_char(self.text.char_to_line(selection.head()));
             let cursor_line_position = selection.cursor(semantics).saturating_sub(self.text.line_to_char(self.text.char_to_line(selection.cursor(semantics))));
 
             let is_deletable_soft_tab = cursor_line_position >= TAB_WIDTH
@@ -530,7 +496,6 @@ impl Document{
             // if previous 4 chars are spaces, delete 4. otherwise, use default behavior
             && text_util::slice_is_all_spaces(
                 self.text.line(
-                    //self.text.char_to_line(selection.head())
                     self.text.char_to_line(selection.cursor(semantics))
                 ).as_str().unwrap(),
                 cursor_line_position - TAB_WIDTH,
@@ -550,7 +515,6 @@ impl Document{
                         );
                     }
                 }
-                //else if selection.head() > 0{
                 else if selection.cursor(semantics) > 0{
                     selection.move_left(&self.text, semantics);
                     (self.text, *selection) = Document::delete_at_cursor(

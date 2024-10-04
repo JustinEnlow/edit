@@ -110,6 +110,28 @@ impl View{
 
         client_view_line_numbers
     }
+    /// Returns cursor positions if they are within view.
+    /// ```
+    /// # use ropey::Rope;
+    /// # use edit::selection::{Selection, CursorSemantics, Selections};
+    /// # use edit::view::View;
+    /// # use edit::document::Document;
+    /// # use edit::Position;
+    /// 
+    /// fn test(selection: Selection, expected: Vec<Position>, view: View, semantics: CursorSemantics) -> bool{
+    ///     let text = Rope::from("idk\nsome\nshit\n");
+    ///     let mut doc = Document::new(semantics).with_text(text.clone()).with_selections(Selections::new(vec![selection], 0, &text)).with_view(view);
+    ///     println!("expected: {:#?}\ngot: {:#?}\n", expected, doc.view().cursor_positions(&text, &doc.selections(), semantics));
+    ///     doc.view().cursor_positions(&text, &doc.selections(), semantics) == expected
+    /// }
+    /// 
+    /// assert!(test(Selection::new(0, 0), vec![Position::new(0, 0)], View::new(0, 0, 2, 2), CursorSemantics::Bar));
+    /// assert!(test(Selection::new(0, 1), vec![Position::new(0, 0)], View::new(0, 0, 2, 2), CursorSemantics::Block));
+    /// assert!(test(Selection::new(0, 0), Vec::new(), View::new(1, 0, 2, 2), CursorSemantics::Bar));
+    /// assert!(test(Selection::new(0, 1), Vec::new(), View::new(1, 0, 2, 2), CursorSemantics::Block));
+    /// assert!(test(Selection::new(0, 0), Vec::new(), View::new(1, 1, 2, 2), CursorSemantics::Bar));
+    /// assert!(test(Selection::new(0, 1), Vec::new(), View::new(1, 1, 2, 2), CursorSemantics::Block));
+    /// ```
     pub fn cursor_positions(&self, text: &Rope, selections: &Selections, semantics: CursorSemantics) -> Vec<Position>{
         let mut positions = Vec::new();
         for cursor in selections.iter(){

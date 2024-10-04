@@ -99,7 +99,6 @@ impl Application{
             self.host_terminal.hide_cursor()?;  //testing this to resolve cursor displaying in random places while moving quickly
             self.ui.update_layouts(self.mode);
             self.ui.render(&mut self.host_terminal, self.mode)?;
-            self.host_terminal.show_cursor()?;  //as above
             self.handle_event()?;
             if self.should_quit{
                 return Ok(());
@@ -255,14 +254,12 @@ impl Application{
         }
     }
     fn command_mode_accept(&mut self){
-        //if parse_command(editor, ui.util_bar().text()).is_ok(){
+        if self.parse_command(self.ui.util_bar().text()).is_ok(){
             self.ui.util_bar_mut().clear();
             self.ui.util_bar_mut().set_offset(0);
             self.mode = Mode::Insert;
-        //}
+        }
         //ui.scroll(editor);
-
-        //TODO: send action request to server
     }
     fn command_mode_backspace(&mut self){
         self.ui.util_bar_mut().backspace();
@@ -532,13 +529,11 @@ impl Application{
         self.ui.util_bar_alternate_mut().scroll();
 
         //run text validity check
-        //if let Some(doc) = editor.document(){
-        //    if !doc.lines_as_single_string().contains(&ui.util_bar().text()){
-        //        ui.util_bar_mut().set_text_is_valid(false);
-        //    }else{
-        //        ui.util_bar_mut().set_text_is_valid(true);
-        //    }
-        //}
+        if !self.document.text().clone().to_string().contains(&self.ui.util_bar().text()){
+            self.ui.util_bar_mut().set_text_is_valid(false);
+        }else{
+            self.ui.util_bar_mut().set_text_is_valid(true);
+        }
     }
     fn find_replace_mode_delete(&mut self){
         if self.ui.util_bar_alternate_focused(){
@@ -551,13 +546,11 @@ impl Application{
         self.ui.util_bar_alternate_mut().scroll();
 
         //run text validity check
-        //if let Some(doc) = editor.document(){
-        //    if !doc.lines_as_single_string().contains(&ui.util_bar().text()){
-        //        ui.util_bar_mut().set_text_is_valid(false);
-        //    }else{
-        //        ui.util_bar_mut().set_text_is_valid(true);
-        //    }
-        //}
+        if !self.document.text().clone().to_string().contains(&self.ui.util_bar().text()){
+            self.ui.util_bar_mut().set_text_is_valid(false);
+        }else{
+            self.ui.util_bar_mut().set_text_is_valid(true);
+        }
     }
     fn find_replace_mode_exit(&mut self){
         self.ui.util_bar_mut().clear();
@@ -614,13 +607,11 @@ impl Application{
         self.ui.util_bar_alternate_mut().scroll();
 
         //run text validity check
-        //if let Some(doc) = editor.document(){
-        //    if !doc.lines_as_single_string().contains(&ui.util_bar().text()){
-        //        ui.util_bar_mut().set_text_is_valid(false);
-        //    }else{
-        //        ui.util_bar_mut().set_text_is_valid(true);
-        //    }
-        //}
+        if !self.document.text().clone().to_string().contains(&self.ui.util_bar().text()){
+            self.ui.util_bar_mut().set_text_is_valid(false);
+        }else{
+            self.ui.util_bar_mut().set_text_is_valid(true);
+        }
     }
     fn find_replace_mode_move_cursor_left(&mut self){
         if self.ui.util_bar_alternate_focused(){
@@ -675,7 +666,7 @@ impl Application{
                 let text =  self.document.text().clone();
                 
                 self.document.selections_mut().clear_non_primary_selections();
-                self.document.selections_mut().first_mut().set_from_line_number(line_number, &text, Movement::Move);
+                self.document.selections_mut().first_mut().set_from_line_number(line_number, &text, Movement::Move, CURSOR_SEMANTICS);
                 
                 let selections = self.document.selections().clone();
                 self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS);
@@ -1035,11 +1026,34 @@ impl Application{
     fn move_cursor_word_end(&mut self){}
     fn move_cursor_word_start(&mut self){}
     fn no_op(&mut self){}
-    fn open_new_terminal_window(&mut self){
+    fn open_new_terminal_window(&self){
         //open new terminal window at current working directory
         std::process::Command::new("alacritty")
         .spawn()
         .expect("failed to spawn new terminal at current directory");
+    }
+    pub fn parse_command(&self, args: &str) -> Result<(), Box<dyn Error>>{
+        let mut args = args.split_whitespace();
+        
+        let command = args.next().unwrap();
+        match command{
+            "term" => {
+//                // open new terminal window at current directory.. TODO: fix this closes child when parent closes
+//                //command: alacritty --working-directory $PWD
+//                // does this work with $TERM when $TERM isn't alacritty?
+//                std::process::Command::new("alacritty")
+//                //Command::new("$TERM") //this causes a panic
+//                    //not needed here, because term spawned here defaults to this directory, but good to know
+//                    //.current_dir("/home/j/Documents/programming/rust/nlo_text_editor/")
+//                    //.output() // output keeps current process from working until child process closes
+//                    .spawn()
+//                    .expect("failed to spawn new terminal at current directory");
+                self.open_new_terminal_window();
+            }
+            _ => {}
+        }
+    
+        Ok(())
     }
     fn quit(&mut self){
         if self.ui.document_modified(){
