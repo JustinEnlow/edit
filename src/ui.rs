@@ -7,7 +7,6 @@ use ratatui::prelude::CrosstermBackend;
 use ratatui::widgets::Paragraph;
 use ratatui::style::{Style, Color, Stylize};
 use ratatui::layout::{Alignment, Direction, Layout, Constraint};
-use unicode_segmentation::UnicodeSegmentation;
 
 
 
@@ -19,32 +18,37 @@ const COMMAND_PROMPT: &str = " Command: ";
 
 
 
-// TODO: can util bar use Selection from selection.rs? and use all the predefined movement functionality?
-#[derive(Default)]
-struct Selection{
-    anchor: u16,
-    head: u16,
-}
-
+use edit::selection::Selection;
+use edit::view::View;
+use ropey::Rope;
 pub struct UtilBar{
-    text: String,
+    text: Rope,
     text_is_valid: bool,
     selection: Selection,
-    offset: u16,
-    widget_width: u16
+    view: View
 }
 impl UtilBar{
     pub fn default() -> Self{
         Self{
-            text: String::new(),
+            text: Rope::from(""),
             text_is_valid: false,
-            selection: Selection::default(),
-            offset: 0,
-            widget_width: 0
+            selection: Selection::new(0, 1),
+            view: View::new(0, 0, 0, 1)
         }
     }
 
-    pub fn text(&self) -> &str{
+    pub fn selection(&self) -> &Selection{
+        &self.selection
+    }
+    pub fn selection_mut(&mut self) -> &mut Selection{
+        &mut self.selection
+    }
+
+    pub fn view_mut(&mut self) -> &mut View{
+        &mut self.view
+    }
+
+    pub fn text(&self) -> &Rope{
         &self.text
     }
 
@@ -53,127 +57,71 @@ impl UtilBar{
     }
 
     pub fn cursor_position(&self) -> u16{
-        self.selection.head
+        self.selection.cursor(edit::selection::CursorSemantics::Block) as u16
     }
 
     pub fn set_widget_width(&mut self, width: u16){
-        self.widget_width = width;
+        let height = self.view.height();
+        self.view.set_size(width as usize, height);
     }
 
     pub fn clear(&mut self){
-        self.text.clear();
-        self.selection.head = 0;
-        self.selection.anchor = 0;
+        *self = Self::default();
     }
 
     pub fn insert_char(&mut self, char: char){
-        if self.selection.head != self.selection.anchor{
+        use edit::selection::CursorSemantics;
+        if self.selection.is_extended(CursorSemantics::Block){
             self.delete();
         }
-        self.text.insert(self.selection.head.into(), char);
-        self.move_cursor_right();
+        let text = self.text.clone();
+        let mut new_text = text.clone();
+        new_text.insert_char(self.selection.cursor(CursorSemantics::Block), char);
+        self.text = new_text;
+        self.selection.move_right(&self.text.clone(), CursorSemantics::Block);
     }
 
     pub fn delete(&mut self){
-        let mut result = String::new();
-        if self.selection.head != self.selection.anchor{
-            for (index, grapheme) in self.text.graphemes(true).enumerate(){
-                let index = index as u16;
-                if self.selection.head < self.selection.anchor{
-                    if index < self.selection.head || index > self.selection.anchor{
-                        result.push_str(grapheme);
-                    }
-                }else if self.selection.head > self.selection.anchor{
-                    if index < self.selection.anchor || index > self.selection.head{
-                        result.push_str(grapheme);
-                    }
-                }
+        let text = self.text.clone();
+        let mut new_text = self.text.clone();
+
+        use std::cmp::Ordering;
+        use edit::selection::{CursorSemantics, Movement};
+        match self.selection.cursor(CursorSemantics::Block).cmp(&self.selection.anchor()){
+            Ordering::Less => {
+                new_text.remove(self.selection.head()..self.selection.anchor());
+                self.selection.put_cursor(self.selection.cursor(CursorSemantics::Block), &text, Movement::Move, CursorSemantics::Block, true);
             }
-            self.collapse_selection();
-        }else{
-            for (index, grapheme) in self.text[..].graphemes(true).enumerate(){
-                if index != self.selection.head as usize{
-                    result.push_str(grapheme);
+            Ordering::Greater => {
+                if self.selection.cursor(CursorSemantics::Block) == text.len_chars(){
+                    new_text.remove(self.selection.anchor()..self.selection.cursor(CursorSemantics::Block));
+                }
+                else{
+                    new_text.remove(self.selection.anchor()..self.selection.head());
+                }
+                self.selection.put_cursor(self.selection.anchor(), &text, Movement::Move, CursorSemantics::Block, true);
+            }
+            Ordering::Equal => {
+                if self.selection.cursor(CursorSemantics::Block) == text.len_chars(){}    //do nothing
+                else{
+                    new_text.remove(self.selection.anchor()..self.selection.head());
+                    self.selection.put_cursor(self.selection.anchor(), &text, Movement::Move, CursorSemantics::Block, true);
                 }
             }
         }
-        self.text = result;
+
+        self.text = new_text;
     }
 
     pub fn backspace(&mut self){
-        if self.selection.head != self.selection.anchor{
+        let semantics = edit::selection::CursorSemantics::Block;
+        if self.selection.is_extended(semantics){
             self.delete();
-        }
-        else{
-            self.move_cursor_left();
-            self.delete();
-        }
-    }
-
-    pub fn move_cursor_right(&mut self){
-        if self.selection.head < self.text.graphemes(true).count() as u16{
-            self.selection.head = self.selection.head.saturating_add(1);
-            self.selection.anchor = self.selection.anchor.saturating_add(1);
-        }
-    }
-    pub fn extend_selection_right(&mut self){
-        if self.selection.head < self.text.graphemes(true).count() as u16{
-            self.selection.head = self.selection.head.saturating_add(1);
-        }
-    }
-
-    pub fn move_cursor_left(&mut self){
-        if self.selection.head > 0{
-            self.selection.head = self.selection.head.saturating_sub(1);
-            self.selection.anchor = self.selection.anchor.saturating_sub(1);
-        }
-    }
-    pub fn extend_selection_left(&mut self){
-        if self.selection.head > 0{
-            self.selection.head = self.selection.head.saturating_sub(1);
-        }
-    }
-
-    pub fn move_cursor_home(&mut self){
-        self.selection.head = 0;
-        self.selection.anchor = 0;
-        self.offset = 0;
-    }
-    pub fn extend_selection_home(&mut self){
-        self.selection.head = 0;
-        self.offset = 0;
-    }
-
-    pub fn move_cursor_end(&mut self){
-        self.selection.head = self.text.graphemes(true).count() as u16;
-        self.selection.anchor = self.text.graphemes(true).count() as u16;
-    }
-    pub fn extend_selection_end(&mut self){
-        self.selection.head = self.text.graphemes(true).count() as u16;
-    }
-
-    pub fn offset(&self) -> u16{
-        self.offset
-    }
-    pub fn set_offset(&mut self, offset: u16){
-        self.offset = offset;
-    }
-
-    pub fn scroll(&mut self){
-        if self.selection.head < self.offset{
-            self.offset = self.selection.head;
-        }
-        else if self.selection.head >= self.offset.saturating_add(self.widget_width){
-            self.offset = self.selection.head.saturating_sub(self.widget_width).saturating_add(1);
-        }
-    }
-
-    pub fn collapse_selection(&mut self){
-        if self.selection.head < self.selection.anchor{
-            self.selection.anchor = self.selection.head;
-        }
-        else if self.selection.head > self.selection.anchor{
-            self.selection.head = self.selection.anchor;
+        }else{
+            if self.selection.cursor(semantics) > 0{
+                self.selection.move_left(&self.text, semantics);
+                self.delete();
+            }
         }
     }
 }
@@ -287,6 +235,9 @@ impl UserInterface{
         &mut self.util_bar
     }
 
+    pub fn util_bar_alternate(&self) -> &UtilBar{
+        &self.util_bar_alternate
+    }
     pub fn util_bar_alternate_mut(&mut self) -> &mut UtilBar{
         &mut self.util_bar_alternate
     }
@@ -517,16 +468,22 @@ impl UserInterface{
     pub fn util_bar_widget(&self, mode: Mode) -> Paragraph<'static>{
         match mode{
             Mode::Goto | Mode::FindReplace => {
+                let text = self.util_bar.text.clone();
                 if self.util_bar.text_is_valid{
-                    Paragraph::new(self.util_bar.text().to_string()).scroll((0, self.util_bar.offset()))
+                    //Paragraph::new(self.util_bar.text().to_string()).scroll((0, self.util_bar.offset()))
+                    Paragraph::new(self.util_bar.view.text(&text))
                 }else{
-                    Paragraph::new(self.util_bar.text().to_string())
-                        .scroll((0, self.util_bar.offset()))
+                    //Paragraph::new(self.util_bar.text().to_string())
+                    //    .scroll((0, self.util_bar.offset()))
+                    //    .style(Style::default().fg(Color::Red))
+                    Paragraph::new(self.util_bar.view.text(&text))
                         .style(Style::default().fg(Color::Red))
                 }
             }
             Mode::Command => {
-                Paragraph::new(self.util_bar.text().to_string()).scroll((0, self.util_bar.offset()))
+                let text = self.util_bar.text.clone();
+                //Paragraph::new(self.util_bar.text().to_string()).scroll((0, self.util_bar.offset()))
+                Paragraph::new(self.util_bar.view.text(&text))
             }
             Mode::Warning(kind) => Paragraph::new(
                 match kind{
@@ -539,6 +496,7 @@ impl UserInterface{
                     //WarningKind::FileOpenFailed => {
                     //    "WARNING! File could not be opened."
                     //}
+                    // command mode failed
                 }
             )
                 .alignment(ratatui::prelude::Alignment::Center)
@@ -558,12 +516,14 @@ impl UserInterface{
     }
 
     pub fn util_bar_alternate_widget(&self, mode: Mode) -> Paragraph<'static>{
+        let text = self.util_bar_alternate.text.clone();
         match mode{
             Mode::FindReplace => {
-                Paragraph::new(self.util_bar_alternate.text().to_string())
-                    .scroll((0, self.util_bar_alternate.offset()))
+                //Paragraph::new(self.util_bar_alternate.text().to_string())
+                //    .scroll((0, self.util_bar_alternate.offset()))
+                Paragraph::new(self.util_bar_alternate.view.text(&text))
             }
-            _ => Paragraph::new(self.util_bar_alternate.text().to_string())
+            _ => Paragraph::new(self.util_bar_alternate.view.text(&text))//Paragraph::new(self.util_bar_alternate.text().to_string())
         }
     }
 
@@ -595,7 +555,8 @@ impl UserInterface{
                     }
                     Mode::Goto | Mode::Command => {
                         frame.set_cursor(
-                            self.util_bar_rect.x + self.util_bar.cursor_position().saturating_sub(self.util_bar.offset()),
+                            //self.util_bar_rect.x + self.util_bar.cursor_position().saturating_sub(self.util_bar.offset()),
+                            self.util_bar_rect.x + self.util_bar.cursor_position().saturating_sub(self.util_bar.view.horizontal_start() as u16),
                             self.terminal_size.height
                         );
                     }
@@ -603,9 +564,11 @@ impl UserInterface{
                         frame.set_cursor(
                             if self.util_bar_alternate_focused{
                                 self.util_bar_alternate_rect.x + self.util_bar_alternate.cursor_position()
-                                    .saturating_sub(self.util_bar_alternate.offset())
+                                    //.saturating_sub(self.util_bar_alternate.offset())
+                                    .saturating_sub(self.util_bar_alternate.view.horizontal_start() as u16)
                             }else{
-                                self.util_bar_rect.x + self.util_bar.cursor_position().saturating_sub(self.util_bar.offset())
+                                //self.util_bar_rect.x + self.util_bar.cursor_position().saturating_sub(self.util_bar.offset())
+                                self.util_bar_rect.x + self.util_bar.cursor_position().saturating_sub(self.util_bar.view.horizontal_start() as u16)
                             },
                             self.terminal_size.height
                         );

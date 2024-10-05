@@ -6,3 +6,4 @@ TODO
 [ ] lsp integration
 [ ] colorize syntax/selections/etc.
 [ ] fix when scroll view right is held, it keeps scrolling after release, makind editor unresponsive until it finishes scroll
+[ ] when cursor at 1 less than last newline and selection extended left, if delete pressed, it deletes last newline too. check extend_left fn in selection.rs

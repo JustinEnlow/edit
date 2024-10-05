@@ -26,6 +26,9 @@ impl View{
     pub fn height(&self) -> usize{
         self.height
     }
+    pub fn horizontal_start(&self) -> usize{
+        self.horizontal_start
+    }
 
     pub fn scroll_down(&mut self, amount: usize, text: &Rope){
         if self.vertical_start + self.height + amount <= text.len_lines(){
