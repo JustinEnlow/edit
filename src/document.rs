@@ -28,7 +28,8 @@ pub struct Document{
     modified: bool,
     selections: Selections,
     client_view: View,
-    //history: History,
+    //undo_stack: Vec<Operation>,   Operation{Insert, Delete}
+    //redo_stack: Vec<Operation>
     last_saved_text: Rope,
 }
 impl Document{

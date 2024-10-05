@@ -1,5 +1,11 @@
 use crate::application::{Mode, WarningKind};
-use edit::Position;
+use edit::{
+    Position,
+    selection::{Selection, Movement, CursorSemantics},
+    view::View
+};
+use ropey::Rope;
+use std::cmp::Ordering;
 use std::error::Error;
 use ratatui::Terminal;
 use ratatui::layout::Rect;
@@ -18,9 +24,6 @@ const COMMAND_PROMPT: &str = " Command: ";
 
 
 
-use edit::selection::Selection;
-use edit::view::View;
-use ropey::Rope;
 pub struct UtilBar{
     text: Rope,
     text_is_valid: bool,
@@ -57,7 +60,7 @@ impl UtilBar{
     }
 
     pub fn cursor_position(&self) -> u16{
-        self.selection.cursor(edit::selection::CursorSemantics::Block) as u16
+        self.selection.cursor(CursorSemantics::Block) as u16
     }
 
     pub fn set_widget_width(&mut self, width: u16){
@@ -70,7 +73,6 @@ impl UtilBar{
     }
 
     pub fn insert_char(&mut self, char: char){
-        use edit::selection::CursorSemantics;
         if self.selection.is_extended(CursorSemantics::Block){
             self.delete();
         }
@@ -85,8 +87,6 @@ impl UtilBar{
         let text = self.text.clone();
         let mut new_text = self.text.clone();
 
-        use std::cmp::Ordering;
-        use edit::selection::{CursorSemantics, Movement};
         match self.selection.cursor(CursorSemantics::Block).cmp(&self.selection.anchor()){
             Ordering::Less => {
                 new_text.remove(self.selection.head()..self.selection.anchor());
@@ -114,7 +114,7 @@ impl UtilBar{
     }
 
     pub fn backspace(&mut self){
-        let semantics = edit::selection::CursorSemantics::Block;
+        let semantics = CursorSemantics::Block;
         if self.selection.is_extended(semantics){
             self.delete();
         }else{
@@ -125,6 +125,8 @@ impl UtilBar{
         }
     }
 }
+
+
 
 pub struct UserInterface{
     terminal_size: Rect,
@@ -257,7 +259,6 @@ impl UserInterface{
     }
 
     pub fn set_client_cursor_position(&mut self, positions: Vec<Position>){
-        //self.client_cursor_position = position;
         if !positions.is_empty(){
             self.client_cursor_position = Some(*positions.last().unwrap());
         }else{
@@ -470,19 +471,14 @@ impl UserInterface{
             Mode::Goto | Mode::FindReplace => {
                 let text = self.util_bar.text.clone();
                 if self.util_bar.text_is_valid{
-                    //Paragraph::new(self.util_bar.text().to_string()).scroll((0, self.util_bar.offset()))
                     Paragraph::new(self.util_bar.view.text(&text))
                 }else{
-                    //Paragraph::new(self.util_bar.text().to_string())
-                    //    .scroll((0, self.util_bar.offset()))
-                    //    .style(Style::default().fg(Color::Red))
                     Paragraph::new(self.util_bar.view.text(&text))
                         .style(Style::default().fg(Color::Red))
                 }
             }
             Mode::Command => {
                 let text = self.util_bar.text.clone();
-                //Paragraph::new(self.util_bar.text().to_string()).scroll((0, self.util_bar.offset()))
                 Paragraph::new(self.util_bar.view.text(&text))
             }
             Mode::Warning(kind) => Paragraph::new(
@@ -519,11 +515,9 @@ impl UserInterface{
         let text = self.util_bar_alternate.text.clone();
         match mode{
             Mode::FindReplace => {
-                //Paragraph::new(self.util_bar_alternate.text().to_string())
-                //    .scroll((0, self.util_bar_alternate.offset()))
                 Paragraph::new(self.util_bar_alternate.view.text(&text))
             }
-            _ => Paragraph::new(self.util_bar_alternate.view.text(&text))//Paragraph::new(self.util_bar_alternate.text().to_string())
+            _ => Paragraph::new(self.util_bar_alternate.view.text(&text))
         }
     }
 
@@ -555,7 +549,6 @@ impl UserInterface{
                     }
                     Mode::Goto | Mode::Command => {
                         frame.set_cursor(
-                            //self.util_bar_rect.x + self.util_bar.cursor_position().saturating_sub(self.util_bar.offset()),
                             self.util_bar_rect.x + self.util_bar.cursor_position().saturating_sub(self.util_bar.view.horizontal_start() as u16),
                             self.terminal_size.height
                         );
@@ -564,10 +557,8 @@ impl UserInterface{
                         frame.set_cursor(
                             if self.util_bar_alternate_focused{
                                 self.util_bar_alternate_rect.x + self.util_bar_alternate.cursor_position()
-                                    //.saturating_sub(self.util_bar_alternate.offset())
                                     .saturating_sub(self.util_bar_alternate.view.horizontal_start() as u16)
                             }else{
-                                //self.util_bar_rect.x + self.util_bar.cursor_position().saturating_sub(self.util_bar.offset())
                                 self.util_bar_rect.x + self.util_bar.cursor_position().saturating_sub(self.util_bar.view.horizontal_start() as u16)
                             },
                             self.terminal_size.height

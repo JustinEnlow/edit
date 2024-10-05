@@ -429,12 +429,19 @@ impl Selection{
                 match movement{
                     Movement::Move => {
                         self.anchor = to;
-                        //self.head = to.saturating_add(1).min(text.len_chars());
                         self.head = to.saturating_add(1).min(text.len_chars().saturating_add(1));   //allowing one more char past text.len_chars() for block cursor
                     }
                     Movement::Extend => {
                         let new_anchor = if self.head >= self.anchor && to < self.anchor{
-                            self.anchor.saturating_add(1).min(text.len_chars())
+                            if let Some(char_at_cursor) = text.get_char(self.cursor(semantics)){
+                                if char_at_cursor == '\n'{
+                                    self.anchor
+                                }else{
+                                    self.anchor.saturating_add(1).min(text.len_chars())
+                                }
+                            }else{
+                                self.anchor.saturating_add(1).min(text.len_chars())
+                            }
                         }else if self.head < self.anchor && to >= self.anchor{
                             self.anchor.saturating_sub(1)
                         }else{
@@ -443,7 +450,6 @@ impl Selection{
 
                         if new_anchor <= to{
                             self.anchor = new_anchor;
-                            //self.head = to.saturating_add(1).min(text.len_chars());
                             self.head = to.saturating_add(1).min(text.len_chars().saturating_add(1))    //allowing one more char past text.len_chars() for block cursor
                         }else{
                             self.anchor = new_anchor;
@@ -588,7 +594,8 @@ impl Selection{
     /// assert!(test(Selection::new(13, 13), Selection::with_stored_line_position(3, 3, 9), 0, Movement::Move, CursorSemantics::Bar));
     /// assert!(test(Selection::new(13, 14), Selection::with_stored_line_position(3, 4, 9), 0, Movement::Move, CursorSemantics::Block));
     /// assert!(test(Selection::new(13, 13), Selection::with_stored_line_position(13, 3, 9), 0, Movement::Extend, CursorSemantics::Bar));
-    /// assert!(test(Selection::new(13, 14), Selection::with_stored_line_position(14, 3, 9), 0, Movement::Extend, CursorSemantics::Block));
+    /// //assert!(test(Selection::new(13, 14), Selection::with_stored_line_position(14, 3, 9), 0, Movement::Extend, CursorSemantics::Block));
+    /// assert!(test(Selection::new(13, 14), Selection::with_stored_line_position(13, 3, 9), 0, Movement::Extend, CursorSemantics::Block)); //if at end of line, sets anchor before newline char
     /// 
     /// //from end of text
     /// assert!(test(Selection::new(19, 19), Selection::with_stored_line_position(4, 4, 0), 1, Movement::Move, CursorSemantics::Bar));
@@ -1051,7 +1058,8 @@ impl Selection{
     /// 
     /// // to shorter line
     /// assert!(test(Selection::new(13, 13), Selection::with_stored_line_position(13, 3, 9), CursorSemantics::Bar));
-    /// assert!(test(Selection::new(13, 14), Selection::with_stored_line_position(14, 3, 9), CursorSemantics::Block));  //idk\nsomething[:\n]else    //idk:]\nsomething\n[else
+    /// //assert!(test(Selection::new(13, 14), Selection::with_stored_line_position(14, 3, 9), CursorSemantics::Block));  //idk\nsomething[:\n]else    //idk:]\nsomething\n[else
+    /// assert!(test(Selection::new(13, 14), Selection::with_stored_line_position(13, 3, 9), CursorSemantics::Block));  //if at end of line, sets anchor before newline char
     /// 
     /// // to longer line
     /// assert!(test(Selection::new(18, 18), Selection::with_stored_line_position(18, 8, 4), CursorSemantics::Bar));
@@ -1167,7 +1175,8 @@ impl Selection{
     /// }
     /// 
     /// assert!(test(Selection::new(3, 3), Selection::with_stored_line_position(3, 0, 0), CursorSemantics::Bar));
-    /// assert!(test(Selection::new(3, 4), Selection::with_stored_line_position(4, 0, 0), CursorSemantics::Block)); //idk[\n]some\nshit\n   //:]idk\n[some\nshit\n
+    /// //assert!(test(Selection::new(3, 4), Selection::with_stored_line_position(4, 0, 0), CursorSemantics::Block)); //idk[\n]some\nshit\n   //:]idk\n[some\nshit\n
+    /// assert!(test(Selection::new(3, 4), Selection::with_stored_line_position(3, 0, 0), CursorSemantics::Block)); //special case  //if at end of line, sets anchor before newline char
     /// ```
     pub fn extend_line_start(&mut self, text: &Rope, semantics: CursorSemantics){
         let line_number = text.char_to_line(self.cursor(semantics));
