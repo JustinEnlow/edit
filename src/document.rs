@@ -176,7 +176,16 @@ impl Document{
     // TODO: impl and test
     pub fn cut(&mut self, _clipboard: &str){}
     pub fn copy(&self, _clipboard: &str){}
-    pub fn paste(&mut self, _clipboard: &str){}
+    pub fn paste(&mut self, _clipboard: &str){
+        for selection in self.selections.iter_mut().rev(){
+            //(*selection, self.text) = Document::insert_string_at_cursor(
+            //    selection.clone(),
+            //    &self.text,
+            //    _clipboard,
+            //    semantics
+            //)
+        }
+    }
 
     /// Inserts specified char, replacing selected text if selection extended.
     /// ```

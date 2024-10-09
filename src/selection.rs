@@ -157,7 +157,6 @@ impl Selection{
     ///     selection == expected
     /// }
     /// 
-    /// 
     /// assert!(test(Selection::new(0, 0), Selection::with_stored_line_position(0, 0, 0), Direction::Forward, CursorSemantics::Bar));
     /// assert!(test(Selection::new(0, 0), Selection::with_stored_line_position(0, 0, 0), Direction::Backward, CursorSemantics::Bar));
     /// assert!(test(Selection::new(0, 5), Selection::with_stored_line_position(5, 0, 0), Direction::Backward, CursorSemantics::Bar));
@@ -394,7 +393,6 @@ impl Selection{
     ///     selection == expected
     /// }
     /// 
-    /// 
     /// assert!(test(Selection::new(0, 0), Selection::with_stored_line_position(5, 5, 1), 5, Movement::Move, CursorSemantics::Bar));
     /// assert!(test(Selection::new(5, 5), Selection::with_stored_line_position(0, 0, 0), 0, Movement::Move, CursorSemantics::Bar));
     /// 
@@ -418,44 +416,39 @@ impl Selection{
     /// assert!(test(Selection::new(0, 1), Selection::with_stored_line_position(0, 15, 0), 14, Movement::Extend, CursorSemantics::Block));
     /// ```
     pub fn put_cursor(&mut self, to: usize, text: &Rope, movement: Movement, semantics: CursorSemantics, update_stored_line_position: bool){    //could also just update stored_line_position in calling fn after this call...
-        match semantics{
-            CursorSemantics::Bar => {
-                if movement == Movement::Move{  //intentionally disregarding Movement::Extend
-                    self.anchor = to;
-                }
+        match (semantics, movement){
+            (CursorSemantics::Bar, Movement::Move) => {
+                self.anchor = to;
                 self.head = to;
             }
-            CursorSemantics::Block => {
-                match movement{
-                    Movement::Move => {
-                        self.anchor = to;
-                        self.head = to.saturating_add(1).min(text.len_chars().saturating_add(1));   //allowing one more char past text.len_chars() for block cursor
-                    }
-                    Movement::Extend => {
-                        let new_anchor = if self.head >= self.anchor && to < self.anchor{
-                            if let Some(char_at_cursor) = text.get_char(self.cursor(semantics)){
-                                if char_at_cursor == '\n'{
-                                    self.anchor
-                                }else{
-                                    self.anchor.saturating_add(1).min(text.len_chars())
-                                }
-                            }else{
-                                self.anchor.saturating_add(1).min(text.len_chars())
-                            }
-                        }else if self.head < self.anchor && to >= self.anchor{
-                            self.anchor.saturating_sub(1)
-                        }else{
+            (CursorSemantics::Bar, Movement::Extend) => self.head = to,
+            (CursorSemantics::Block, Movement::Move) => {
+                self.anchor = to;
+                self.head = to.saturating_add(1).min(text.len_chars().saturating_add(1));   //allowing one more char past text.len_chars() for block cursor
+            }
+            (CursorSemantics::Block, Movement::Extend) => {
+                let new_anchor = if self.head >= self.anchor && to < self.anchor{
+                    if let Some(char_at_cursor) = text.get_char(self.cursor(semantics)){
+                        if char_at_cursor == '\n'{
                             self.anchor
-                        };
-
-                        if new_anchor <= to{
-                            self.anchor = new_anchor;
-                            self.head = to.saturating_add(1).min(text.len_chars().saturating_add(1))    //allowing one more char past text.len_chars() for block cursor
                         }else{
-                            self.anchor = new_anchor;
-                            self.head = to;
+                            self.anchor.saturating_add(1).min(text.len_chars())
                         }
+                    }else{
+                        self.anchor.saturating_add(1).min(text.len_chars())
                     }
+                }else if self.head < self.anchor && to >= self.anchor{
+                    self.anchor.saturating_sub(1)
+                }else{
+                    self.anchor
+                };
+
+                if new_anchor <= to{
+                    self.anchor = new_anchor;
+                    self.head = to.saturating_add(1).min(text.len_chars().saturating_add(1))    //allowing one more char past text.len_chars() for block cursor
+                }else{
+                    self.anchor = new_anchor;
+                    self.head = to;
                 }
             }
         }
@@ -477,7 +470,6 @@ impl Selection{
     ///     println!("expected: {:#?}\ngot: {:#?}\n", expected, selection);
     ///     selection == expected
     /// }
-    /// 
     /// 
     /// assert!(test(Selection::new(0, 0), Selection::with_stored_line_position(4, 4, 0), 1, Movement::Move, Direction::Forward, CursorSemantics::Bar));
     /// assert!(test(Selection::new(4, 4), Selection::with_stored_line_position(0, 0, 0), 1, Movement::Move, Direction::Backward, CursorSemantics::Bar));
@@ -529,7 +521,6 @@ impl Selection{
     /// # use ropey::Rope;
     /// # use edit::selection::{Selection, Movement, Direction, CursorSemantics};
     /// 
-    /// 
     /// fn test(mut selection: Selection, expected: Selection, amount: usize, movement: Movement, direction: Direction, semantics: CursorSemantics) -> bool{
     ///     let text = Rope::from("idk\nsomething\nelse\n");    //len 19
     ///     selection.move_horizontally(amount, &text, movement, direction, semantics);
@@ -566,7 +557,7 @@ impl Selection{
         self.put_cursor(new_position, text, movement, semantics, true);
     }
 
-     /// Moves cursor to specified line number.
+    /// Moves cursor to specified line number.
     /// ```
     /// # use ropey::Rope;
     /// # use edit::selection::{Selection, Movement, CursorSemantics};
@@ -1353,7 +1344,6 @@ impl Selection{
     /// assert!(test(Selection::new(2, 6), Selection2d::new(Position::new(1, 1), Position::new(2, 0)), &text, CursorSemantics::Block));
     /// ```
     pub fn selection_to_selection2d(&self, text: &Rope, semantics: CursorSemantics) -> Selection2d{
-        //let line_number_head = text.char_to_line(self.head);
         let line_number_head = text.char_to_line(self.cursor(semantics));
         let line_number_anchor = text.char_to_line(self.anchor);
 
@@ -1362,12 +1352,10 @@ impl Selection{
 
         Selection2d::new(
             Position::new(
-                //self.head - head_line_start_idx, 
                 self.cursor(semantics).saturating_sub(head_line_start_idx),
                 line_number_head
             ), 
             Position::new(
-                //self.anchor - anchor_line_start_idx, 
                 self.anchor.saturating_sub(anchor_line_start_idx),
                 line_number_anchor
             )
