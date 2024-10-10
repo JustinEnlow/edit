@@ -1,5 +1,5 @@
-use crate::application::{Mode, WarningKind};
-use edit::{
+use crate::application::{Mode, UtilityKind, WarningKind};
+use edit_core::{
     Position,
     selection::{Selection, Movement, CursorSemantics},
     view::View
@@ -189,9 +189,6 @@ impl UserInterface{
             document_cursor_position: None,
         }
     }
-    pub fn document_modified(&self) -> bool{
-        self.document_modified_status
-    }
     pub fn set_document_modified(&mut self, modified: bool){
         self.document_modified_status = modified;
     }
@@ -201,9 +198,6 @@ impl UserInterface{
     }
     pub fn set_file_name(&mut self, file_name: Option<String>){
         self.document_file_name = file_name;
-    }
-    pub fn document_length(&self) -> usize{
-        self.document_length
     }
     pub fn set_document_length(&mut self, document_length: usize){
         self.document_length = document_length;
@@ -216,18 +210,12 @@ impl UserInterface{
         self.document_rect
     }
 
-    pub fn display_line_numbers(&self) -> bool{
-        self.display_line_numbers
-    }
-    pub fn set_display_line_numbers(&mut self, display_line_numbers: bool){
-        self.display_line_numbers = display_line_numbers
+    pub fn toggle_line_numbers(&mut self){
+        self.display_line_numbers = !self.display_line_numbers;
     }
 
-    pub fn display_status_bar(&self) -> bool{
-        self.display_status_bar
-    }
-    pub fn set_display_status_bar(&mut self, display_status_bar: bool){
-        self.display_status_bar = display_status_bar
+    pub fn toggle_status_bar(&mut self){
+        self.display_status_bar = !self.display_status_bar;
     }
 
     pub fn util_bar(&self) -> &UtilBar{
@@ -280,11 +268,7 @@ impl UserInterface{
                     // util(goto/find/command) bar rect height
                     Constraint::Length(
                         match mode{
-                            Mode::Warning(_) 
-                            | Mode::Goto 
-                            | Mode::FindReplace
-                            | Mode::Command => 1,
-                            
+                            Mode::Utility(_) => 1,
                             Mode::Insert => if self.display_status_bar{1}else{0}
                         }
                     )
@@ -344,32 +328,35 @@ impl UserInterface{
                     // util bar prompt width
                     Constraint::Length(
                         match mode{
-                            Mode::Goto => GOTO_PROMPT.len() as u16,
-                            Mode::FindReplace => FIND_PROMPT.len() as u16,
-                            Mode::Command => COMMAND_PROMPT.len() as u16,
-                            _ => 0
+                            Mode::Utility(UtilityKind::Goto) => GOTO_PROMPT.len() as u16,
+                            Mode::Utility(UtilityKind::FindReplace) => FIND_PROMPT.len() as u16,
+                            Mode::Utility(UtilityKind::Command) => COMMAND_PROMPT.len() as u16,
+                            Mode::Utility(UtilityKind::Warning(_))
+                            | Mode::Insert => 0
                         }
                     ),
                     // util bar rect width
                     Constraint::Length(
                         match mode{
-                            Mode::Warning(_) | Mode::Insert => viewport_rect[2].width,
-                            Mode::Goto => viewport_rect[2].width - GOTO_PROMPT.len() as u16,
-                            Mode::Command => viewport_rect[2].width - COMMAND_PROMPT.len() as u16,                            
-                            Mode::FindReplace => (viewport_rect[2].width / 2) - FIND_PROMPT.len() as u16,
+                            Mode::Insert
+                            | Mode::Utility(UtilityKind::Warning(_)) => viewport_rect[2].width,
+                            Mode::Utility(UtilityKind::Goto) => viewport_rect[2].width - GOTO_PROMPT.len() as u16,
+                            Mode::Utility(UtilityKind::Command) => viewport_rect[2].width - COMMAND_PROMPT.len() as u16,                            
+                            Mode::Utility(UtilityKind::FindReplace) => (viewport_rect[2].width / 2) - FIND_PROMPT.len() as u16,
                         }
                     ),
                     // util bar alternate prompt width
                     Constraint::Length(
                         match mode{
-                            Mode::FindReplace => REPLACE_PROMPT.len() as u16,
+                            Mode::Utility(UtilityKind::FindReplace) => REPLACE_PROMPT.len() as u16,
                             _ => 0
                         }
                     ),
                     // util bar alternate rect width
                     Constraint::Length(
                         match mode{
-                            Mode::FindReplace => (viewport_rect[2].width / 2) - REPLACE_PROMPT.len() as u16,
+                            //Mode::FindReplace => (viewport_rect[2].width / 2) - REPLACE_PROMPT.len() as u16,
+                            Mode::Utility(UtilityKind::FindReplace) => (viewport_rect[2]. width / 2).saturating_sub(REPLACE_PROMPT.len() as u16),
                             _ => 0
                         }
                     ),
@@ -391,7 +378,7 @@ impl UserInterface{
         self.util_bar_alternate_rect = util_rect[3];
 
         match mode{
-            Mode::Command | Mode::Goto | Mode::FindReplace=> {
+            Mode::Utility(UtilityKind::Command) | Mode::Utility(UtilityKind::Goto) | Mode::Utility(UtilityKind::FindReplace) => {
                 self.util_bar.set_widget_width(self.util_bar_rect.width);
                 self.util_bar_alternate.set_widget_width(self.util_bar_alternate_rect.width);
             }
@@ -434,7 +421,7 @@ impl UserInterface{
                 Style::default()
                     .bg(Color::DarkGray)
                     .bold()
-                )
+            )
     }
 
     pub fn status_bar_cursor_position_widget(&self) -> Paragraph<'static>{
@@ -459,16 +446,17 @@ impl UserInterface{
 
     pub fn util_bar_prompt_widget(&self, mode: Mode) -> Paragraph<'static>{
         match mode{
-            Mode::Goto => Paragraph::new(GOTO_PROMPT),
-            Mode::FindReplace => Paragraph::new(FIND_PROMPT),
-            Mode::Command => Paragraph::new(COMMAND_PROMPT),
+            Mode::Utility(UtilityKind::Goto) => Paragraph::new(GOTO_PROMPT),
+            Mode::Utility(UtilityKind::FindReplace) => Paragraph::new(FIND_PROMPT),
+            Mode::Utility(UtilityKind::Command) => Paragraph::new(COMMAND_PROMPT),
             _ => Paragraph::new("")
         }
     }
 
     pub fn util_bar_widget(&self, mode: Mode) -> Paragraph<'static>{
         match mode{
-            Mode::Goto | Mode::FindReplace => {
+            //Mode::Goto | Mode::FindReplace => {
+            Mode::Utility(UtilityKind::Goto) | Mode::Utility(UtilityKind::FindReplace) => {
                 let text = self.util_bar.text.clone();
                 if self.util_bar.text_is_valid{
                     Paragraph::new(self.util_bar.view.text(&text))
@@ -477,11 +465,13 @@ impl UserInterface{
                         .style(Style::default().fg(Color::Red))
                 }
             }
-            Mode::Command => {
+            //Mode::Command => {
+            Mode::Utility(UtilityKind::Command) => {
                 let text = self.util_bar.text.clone();
                 Paragraph::new(self.util_bar.view.text(&text))
             }
-            Mode::Warning(kind) => Paragraph::new(
+            //Mode::Warning(kind) => Paragraph::new(
+            Mode::Utility(UtilityKind::Warning(kind)) => Paragraph::new(
                 match kind{
                     WarningKind::FileIsModified => {
                         "WARNING! File has unsaved changes. Press close again to ignore and close."
@@ -493,6 +483,9 @@ impl UserInterface{
                     //    "WARNING! File could not be opened."
                     //}
                     // command mode failed
+                    WarningKind::CommandUnavailable => {
+                        "WARNING! The entered command is unavailable."
+                    }
                 }
             )
                 .alignment(ratatui::prelude::Alignment::Center)
@@ -504,7 +497,8 @@ impl UserInterface{
 
     pub fn util_bar_alternate_prompt_widget(&self, mode: Mode) -> Paragraph<'static>{
         match mode{
-            Mode::FindReplace => {
+            //Mode::FindReplace => {
+            Mode::Utility(UtilityKind::FindReplace) => {
                 Paragraph::new(REPLACE_PROMPT)
             },
             _ => Paragraph::new("")
@@ -514,14 +508,14 @@ impl UserInterface{
     pub fn util_bar_alternate_widget(&self, mode: Mode) -> Paragraph<'static>{
         let text = self.util_bar_alternate.text.clone();
         match mode{
-            Mode::FindReplace => {
+            //Mode::FindReplace => {
+            Mode::Utility(UtilityKind::FindReplace) => {
                 Paragraph::new(self.util_bar_alternate.view.text(&text))
             }
             _ => Paragraph::new(self.util_bar_alternate.view.text(&text))
         }
     }
 
-    // when in select mode, figure out how to change background color of text within cursor_head and cursor_anchor
     pub fn render(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>, mode: Mode) -> Result<(), Box<dyn Error>>{        
         terminal.draw(
             |frame| {
@@ -547,24 +541,28 @@ impl UserInterface{
                             )
                         }
                     }
-                    Mode::Goto | Mode::Command => {
-                        frame.set_cursor(
-                            self.util_bar_rect.x + self.util_bar.cursor_position().saturating_sub(self.util_bar.view.horizontal_start() as u16),
-                            self.terminal_size.height
-                        );
+                    Mode::Utility(kind) => {
+                        match kind{
+                            UtilityKind::Goto | UtilityKind::Command => {
+                                frame.set_cursor(
+                                    self.util_bar_rect.x + self.util_bar.cursor_position().saturating_sub(self.util_bar.view.horizontal_start() as u16),
+                                    self.terminal_size.height
+                                );
+                            }
+                            UtilityKind::FindReplace => {
+                                frame.set_cursor(
+                                    if self.util_bar_alternate_focused{
+                                        self.util_bar_alternate_rect.x + self.util_bar_alternate.cursor_position()
+                                            .saturating_sub(self.util_bar_alternate.view.horizontal_start() as u16)
+                                    }else{
+                                        self.util_bar_rect.x + self.util_bar.cursor_position().saturating_sub(self.util_bar.view.horizontal_start() as u16)
+                                    },
+                                    self.terminal_size.height
+                                );
+                            }
+                            UtilityKind::Warning(_) => {}
+                        }
                     }
-                    Mode::FindReplace => {
-                        frame.set_cursor(
-                            if self.util_bar_alternate_focused{
-                                self.util_bar_alternate_rect.x + self.util_bar_alternate.cursor_position()
-                                    .saturating_sub(self.util_bar_alternate.view.horizontal_start() as u16)
-                            }else{
-                                self.util_bar_rect.x + self.util_bar.cursor_position().saturating_sub(self.util_bar.view.horizontal_start() as u16)
-                            },
-                            self.terminal_size.height
-                        );
-                    }
-                    Mode::Warning(_) => {}
                 }
             }
 

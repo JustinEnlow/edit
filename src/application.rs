@@ -1,6 +1,6 @@
-use edit::selection::{CursorSemantics, Movement, Selections};
+use edit_core::selection::{CursorSemantics, Movement, Selections};
 use ratatui::{backend::CrosstermBackend, Terminal};
-use edit::document::Document;
+use edit_core::document::Document;
 use crate::ui::UserInterface;
 use std::error::Error;
 use std::path::PathBuf;
@@ -35,17 +35,22 @@ const VIEW_SCROLL_AMOUNT: usize = 1;
 #[derive(Clone, Copy)]
 pub enum Mode{
     Insert,
+    Utility(UtilityKind),
+}
+
+#[derive(Clone, Copy)]
+pub enum UtilityKind{
     Warning(WarningKind),
     Command,
     FindReplace,    //FindReplace mode can prob be replaced with a selection based find/replace
     Goto,
-    //Utility(UtilityKind),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum WarningKind{
     FileIsModified,
     FileSaveFailed,
+    CommandUnavailable,
 }
 
 
@@ -76,7 +81,7 @@ impl Application{
     pub fn run(&mut self, file_path: String) -> Result<(), Box<dyn Error>>{
         let path = PathBuf::from(file_path).canonicalize()?;
         
-        self.document = Document::open(path, CURSOR_SEMANTICS)?;
+        self.document = Document::open(&path, CURSOR_SEMANTICS)?;
         self.ui.set_file_name(self.document.file_name());
         self.ui.set_document_length(self.document.len());
         
@@ -89,11 +94,7 @@ impl Application{
         let selections = self.document.selections().clone();
         self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS);
 
-        self.ui.set_text_in_view(self.document.view().text(&text));
-        self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-        self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-        self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-        self.ui.set_document_modified(self.document.is_modified());
+        self.update_ui(&text, &selections);
 
         loop{
             self.host_terminal.hide_cursor()?;  //testing this to resolve cursor displaying in random places while moving quickly
@@ -155,58 +156,58 @@ impl Application{
                     (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Char(c), ..}, Mode::Insert) => {self.insert_char(c)}
     
                     // Warning Mode
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('q'), ..}, Mode::Warning(_)) => {self.quit_ignoring_changes()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Esc,       ..}, Mode::Warning(_)) => {self.warning_mode_exit()}
+                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('q'), ..}, Mode::Utility(UtilityKind::Warning(_))) => {self.quit_ignoring_changes()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Esc,       ..}, Mode::Utility(UtilityKind::Warning(_))) => {self.warning_mode_exit()}
     
                     // Goto Mode
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Right,         ..}, Mode::Goto) => {self.goto_mode_extend_selection_right()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Left,          ..}, Mode::Goto) => {self.goto_mode_extend_selection_left()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Home,          ..}, Mode::Goto) => {self.goto_mode_extend_selection_home()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::End,           ..}, Mode::Goto) => {self.goto_mode_extend_selection_end()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Esc,           ..}, Mode::Goto) => {self.goto_mode_exit()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Enter,         ..}, Mode::Goto) => {self.goto_mode_accept()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Backspace,     ..}, Mode::Goto) => {self.goto_mode_backspace()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Delete,        ..}, Mode::Goto) => {self.goto_mode_delete()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Right,         ..}, Mode::Goto) => {self.goto_mode_move_cursor_right()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Left,          ..}, Mode::Goto) => {self.goto_mode_move_cursor_left()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Home,          ..}, Mode::Goto) => {self.goto_mode_move_cursor_line_start()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::End,           ..}, Mode::Goto) => {self.goto_mode_move_cursor_line_end()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Char(c), ..}, Mode::Goto) => {self.goto_mode_insert_char(c)}
+                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Right,         ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_extend_selection_right()}
+                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Left,          ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_extend_selection_left()}
+                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Home,          ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_extend_selection_home()}
+                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::End,           ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_extend_selection_end()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Esc,           ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_exit()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Enter,         ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_accept()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Backspace,     ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_backspace()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Delete,        ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_delete()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Right,         ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_move_cursor_right()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Left,          ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_move_cursor_left()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Home,          ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_move_cursor_line_start()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::End,           ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_move_cursor_line_end()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Char(c), ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_insert_char(c)}
                 
                     // FindReplace Mode
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Right,         ..}, Mode::FindReplace) => {self.find_replace_mode_extend_selection_right()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Left,          ..}, Mode::FindReplace) => {self.find_replace_mode_extend_selection_left()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Home,          ..}, Mode::FindReplace) => {self.find_replace_mode_extend_selection_home()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::End,           ..}, Mode::FindReplace) => {self.find_replace_mode_extend_selection_end()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Char(c), ..}, Mode::FindReplace) => {self.find_replace_mode_insert_char(c)}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Esc,           ..}, Mode::FindReplace) => {self.find_replace_mode_exit()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Tab,           ..}, Mode::FindReplace) => {self.find_replace_mode_switch_util_bar_focus()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Up,            ..}, Mode::FindReplace) => {self.find_replace_mode_previous_instance()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Down,          ..}, Mode::FindReplace) => {self.find_replace_mode_next_instance()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Backspace,     ..}, Mode::FindReplace) => {self.find_replace_mode_backspace()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Delete,        ..}, Mode::FindReplace) => {self.find_replace_mode_delete()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Right,         ..}, Mode::FindReplace) => {self.find_replace_mode_move_cursor_right()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Left,          ..}, Mode::FindReplace) => {self.find_replace_mode_move_cursor_left()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Home,          ..}, Mode::FindReplace) => {self.find_replace_mode_move_cursor_line_start()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::End,           ..}, Mode::FindReplace) => {self.find_replace_mode_move_cursor_line_end()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Enter,         ..}, Mode::FindReplace) => {self.find_replace_mode_accept()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Char(c), ..}, Mode::FindReplace) => {self.find_replace_mode_insert_char(c)}
+                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Right,         ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_extend_selection_right()}
+                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Left,          ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_extend_selection_left()}
+                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Home,          ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_extend_selection_home()}
+                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::End,           ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_extend_selection_end()}
+                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Char(c), ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_insert_char(c)}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Esc,           ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_exit()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Tab,           ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_switch_util_bar_focus()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Up,            ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_previous_instance()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Down,          ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_next_instance()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Backspace,     ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_backspace()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Delete,        ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_delete()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Right,         ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_move_cursor_right()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Left,          ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_move_cursor_left()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Home,          ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_move_cursor_line_start()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::End,           ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_move_cursor_line_end()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Enter,         ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_accept()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Char(c), ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_insert_char(c)}
                 
                     // Command Mode
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Right,         ..}, Mode::Command) => {self.command_mode_extend_selection_right()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Left,          ..}, Mode::Command) => {self.command_mode_extend_selection_left()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Home,          ..}, Mode::Command) => {self.command_mode_extend_selection_home()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::End,           ..}, Mode::Command) => {self.command_mode_extend_selection_end()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Char(c), ..}, Mode::Command) => {self.command_mode_insert_char(c)}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Esc,           ..}, Mode::Command) => {self.command_mode_exit()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Char(c), ..}, Mode::Command) => {self.command_mode_insert_char(c)}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Enter,         ..}, Mode::Command) => {self.command_mode_accept()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Backspace,     ..}, Mode::Command) => {self.command_mode_backspace()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Delete,        ..}, Mode::Command) => {self.command_mode_delete()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Right,         ..}, Mode::Command) => {self.command_mode_move_cursor_right()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Left,          ..}, Mode::Command) => {self.command_mode_move_cursor_left()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Home,          ..}, Mode::Command) => {self.command_mode_move_cursor_line_start()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::End,           ..}, Mode::Command) => {self.command_mode_move_cursor_line_end()}
+                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Right,         ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_extend_selection_right()}
+                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Left,          ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_extend_selection_left()}
+                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Home,          ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_extend_selection_home()}
+                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::End,           ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_extend_selection_end()}
+                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Char(c), ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_insert_char(c)}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Esc,           ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_exit()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Char(c), ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_insert_char(c)}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Enter,         ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_accept()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Backspace,     ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_backspace()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Delete,        ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_delete()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Right,         ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_move_cursor_right()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Left,          ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_move_cursor_left()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Home,          ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_move_cursor_line_start()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::End,           ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_move_cursor_line_end()}
     
                     // unhandled keybinds
                     _ => {self.no_op()}
@@ -219,6 +220,19 @@ impl Application{
         Ok(())
     }
 
+    fn update_ui(&mut self, text: &ropey::Rope, selections: &Selections){
+        self.ui.set_text_in_view(self.document.view().text(&text));
+        self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
+        self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
+        self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+        self.ui.set_document_modified(self.document.is_modified());
+    }
+
+    fn update_cursor_positions(&mut self, text: &ropey::Rope, selections: &Selections){
+        self.ui.set_client_cursor_position(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));
+        self.ui.set_document_cursor_position(selections.cursor_positions(text, CURSOR_SEMANTICS));
+    }
+
     fn add_selection_above(&mut self){}
     fn add_selection_below(&mut self){}
     fn backspace(&mut self){
@@ -228,11 +242,7 @@ impl Application{
         let selections = self.document.selections().clone();
         self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS);
 
-        self.ui.set_text_in_view(self.document.view().text(&text));
-        self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-        self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-        self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-        self.ui.set_document_modified(self.document.is_modified());
+        self.update_ui(&text, &selections);
 
         self.ui.set_document_length(self.document.len());
     }
@@ -245,20 +255,18 @@ impl Application{
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS){
-            self.ui.set_text_in_view(self.document.view().text(&text));
-            self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-            self.ui.set_document_modified(self.document.is_modified());
+            self.update_ui(&text, &selections);
         }else{
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+            self.update_cursor_positions(&text, &selections);
         }
     }
     fn command_mode_accept(&mut self){
         if self.parse_command(&self.ui.util_bar().text().to_string()).is_ok(){
             self.ui.util_bar_mut().clear();
             self.mode = Mode::Insert;
+        }else{
+            self.ui.util_bar_mut().clear();
+            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::CommandUnavailable));
         }
         //ui.scroll(editor);
     }
@@ -339,16 +347,12 @@ impl Application{
         let selections = self.document.selections().clone();
         self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS);
 
-        self.ui.set_text_in_view(self.document.view().text(&text));
-        self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-        self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-        self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-        self.ui.set_document_modified(self.document.is_modified());
+        self.update_ui(&text, &selections);
 
         self.ui.set_document_length(self.document.len());
     }
     fn display_line_numbers(&mut self){
-        self.ui.set_display_line_numbers(!self.ui.display_line_numbers());
+        self.ui.toggle_line_numbers();
                 
         self.ui.update_layouts(self.mode);
 
@@ -360,14 +364,10 @@ impl Application{
         let text = self.document.text().clone();
         let selections = self.document.selections().clone();
 
-        self.ui.set_text_in_view(self.document.view().text(&text));
-        self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-        self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-        self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-        self.ui.set_document_modified(self.document.is_modified());
+        self.update_ui(&text, &selections);
     }
     fn display_status_bar(&mut self){
-        self.ui.set_display_status_bar(!self.ui.display_status_bar());
+        self.ui.toggle_status_bar();
                 
         self.ui.update_layouts(self.mode);
 
@@ -379,11 +379,7 @@ impl Application{
         let text = self.document.text().clone();
         let selections = self.document.selections().clone();
 
-        self.ui.set_text_in_view(self.document.view().text(&text));
-        self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-        self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-        self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-        self.ui.set_document_modified(self.document.is_modified());
+        self.update_ui(&text, &selections);
     }
     fn extend_selection_down(&mut self){
         let text = self.document.text().clone();
@@ -394,14 +390,9 @@ impl Application{
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS){
-            self.ui.set_text_in_view(self.document.view().text(&text));
-            self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-            self.ui.set_document_modified(self.document.is_modified());
+            self.update_ui(&text, &selections);
         }else{
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+            self.update_cursor_positions(&text, &selections);
         }
     }
     fn extend_selection_end(&mut self){
@@ -413,14 +404,9 @@ impl Application{
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS){
-            self.ui.set_text_in_view(self.document.view().text(&text));
-            self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-            self.ui.set_document_modified(self.document.is_modified());
+            self.update_ui(&text, &selections);
         }else{
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+            self.update_cursor_positions(&text, &selections);
         }
     }
     fn extend_selection_home(&mut self){
@@ -432,14 +418,9 @@ impl Application{
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS){
-            self.ui.set_text_in_view(self.document.view().text(&text));
-            self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-            self.ui.set_document_modified(self.document.is_modified());
+            self.update_ui(&text, &selections);
         }else{
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+            self.update_cursor_positions(&text, &selections);
         }
     }
     fn extend_selection_left(&mut self){
@@ -451,14 +432,9 @@ impl Application{
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS){
-            self.ui.set_text_in_view(self.document.view().text(&text));
-            self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-            self.ui.set_document_modified(self.document.is_modified());
+            self.update_ui(&text, &selections);
         }else{
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+            self.update_cursor_positions(&text, &selections);
         }
     }
     fn extend_selection_page_up(&mut self){
@@ -471,14 +447,9 @@ impl Application{
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS){
-            self.ui.set_text_in_view(self.document.view().text(&text));
-            self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-            self.ui.set_document_modified(self.document.is_modified());
+            self.update_ui(&text, &selections);
         }else{
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+            self.update_cursor_positions(&text, &selections);
         }
     }
     fn extend_selection_page_down(&mut self){
@@ -491,14 +462,9 @@ impl Application{
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS){
-            self.ui.set_text_in_view(self.document.view().text(&text));
-            self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-            self.ui.set_document_modified(self.document.is_modified());
+            self.update_ui(&text, &selections);
         }else{
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+            self.update_cursor_positions(&text, &selections);
         }
     }
     fn extend_selection_right(&mut self){
@@ -510,14 +476,9 @@ impl Application{
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS){
-            self.ui.set_text_in_view(self.document.view().text(&text));
-            self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-            self.ui.set_document_modified(self.document.is_modified());
+            self.update_ui(&text, &selections);
         }else{
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+            self.update_cursor_positions(&text, &selections);
         }
     }
     fn extend_selection_up(&mut self){
@@ -529,14 +490,9 @@ impl Application{
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS){
-            self.ui.set_text_in_view(self.document.view().text(&text));
-            self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-            self.ui.set_document_modified(self.document.is_modified());
+            self.update_ui(&text, &selections);
         }else{
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+            self.update_cursor_positions(&text, &selections);
         }
     }
     fn find_replace_mode_accept(&mut self){}
@@ -719,7 +675,8 @@ impl Application{
         if let Ok(line_number) = self.ui.util_bar().text().to_string().parse::<usize>(){
             let line_number = line_number.saturating_sub(1);
 
-            if line_number < self.ui.document_length(){
+            //if line_number < self.ui.document_length(){
+            if line_number < self.document.len(){
                 let text =  self.document.text().clone();
                 
                 self.document.selections_mut().clear_non_primary_selections();
@@ -727,11 +684,7 @@ impl Application{
                 
                 let selections = self.document.selections().clone();
                 self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS);
-                self.ui.set_text_in_view(self.document.view().text(&text));
-                self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-                self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-                self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-                self.ui.set_document_modified(self.document.is_modified());
+                self.update_ui(&text, &selections);
                 
                 self.ui.util_bar_mut().clear();
                 self.mode = Mode::Insert;
@@ -753,7 +706,8 @@ impl Application{
         }
         let exceeds_doc_length = match self.ui.util_bar().text().to_string().parse::<usize>(){
             Ok(line_number) => {
-                line_number > self.ui.document_length()
+                //line_number > self.ui.document_length()
+                line_number > self.document.len()
             }
             Err(_) => false
         };
@@ -778,7 +732,8 @@ impl Application{
         }
         let exceeds_doc_length = match self.ui.util_bar().text().to_string().parse::<usize>(){
             Ok(line_number) => {
-                line_number > self.ui.document_length()
+                //line_number > self.ui.document_length()
+                line_number > self.document.len()
             }
             Err(_) => false
         };
@@ -831,7 +786,8 @@ impl Application{
         }
         let exceeds_doc_length = match self.ui.util_bar().text().to_string().parse::<usize>(){
             Ok(line_number) => {
-                line_number > self.ui.document_length()
+                //line_number > self.ui.document_length()
+                line_number > self.document.len()
             }
             Err(_) => false
         };
@@ -872,11 +828,7 @@ impl Application{
         let selections = self.document.selections().clone();
         self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS);
 
-        self.ui.set_text_in_view(self.document.view().text(&text));
-        self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-        self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-        self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-        self.ui.set_document_modified(self.document.is_modified());
+        self.update_ui(&text, &selections);
     }
     fn insert_newline(&mut self){
         self.document.enter(CURSOR_SEMANTICS);
@@ -885,11 +837,7 @@ impl Application{
         let selections = self.document.selections().clone();
         self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS);
 
-        self.ui.set_text_in_view(self.document.view().text(&text));
-        self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-        self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-        self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-        self.ui.set_document_modified(self.document.is_modified());
+        self.update_ui(&text, &selections);
 
         self.ui.set_document_length(self.document.len());
     }
@@ -900,11 +848,7 @@ impl Application{
         let selections = self.document.selections().clone();
         self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS);
 
-        self.ui.set_text_in_view(self.document.view().text(&text));
-        self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-        self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-        self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-        self.ui.set_document_modified(self.document.is_modified());
+        self.update_ui(&text, &selections);
     }
     fn move_cursor_document_end(&mut self){
         let text = self.document.text().clone();
@@ -916,14 +860,9 @@ impl Application{
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS){
-            self.ui.set_text_in_view(self.document.view().text(&text));
-            self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-            self.ui.set_document_modified(self.document.is_modified());
+            self.update_ui(&text, &selections);
         }else{
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+            self.update_cursor_positions(&text, &selections);
         }
     }
     fn move_cursor_document_start(&mut self){
@@ -936,14 +875,9 @@ impl Application{
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS){
-            self.ui.set_text_in_view(self.document.view().text(&text));
-            self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-            self.ui.set_document_modified(self.document.is_modified());
+            self.update_ui(&text, &selections);
         }else{
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+            self.update_cursor_positions(&text, &selections);
         }
     }
     fn move_cursor_down(&mut self){
@@ -955,14 +889,9 @@ impl Application{
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS){
-            self.ui.set_text_in_view(self.document.view().text(&text));
-            self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-            self.ui.set_document_modified(self.document.is_modified());
+            self.update_ui(&text, &selections);
         }else{
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+            self.update_cursor_positions(&text, &selections);
         }
     }
     fn move_cursor_left(&mut self){
@@ -974,14 +903,9 @@ impl Application{
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS){
-            self.ui.set_text_in_view(self.document.view().text(&text));
-            self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-            self.ui.set_document_modified(self.document.is_modified());
+            self.update_ui(&text, &selections);
         }else{
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+            self.update_cursor_positions(&text, &selections);
         }
     }
     fn move_cursor_line_end(&mut self){
@@ -993,14 +917,9 @@ impl Application{
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS){
-            self.ui.set_text_in_view(self.document.view().text(&text));
-            self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-            self.ui.set_document_modified(self.document.is_modified());
+            self.update_ui(&text, &selections);
         }else{
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+            self.update_cursor_positions(&text, &selections);
         }
     }
     fn move_cursor_line_start(&mut self){
@@ -1012,14 +931,9 @@ impl Application{
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS){
-            self.ui.set_text_in_view(self.document.view().text(&text));
-            self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-            self.ui.set_document_modified(self.document.is_modified());
+            self.update_ui(&text, &selections);
         }else{
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+            self.update_cursor_positions(&text, &selections);
         }
     }
     fn move_cursor_page_down(&mut self){
@@ -1032,14 +946,9 @@ impl Application{
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS){
-            self.ui.set_text_in_view(self.document.view().text(&text));
-            self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-            self.ui.set_document_modified(self.document.is_modified());
+            self.update_ui(&text, &selections);
         }else{
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+            self.update_cursor_positions(&text, &selections);
         }
     }
     fn move_cursor_page_up(&mut self){
@@ -1052,14 +961,9 @@ impl Application{
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS){
-            self.ui.set_text_in_view(self.document.view().text(&text));
-            self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-            self.ui.set_document_modified(self.document.is_modified());
+            self.update_ui(&text, &selections);
         }else{
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+            self.update_cursor_positions(&text, &selections);
         }
     }
     fn move_cursor_right(&mut self){
@@ -1071,14 +975,9 @@ impl Application{
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS){
-            self.ui.set_text_in_view(self.document.view().text(&text));
-            self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-            self.ui.set_document_modified(self.document.is_modified());
+            self.update_ui(&text, &selections);
         }else{
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+            self.update_cursor_positions(&text, &selections);
         }
     }
     fn move_cursor_up(&mut self){
@@ -1090,14 +989,9 @@ impl Application{
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS){
-            self.ui.set_text_in_view(self.document.view().text(&text));
-            self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-            self.ui.set_document_modified(self.document.is_modified());
+            self.update_ui(&text, &selections);
         }else{
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+            self.update_cursor_positions(&text, &selections);
         }
     }
     fn move_cursor_word_end(&mut self){}
@@ -1109,7 +1003,7 @@ impl Application{
         .spawn()
         .expect("failed to spawn new terminal at current directory");
     }
-    pub fn parse_command(&self, args: &str) -> Result<(), Box<dyn Error>>{
+    pub fn parse_command(&self, args: &str) -> Result<(), ()>{
         let mut args = args.split_whitespace();
         
         let command = args.next().unwrap();
@@ -1127,14 +1021,15 @@ impl Application{
 //                    .expect("failed to spawn new terminal at current directory");
                 self.open_new_terminal_window();
             }
-            _ => {}
+            _ => {return Err(())}
         }
     
         Ok(())
     }
     fn quit(&mut self){
-        if self.ui.document_modified(){
-            self.mode = Mode::Warning(WarningKind::FileIsModified);
+        //if self.ui.document_modified(){
+        if self.document.is_modified(){
+            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::FileIsModified));
         }else{
             self.should_quit = true;
         }
@@ -1145,11 +1040,11 @@ impl Application{
     fn resize(&mut self, x: u16, y: u16){
         self.ui.set_terminal_size(x, y);
         self.ui.update_layouts(self.mode);
-        //self.ui.util_bar_mut().scroll();
+
         let text = self.ui.util_bar().text().clone();
         let selections = Selections::new(vec![self.ui.util_bar().selection().clone()], 0, &text);
         self.ui.util_bar_mut().view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS);
-        //self.ui.util_bar_alternate_mut().scroll();
+
         let text = self.ui.util_bar_alternate().text().clone();
         let selections = Selections::new(vec![self.ui.util_bar_alternate().selection().clone()], 0, &text);
         self.ui.util_bar_alternate_mut().view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS);
@@ -1160,26 +1055,18 @@ impl Application{
         let selections = self.document.selections().clone();
         self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS);
 
-        self.ui.set_text_in_view(self.document.view().text(&text));
-        self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-        self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-        self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-        self.ui.set_document_modified(self.document.is_modified());
+        self.update_ui(&text, &selections);
     }
     fn save(&mut self){
         match self.document.save(){
             Ok(_) => {
-                let text = self.document.text();
-                let selections = self.document.selections();
+                let text = self.document.text().clone();
+                let selections = self.document.selections().clone();
 
-                self.ui.set_text_in_view(self.document.view().text(text));
-                self.ui.set_line_numbers_in_view(self.document.view().line_numbers(text));
-                self.ui.set_client_cursor_position(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));
-                self.ui.set_document_cursor_position(selections.cursor_positions(text, CURSOR_SEMANTICS));
-                self.ui.set_document_modified(self.document.is_modified());
+                self.update_ui(&text, &selections);
             }
             Err(_) => {
-                self.mode = Mode::Warning(WarningKind::FileSaveFailed);
+                self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::FileSaveFailed));
             }
         }
     }
@@ -1189,11 +1076,7 @@ impl Application{
         self.document.view_mut().scroll_down(amount, &text);
 
         let selections = self.document.selections().clone();
-        self.ui.set_text_in_view(self.document.view().text(&text));
-        self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-        self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-        self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-        self.ui.set_document_modified(self.document.is_modified());
+        self.update_ui(&text, &selections);
     }
     fn scroll_view_left(&mut self, amount: usize){
         let text = self.document.text().clone();
@@ -1201,11 +1084,7 @@ impl Application{
         self.document.view_mut().scroll_left(amount);
 
         let selections = self.document.selections().clone();
-        self.ui.set_text_in_view(self.document.view().text(&text));
-        self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-        self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-        self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-        self.ui.set_document_modified(self.document.is_modified());
+        self.update_ui(&text, &selections);
     }
     fn scroll_view_right(&mut self, amount: usize){
         let text = self.document.text().clone();
@@ -1213,11 +1092,7 @@ impl Application{
         self.document.view_mut().scroll_right(amount, &text);
 
         let selections = self.document.selections().clone();
-        self.ui.set_text_in_view(self.document.view().text(&text));
-        self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-        self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-        self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-        self.ui.set_document_modified(self.document.is_modified());
+        self.update_ui(&text, &selections);
     }
     fn scroll_view_up(&mut self, amount: usize){
         let text = self.document.text().clone();
@@ -1225,11 +1100,7 @@ impl Application{
         self.document.view_mut().scroll_up(amount);
 
         let selections = self.document.selections().clone();
-        self.ui.set_text_in_view(self.document.view().text(&text));
-        self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-        self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-        self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-        self.ui.set_document_modified(self.document.is_modified());
+        self.update_ui(&text, &selections);
     }
     fn select_all(&mut self){
         let text = self.document.text().clone();
@@ -1239,24 +1110,19 @@ impl Application{
 
         let selections = self.document.selections().clone();
         if self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS){
-            self.ui.set_text_in_view(self.document.view().text(&text));
-            self.ui.set_line_numbers_in_view(self.document.view().line_numbers(&text));
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
-            self.ui.set_document_modified(self.document.is_modified());
+            self.update_ui(&text, &selections);
         }else{
-            self.ui.set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-            self.ui.set_document_cursor_position(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+            self.update_cursor_positions(&text, &selections);
         }
     }
     fn set_mode_command(&mut self){
-        self.mode = Mode::Command;
+        self.mode = Mode::Utility(UtilityKind::Command);
     }
     fn set_mode_find_replace(&mut self){
-        self.mode = Mode::FindReplace;
+        self.mode = Mode::Utility(UtilityKind::FindReplace);
     }
     fn set_mode_goto(&mut self){
-        self.mode = Mode::Goto;
+        self.mode = Mode::Utility(UtilityKind::Goto);
     }
     fn warning_mode_exit(&mut self){
         self.mode = Mode::Insert;
