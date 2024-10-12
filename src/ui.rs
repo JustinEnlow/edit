@@ -30,8 +30,8 @@ pub struct UtilBar{
     selection: Selection,
     view: View
 }
-impl UtilBar{
-    pub fn default() -> Self{
+impl Default for UtilBar{
+    fn default() -> Self{
         Self{
             text: Rope::from(""),
             text_is_valid: false,
@@ -39,39 +39,33 @@ impl UtilBar{
             view: View::new(0, 0, 0, 1)
         }
     }
-
+}
+impl UtilBar{
     pub fn selection(&self) -> &Selection{
         &self.selection
     }
     pub fn selection_mut(&mut self) -> &mut Selection{
         &mut self.selection
     }
-
     pub fn view_mut(&mut self) -> &mut View{
         &mut self.view
     }
-
     pub fn text(&self) -> &Rope{
         &self.text
     }
-
     pub fn set_text_is_valid(&mut self, text_is_valid: bool){
         self.text_is_valid = text_is_valid
     }
-
     pub fn cursor_position(&self) -> u16{
         self.selection.cursor(CursorSemantics::Block) as u16
     }
-
     pub fn set_widget_width(&mut self, width: u16){
         let height = self.view.height();
         self.view.set_size(width as usize, height);
     }
-
     pub fn clear(&mut self){
         *self = Self::default();
     }
-
     pub fn insert_char(&mut self, char: char){
         if self.selection.is_extended(CursorSemantics::Block){
             self.delete();
@@ -82,7 +76,6 @@ impl UtilBar{
         self.text = new_text;
         self.selection.move_right(&self.text.clone(), CursorSemantics::Block);
     }
-
     pub fn delete(&mut self){
         let text = self.text.clone();
         let mut new_text = self.text.clone();
@@ -112,7 +105,6 @@ impl UtilBar{
 
         self.text = new_text;
     }
-
     pub fn backspace(&mut self){
         let semantics = CursorSemantics::Block;
         if self.selection.is_extended(semantics){
@@ -126,126 +118,213 @@ impl UtilBar{
     }
 }
 
-
-
-pub struct UserInterface{
-    terminal_size: Rect,
-    display_line_numbers: bool,
-    display_status_bar: bool,
-    /// the area of the terminal filled by an open document
-    document_rect: Rect,
-    /// the area of the terminal filled by line numbers
-    line_number_rect: Rect,
-    /// the area of the status bar for indicating file modification status
-    status_bar_modified_indicator_rect: Rect,
-    /// the area of the status bar for indicating file name
-    status_bar_file_name_rect: Rect,
-    /// the area of the status bar for indicating cursor position within document
-    status_bar_cursor_position_rect: Rect,
-    /// the area of the util bar for primary utility prompts
-    util_bar_prompt_rect: Rect,
-    /// the area of the util bar for primary user input
-    util_bar_rect: Rect,
-    /// the area of the util bar for alternate utility prompts
-    util_bar_alternate_prompt_rect: Rect,
-    /// the area of the util bar for alternate user input
-    util_bar_alternate_rect: Rect,
-    util_bar_alternate_focused: bool,
-    /// holds util bar specific state
+#[derive(Default)]
+pub struct UtilBarWidget{
+    rect: Rect,
     util_bar: UtilBar,
-    util_bar_alternate: UtilBar,
-    text_in_view: String,
-    line_numbers_in_view: String,
-    client_cursor_position: Option<Position>,
-    document_length: usize,
-    document_modified_status: bool,
-    document_file_name: Option<String>,
-    document_cursor_position: Option<Position>,
 }
-impl UserInterface{
-    pub fn new(terminal_size: Rect) -> Self{
-        Self{
-            terminal_size,
-            display_line_numbers: true,
-            display_status_bar: true,
-            document_rect: Rect::default(),
-            line_number_rect: Rect::default(),
-            status_bar_modified_indicator_rect: Rect::default(),
-            status_bar_file_name_rect: Rect::default(),
-            status_bar_cursor_position_rect: Rect::default(),
-            util_bar_prompt_rect: Rect::default(),
-            util_bar_rect: Rect::default(),
-            util_bar_alternate_prompt_rect: Rect::default(),
-            util_bar_alternate_rect: Rect::default(),
-            util_bar_alternate_focused: false,
-            util_bar: UtilBar::default(),
-            util_bar_alternate: UtilBar::default(),
-            text_in_view: String::new(),
-            line_numbers_in_view: String::new(),
-            client_cursor_position: None,
-            document_length: 0,
-            document_modified_status: false,
-            document_file_name: None,
-            document_cursor_position: None,
-        }
-    }
-    pub fn set_document_modified(&mut self, modified: bool){
-        self.document_modified_status = modified;
-    }
-    pub fn set_terminal_size(&mut self, width: u16, height: u16){
-        self.terminal_size.width = width;
-        self.terminal_size.height = height;
-    }
-    pub fn set_file_name(&mut self, file_name: Option<String>){
-        self.document_file_name = file_name;
-    }
-    pub fn set_document_length(&mut self, document_length: usize){
-        self.document_length = document_length;
-    }
-    pub fn set_document_cursor_position(&mut self, cursor_position: Position){
-        self.document_cursor_position = Some(cursor_position);
-    }
-
-    pub fn document_rect(&self) -> Rect{
-        self.document_rect
-    }
-
-    pub fn toggle_line_numbers(&mut self){
-        self.display_line_numbers = !self.display_line_numbers;
-    }
-
-    pub fn toggle_status_bar(&mut self){
-        self.display_status_bar = !self.display_status_bar;
-    }
-
+impl UtilBarWidget{
     pub fn util_bar(&self) -> &UtilBar{
         &self.util_bar
     }
     pub fn util_bar_mut(&mut self) -> &mut UtilBar{
         &mut self.util_bar
     }
+    pub fn widget(&self, mode: Mode) -> Paragraph<'static>{
+        match mode{
+            Mode::Utility(UtilityKind::Goto) | Mode::Utility(UtilityKind::FindReplace) => {
+                let text = self.util_bar.text.clone();
+                if self.util_bar.text_is_valid{
+                    Paragraph::new(self.util_bar.view.text(&text))
+                }else{
+                    Paragraph::new(self.util_bar.view.text(&text))
+                        .style(Style::default().fg(Color::Red))
+                }
+            }
+            Mode::Utility(UtilityKind::Command) => {
+                let text = self.util_bar.text.clone();
+                Paragraph::new(self.util_bar.view.text(&text))
+            }
+            Mode::Utility(UtilityKind::Warning(kind)) => Paragraph::new(
+                match kind{
+                    WarningKind::FileIsModified => {
+                        "WARNING! File has unsaved changes. Press close again to ignore and close."
+                    }
+                    WarningKind::FileSaveFailed => {
+                        "WARNING! File could not be saved."
+                    }
+                    WarningKind::CommandParseFailed => {
+                        "WARNING! Failed to parse command. Command may be undefined."
+                    }
+                }
+            )
+                .alignment(ratatui::prelude::Alignment::Center)
+                .style(Style::default().bg(Color::Red).bold())
+            ,
+            _ => Paragraph::new("".to_string())
+        }
+    }
+}
+#[derive(Default)]
+pub struct UtilBarAlternateWidget{
+    rect: Rect,
+    util_bar: UtilBar,
+}
+impl UtilBarAlternateWidget{
+    pub fn util_bar(&self) -> &UtilBar{
+        &self.util_bar
+    }
+    pub fn util_bar_mut(&mut self) -> &mut UtilBar{
+        &mut self.util_bar
+    }
+    pub fn widget(&self, mode: Mode) -> Paragraph<'static>{
+        let text = self.util_bar.text.clone();
+        match mode{
+            Mode::Utility(UtilityKind::FindReplace) => {
+                Paragraph::new(self.util_bar.view.text(&text))
+            }
+            _ => Paragraph::new(self.util_bar.view.text(&text))
+        }
+    }
+}
 
-    pub fn util_bar_alternate(&self) -> &UtilBar{
-        &self.util_bar_alternate
+#[derive(Default)]
+struct UtilBarPromptWidget{
+    rect: Rect
+}
+impl UtilBarPromptWidget{
+    pub fn widget(&self, mode: Mode) -> Paragraph<'static>{
+        match mode{
+            Mode::Utility(UtilityKind::Goto) => Paragraph::new(GOTO_PROMPT),
+            Mode::Utility(UtilityKind::FindReplace) => Paragraph::new(FIND_PROMPT),
+            Mode::Utility(UtilityKind::Command) => Paragraph::new(COMMAND_PROMPT),
+            _ => Paragraph::new("")
+        }
     }
-    pub fn util_bar_alternate_mut(&mut self) -> &mut UtilBar{
-        &mut self.util_bar_alternate
-    }
+}
 
-    pub fn util_bar_alternate_focused(&self) -> bool{
-        self.util_bar_alternate_focused
+#[derive(Default)]
+struct UtilBarAlternatePromptWidget{
+    rect: Rect
+}
+impl UtilBarAlternatePromptWidget{
+    pub fn widget(&self, mode: Mode) -> Paragraph<'static>{
+        match mode{
+            Mode::Utility(UtilityKind::FindReplace) => {
+                Paragraph::new(REPLACE_PROMPT)
+            },
+            _ => Paragraph::new("")
+        }
     }
-    pub fn set_util_bar_alternate_focused(&mut self, util_bar_alternate_focused: bool){
-        self.util_bar_alternate_focused = util_bar_alternate_focused
-    }
+}
 
+#[derive(Default)]
+pub struct DocumentCursorPositionWidget{
+    rect: Rect,
+    document_cursor_position: Option<Position>
+}
+impl DocumentCursorPositionWidget{
+    pub fn set(&mut self, cursor_position: Position){
+        self.document_cursor_position = Some(cursor_position);
+    }
+    pub fn widget(&self) -> Paragraph<'static>{
+        let position = match self.document_cursor_position{
+            Some(cursor_position) => {
+                format!(
+                    "{}:{}",
+                    cursor_position.y(),
+                    cursor_position.x()
+                )
+            }
+            None => "None".to_string()
+        };
+        Paragraph::new(position)
+            .alignment(Alignment::Right)
+            .style(
+                Style::default()
+                    .bg(Color::DarkGray)
+                    .bold()
+            )
+    }
+}
+
+#[derive(Default)]
+pub struct LineNumberWidget{
+    rect: Rect,
+    line_numbers_in_view: String,
+}
+impl LineNumberWidget{
+    pub fn set(&mut self, line_numbers: String){
+        self.line_numbers_in_view = line_numbers;
+    }
+    pub fn widget(&self) -> Paragraph<'static>{
+        Paragraph::new(self.line_numbers_in_view.clone())
+            .style(Style::default().fg(Color::Rgb(100, 100, 100)))
+            .alignment(Alignment::Right)
+    }
+}
+
+#[derive(Default)]
+pub struct FileNameWidget{
+    rect: Rect,
+    file_name: Option<String>
+}
+impl FileNameWidget{
+    pub fn set(&mut self, file_name: Option<String>){
+        self.file_name = file_name;
+    }
+    pub fn widget(&self) -> Paragraph<'static>{
+        let file_name = match &self.file_name{
+            Some(file_name) => file_name.to_string(),
+            None => "None".to_string()
+        };
+        Paragraph::new(file_name)
+            .alignment(Alignment::Left)
+            .style(
+                Style::default()
+                    .bg(Color::DarkGray)
+                    .bold()
+            )
+    }
+}
+
+#[derive(Default)]
+pub struct ModifiedIndicatorWidget{
+    rect: Rect,
+    document_modified_status: bool
+}
+impl ModifiedIndicatorWidget{
+    pub fn set(&mut self, modified: bool){
+        self.document_modified_status = modified;
+    }
+    pub fn widget(&self) -> Paragraph<'static>{
+        Paragraph::new(MODIFIED_INDICATOR)
+            .alignment(Alignment::Left)
+            .style(
+                Style::default()
+                    .bg(Color::DarkGray)
+                    .bold()
+            )
+    }
+}
+
+#[derive(Default)]
+pub struct DocumentWidget{
+    rect: Rect,
+    doc_length: usize,
+    client_cursor_position: Option<Position>,
+    text_in_view: String,
+}
+impl DocumentWidget{
+    pub fn set_length(&mut self, document_length: usize){
+        self.doc_length = document_length;
+    }
+    pub fn rect(&self) -> Rect{
+        self.rect
+    }
     pub fn set_text_in_view(&mut self, text: String){
         self.text_in_view = text;
     }
-    pub fn set_line_numbers_in_view(&mut self, line_numbers: String){
-        self.line_numbers_in_view = line_numbers;
-    }
-
     pub fn set_client_cursor_position(&mut self, positions: Vec<Position>){
         if !positions.is_empty(){
             self.client_cursor_position = Some(*positions.last().unwrap());
@@ -253,6 +332,93 @@ impl UserInterface{
             self.client_cursor_position = None;
         }
     }
+    pub fn widget(&self) -> Paragraph<'static>{
+        Paragraph::new(self.text_in_view.clone())
+    }
+}
+
+
+
+pub struct UserInterface{
+    terminal_size: Rect,
+    display_line_numbers: bool,
+    display_status_bar: bool,
+    util_bar_alternate_focused: bool,
+    document_widget: DocumentWidget,
+    line_number_widget: LineNumberWidget,
+    modified_indicator_widget: ModifiedIndicatorWidget,
+    file_name_widget: FileNameWidget,
+    document_cursor_position_widget: DocumentCursorPositionWidget,
+    util_bar_prompt_widget: UtilBarPromptWidget,
+    util_bar_alternate_prompt_widget: UtilBarAlternatePromptWidget,
+    util_bar_widget: UtilBarWidget,
+    util_bar_alternate_widget: UtilBarAlternateWidget,
+}
+impl UserInterface{
+    pub fn new(terminal_size: Rect) -> Self{
+        Self{
+            terminal_size,
+            display_line_numbers: true,
+            display_status_bar: true,
+            util_bar_alternate_focused: false,
+            document_widget: DocumentWidget::default(),
+            line_number_widget: LineNumberWidget::default(),
+            modified_indicator_widget: ModifiedIndicatorWidget::default(),
+            file_name_widget: FileNameWidget::default(),
+            document_cursor_position_widget: DocumentCursorPositionWidget::default(),
+            util_bar_prompt_widget: UtilBarPromptWidget::default(),
+            util_bar_alternate_prompt_widget: UtilBarAlternatePromptWidget::default(),
+            util_bar_widget: UtilBarWidget::default(),
+            util_bar_alternate_widget: UtilBarAlternateWidget::default(),
+        }
+    }
+    pub fn set_terminal_size(&mut self, width: u16, height: u16){
+        self.terminal_size.width = width;
+        self.terminal_size.height = height;
+    }
+    pub fn toggle_line_numbers(&mut self){
+        self.display_line_numbers = !self.display_line_numbers;
+    }
+    pub fn toggle_status_bar(&mut self){
+        self.display_status_bar = !self.display_status_bar;
+    }
+    pub fn util_bar_alternate_focused(&self) -> bool{
+        self.util_bar_alternate_focused
+    }
+    pub fn set_util_bar_alternate_focused(&mut self, util_bar_alternate_focused: bool){
+        self.util_bar_alternate_focused = util_bar_alternate_focused
+    }
+    pub fn document_widget(&self) -> &DocumentWidget{
+        &self.document_widget
+    }
+    pub fn document_widget_mut(&mut self) -> &mut DocumentWidget{
+        &mut self.document_widget
+    }
+    pub fn line_number_widget_mut(&mut self) -> &mut LineNumberWidget{
+        &mut self.line_number_widget
+    }
+    pub fn modified_indicator_widget_mut(&mut self) -> &mut ModifiedIndicatorWidget{
+        &mut self.modified_indicator_widget
+    }
+    pub fn file_name_widget_mut(&mut self) -> &mut FileNameWidget{
+        &mut self.file_name_widget
+    }
+    pub fn document_cursor_position_widget_mut(&mut self) -> &mut DocumentCursorPositionWidget{
+        &mut self.document_cursor_position_widget
+    }
+    pub fn util_bar_widget(&self) -> &UtilBarWidget{
+        &self.util_bar_widget
+    }
+    pub fn util_bar_widget_mut(&mut self) -> &mut UtilBarWidget{
+        &mut self.util_bar_widget
+    }
+    pub fn util_bar_alternate_widget(&self) -> &UtilBarAlternateWidget{
+        &self.util_bar_alternate_widget
+    }
+    pub fn util_bar_alternate_widget_mut(&mut self) -> &mut UtilBarAlternateWidget{
+        &mut self.util_bar_alternate_widget
+    }
+
 
 
     pub fn update_layouts(&mut self, mode: Mode){
@@ -286,7 +452,7 @@ impl UserInterface{
                     // line number rect width
                     Constraint::Length(
                         if self.display_line_numbers{
-                            count_digits(self.document_length)
+                            count_digits(self.document_widget.doc_length)
                         }else{0}
                     ),
                     // line number right padding
@@ -304,13 +470,13 @@ impl UserInterface{
                 vec![
                     // modified indicator width
                     Constraint::Max(
-                        if self.document_modified_status{
+                        if self.modified_indicator_widget.document_modified_status{
                             MODIFIED_INDICATOR.len() as u16
                         }else{0}
                     ),
                     // file_name width
                     Constraint::Max(
-                        if let Some(file_name) = &self.document_file_name{
+                        if let Some(file_name) = &self.file_name_widget.file_name{
                             file_name.len() as u16
                         }else{0}
                     ),
@@ -355,7 +521,6 @@ impl UserInterface{
                     // util bar alternate rect width
                     Constraint::Length(
                         match mode{
-                            //Mode::FindReplace => (viewport_rect[2].width / 2) - REPLACE_PROMPT.len() as u16,
                             Mode::Utility(UtilityKind::FindReplace) => (viewport_rect[2]. width / 2).saturating_sub(REPLACE_PROMPT.len() as u16),
                             _ => 0
                         }
@@ -366,153 +531,26 @@ impl UserInterface{
             )
             .split(viewport_rect[2]);
 
-        self.line_number_rect = document_and_line_num_rect[0];
+        self.line_number_widget.rect = document_and_line_num_rect[0];
         // dont have to set line num right padding(document_and_line_num_rect[1])
-        self.document_rect = document_and_line_num_rect[2];
-        self.status_bar_modified_indicator_rect = status_bar_rect[0];
-        self.status_bar_file_name_rect = status_bar_rect[1];
-        self.status_bar_cursor_position_rect = status_bar_rect[2];
-        self.util_bar_prompt_rect = util_rect[0];
-        self.util_bar_rect = util_rect[1];
-        self.util_bar_alternate_prompt_rect = util_rect[2];
-        self.util_bar_alternate_rect = util_rect[3];
+        self.document_widget.rect = document_and_line_num_rect[2];
+        self.modified_indicator_widget.rect = status_bar_rect[0];
+        self.file_name_widget.rect = status_bar_rect[1];
+        self.document_cursor_position_widget.rect = status_bar_rect[2];
+        self.util_bar_prompt_widget.rect = util_rect[0];
+        self.util_bar_widget.rect = util_rect[1];
+        self.util_bar_alternate_prompt_widget.rect = util_rect[2];
+        self.util_bar_alternate_widget.rect = util_rect[3];
 
         match mode{
             Mode::Utility(UtilityKind::Command) | Mode::Utility(UtilityKind::Goto) | Mode::Utility(UtilityKind::FindReplace) => {
-                self.util_bar.set_widget_width(self.util_bar_rect.width);
-                self.util_bar_alternate.set_widget_width(self.util_bar_alternate_rect.width);
+                self.util_bar_widget.util_bar.set_widget_width(self.util_bar_widget.rect.width);
+                self.util_bar_alternate_widget.util_bar.set_widget_width(self.util_bar_alternate_widget.rect.width);
             }
             _ => {
-                self.util_bar.set_widget_width(0);
-                self.util_bar_alternate.set_widget_width(0);
+                self.util_bar_widget.util_bar.set_widget_width(0);
+                self.util_bar_alternate_widget.util_bar.set_widget_width(0);
             }
-        }
-    }
-
-    //TODO: find out why we have double padding to left of line nums
-    pub fn line_number_widget(&self) -> Paragraph<'static>{
-        Paragraph::new(self.line_numbers_in_view.clone())
-            .style(Style::default().fg(Color::Rgb(100, 100, 100)))
-            .alignment(Alignment::Right)
-    }
-
-    pub fn document_widget(&self) -> Paragraph<'static>{
-            Paragraph::new(self.text_in_view.clone())
-    }
-
-    pub fn status_bar_modified_indicator_widget(&self) -> Paragraph<'static>{
-        Paragraph::new(MODIFIED_INDICATOR)
-            .alignment(Alignment::Left)
-            .style(
-                Style::default()
-                    .bg(Color::DarkGray)
-                    .bold()
-            )
-    }
-
-    pub fn status_bar_file_name_widget(&self) -> Paragraph<'static>{
-        let file_name = match &self.document_file_name{
-            Some(file_name) => file_name.to_string(),
-            None => "None".to_string()
-        };
-        Paragraph::new(file_name)
-            .alignment(Alignment::Left)
-            .style(
-                Style::default()
-                    .bg(Color::DarkGray)
-                    .bold()
-            )
-    }
-
-    pub fn status_bar_cursor_position_widget(&self) -> Paragraph<'static>{
-        let position = match self.document_cursor_position{
-            Some(cursor_position) => {
-                format!(
-                    "{}:{}",
-                    cursor_position.y(),// + 1,
-                    cursor_position.x()// + 1
-                )
-            }
-            None => "None".to_string()
-        };
-        Paragraph::new(position)
-            .alignment(Alignment::Right)
-            .style(
-                Style::default()
-                    .bg(Color::DarkGray)
-                    .bold()
-            )
-    }
-
-    pub fn util_bar_prompt_widget(&self, mode: Mode) -> Paragraph<'static>{
-        match mode{
-            Mode::Utility(UtilityKind::Goto) => Paragraph::new(GOTO_PROMPT),
-            Mode::Utility(UtilityKind::FindReplace) => Paragraph::new(FIND_PROMPT),
-            Mode::Utility(UtilityKind::Command) => Paragraph::new(COMMAND_PROMPT),
-            _ => Paragraph::new("")
-        }
-    }
-
-    pub fn util_bar_widget(&self, mode: Mode) -> Paragraph<'static>{
-        match mode{
-            //Mode::Goto | Mode::FindReplace => {
-            Mode::Utility(UtilityKind::Goto) | Mode::Utility(UtilityKind::FindReplace) => {
-                let text = self.util_bar.text.clone();
-                if self.util_bar.text_is_valid{
-                    Paragraph::new(self.util_bar.view.text(&text))
-                }else{
-                    Paragraph::new(self.util_bar.view.text(&text))
-                        .style(Style::default().fg(Color::Red))
-                }
-            }
-            //Mode::Command => {
-            Mode::Utility(UtilityKind::Command) => {
-                let text = self.util_bar.text.clone();
-                Paragraph::new(self.util_bar.view.text(&text))
-            }
-            //Mode::Warning(kind) => Paragraph::new(
-            Mode::Utility(UtilityKind::Warning(kind)) => Paragraph::new(
-                match kind{
-                    WarningKind::FileIsModified => {
-                        "WARNING! File has unsaved changes. Press close again to ignore and close."
-                    }
-                    WarningKind::FileSaveFailed => {
-                        "WARNING! File could not be saved."
-                    }
-                    //WarningKind::FileOpenFailed => {
-                    //    "WARNING! File could not be opened."
-                    //}
-                    // command mode failed
-                    WarningKind::CommandUnavailable => {
-                        "WARNING! The entered command is unavailable."
-                    }
-                }
-            )
-                .alignment(ratatui::prelude::Alignment::Center)
-                .style(Style::default().bg(Color::Red).bold())
-            ,
-            _ => Paragraph::new("".to_string())
-        }
-    }
-
-    pub fn util_bar_alternate_prompt_widget(&self, mode: Mode) -> Paragraph<'static>{
-        match mode{
-            //Mode::FindReplace => {
-            Mode::Utility(UtilityKind::FindReplace) => {
-                Paragraph::new(REPLACE_PROMPT)
-            },
-            _ => Paragraph::new("")
-        }
-    }
-
-    pub fn util_bar_alternate_widget(&self, mode: Mode) -> Paragraph<'static>{
-        let text = self.util_bar_alternate.text.clone();
-        match mode{
-            //Mode::FindReplace => {
-            Mode::Utility(UtilityKind::FindReplace) => {
-                Paragraph::new(self.util_bar_alternate.view.text(&text))
-            }
-            _ => Paragraph::new(self.util_bar_alternate.view.text(&text))
         }
     }
 
@@ -521,23 +559,23 @@ impl UserInterface{
             |frame| {
 
                 // render widgets
-                frame.render_widget(self.line_number_widget(), self.line_number_rect);
-                frame.render_widget(self.document_widget(), self.document_rect);
-                frame.render_widget(self.status_bar_modified_indicator_widget(), self.status_bar_modified_indicator_rect);
-                frame.render_widget(self.status_bar_file_name_widget(), self.status_bar_file_name_rect);
-                frame.render_widget(self.status_bar_cursor_position_widget(), self.status_bar_cursor_position_rect);
-                frame.render_widget(self.util_bar_prompt_widget(mode), self.util_bar_prompt_rect);
-                frame.render_widget(self.util_bar_widget(mode), self.util_bar_rect);
-                frame.render_widget(self.util_bar_alternate_prompt_widget(mode), self.util_bar_alternate_prompt_rect);
-                frame.render_widget(self.util_bar_alternate_widget(mode), self.util_bar_alternate_rect);
+                frame.render_widget(self.line_number_widget.widget(), self.line_number_widget.rect);
+                frame.render_widget(self.document_widget.widget(), self.document_widget.rect);
+                frame.render_widget(self.modified_indicator_widget.widget(), self.modified_indicator_widget.rect);
+                frame.render_widget(self.file_name_widget.widget(), self.file_name_widget.rect);
+                frame.render_widget(self.document_cursor_position_widget.widget(), self.document_cursor_position_widget.rect);
+                frame.render_widget(self.util_bar_prompt_widget.widget(mode), self.util_bar_prompt_widget.rect);
+                frame.render_widget(self.util_bar_widget.widget(mode), self.util_bar_widget.rect);
+                frame.render_widget(self.util_bar_alternate_prompt_widget.widget(mode), self.util_bar_alternate_prompt_widget.rect);
+                frame.render_widget(self.util_bar_alternate_widget.widget(mode), self.util_bar_alternate_widget.rect);
 
                 // render cursor
                 match mode{
                     Mode::Insert => {
-                        if let Some(pos) = self.client_cursor_position{
+                        if let Some(pos) = self.document_widget.client_cursor_position{
                             frame.set_cursor(
-                                self.document_rect.x + pos.x() as u16, 
-                                self.document_rect.y + pos.y() as u16
+                                self.document_widget.rect.x + pos.x() as u16,
+                                self.document_widget.rect.y + pos.y() as u16
                             )
                         }
                     }
@@ -545,17 +583,17 @@ impl UserInterface{
                         match kind{
                             UtilityKind::Goto | UtilityKind::Command => {
                                 frame.set_cursor(
-                                    self.util_bar_rect.x + self.util_bar.cursor_position().saturating_sub(self.util_bar.view.horizontal_start() as u16),
+                                    self.util_bar_widget.rect.x + self.util_bar_widget.util_bar.cursor_position().saturating_sub(self.util_bar_widget.util_bar.view.horizontal_start() as u16),
                                     self.terminal_size.height
                                 );
                             }
                             UtilityKind::FindReplace => {
                                 frame.set_cursor(
                                     if self.util_bar_alternate_focused{
-                                        self.util_bar_alternate_rect.x + self.util_bar_alternate.cursor_position()
-                                            .saturating_sub(self.util_bar_alternate.view.horizontal_start() as u16)
+                                        self.util_bar_alternate_widget.rect.x + self.util_bar_alternate_widget.util_bar.cursor_position()
+                                            .saturating_sub(self.util_bar_alternate_widget.util_bar.view.horizontal_start() as u16)
                                     }else{
-                                        self.util_bar_rect.x + self.util_bar.cursor_position().saturating_sub(self.util_bar.view.horizontal_start() as u16)
+                                        self.util_bar_widget.rect.x + self.util_bar_widget.util_bar.cursor_position().saturating_sub(self.util_bar_widget.util_bar.view.horizontal_start() as u16)
                                     },
                                     self.terminal_size.height
                                 );
