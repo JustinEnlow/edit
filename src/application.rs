@@ -34,7 +34,7 @@ const VIEW_SCROLL_AMOUNT: usize = 1;
 
 #[derive(Clone, Copy)]
 pub enum Mode{
-    Insert,
+    Insert, //Insert(Normal, Autocomplete, Selection, etc)
     Utility(UtilityKind),
 }
 
@@ -116,6 +116,7 @@ impl Application{
                 match (key_event, self.mode){
                     // Insert Mode
                     //(KeyEvent{modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT, code, ..}, Mode::Insert) => {Action::}
+                    //(KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Esc, ..}, Mode::Insert(_)) => {Action::SomeAction}   //catch all for insert sub modes
                     (KeyEvent{modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT, code: KeyCode::PageDown, ..}, Mode::Insert) => {self.extend_selection_page_down()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT, code: KeyCode::PageUp, ..}, Mode::Insert) => {self.extend_selection_page_up()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Right,         ..}, Mode::Insert) => {self.move_cursor_word_end()}
@@ -132,6 +133,9 @@ impl Application{
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('o'),     ..}, Mode::Insert) => {self.set_mode_command()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('t'),     ..}, Mode::Insert) => {self.open_new_terminal_window()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('a'),     ..}, Mode::Insert) => {self.select_all()}
+                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('x'),     ..}, Mode::Insert) => {self.cut()}
+                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('c'),     ..}, Mode::Insert) => {self.copy()}
+                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('v'),     ..}, Mode::Insert) => {self.paste()}
                     (KeyEvent{modifiers: KeyModifiers::SHIFT,   code: KeyCode::Right,         ..}, Mode::Insert) => {self.extend_selection_right()}
                     (KeyEvent{modifiers: KeyModifiers::SHIFT,   code: KeyCode::Left,          ..}, Mode::Insert) => {self.extend_selection_left()}
                     (KeyEvent{modifiers: KeyModifiers::SHIFT,   code: KeyCode::Up,            ..}, Mode::Insert) => {self.extend_selection_up()}
@@ -346,6 +350,29 @@ impl Application{
         let selections = Selections::new(vec![self.ui.util_bar_widget().util_bar().selection().clone()], 0, &text);
         self.ui.util_bar_widget_mut().util_bar_mut().view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS);
     }
+    fn copy(&mut self){
+        self.document.selections_mut().clear_non_primary_selections();
+        // or this could trigger a warning that there are multiple selections, and user can decide if they want to clear non primary
+        
+        self.document.copy();
+    }
+    fn cut(&mut self){
+        let len = self.document.len();
+        self.document.selections_mut().clear_non_primary_selections();
+        // or this could trigger a warning that there are multiple selections, and user can decide if they want to clear non primary
+
+        self.document.cut(CURSOR_SEMANTICS);
+
+        let text = self.document.text().clone();
+        let selections = self.document.selections().clone();
+        self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS);
+
+        self.update_ui(&text, &selections);
+
+        if len != self.document.len(){  //if length has changed after cut
+            self.ui.document_widget_mut().set_length(self.document.len());
+        }
+    }
     fn delete(&mut self){
         let len = self.document.len();
         self.document.delete(CURSOR_SEMANTICS);
@@ -356,7 +383,7 @@ impl Application{
 
         self.update_ui(&text, &selections);
 
-        if len != self.document.len(){  //if length has changed after backspace
+        if len != self.document.len(){  //if length has changed after delete
             self.ui.document_widget_mut().set_length(self.document.len());
         }
     }
@@ -849,7 +876,7 @@ impl Application{
 
         self.update_ui(&text, &selections);
 
-        if len != self.document.len(){  //if length has changed after backspace
+        if len != self.document.len(){  //if length has changed after newline
             self.ui.document_widget_mut().set_length(self.document.len());
         }
     }
@@ -1037,6 +1064,20 @@ impl Application{
         }
     
         Ok(())
+    }
+    fn paste(&mut self){
+        let len = self.document.len();
+        self.document.paste(CURSOR_SEMANTICS);
+
+        let text = self.document.text().clone();
+        let selections = self.document.selections().clone();
+        self.document.view_mut().scroll_following_cursor(&selections, &text, CURSOR_SEMANTICS);
+
+        self.update_ui(&text, &selections);
+
+        if len != self.document.len(){  //if length has changed after paste
+            self.ui.document_widget_mut().set_length(self.document.len());
+        }
     }
     fn quit(&mut self){
         //if self.ui.document_modified(){
