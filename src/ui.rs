@@ -1,8 +1,6 @@
 use crate::application::{Mode, UtilityKind, WarningKind};
 use edit_core::{
-    Position,
-    selection::{Selection, Movement, CursorSemantics},
-    view::View
+    document::Document, selection::{CursorSemantics, Movement, Selection}, view::View, Position
 };
 use ropey::Rope;
 use std::cmp::Ordering;
@@ -336,6 +334,11 @@ impl DocumentWidget{
         Paragraph::new(self.text_in_view.clone())
     }
 }
+impl ratatui::widgets::Widget for DocumentWidget{
+    fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer){
+        
+    }
+}
 
 
 
@@ -435,7 +438,8 @@ impl UserInterface{
                     Constraint::Length(
                         match mode{
                             Mode::Utility(_) => 1,
-                            Mode::Insert => if self.display_status_bar{1}else{0}
+                            Mode::Insert
+                            | Mode::Space => if self.display_status_bar{1}else{0}
                         }
                     )
                 ]
@@ -474,6 +478,8 @@ impl UserInterface{
                             MODIFIED_INDICATOR.len() as u16
                         }else{0}
                     ),
+                    //TODO: num selections widget
+                    //
                     // file_name width
                     Constraint::Max(
                         if let Some(file_name) = &self.file_name_widget.file_name{
@@ -498,13 +504,15 @@ impl UserInterface{
                             Mode::Utility(UtilityKind::FindReplace) => FIND_PROMPT.len() as u16,
                             Mode::Utility(UtilityKind::Command) => COMMAND_PROMPT.len() as u16,
                             Mode::Utility(UtilityKind::Warning(_))
-                            | Mode::Insert => 0
+                            | Mode::Insert
+                            | Mode::Space => 0
                         }
                     ),
                     // util bar rect width
                     Constraint::Length(
                         match mode{
                             Mode::Insert
+                            | Mode::Space
                             | Mode::Utility(UtilityKind::Warning(_)) => viewport_rect[2].width,
                             Mode::Utility(UtilityKind::Goto) => viewport_rect[2].width - GOTO_PROMPT.len() as u16,
                             Mode::Utility(UtilityKind::Command) => viewport_rect[2].width - COMMAND_PROMPT.len() as u16,                            
@@ -543,7 +551,9 @@ impl UserInterface{
         self.util_bar_alternate_widget.rect = util_rect[3];
 
         match mode{
-            Mode::Utility(UtilityKind::Command) | Mode::Utility(UtilityKind::Goto) | Mode::Utility(UtilityKind::FindReplace) => {
+            Mode::Utility(UtilityKind::Command) 
+            | Mode::Utility(UtilityKind::Goto) 
+            | Mode::Utility(UtilityKind::FindReplace) => {
                 self.util_bar_widget.util_bar.set_widget_width(self.util_bar_widget.rect.width);
                 self.util_bar_alternate_widget.util_bar.set_widget_width(self.util_bar_alternate_widget.rect.width);
             }
@@ -557,19 +567,22 @@ impl UserInterface{
     pub fn render(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>, mode: Mode) -> Result<(), Box<dyn Error>>{        
         terminal.draw(
             |frame| {
-
-                // render widgets
-                frame.render_widget(self.line_number_widget.widget(), self.line_number_widget.rect);
+                // always render
                 frame.render_widget(self.document_widget.widget(), self.document_widget.rect);
-                frame.render_widget(self.modified_indicator_widget.widget(), self.modified_indicator_widget.rect);
-                frame.render_widget(self.file_name_widget.widget(), self.file_name_widget.rect);
-                frame.render_widget(self.document_cursor_position_widget.widget(), self.document_cursor_position_widget.rect);
-                frame.render_widget(self.util_bar_prompt_widget.widget(mode), self.util_bar_prompt_widget.rect);
-                frame.render_widget(self.util_bar_widget.widget(mode), self.util_bar_widget.rect);
-                frame.render_widget(self.util_bar_alternate_prompt_widget.widget(mode), self.util_bar_alternate_prompt_widget.rect);
-                frame.render_widget(self.util_bar_alternate_widget.widget(mode), self.util_bar_alternate_widget.rect);
+                
+                // conditionally render
+                if self.display_line_numbers{
+                    frame.render_widget(self.line_number_widget.widget(), self.line_number_widget.rect);
+                }
+                if self.display_status_bar{
+                    frame.render_widget(self.modified_indicator_widget.widget(), self.modified_indicator_widget.rect);
+                    frame.render_widget(self.file_name_widget.widget(), self.file_name_widget.rect);
+                    // TODO: add widget for number of selections
+                    frame.render_widget(self.document_cursor_position_widget.widget(), self.document_cursor_position_widget.rect);
+                }
 
-                // render cursor
+                // render according to mode
+                // cursor rendering will prob change from frame.render_widget style to handling cursor drawing in each widget
                 match mode{
                     Mode::Insert => {
                         if let Some(pos) = self.document_widget.client_cursor_position{
@@ -582,12 +595,18 @@ impl UserInterface{
                     Mode::Utility(kind) => {
                         match kind{
                             UtilityKind::Goto | UtilityKind::Command => {
+                                frame.render_widget(self.util_bar_prompt_widget.widget(mode), self.util_bar_prompt_widget.rect);
+                                frame.render_widget(self.util_bar_widget.widget(mode), self.util_bar_widget.rect);
                                 frame.set_cursor(
                                     self.util_bar_widget.rect.x + self.util_bar_widget.util_bar.cursor_position().saturating_sub(self.util_bar_widget.util_bar.view.horizontal_start() as u16),
                                     self.terminal_size.height
                                 );
                             }
                             UtilityKind::FindReplace => {
+                                frame.render_widget(self.util_bar_prompt_widget.widget(mode), self.util_bar_prompt_widget.rect);
+                                frame.render_widget(self.util_bar_widget.widget(mode), self.util_bar_widget.rect);
+                                frame.render_widget(self.util_bar_alternate_prompt_widget.widget(mode), self.util_bar_alternate_prompt_widget.rect);
+                                frame.render_widget(self.util_bar_alternate_widget.widget(mode), self.util_bar_alternate_widget.rect);
                                 frame.set_cursor(
                                     if self.util_bar_alternate_focused{
                                         self.util_bar_alternate_widget.rect.x + self.util_bar_alternate_widget.util_bar.cursor_position()
@@ -598,43 +617,57 @@ impl UserInterface{
                                     self.terminal_size.height
                                 );
                             }
-                            UtilityKind::Warning(_) => {}
+                            UtilityKind::Warning(_) => {
+                                frame.render_widget(self.util_bar_prompt_widget.widget(mode), self.util_bar_prompt_widget.rect);
+                                frame.render_widget(self.util_bar_widget.widget(mode), self.util_bar_widget.rect);
+                            }
                         }
+                    }
+                    Mode::Space => {
+                        let percentage = 35;
+                        frame.render_widget(ratatui::widgets::Clear, centered_rect(percentage - 10, percentage, self.terminal_size));
+                        frame.render_widget(
+                            Paragraph::new(" r  rename symbol(not implemented)\n b  insert debug breakpoint(not implemented)\n e  do another thing")
+                                .block(ratatui::widgets::Block::default()
+                                    .borders(ratatui::widgets::Borders::all())
+                                    .title("context menu"))
+                                .style(Style::new().bg(Color::Rgb(20, 20, 20))),
+                            centered_rect(percentage - 10, percentage, self.terminal_size)
+                        );
                     }
                 }
             }
-
         )?;
 
         Ok(())
     }
 }
 
-//fn _centered_rect(percent_x: u16, percent_y: u16, r: ratatui::prelude::Rect) -> ratatui::prelude::Rect{
-//    let popup_layout = Layout::default()
-//        .direction(Direction::Vertical)
-//        .constraints(
-//            [
-//                Constraint::Percentage((100 - percent_y) / 2),
-//                Constraint::Percentage(percent_y),
-//                Constraint::Percentage((100 - percent_y) / 2),
-//            ]
-//            .as_ref(),
-//        )
-//        .split(r);
-//
-//    Layout::default()
-//        .direction(Direction::Horizontal)
-//        .constraints(
-//            [
-//                Constraint::Percentage((100 - percent_x) / 2),
-//                Constraint::Percentage(percent_x),
-//                Constraint::Percentage((100 - percent_x) / 2),
-//            ]
-//            .as_ref(),
-//        )
-//        .split(popup_layout[1])[1]
-//}
+fn centered_rect(percent_x: u16, percent_y: u16, r: ratatui::prelude::Rect) -> ratatui::prelude::Rect{
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(
+            [
+                Constraint::Percentage((100 - percent_y) / 2),
+                Constraint::Percentage(percent_y),
+                Constraint::Percentage((100 - percent_y) / 2),
+            ]
+            .as_ref(),
+        )
+        .split(r);
+
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(
+            [
+                Constraint::Percentage((100 - percent_x) / 2),
+                Constraint::Percentage(percent_x),
+                Constraint::Percentage((100 - percent_x) / 2),
+            ]
+            .as_ref(),
+        )
+        .split(popup_layout[1])[1]
+}
 
 
 

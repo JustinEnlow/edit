@@ -32,13 +32,14 @@ const VIEW_SCROLL_AMOUNT: usize = 1;
 
 
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Mode{
-    Insert, //Insert(Normal, Autocomplete, Selection, etc)
+    Insert, //Insert(Normal, Completion, Selection, etc)
+    Space,
     Utility(UtilityKind),
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum UtilityKind{
     Warning(WarningKind),
     Command,
@@ -100,7 +101,7 @@ impl Application{
         self.update_ui(&text, &selections);
 
         loop{
-            self.host_terminal.hide_cursor()?;  //testing this to resolve cursor displaying in random places while moving quickly
+            //self.host_terminal.hide_cursor()?;  //testing this to resolve cursor displaying in random places while moving quickly
             self.ui.update_layouts(self.mode);
             self.ui.render(&mut self.host_terminal, self.mode)?;
             self.handle_event()?;
@@ -123,7 +124,7 @@ impl Application{
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Left,          ..}, Mode::Insert) => {self.move_cursor_word_start()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Home,          ..}, Mode::Insert) => {self.move_cursor_document_start()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::End,           ..}, Mode::Insert) => {self.move_cursor_document_end()}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char(' '),     ..}, Mode::Insert) => {self.no_op()}  //show context menu
+                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char(' '),     ..}, Mode::Insert) => {self.set_mode_space()}  //show context menu
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('q'),     ..}, Mode::Insert) => {self.quit()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('s'),     ..}, Mode::Insert) => {self.save()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('g'),     ..}, Mode::Insert) => {self.set_mode_goto()}
@@ -161,7 +162,10 @@ impl Application{
                     (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::End,           ..}, Mode::Insert) => {self.move_cursor_line_end()}
                     (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Esc,           ..}, Mode::Insert) => {self.collapse_selections()}   //depending on context: close suggestions, close context menu, collapse selections, clear non-primary selections
                     (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Char(c), ..}, Mode::Insert) => {self.insert_char(c)}
-    
+
+                    // Space Mode
+                    (KeyEvent{modifiers: KeyModifiers::NONE, code: KeyCode::Esc, ..}, Mode::Space) => {self.space_mode_exit()}
+
                     // Warning Mode
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('q'), ..}, Mode::Utility(UtilityKind::Warning(_))) => {self.quit_ignoring_changes()}
                     (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Esc,       ..}, Mode::Utility(UtilityKind::Warning(_))) => {self.warning_mode_exit()}
@@ -355,6 +359,9 @@ impl Application{
         // or this could trigger a warning that there are multiple selections, and user can decide if they want to clear non primary
         
         self.document.copy();
+        //if let Err(e) = self.document.copy(){
+        //    self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::MultipleSelectionWarning))
+        //}
     }
     fn cut(&mut self){
         let len = self.document.len();
@@ -362,6 +369,11 @@ impl Application{
         // or this could trigger a warning that there are multiple selections, and user can decide if they want to clear non primary
 
         self.document.cut(CURSOR_SEMANTICS);
+        //if let Err(e) = self.document.cut(){
+        //    self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::MultipleSelectionWarning))
+        //}else{
+        //    all the shit below...
+        //}
 
         let text = self.document.text().clone();
         let selections = self.document.selections().clone();
@@ -1176,6 +1188,12 @@ impl Application{
     }
     fn set_mode_goto(&mut self){
         self.mode = Mode::Utility(UtilityKind::Goto);
+    }
+    fn set_mode_space(&mut self){
+        self.mode = Mode::Space;
+    }
+    fn space_mode_exit(&mut self){
+        self.mode = Mode::Insert;
     }
     fn warning_mode_exit(&mut self){
         self.mode = Mode::Insert;
