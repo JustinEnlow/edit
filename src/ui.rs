@@ -154,6 +154,15 @@ impl UtilBarWidget{
                     WarningKind::CommandParseFailed => {
                         "WARNING! Failed to parse command. Command may be undefined."
                     }
+                    WarningKind::SingleSelection => {
+                        "WARNING! Requested action cannot be performed on single selection."
+                    }
+                    WarningKind::MultipleSelections => {
+                        "WARNING! Requested action cannot be performed on multiple selections."
+                    }
+                    WarningKind::InvalidInput => {
+                        "WARNING! Invalid input."
+                    }
                 }
             )
                 .alignment(ratatui::prelude::Alignment::Center)
@@ -550,7 +559,7 @@ impl UserInterface{
         self.util_bar_alternate_prompt_widget.rect = util_rect[2];
         self.util_bar_alternate_widget.rect = util_rect[3];
 
-        match mode{
+        match mode{ //TODO: can these be set from relevant fns in application.rs? display_line_numbers, display_status_bar, resize, any mode change, etc
             Mode::Utility(UtilityKind::Command) 
             | Mode::Utility(UtilityKind::Goto) 
             | Mode::Utility(UtilityKind::FindReplace) => {
@@ -627,7 +636,7 @@ impl UserInterface{
                         let percentage = 35;
                         frame.render_widget(ratatui::widgets::Clear, centered_rect(percentage - 10, percentage, self.terminal_size));
                         frame.render_widget(
-                            Paragraph::new(" r  rename symbol(not implemented)\n b  insert debug breakpoint(not implemented)\n e  do another thing")
+                            Paragraph::new(" r  rename symbol(not implemented)\n b  insert debug breakpoint(not implemented)\n p  increment primary selection")
                                 .block(ratatui::widgets::Block::default()
                                     .borders(ratatui::widgets::Borders::all())
                                     .title("context menu"))

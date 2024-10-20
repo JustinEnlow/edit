@@ -4,7 +4,7 @@ use std::error::Error;
 mod application;
 mod ui;
 
-
+// TODO: define panic hook to restore terminal to valid state
 
 fn main() -> Result<(), Box<dyn Error>>{
     let file_path = if std::env::args().count() > 1 && std::env::args().count() < 3{
