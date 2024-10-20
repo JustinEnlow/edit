@@ -1,6 +1,6 @@
 use crate::application::{Mode, UtilityKind, WarningKind};
 use edit_core::{
-    document::Document, selection::{CursorSemantics, Movement, Selection}, view::View, Position
+    /*document::Document, */selection::{CursorSemantics, Movement, Selection}, view::View, Position
 };
 use ropey::Rope;
 use std::cmp::Ordering;
@@ -72,7 +72,7 @@ impl UtilBar{
         let mut new_text = text.clone();
         new_text.insert_char(self.selection.cursor(CursorSemantics::Block), char);
         self.text = new_text;
-        self.selection.move_right(&self.text.clone(), CursorSemantics::Block);
+        self.selection = self.selection.move_right(&self.text.clone(), CursorSemantics::Block);
     }
     pub fn delete(&mut self){
         let text = self.text.clone();
@@ -81,7 +81,7 @@ impl UtilBar{
         match self.selection.cursor(CursorSemantics::Block).cmp(&self.selection.anchor()){
             Ordering::Less => {
                 new_text.remove(self.selection.head()..self.selection.anchor());
-                self.selection.put_cursor(self.selection.cursor(CursorSemantics::Block), &text, Movement::Move, CursorSemantics::Block, true);
+                self.selection = self.selection.put_cursor(self.selection.cursor(CursorSemantics::Block), &text, Movement::Move, CursorSemantics::Block, true);
             }
             Ordering::Greater => {
                 if self.selection.cursor(CursorSemantics::Block) == text.len_chars(){
@@ -90,13 +90,13 @@ impl UtilBar{
                 else{
                     new_text.remove(self.selection.anchor()..self.selection.head());
                 }
-                self.selection.put_cursor(self.selection.anchor(), &text, Movement::Move, CursorSemantics::Block, true);
+                self.selection = self.selection.put_cursor(self.selection.anchor(), &text, Movement::Move, CursorSemantics::Block, true);
             }
             Ordering::Equal => {
                 if self.selection.cursor(CursorSemantics::Block) == text.len_chars(){}    //do nothing
                 else{
                     new_text.remove(self.selection.anchor()..self.selection.head());
-                    self.selection.put_cursor(self.selection.anchor(), &text, Movement::Move, CursorSemantics::Block, true);
+                    self.selection = self.selection.put_cursor(self.selection.anchor(), &text, Movement::Move, CursorSemantics::Block, true);
                 }
             }
         }
@@ -109,7 +109,7 @@ impl UtilBar{
             self.delete();
         }else{
             if self.selection.cursor(semantics) > 0{
-                self.selection.move_left(&self.text, semantics);
+                self.selection = self.selection.move_left(&self.text, semantics);
                 self.delete();
             }
         }
@@ -344,7 +344,7 @@ impl DocumentWidget{
     }
 }
 impl ratatui::widgets::Widget for DocumentWidget{
-    fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer){
+    fn render(self, _area: Rect, _buf: &mut ratatui::prelude::Buffer){
         
     }
 }
