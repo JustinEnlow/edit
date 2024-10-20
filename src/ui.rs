@@ -103,6 +103,7 @@ impl UtilBar{
 
         self.text = new_text;
     }
+    #[allow(clippy::collapsible_else_if)]
     pub fn backspace(&mut self){
         let semantics = CursorSemantics::Block;
         if self.selection.is_extended(semantics){

@@ -236,16 +236,16 @@ impl Application{
     }
 
     fn update_ui(&mut self, text: &ropey::Rope, selections: &Selections){
-        self.ui.document_widget_mut().set_text_in_view(self.document.view().text(&text));
-        self.ui.line_number_widget_mut().set(self.document.view().line_numbers(&text));
-        self.ui.document_widget_mut().set_client_cursor_position(self.document.view().cursor_positions(&text, &selections, CURSOR_SEMANTICS));
-        self.ui.document_cursor_position_widget_mut().set(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+        self.ui.document_widget_mut().set_text_in_view(self.document.view().text(text));
+        self.ui.line_number_widget_mut().set(self.document.view().line_numbers(text));
+        self.ui.document_widget_mut().set_client_cursor_position(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));
+        self.ui.document_cursor_position_widget_mut().set(selections.cursor_positions(text, CURSOR_SEMANTICS));
         self.ui.modified_indicator_widget_mut().set(self.document.is_modified());
     }
 
     fn update_cursor_positions(&mut self, text: &ropey::Rope, selections: &Selections){
         self.ui.document_widget_mut().set_client_cursor_position(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));
-        self.ui.document_cursor_position_widget_mut().set(selections.cursor_positions(&text, CURSOR_SEMANTICS));
+        self.ui.document_cursor_position_widget_mut().set(selections.cursor_positions(text, CURSOR_SEMANTICS));
     }
 
     //fn add_selection_above(&mut self){}
