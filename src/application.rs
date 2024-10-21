@@ -170,6 +170,8 @@ impl Application{
 
                     // Space Mode
                     (KeyEvent{modifiers: KeyModifiers::NONE, code: KeyCode::Esc, ..}, Mode::Space) => {self.space_mode_exit()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE, code: KeyCode::Char('c'), ..}, Mode::Space) => {self.center_view_vertically_around_cursor()}
+                    (KeyEvent{modifiers: KeyModifiers::NONE, code: KeyCode::Char('p'), ..}, Mode::Space) => {self.increment_primary_selection()}
 
                     // Warning Mode
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('q'), ..}, Mode::Utility(UtilityKind::Warning(_))) => {self.quit_ignoring_changes()}
@@ -265,6 +267,16 @@ impl Application{
         if len != self.document.len(){  //if length has changed after backspace
             self.ui.document_widget_mut().set_length(self.document.len());
         }
+    }
+    fn center_view_vertically_around_cursor(&mut self){
+        assert!(self.mode == Mode::Space);
+        let text = self.document.text().clone();
+        let selections = self.document.selections().clone();
+        let selection = selections.primary();
+        *self.document.view_mut() = self.document.view().center_vertically_around_cursor(selection, &text, CURSOR_SEMANTICS);
+        self.update_ui(&text, &selections);
+        //exit space mode
+        self.mode = Mode::Insert;
     }
     fn clear_non_primary_selections(&mut self){
         assert!(self.mode == Mode::Insert);
