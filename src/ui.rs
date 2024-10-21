@@ -45,6 +45,9 @@ impl UtilBar{
     pub fn selection_mut(&mut self) -> &mut Selection{
         &mut self.selection
     }
+    pub fn view(&self) -> &View{
+        &self.view
+    }
     pub fn view_mut(&mut self) -> &mut View{
         &mut self.view
     }
@@ -575,7 +578,7 @@ impl UserInterface{
     }
 
     pub fn render(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>, mode: Mode) -> Result<(), Box<dyn Error>>{        
-        terminal.draw(
+        let _ = terminal.draw(  // Intentionally discarding `CompletedFrame`
             |frame| {
                 // always render
                 frame.render_widget(self.document_widget.widget(), self.document_widget.rect);
@@ -637,7 +640,7 @@ impl UserInterface{
                         let percentage = 35;
                         frame.render_widget(ratatui::widgets::Clear, centered_rect(percentage - 10, percentage, self.terminal_size));
                         frame.render_widget(
-                            Paragraph::new(" r  rename symbol(not implemented)\n b  insert debug breakpoint(not implemented)\n p  increment primary selection")
+                            Paragraph::new(" r  rename symbol(not implemented)\n b  insert debug breakpoint(not implemented)\n p  increment primary selection\n c  center cursor vertically in view")
                                 .block(ratatui::widgets::Block::default()
                                     .borders(ratatui::widgets::Borders::all())
                                     .title("context menu"))

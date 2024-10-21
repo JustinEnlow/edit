@@ -1,10 +1,12 @@
+//#![warn(unused_results)]
+
 use crate::application::Application;
 use std::error::Error;
 
 mod application;
 mod ui;
 
-// TODO: define panic hook to restore terminal to valid state
+// TODO: define panic hook to restore terminal to valid state   //https://ratatui.rs/recipes/apps/panic-hooks/
 
 fn main() -> Result<(), Box<dyn Error>>{
     let file_path = if std::env::args().count() > 1 && std::env::args().count() < 3{
