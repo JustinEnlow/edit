@@ -353,6 +353,35 @@ impl ratatui::widgets::Widget for DocumentWidget{
     }
 }
 
+struct SpaceModeWidget{
+    rect: Rect,
+    widest_element_len: u16,    //+2 for border //the number of chars in the widest option in the space menu
+    num_elements: u16,  //+2 for border //the number of options in the space menu
+}
+impl SpaceModeWidget{
+    fn new() -> Self{
+        Self{
+            rect: Rect::default(), 
+            widest_element_len: 46, 
+            num_elements: 6
+        }
+    }
+    pub fn widget(&self) -> Paragraph<'static>{
+        Paragraph::new(
+            concat!(
+                " r  rename symbol(not implemented)\n",
+                " b  insert debug breakpoint(not implemented)\n",   //widest element len 44
+                " p  increment primary selection\n",
+                " c  center cursor vertically in view"
+            )   //num elements 4
+        )
+            .block(ratatui::widgets::Block::default()
+                .borders(ratatui::widgets::Borders::all())
+                .title("context menu"))
+            .style(Style::new().bg(Color::Rgb(20, 20, 20)))
+    }
+}
+
 
 
 pub struct UserInterface{
@@ -369,6 +398,7 @@ pub struct UserInterface{
     util_bar_alternate_prompt_widget: UtilBarAlternatePromptWidget,
     util_bar_widget: UtilBarWidget,
     util_bar_alternate_widget: UtilBarAlternateWidget,
+    space_mode_widget: SpaceModeWidget,
 }
 impl UserInterface{
     pub fn new(terminal_size: Rect) -> Self{
@@ -386,6 +416,7 @@ impl UserInterface{
             util_bar_alternate_prompt_widget: UtilBarAlternatePromptWidget::default(),
             util_bar_widget: UtilBarWidget::default(),
             util_bar_alternate_widget: UtilBarAlternateWidget::default(),
+            space_mode_widget: SpaceModeWidget::new(),
         }
     }
     pub fn set_terminal_size(&mut self, width: u16, height: u16){
@@ -562,6 +593,7 @@ impl UserInterface{
         self.util_bar_widget.rect = util_rect[1];
         self.util_bar_alternate_prompt_widget.rect = util_rect[2];
         self.util_bar_alternate_widget.rect = util_rect[3];
+        self.space_mode_widget.rect = sized_centered_rect(self.space_mode_widget.widest_element_len, self.space_mode_widget.num_elements, self.terminal_size);
 
         match mode{ //TODO: can these be set from relevant fns in application.rs? display_line_numbers, display_status_bar, resize, any mode change, etc
             Mode::Utility(UtilityKind::Command) 
@@ -637,16 +669,8 @@ impl UserInterface{
                         }
                     }
                     Mode::Space => {
-                        let percentage = 35;
-                        frame.render_widget(ratatui::widgets::Clear, centered_rect(percentage - 10, percentage, self.terminal_size));
-                        frame.render_widget(
-                            Paragraph::new(" r  rename symbol(not implemented)\n b  insert debug breakpoint(not implemented)\n p  increment primary selection\n c  center cursor vertically in view")
-                                .block(ratatui::widgets::Block::default()
-                                    .borders(ratatui::widgets::Borders::all())
-                                    .title("context menu"))
-                                .style(Style::new().bg(Color::Rgb(20, 20, 20))),
-                            centered_rect(percentage - 10, percentage, self.terminal_size)
-                        );
+                        frame.render_widget(ratatui::widgets::Clear, self.space_mode_widget.rect);
+                        frame.render_widget(self.space_mode_widget.widget(), self.space_mode_widget.rect);
                     }
                 }
             }
@@ -656,32 +680,58 @@ impl UserInterface{
     }
 }
 
-fn centered_rect(percent_x: u16, percent_y: u16, r: ratatui::prelude::Rect) -> ratatui::prelude::Rect{
+//fn centered_rect(percent_x: u16, percent_y: u16, r: /*ratatui::prelude::*/Rect) -> /*ratatui::prelude::*/Rect{
+//    let popup_layout = Layout::default()
+//        .direction(Direction::Vertical)
+//        .constraints(
+//            [
+//                Constraint::Percentage((100 - percent_y) / 2),
+//                Constraint::Percentage(percent_y),
+//                Constraint::Percentage((100 - percent_y) / 2),
+//            ]
+//            .as_ref(),
+//        )
+//        .split(r);
+//
+//    Layout::default()
+//        .direction(Direction::Horizontal)
+//        .constraints(
+//            [
+//                Constraint::Percentage((100 - percent_x) / 2),
+//                Constraint::Percentage(percent_x),
+//                Constraint::Percentage((100 - percent_x) / 2),
+//            ]
+//            .as_ref(),
+//        )
+//        .split(popup_layout[1])[1]
+//}
+
+fn sized_centered_rect(x: u16, y: u16, r: Rect) -> Rect{
+    let padding_height = r.height.saturating_sub(y) / 2;
     let popup_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints(
             [
-                Constraint::Percentage((100 - percent_y) / 2),
-                Constraint::Percentage(percent_y),
-                Constraint::Percentage((100 - percent_y) / 2),
+                Constraint::Length(padding_height.saturating_sub(1)),
+                Constraint::Length(y),
+                Constraint::Length(padding_height.saturating_sub(1)),
             ]
-            .as_ref(),
+            .as_ref()
         )
         .split(r);
 
+    let padding_width = r.width.saturating_sub(x) / 2;
     Layout::default()
         .direction(Direction::Horizontal)
         .constraints(
             [
-                Constraint::Percentage((100 - percent_x) / 2),
-                Constraint::Percentage(percent_x),
-                Constraint::Percentage((100 - percent_x) / 2),
+                Constraint::Length(padding_width.saturating_sub(1)),
+                Constraint::Length(x),
+                Constraint::Length(padding_width.saturating_sub(1)),
             ]
-            .as_ref(),
         )
         .split(popup_layout[1])[1]
 }
-
 
 
 fn count_digits(mut n: usize) -> u16{
