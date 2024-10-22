@@ -1,16 +1,11 @@
-use edit_core::selection::{CursorSemantics, Movement, Selections};
-use ratatui::{backend::CrosstermBackend, Terminal};
-use edit_core::document::Document;
-use crate::ui::UserInterface;
 use std::error::Error;
 use std::path::PathBuf;
-use crossterm::{
-    cursor,
-    terminal,
-    execute,
-    ExecutableCommand
-};
+use crossterm::cursor;
 use crossterm::event::{self, KeyCode, KeyEvent, KeyModifiers};
+use ratatui::{backend::CrosstermBackend, Terminal};
+use crate::ui::UserInterface;
+use edit_core::selection::{CursorSemantics, Movement, Selections};
+use edit_core::document::Document;
 
 
 
@@ -23,7 +18,7 @@ use crossterm::event::{self, KeyCode, KeyEvent, KeyModifiers};
         // SteadyUnderScore
         // BlinkingBar
         // SteadyBar
-const CURSOR_STYLE: cursor::SetCursorStyle = cursor::SetCursorStyle::SteadyBlock;
+pub const CURSOR_STYLE: cursor::SetCursorStyle = cursor::SetCursorStyle::SteadyBlock;
 const CURSOR_SEMANTICS: CursorSemantics = match CURSOR_STYLE{
     cursor::SetCursorStyle::BlinkingBar | cursor::SetCursorStyle::SteadyBar => CursorSemantics::Bar,
     _ => CursorSemantics::Block
@@ -62,27 +57,20 @@ pub enum WarningKind{
 pub struct Application{
     should_quit: bool,
     mode: Mode,
-    host_terminal: Terminal<CrosstermBackend<std::io::Stdout>>,
-    supports_keyboard_enhancement: bool,
     document: Document,
     ui: UserInterface,
 }
 impl Application{
-    pub fn new() -> Result<Self, Box<dyn Error>>{
-        let (terminal, supports_keyboard_enhancement) = setup_terminal()?;
-        let terminal_size = terminal.size()?;
-
+    pub fn new(terminal: &Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<Self, Box<dyn Error>>{
         Ok(Self{
             should_quit: false,
             mode: Mode::Insert,
-            host_terminal: terminal,
-            supports_keyboard_enhancement,
             document: Document::new(CURSOR_SEMANTICS),
-            ui: UserInterface::new(terminal_size),
+            ui: UserInterface::new(terminal.size()?),
         })
     }
 
-    pub fn run(&mut self, file_path: String) -> Result<(), Box<dyn Error>>{
+    pub fn run(&mut self, file_path: String, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<(), Box<dyn Error>>{
         let path = PathBuf::from(file_path).canonicalize()?;
         
         self.document = Document::open(&path, CURSOR_SEMANTICS)?;
@@ -104,9 +92,9 @@ impl Application{
         self.update_ui(&text, &selections);
 
         loop{
-            //self.host_terminal.hide_cursor()?;  //testing this to resolve cursor displaying in random places while moving quickly
+            //terminal.hide_cursor()?;    //testing this to resolve cursor displaying in random places while moving quickly
             self.ui.update_layouts(self.mode);
-            self.ui.render(&mut self.host_terminal, self.mode)?;
+            self.ui.render(terminal, self.mode)?;
             self.handle_event()?;
             if self.should_quit{
                 return Ok(());
@@ -1326,57 +1314,4 @@ impl Application{
         // assert warning mode
         self.mode = Mode::Insert;
     }
-
-    pub fn restore_terminal(&mut self) -> Result<(), Box<dyn Error>>{
-        restore_terminal(&mut self.host_terminal, self.supports_keyboard_enhancement)
-    }
-}
-
-fn setup_terminal() -> Result<(Terminal<CrosstermBackend<std::io::Stdout>>, bool), Box<dyn Error>>{
-    let mut stdout = std::io::stdout();
-    terminal::enable_raw_mode()?;
-    stdout.execute(crossterm::terminal::EnterAlternateScreen)?;
-    stdout.execute(CURSOR_STYLE)?;
-    
-    let supports_keyboard_enhancement = terminal::supports_keyboard_enhancement().unwrap_or(false);
-
-    // only allow terminals with enhanced kb protocol support?
-    //if !supports_keyboard_enhancement{
-    //    panic!("this terminal does not support enhanced keyboard protocols")
-    //}
-    //
-    
-    if supports_keyboard_enhancement {
-        use event::{KeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
-        execute!(
-            stdout, 
-            PushKeyboardEnhancementFlags(
-                KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
-                //| KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES
-                //| KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
-                //| KeyboardEnhancementFlags::REPORT_EVENT_TYPES
-            )
-        )?;
-    }
-
-    let terminal = Terminal::new(
-        CrosstermBackend::new(stdout)
-    )?;
-
-    Ok((terminal, supports_keyboard_enhancement))
-}
-
-pub fn restore_terminal(
-    terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>, 
-    supports_keyboard_enhancement: bool
-) -> Result<(), Box<dyn Error>>{
-    if supports_keyboard_enhancement{
-        terminal.backend_mut().execute(event::PopKeyboardEnhancementFlags)?;
-    }
-    terminal::disable_raw_mode()?;
-    terminal.backend_mut().execute(crossterm::terminal::LeaveAlternateScreen)?;
-    terminal.backend_mut().execute(crossterm::cursor::SetCursorStyle::DefaultUserShape)?;
-    terminal.show_cursor()?;
-    
-    Ok(())
 }

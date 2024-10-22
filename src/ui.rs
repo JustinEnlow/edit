@@ -1,6 +1,6 @@
 use crate::application::{Mode, UtilityKind, WarningKind};
 use edit_core::{
-    /*document::Document, */selection::{CursorSemantics, Movement, Selection}, view::View, Position
+    selection::{CursorSemantics, Movement, Selection}, view::View, Position
 };
 use ropey::Rope;
 use std::cmp::Ordering;
@@ -22,13 +22,13 @@ const COMMAND_PROMPT: &str = " Command: ";
 
 
 
-pub struct UtilBar{
+pub struct Utility{
     text: Rope,
     text_is_valid: bool,
     selection: Selection,
     view: View
 }
-impl Default for UtilBar{
+impl Default for Utility{
     fn default() -> Self{
         Self{
             text: Rope::from(""),
@@ -38,7 +38,7 @@ impl Default for UtilBar{
         }
     }
 }
-impl UtilBar{
+impl Utility{
     pub fn selection(&self) -> &Selection{
         &self.selection
     }
@@ -121,15 +121,15 @@ impl UtilBar{
 }
 
 #[derive(Default)]
-pub struct UtilBarWidget{
+pub struct UtilityWidget{
     rect: Rect,
-    util_bar: UtilBar,
+    util_bar: Utility,
 }
-impl UtilBarWidget{
-    pub fn util_bar(&self) -> &UtilBar{
+impl UtilityWidget{
+    pub fn util_bar(&self) -> &Utility{
         &self.util_bar
     }
-    pub fn util_bar_mut(&mut self) -> &mut UtilBar{
+    pub fn util_bar_mut(&mut self) -> &mut Utility{
         &mut self.util_bar
     }
     pub fn widget(&self, mode: Mode) -> Paragraph<'static>{
@@ -177,15 +177,15 @@ impl UtilBarWidget{
     }
 }
 #[derive(Default)]
-pub struct UtilBarAlternateWidget{
+pub struct UtilityAlternateWidget{
     rect: Rect,
-    util_bar: UtilBar,
+    util_bar: Utility,
 }
-impl UtilBarAlternateWidget{
-    pub fn util_bar(&self) -> &UtilBar{
+impl UtilityAlternateWidget{
+    pub fn util_bar(&self) -> &Utility{
         &self.util_bar
     }
-    pub fn util_bar_mut(&mut self) -> &mut UtilBar{
+    pub fn util_bar_mut(&mut self) -> &mut Utility{
         &mut self.util_bar
     }
     pub fn widget(&self, mode: Mode) -> Paragraph<'static>{
@@ -200,10 +200,10 @@ impl UtilBarAlternateWidget{
 }
 
 #[derive(Default)]
-struct UtilBarPromptWidget{
+struct UtilityPromptWidget{
     rect: Rect
 }
-impl UtilBarPromptWidget{
+impl UtilityPromptWidget{
     pub fn widget(&self, mode: Mode) -> Paragraph<'static>{
         match mode{
             Mode::Utility(UtilityKind::Goto) => Paragraph::new(GOTO_PROMPT),
@@ -215,10 +215,10 @@ impl UtilBarPromptWidget{
 }
 
 #[derive(Default)]
-struct UtilBarAlternatePromptWidget{
+struct UtilityAlternatePromptWidget{
     rect: Rect
 }
-impl UtilBarAlternatePromptWidget{
+impl UtilityAlternatePromptWidget{
     pub fn widget(&self, mode: Mode) -> Paragraph<'static>{
         match mode{
             Mode::Utility(UtilityKind::FindReplace) => {
@@ -384,20 +384,35 @@ impl SpaceModeWidget{
 
 
 
+#[derive(Default)]
+pub struct StatusBar{
+    modified_indicator: ModifiedIndicatorWidget,
+    file_name: FileNameWidget,
+    cursor_position: DocumentCursorPositionWidget,
+}
+#[derive(Default)]
+pub struct UtilBar{
+    prompt: UtilityPromptWidget,
+    alternate_prompt: UtilityAlternatePromptWidget,
+    widget: UtilityWidget,
+    alternate_widget: UtilityAlternateWidget,
+}
+#[derive(Default)]
+pub struct DocumentViewport{
+    document_widget: DocumentWidget,
+    line_number_widget: LineNumberWidget,
+}
+
+
+
 pub struct UserInterface{
     terminal_size: Rect,
     display_line_numbers: bool,
     display_status_bar: bool,
     util_bar_alternate_focused: bool,
-    document_widget: DocumentWidget,
-    line_number_widget: LineNumberWidget,
-    modified_indicator_widget: ModifiedIndicatorWidget,
-    file_name_widget: FileNameWidget,
-    document_cursor_position_widget: DocumentCursorPositionWidget,
-    util_bar_prompt_widget: UtilBarPromptWidget,
-    util_bar_alternate_prompt_widget: UtilBarAlternatePromptWidget,
-    util_bar_widget: UtilBarWidget,
-    util_bar_alternate_widget: UtilBarAlternateWidget,
+    document_viewport: DocumentViewport,
+    status_bar: StatusBar,
+    util_bar: UtilBar,
     space_mode_widget: SpaceModeWidget,
 }
 impl UserInterface{
@@ -407,15 +422,9 @@ impl UserInterface{
             display_line_numbers: true,
             display_status_bar: true,
             util_bar_alternate_focused: false,
-            document_widget: DocumentWidget::default(),
-            line_number_widget: LineNumberWidget::default(),
-            modified_indicator_widget: ModifiedIndicatorWidget::default(),
-            file_name_widget: FileNameWidget::default(),
-            document_cursor_position_widget: DocumentCursorPositionWidget::default(),
-            util_bar_prompt_widget: UtilBarPromptWidget::default(),
-            util_bar_alternate_prompt_widget: UtilBarAlternatePromptWidget::default(),
-            util_bar_widget: UtilBarWidget::default(),
-            util_bar_alternate_widget: UtilBarAlternateWidget::default(),
+            document_viewport: DocumentViewport::default(),
+            status_bar: StatusBar::default(),
+            util_bar: UtilBar::default(),
             space_mode_widget: SpaceModeWidget::new(),
         }
     }
@@ -436,41 +445,41 @@ impl UserInterface{
         self.util_bar_alternate_focused = util_bar_alternate_focused
     }
     pub fn document_widget(&self) -> &DocumentWidget{
-        &self.document_widget
+        &self.document_viewport.document_widget
     }
     pub fn document_widget_mut(&mut self) -> &mut DocumentWidget{
-        &mut self.document_widget
+        &mut self.document_viewport.document_widget
     }
     pub fn line_number_widget_mut(&mut self) -> &mut LineNumberWidget{
-        &mut self.line_number_widget
+        &mut self.document_viewport.line_number_widget
     }
     pub fn modified_indicator_widget_mut(&mut self) -> &mut ModifiedIndicatorWidget{
-        &mut self.modified_indicator_widget
+        &mut self.status_bar.modified_indicator
     }
     pub fn file_name_widget_mut(&mut self) -> &mut FileNameWidget{
-        &mut self.file_name_widget
+        &mut self.status_bar.file_name
     }
     pub fn document_cursor_position_widget_mut(&mut self) -> &mut DocumentCursorPositionWidget{
-        &mut self.document_cursor_position_widget
+        &mut self.status_bar.cursor_position
     }
-    pub fn util_bar_widget(&self) -> &UtilBarWidget{
-        &self.util_bar_widget
+    pub fn util_bar_widget(&self) -> &UtilityWidget{
+        &self.util_bar.widget
     }
-    pub fn util_bar_widget_mut(&mut self) -> &mut UtilBarWidget{
-        &mut self.util_bar_widget
+    pub fn util_bar_widget_mut(&mut self) -> &mut UtilityWidget{
+        &mut self.util_bar.widget
     }
-    pub fn util_bar_alternate_widget(&self) -> &UtilBarAlternateWidget{
-        &self.util_bar_alternate_widget
+    pub fn util_bar_alternate_widget(&self) -> &UtilityAlternateWidget{
+        &self.util_bar.alternate_widget
     }
-    pub fn util_bar_alternate_widget_mut(&mut self) -> &mut UtilBarAlternateWidget{
-        &mut self.util_bar_alternate_widget
+    pub fn util_bar_alternate_widget_mut(&mut self) -> &mut UtilityAlternateWidget{
+        &mut self.util_bar.alternate_widget
     }
 
 
 
-    pub fn update_layouts(&mut self, mode: Mode){
+    fn layout_viewport(&self, mode: Mode) -> std::rc::Rc<[Rect]>{
         // layout of viewport rect (the whole terminal screen)
-        let viewport_rect = Layout::default()
+        Layout::default()
             .direction(Direction::Vertical)
             .constraints(
                 vec![
@@ -488,10 +497,11 @@ impl UserInterface{
                     )
                 ]
             )
-            .split(self.terminal_size);
-
+            .split(self.terminal_size)
+    }
+    fn layout_document_and_line_number(&self, rect: Rect) -> std::rc::Rc<[Rect]>{
         // layout of document + line num rect
-        let document_and_line_num_rect = Layout::default()
+        Layout::default()
             .direction(Direction::Horizontal)
             .constraints(
                 vec![
@@ -500,7 +510,7 @@ impl UserInterface{
                     // line number rect width
                     Constraint::Length(
                         if self.display_line_numbers{
-                            count_digits(self.document_widget.doc_length)
+                            count_digits(self.document_viewport.document_widget.doc_length)
                         }else{0}
                     ),
                     // line number right padding
@@ -509,16 +519,17 @@ impl UserInterface{
                     Constraint::Min(5)
                 ]
             )
-            .split(viewport_rect[0]);
-
+            .split(rect)
+    }
+    fn layout_status_bar(&self, rect: Rect) -> std::rc::Rc<[Rect]>{
         // layout of status bar rect (modified_indicator/file_name/cursor_position)
-        let status_bar_rect = Layout::default()
+        Layout::default()
             .direction(Direction::Horizontal)
             .constraints(
                 vec![
                     // modified indicator width
                     Constraint::Max(
-                        if self.modified_indicator_widget.document_modified_status{
+                        if self.status_bar.modified_indicator.document_modified_status{
                             MODIFIED_INDICATOR.len() as u16
                         }else{0}
                     ),
@@ -526,7 +537,7 @@ impl UserInterface{
                     //
                     // file_name width
                     Constraint::Max(
-                        if let Some(file_name) = &self.file_name_widget.file_name{
+                        if let Some(file_name) = &self.status_bar.file_name.file_name{
                             file_name.len() as u16
                         }else{0}
                     ),
@@ -534,10 +545,11 @@ impl UserInterface{
                     Constraint::Min(0)
                 ]
             )
-            .split(viewport_rect[1]);
-
+            .split(rect)
+    }
+    fn layout_util_bar(&self, mode: Mode, rect: Rect) -> std::rc::Rc<[Rect]>{
         // layout of util rect (goto/find/command/save as)
-        let util_rect = Layout::default()
+        Layout::default()
             .direction(Direction::Horizontal)
             .constraints(
                 vec![
@@ -557,10 +569,10 @@ impl UserInterface{
                         match mode{
                             Mode::Insert
                             | Mode::Space
-                            | Mode::Utility(UtilityKind::Warning(_)) => viewport_rect[2].width,
-                            Mode::Utility(UtilityKind::Goto) => viewport_rect[2].width - GOTO_PROMPT.len() as u16,
-                            Mode::Utility(UtilityKind::Command) => viewport_rect[2].width - COMMAND_PROMPT.len() as u16,                            
-                            Mode::Utility(UtilityKind::FindReplace) => (viewport_rect[2].width / 2) - FIND_PROMPT.len() as u16,
+                            | Mode::Utility(UtilityKind::Warning(_)) => rect.width,
+                            Mode::Utility(UtilityKind::Goto) => rect.width - GOTO_PROMPT.len() as u16,
+                            Mode::Utility(UtilityKind::Command) => rect.width - COMMAND_PROMPT.len() as u16,                            
+                            Mode::Utility(UtilityKind::FindReplace) => (rect.width / 2) - FIND_PROMPT.len() as u16,
                         }
                     ),
                     // util bar alternate prompt width
@@ -573,7 +585,7 @@ impl UserInterface{
                     // util bar alternate rect width
                     Constraint::Length(
                         match mode{
-                            Mode::Utility(UtilityKind::FindReplace) => (viewport_rect[2]. width / 2).saturating_sub(REPLACE_PROMPT.len() as u16),
+                            Mode::Utility(UtilityKind::FindReplace) => (rect. width / 2).saturating_sub(REPLACE_PROMPT.len() as u16),
                             _ => 0
                         }
                     ),
@@ -581,30 +593,41 @@ impl UserInterface{
                     Constraint::Length(0)
                 ]
             )
-            .split(viewport_rect[2]);
+            .split(rect)
+    }
+    pub fn update_layouts(&mut self, mode: Mode){
+        let viewport_rect = self.layout_viewport(mode);
+        let document_and_line_num_rect = self.layout_document_and_line_number(viewport_rect[0]);
+        let status_bar_rect = self.layout_status_bar(viewport_rect[1]);
+        let util_rect = self.layout_util_bar(mode, viewport_rect[2]);
 
-        self.line_number_widget.rect = document_and_line_num_rect[0];
+        self.document_viewport.line_number_widget.rect = document_and_line_num_rect[0];
         // dont have to set line num right padding(document_and_line_num_rect[1])
-        self.document_widget.rect = document_and_line_num_rect[2];
-        self.modified_indicator_widget.rect = status_bar_rect[0];
-        self.file_name_widget.rect = status_bar_rect[1];
-        self.document_cursor_position_widget.rect = status_bar_rect[2];
-        self.util_bar_prompt_widget.rect = util_rect[0];
-        self.util_bar_widget.rect = util_rect[1];
-        self.util_bar_alternate_prompt_widget.rect = util_rect[2];
-        self.util_bar_alternate_widget.rect = util_rect[3];
+        self.document_viewport.document_widget.rect = document_and_line_num_rect[2];
+        self.status_bar.modified_indicator.rect = status_bar_rect[0];
+        self.status_bar.file_name.rect = status_bar_rect[1];
+        self.status_bar.cursor_position.rect = status_bar_rect[2];
+        self.util_bar.prompt.rect = util_rect[0];
+        self.util_bar.widget.rect = util_rect[1];
+        self.util_bar.alternate_prompt.rect = util_rect[2];
+        self.util_bar.alternate_widget.rect = util_rect[3];
         self.space_mode_widget.rect = sized_centered_rect(self.space_mode_widget.widest_element_len, self.space_mode_widget.num_elements, self.terminal_size);
 
+        self.update_util_bar_width(mode);
+    }
+
+    // may not be needed if alternate util bar removed
+    fn update_util_bar_width(&mut self, mode: Mode){
         match mode{ //TODO: can these be set from relevant fns in application.rs? display_line_numbers, display_status_bar, resize, any mode change, etc
             Mode::Utility(UtilityKind::Command) 
             | Mode::Utility(UtilityKind::Goto) 
             | Mode::Utility(UtilityKind::FindReplace) => {
-                self.util_bar_widget.util_bar.set_widget_width(self.util_bar_widget.rect.width);
-                self.util_bar_alternate_widget.util_bar.set_widget_width(self.util_bar_alternate_widget.rect.width);
+                self.util_bar.widget.util_bar.set_widget_width(self.util_bar.widget.rect.width);
+                self.util_bar.alternate_widget.util_bar.set_widget_width(self.util_bar.alternate_widget.rect.width);
             }
             _ => {
-                self.util_bar_widget.util_bar.set_widget_width(0);
-                self.util_bar_alternate_widget.util_bar.set_widget_width(0);
+                self.util_bar.widget.util_bar.set_widget_width(0);
+                self.util_bar.alternate_widget.util_bar.set_widget_width(0);
             }
         }
     }
@@ -613,60 +636,56 @@ impl UserInterface{
         let _ = terminal.draw(  // Intentionally discarding `CompletedFrame`
             |frame| {
                 // always render
-                frame.render_widget(self.document_widget.widget(), self.document_widget.rect);
+                frame.render_widget(self.document_viewport.document_widget.widget(), self.document_viewport.document_widget.rect);
                 
                 // conditionally render
                 if self.display_line_numbers{
-                    frame.render_widget(self.line_number_widget.widget(), self.line_number_widget.rect);
+                    frame.render_widget(self.document_viewport.line_number_widget.widget(), self.document_viewport.line_number_widget.rect);
                 }
                 if self.display_status_bar{
-                    frame.render_widget(self.modified_indicator_widget.widget(), self.modified_indicator_widget.rect);
-                    frame.render_widget(self.file_name_widget.widget(), self.file_name_widget.rect);
+                    frame.render_widget(self.status_bar.modified_indicator.widget(), self.status_bar.modified_indicator.rect);
+                    frame.render_widget(self.status_bar.file_name.widget(), self.status_bar.file_name.rect);
                     // TODO: add widget for number of selections
-                    frame.render_widget(self.document_cursor_position_widget.widget(), self.document_cursor_position_widget.rect);
+                    frame.render_widget(self.status_bar.cursor_position.widget(), self.status_bar.cursor_position.rect);
                 }
 
                 // render according to mode
                 // cursor rendering will prob change from frame.render_widget style to handling cursor drawing in each widget
                 match mode{
                     Mode::Insert => {
-                        if let Some(pos) = self.document_widget.client_cursor_position{
+                        if let Some(pos) = self.document_viewport.document_widget.client_cursor_position{
                             frame.set_cursor(
-                                self.document_widget.rect.x + pos.x() as u16,
-                                self.document_widget.rect.y + pos.y() as u16
+                                self.document_viewport.document_widget.rect.x + pos.x() as u16,
+                                self.document_viewport.document_widget.rect.y + pos.y() as u16
                             )
                         }
                     }
-                    Mode::Utility(kind) => {
-                        match kind{
-                            UtilityKind::Goto | UtilityKind::Command => {
-                                frame.render_widget(self.util_bar_prompt_widget.widget(mode), self.util_bar_prompt_widget.rect);
-                                frame.render_widget(self.util_bar_widget.widget(mode), self.util_bar_widget.rect);
-                                frame.set_cursor(
-                                    self.util_bar_widget.rect.x + self.util_bar_widget.util_bar.cursor_position().saturating_sub(self.util_bar_widget.util_bar.view.horizontal_start() as u16),
-                                    self.terminal_size.height
-                                );
-                            }
-                            UtilityKind::FindReplace => {
-                                frame.render_widget(self.util_bar_prompt_widget.widget(mode), self.util_bar_prompt_widget.rect);
-                                frame.render_widget(self.util_bar_widget.widget(mode), self.util_bar_widget.rect);
-                                frame.render_widget(self.util_bar_alternate_prompt_widget.widget(mode), self.util_bar_alternate_prompt_widget.rect);
-                                frame.render_widget(self.util_bar_alternate_widget.widget(mode), self.util_bar_alternate_widget.rect);
-                                frame.set_cursor(
-                                    if self.util_bar_alternate_focused{
-                                        self.util_bar_alternate_widget.rect.x + self.util_bar_alternate_widget.util_bar.cursor_position()
-                                            .saturating_sub(self.util_bar_alternate_widget.util_bar.view.horizontal_start() as u16)
-                                    }else{
-                                        self.util_bar_widget.rect.x + self.util_bar_widget.util_bar.cursor_position().saturating_sub(self.util_bar_widget.util_bar.view.horizontal_start() as u16)
-                                    },
-                                    self.terminal_size.height
-                                );
-                            }
-                            UtilityKind::Warning(_) => {
-                                frame.render_widget(self.util_bar_prompt_widget.widget(mode), self.util_bar_prompt_widget.rect);
-                                frame.render_widget(self.util_bar_widget.widget(mode), self.util_bar_widget.rect);
-                            }
-                        }
+                    Mode::Utility(UtilityKind::Goto | UtilityKind::Command) => {
+                        frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);
+                        frame.render_widget(self.util_bar.widget.widget(mode), self.util_bar.widget.rect);
+                        frame.set_cursor(
+                            self.util_bar.widget.rect.x + self.util_bar.widget.util_bar.cursor_position().saturating_sub(self.util_bar.widget.util_bar.view.horizontal_start() as u16),
+                            self.terminal_size.height
+                        );
+                    }
+                    Mode::Utility(UtilityKind::FindReplace) => {
+                        frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);
+                        frame.render_widget(self.util_bar.widget.widget(mode), self.util_bar.widget.rect);
+                        frame.render_widget(self.util_bar.alternate_prompt.widget(mode), self.util_bar.alternate_prompt.rect);
+                        frame.render_widget(self.util_bar.alternate_widget.widget(mode), self.util_bar.alternate_widget.rect);
+                        frame.set_cursor(
+                            if self.util_bar_alternate_focused{
+                                self.util_bar.alternate_widget.rect.x + self.util_bar.alternate_widget.util_bar.cursor_position()
+                                    .saturating_sub(self.util_bar.alternate_widget.util_bar.view.horizontal_start() as u16)
+                            }else{
+                                self.util_bar.widget.rect.x + self.util_bar.widget.util_bar.cursor_position().saturating_sub(self.util_bar.widget.util_bar.view.horizontal_start() as u16)
+                            },
+                            self.terminal_size.height
+                        );
+                    }
+                    Mode::Utility(UtilityKind::Warning(_)) => {
+                        frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);
+                        frame.render_widget(self.util_bar.widget.widget(mode), self.util_bar.widget.rect);
                     }
                     Mode::Space => {
                         frame.render_widget(ratatui::widgets::Clear, self.space_mode_widget.rect);
