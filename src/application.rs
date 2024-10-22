@@ -925,7 +925,7 @@ impl Application{
     }
     fn increment_primary_selection(&mut self){
         if self.document.selections().count() > 1{
-            self.document.selections_mut().increment_primary_selection();
+            *self.document.selections_mut() = self.document.selections().increment_primary_selection();
 
             let text = self.document.text().clone();
             let selections = self.document.selections().clone();
