@@ -111,6 +111,9 @@ impl Application{
                     //(KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Esc, ..}, Mode::Insert(_)) => {Action::SomeAction}   //catch all for insert sub modes
                     (KeyEvent{modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT, code: KeyCode::PageDown, ..}, Mode::Insert) => {self.extend_selection_page_down()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT, code: KeyCode::PageUp, ..}, Mode::Insert) => {self.extend_selection_page_up()}
+                    //(KeyEvent{modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT, code: KeyCode::Char('z'), ..}, Mode::Insert) => {self.redo()}   //idk why this won't work...
+                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('r'),     ..}, Mode::Insert) => {self.redo()}
+                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('z'),     ..}, Mode::Insert) => {self.undo()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Right,         ..}, Mode::Insert) => {self.move_cursor_word_end()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Left,          ..}, Mode::Insert) => {self.move_cursor_word_start()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Home,          ..}, Mode::Insert) => {self.move_cursor_document_start()}
@@ -938,7 +941,8 @@ impl Application{
     }
     fn insert_char(&mut self, c: char){
         assert!(self.mode == Mode::Insert);
-        self.document.insert_char(c, CURSOR_SEMANTICS);
+        //self.document.insert_char(c, CURSOR_SEMANTICS);
+        self.document.insert_string(&c.to_string(), CURSOR_SEMANTICS);
 
         let text = self.document.text().clone();
         let selections = self.document.selections().clone();
@@ -949,7 +953,8 @@ impl Application{
     fn insert_newline(&mut self){
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
-        self.document.enter(CURSOR_SEMANTICS);
+        //self.document.enter(CURSOR_SEMANTICS);
+        self.document.insert_string("\n", CURSOR_SEMANTICS);
 
         let text = self.document.text().clone();
         let selections = self.document.selections().clone();
@@ -963,7 +968,8 @@ impl Application{
     }
     fn insert_tab(&mut self){
         assert!(self.mode == Mode::Insert);
-        self.document.tab(CURSOR_SEMANTICS);
+        //self.document.tab(CURSOR_SEMANTICS);
+        self.document.insert_string("\t", CURSOR_SEMANTICS);
 
         let text = self.document.text().clone();
         let selections = self.document.selections().clone();
@@ -1203,6 +1209,24 @@ impl Application{
     fn quit_ignoring_changes(&mut self){
         self.should_quit = true;
     }
+    fn redo(&mut self){
+        assert!(self.mode == Mode::Insert);
+
+        if let Ok(_) = self.document.redo(CURSOR_SEMANTICS){
+            let len = self.document.len();
+            let text = self.document.text().clone();
+            let selections = self.document.selections().clone();
+            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+
+            self.update_ui(&text, &selections);
+
+            if len != self.document.len(){  //if length has changed after paste
+                self.ui.document_widget_mut().set_length(self.document.len());
+            }
+        }else{
+            // warn redo stack empty
+        }
+    }
     fn resize(&mut self, x: u16, y: u16){
         self.ui.set_terminal_size(x, y);
         self.ui.update_layouts(self.mode);
@@ -1309,6 +1333,24 @@ impl Application{
     fn space_mode_exit(&mut self){
         assert!(self.mode == Mode::Space);
         self.mode = Mode::Insert;
+    }
+    fn undo(&mut self){
+        assert!(self.mode == Mode::Insert);
+
+        if let Ok(_) = self.document.undo(CURSOR_SEMANTICS){
+            let len = self.document.len();
+            let text = self.document.text().clone();
+            let selections = self.document.selections().clone();
+            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+
+            self.update_ui(&text, &selections);
+
+            if len != self.document.len(){  //if length has changed after paste
+                self.ui.document_widget_mut().set_length(self.document.len());
+            }
+        }else{
+            // warn undo stack empty
+        }
     }
     fn warning_mode_exit(&mut self){
         // assert warning mode

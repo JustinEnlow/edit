@@ -384,12 +384,14 @@ impl SpaceModeWidget{
 
 
 
+/// Container type for widgets on the status bar.
 #[derive(Default)]
 pub struct StatusBar{
     modified_indicator: ModifiedIndicatorWidget,
     file_name: FileNameWidget,
     cursor_position: DocumentCursorPositionWidget,
 }
+/// Container type for widgets on the util bar.
 #[derive(Default)]
 pub struct UtilBar{
     prompt: UtilityPromptWidget,
@@ -397,10 +399,22 @@ pub struct UtilBar{
     widget: UtilityWidget,
     alternate_widget: UtilityAlternateWidget,
 }
+/// Container type for widgets in the document viewport.
 #[derive(Default)]
 pub struct DocumentViewport{
     document_widget: DocumentWidget,
     line_number_widget: LineNumberWidget,
+}
+/// Container type for popup style widgets.
+struct Popups{
+    space_mode: SpaceModeWidget,
+}
+impl Popups{
+    fn new() -> Self{
+        Self{
+            space_mode: SpaceModeWidget::new(),
+        }
+    }
 }
 
 
@@ -413,7 +427,7 @@ pub struct UserInterface{
     document_viewport: DocumentViewport,
     status_bar: StatusBar,
     util_bar: UtilBar,
-    space_mode_widget: SpaceModeWidget,
+    popups: Popups,
 }
 impl UserInterface{
     pub fn new(terminal_size: Rect) -> Self{
@@ -425,7 +439,7 @@ impl UserInterface{
             document_viewport: DocumentViewport::default(),
             status_bar: StatusBar::default(),
             util_bar: UtilBar::default(),
-            space_mode_widget: SpaceModeWidget::new(),
+            popups: Popups::new(),
         }
     }
     pub fn set_terminal_size(&mut self, width: u16, height: u16){
@@ -477,8 +491,8 @@ impl UserInterface{
 
 
 
-    fn layout_viewport(&self, mode: Mode) -> std::rc::Rc<[Rect]>{
-        // layout of viewport rect (the whole terminal screen)
+    fn layout_terminal(&self, mode: Mode) -> std::rc::Rc<[Rect]>{
+        // layout of the whole terminal screen
         Layout::default()
             .direction(Direction::Vertical)
             .constraints(
@@ -596,10 +610,10 @@ impl UserInterface{
             .split(rect)
     }
     pub fn update_layouts(&mut self, mode: Mode){
-        let viewport_rect = self.layout_viewport(mode);
-        let document_and_line_num_rect = self.layout_document_and_line_number(viewport_rect[0]);
-        let status_bar_rect = self.layout_status_bar(viewport_rect[1]);
-        let util_rect = self.layout_util_bar(mode, viewport_rect[2]);
+        let terminal_rect = self.layout_terminal(mode);
+        let document_and_line_num_rect = self.layout_document_and_line_number(terminal_rect[0]);
+        let status_bar_rect = self.layout_status_bar(terminal_rect[1]);
+        let util_rect = self.layout_util_bar(mode, terminal_rect[2]);
 
         self.document_viewport.line_number_widget.rect = document_and_line_num_rect[0];
         // dont have to set line num right padding(document_and_line_num_rect[1])
@@ -611,7 +625,7 @@ impl UserInterface{
         self.util_bar.widget.rect = util_rect[1];
         self.util_bar.alternate_prompt.rect = util_rect[2];
         self.util_bar.alternate_widget.rect = util_rect[3];
-        self.space_mode_widget.rect = sized_centered_rect(self.space_mode_widget.widest_element_len, self.space_mode_widget.num_elements, self.terminal_size);
+        self.popups.space_mode.rect = sized_centered_rect(self.popups.space_mode.widest_element_len, self.popups.space_mode.num_elements, self.terminal_size);
 
         self.update_util_bar_width(mode);
     }
@@ -688,8 +702,8 @@ impl UserInterface{
                         frame.render_widget(self.util_bar.widget.widget(mode), self.util_bar.widget.rect);
                     }
                     Mode::Space => {
-                        frame.render_widget(ratatui::widgets::Clear, self.space_mode_widget.rect);
-                        frame.render_widget(self.space_mode_widget.widget(), self.space_mode_widget.rect);
+                        frame.render_widget(ratatui::widgets::Clear, self.popups.space_mode.rect);
+                        frame.render_widget(self.popups.space_mode.widget(), self.popups.space_mode.rect);
                     }
                 }
             }
