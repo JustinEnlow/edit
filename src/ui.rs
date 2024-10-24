@@ -381,157 +381,36 @@ impl SpaceModeWidget{
 
 
 /// Container type for widgets on the status bar.
-#[derive(Default)]
 pub struct StatusBar{
+    display: bool,
     modified_indicator: ModifiedIndicatorWidget,
     file_name: FileNameWidget,
     cursor_position: DocumentCursorPositionWidget,
 }
-/// Container type for widgets on the util bar.
-#[derive(Default)]
-pub struct UtilBar{
-    prompt: UtilityPromptWidget,
-    alternate_prompt: UtilityAlternatePromptWidget,
-    widget: UtilityWidget,
-    alternate_widget: UtilityAlternateWidget,
-}
-/// Container type for widgets in the document viewport.
-#[derive(Default)]
-pub struct DocumentViewport{
-    document_widget: DocumentWidget,
-    line_number_widget: LineNumberWidget,
-}
-/// Container type for popup style widgets.
-struct Popups{
-    space_mode: SpaceModeWidget,
-}
-impl Popups{
-    fn new() -> Self{
+impl Default for StatusBar{
+    fn default() -> Self{
         Self{
-            space_mode: SpaceModeWidget::new(),
+            display: true,
+            modified_indicator: ModifiedIndicatorWidget::default(),
+            file_name: FileNameWidget::default(),
+            cursor_position: DocumentCursorPositionWidget::default()
         }
     }
 }
-
-
-
-pub struct UserInterface{
-    terminal_size: Rect,
-    display_line_numbers: bool,
-    display_status_bar: bool,
-    util_bar_alternate_focused: bool,
-    document_viewport: DocumentViewport,
-    status_bar: StatusBar,
-    util_bar: UtilBar,
-    popups: Popups,
-}
-impl UserInterface{
-    pub fn new(terminal_size: Rect) -> Self{
-        Self{
-            terminal_size,
-            display_line_numbers: true,
-            display_status_bar: true,
-            util_bar_alternate_focused: false,
-            document_viewport: DocumentViewport::default(),
-            status_bar: StatusBar::default(),
-            util_bar: UtilBar::default(),
-            popups: Popups::new(),
-        }
-    }
-    pub fn set_terminal_size(&mut self, width: u16, height: u16){
-        self.terminal_size.width = width;
-        self.terminal_size.height = height;
-    }
-    pub fn toggle_line_numbers(&mut self){
-        self.display_line_numbers = !self.display_line_numbers;
-    }
+impl StatusBar{
     pub fn toggle_status_bar(&mut self){
-        self.display_status_bar = !self.display_status_bar;
-    }
-    pub fn util_bar_alternate_focused(&self) -> bool{
-        self.util_bar_alternate_focused
-    }
-    pub fn set_util_bar_alternate_focused(&mut self, util_bar_alternate_focused: bool){
-        self.util_bar_alternate_focused = util_bar_alternate_focused
-    }
-    pub fn document_widget(&self) -> &DocumentWidget{
-        &self.document_viewport.document_widget
-    }
-    pub fn document_widget_mut(&mut self) -> &mut DocumentWidget{
-        &mut self.document_viewport.document_widget
-    }
-    pub fn line_number_widget_mut(&mut self) -> &mut LineNumberWidget{
-        &mut self.document_viewport.line_number_widget
+        self.display = !self.display;
     }
     pub fn modified_indicator_widget_mut(&mut self) -> &mut ModifiedIndicatorWidget{
-        &mut self.status_bar.modified_indicator
+        &mut self.modified_indicator
     }
     pub fn file_name_widget_mut(&mut self) -> &mut FileNameWidget{
-        &mut self.status_bar.file_name
+        &mut self.file_name
     }
     pub fn document_cursor_position_widget_mut(&mut self) -> &mut DocumentCursorPositionWidget{
-        &mut self.status_bar.cursor_position
+        &mut self.cursor_position
     }
-    pub fn util_bar_widget(&self) -> &UtilityWidget{
-        &self.util_bar.widget
-    }
-    pub fn util_bar_widget_mut(&mut self) -> &mut UtilityWidget{
-        &mut self.util_bar.widget
-    }
-    pub fn util_bar_alternate_widget(&self) -> &UtilityAlternateWidget{
-        &self.util_bar.alternate_widget
-    }
-    pub fn util_bar_alternate_widget_mut(&mut self) -> &mut UtilityAlternateWidget{
-        &mut self.util_bar.alternate_widget
-    }
-
-
-
-    fn layout_terminal(&self, mode: Mode) -> std::rc::Rc<[Rect]>{
-        // layout of the whole terminal screen
-        Layout::default()
-            .direction(Direction::Vertical)
-            .constraints(
-                vec![
-                    // document + line num rect height
-                    Constraint::Min(0),
-                    // status bar rect height
-                    Constraint::Length(if self.display_status_bar{1}else{0}),
-                    // util(goto/find/command) bar rect height
-                    Constraint::Length(
-                        match mode{
-                            Mode::Utility(_) => 1,
-                            Mode::Insert
-                            | Mode::Space => if self.display_status_bar{1}else{0}
-                        }
-                    )
-                ]
-            )
-            .split(self.terminal_size)
-    }
-    fn layout_document_and_line_number(&self, rect: Rect) -> std::rc::Rc<[Rect]>{
-        // layout of document + line num rect
-        Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints(
-                vec![
-                    // line number left padding
-                    //Constraint::Length(if self.display_line_numbers{1}else{0}),
-                    // line number rect width
-                    Constraint::Length(
-                        if self.display_line_numbers{
-                            count_digits(self.document_viewport.document_widget.doc_length)
-                        }else{0}
-                    ),
-                    // line number right padding
-                    Constraint::Length(if self.display_line_numbers{1}else{0}),
-                    // document rect width
-                    Constraint::Min(5)
-                ]
-            )
-            .split(rect)
-    }
-    fn layout_status_bar(&self, rect: Rect) -> std::rc::Rc<[Rect]>{
+    fn layout(&self, rect: Rect) -> std::rc::Rc<[Rect]>{
         // layout of status bar rect (modified_indicator/file_name/cursor_position)
         Layout::default()
             .direction(Direction::Horizontal)
@@ -539,7 +418,7 @@ impl UserInterface{
                 vec![
                     // modified indicator width
                     Constraint::Max(
-                        if self.status_bar.modified_indicator.document_modified_status{
+                        if self.modified_indicator.document_modified_status{
                             MODIFIED_INDICATOR.len() as u16
                         }else{0}
                     ),
@@ -547,7 +426,7 @@ impl UserInterface{
                     //
                     // file_name width
                     Constraint::Max(
-                        if let Some(file_name) = &self.status_bar.file_name.file_name{
+                        if let Some(file_name) = &self.file_name.file_name{
                             file_name.len() as u16
                         }else{0}
                     ),
@@ -557,7 +436,53 @@ impl UserInterface{
             )
             .split(rect)
     }
-    fn layout_util_bar(&self, mode: Mode, rect: Rect) -> std::rc::Rc<[Rect]>{
+}
+
+/// Container type for widgets on the util bar.
+#[derive(Default)]
+pub struct UtilBar{
+    alternate_focused: bool,
+    prompt: UtilityPromptWidget,
+    alternate_prompt: UtilityAlternatePromptWidget,
+    widget: UtilityWidget,
+    alternate_widget: UtilityAlternateWidget,
+}
+impl UtilBar{
+    pub fn alternate_focused(&self) -> bool{
+        self.alternate_focused
+    }
+    pub fn set_alternate_focused(&mut self, util_bar_alternate_focused: bool){
+        self.alternate_focused = util_bar_alternate_focused
+    }
+    pub fn utility_widget(&self) -> &UtilityWidget{
+        &self.widget
+    }
+    pub fn utility_widget_mut(&mut self) -> &mut UtilityWidget{
+        &mut self.widget
+    }
+    pub fn alternate_utility_widget(&self) -> &UtilityAlternateWidget{
+        &self.alternate_widget
+    }
+    pub fn alternate_utility_widget_mut(&mut self) -> &mut UtilityAlternateWidget{
+        &mut self.alternate_widget
+    }
+    fn update_width(&mut self, mode: Mode){
+        match mode{ //TODO: can these be set from relevant fns in application.rs? display_line_numbers, display_status_bar, resize, any mode change, etc
+            Mode::Utility(UtilityKind::Command) 
+            | Mode::Utility(UtilityKind::Goto) 
+            | Mode::Utility(UtilityKind::FindReplace) => {
+                let width = self.widget.rect.width as usize;
+                self.widget.text_box_mut().view_mut().set_size(width, 1);
+                let width = self.alternate_widget.rect.width as usize;
+                self.alternate_widget.text_box_mut().view_mut().set_size(width, 1);
+            }
+            _ => {
+                self.widget.text_box_mut().view_mut().set_size(0, 1);
+                self.alternate_widget.text_box_mut().view_mut().set_size(0, 1);
+            }
+        }
+    }
+    fn layout(&self, mode: Mode, rect: Rect) -> std::rc::Rc<[Rect]>{
         // layout of util rect (goto/find/command/save as)
         Layout::default()
             .direction(Direction::Horizontal)
@@ -605,15 +530,144 @@ impl UserInterface{
             )
             .split(rect)
     }
+}
+
+/// Container type for widgets in the document viewport.
+pub struct DocumentViewport{
+    display_line_numbers: bool,
+    document_widget: DocumentWidget,
+    line_number_widget: LineNumberWidget,
+}
+impl Default for DocumentViewport{
+    fn default() -> Self{
+        Self{
+            display_line_numbers: true,
+            document_widget: DocumentWidget::default(),
+            line_number_widget: LineNumberWidget::default(),
+        }
+    }
+}
+impl DocumentViewport{
+    pub fn document_widget(&self) -> &DocumentWidget{
+        &self.document_widget
+    }
+    pub fn document_widget_mut(&mut self) -> &mut DocumentWidget{
+        &mut self.document_widget
+    }
+    pub fn line_number_widget_mut(&mut self) -> &mut LineNumberWidget{
+        &mut self.line_number_widget
+    }
+    pub fn toggle_line_numbers(&mut self){
+        self.display_line_numbers = !self.display_line_numbers;
+    }
+    fn layout(&self, rect: Rect) -> std::rc::Rc<[Rect]>{
+        // layout of document + line num rect
+        Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(
+                vec![
+                    // line number left padding
+                    //Constraint::Length(if self.display_line_numbers{1}else{0}),
+                    // line number rect width
+                    Constraint::Length(
+                        if self.display_line_numbers{
+                            count_digits(self.document_widget.doc_length)
+                        }else{0}
+                    ),
+                    // line number right padding
+                    Constraint::Length(if self.display_line_numbers{1}else{0}),
+                    // document rect width
+                    Constraint::Min(5)
+                ]
+            )
+            .split(rect)
+    }
+}
+
+/// Container type for popup style widgets.
+struct Popups{
+    space_mode: SpaceModeWidget,
+}
+impl Popups{
+    fn new() -> Self{
+        Self{
+            space_mode: SpaceModeWidget::new(),
+        }
+    }
+}
+
+
+
+pub struct UserInterface{
+    terminal_size: Rect,
+    document_viewport: DocumentViewport,
+    status_bar: StatusBar,
+    util_bar: UtilBar,
+    popups: Popups,
+}
+impl UserInterface{
+    pub fn new(terminal_size: Rect) -> Self{
+        Self{
+            terminal_size,
+            document_viewport: DocumentViewport::default(),
+            status_bar: StatusBar::default(),
+            util_bar: UtilBar::default(),
+            popups: Popups::new(),
+        }
+    }
+    pub fn set_terminal_size(&mut self, width: u16, height: u16){
+        self.terminal_size.width = width;
+        self.terminal_size.height = height;
+    }
+    pub fn document_viewport(&self) -> &DocumentViewport{
+        &self.document_viewport
+    }
+    pub fn document_viewport_mut(&mut self) -> &mut DocumentViewport{
+        &mut self.document_viewport
+    }
+    pub fn status_bar_mut(&mut self) -> &mut StatusBar{
+        &mut self.status_bar
+    }
+    pub fn util_bar(&self) -> &UtilBar{
+        &self.util_bar
+    }
+    pub fn util_bar_mut(&mut self) -> &mut UtilBar{
+        &mut self.util_bar
+    }
+
+
+
+    fn layout_terminal(&self, mode: Mode) -> std::rc::Rc<[Rect]>{
+        // layout of the whole terminal screen
+        Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(
+                vec![
+                    // document + line num rect height
+                    Constraint::Min(0),
+                    // status bar rect height
+                    Constraint::Length(if self.status_bar.display{1}else{0}),
+                    // util(goto/find/command) bar rect height
+                    Constraint::Length(
+                        match mode{
+                            Mode::Utility(_) => 1,
+                            Mode::Insert
+                            | Mode::Space => if self.status_bar.display{1}else{0}
+                        }
+                    )
+                ]
+            )
+            .split(self.terminal_size)
+    }
     pub fn update_layouts(&mut self, mode: Mode){
         let terminal_rect = self.layout_terminal(mode);
-        let document_and_line_num_rect = self.layout_document_and_line_number(terminal_rect[0]);
-        let status_bar_rect = self.layout_status_bar(terminal_rect[1]);
-        let util_rect = self.layout_util_bar(mode, terminal_rect[2]);
+        let document_viewport_rect = self.document_viewport.layout(terminal_rect[0]);
+        let status_bar_rect = self.status_bar.layout(terminal_rect[1]);
+        let util_rect = self.util_bar.layout(mode, terminal_rect[2]);
 
-        self.document_viewport.line_number_widget.rect = document_and_line_num_rect[0];
+        self.document_viewport.line_number_widget.rect = document_viewport_rect[0];
         // dont have to set line num right padding(document_and_line_num_rect[1])
-        self.document_viewport.document_widget.rect = document_and_line_num_rect[2];
+        self.document_viewport.document_widget.rect = document_viewport_rect[2];
         self.status_bar.modified_indicator.rect = status_bar_rect[0];
         self.status_bar.file_name.rect = status_bar_rect[1];
         self.status_bar.cursor_position.rect = status_bar_rect[2];
@@ -623,25 +677,7 @@ impl UserInterface{
         self.util_bar.alternate_widget.rect = util_rect[3];
         self.popups.space_mode.rect = sized_centered_rect(self.popups.space_mode.widest_element_len, self.popups.space_mode.num_elements, self.terminal_size);
 
-        self.update_util_bar_width(mode);
-    }
-
-    // may not be needed if alternate util bar removed
-    fn update_util_bar_width(&mut self, mode: Mode){
-        match mode{ //TODO: can these be set from relevant fns in application.rs? display_line_numbers, display_status_bar, resize, any mode change, etc
-            Mode::Utility(UtilityKind::Command) 
-            | Mode::Utility(UtilityKind::Goto) 
-            | Mode::Utility(UtilityKind::FindReplace) => {
-                let width = self.util_bar.widget.rect.width as usize;
-                self.util_bar.widget.text_box_mut().view_mut().set_size(width, 1);
-                let width = self.util_bar.alternate_widget.rect.width as usize;
-                self.util_bar.alternate_widget.text_box_mut().view_mut().set_size(width, 1);
-            }
-            _ => {
-                self.util_bar.widget.text_box_mut().view_mut().set_size(0, 1);
-                self.util_bar.alternate_widget.text_box_mut().view_mut().set_size(0, 1);
-            }
-        }
+        self.util_bar.update_width(mode);
     }
 
     pub fn render(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>, mode: Mode) -> Result<(), Box<dyn Error>>{        
@@ -651,10 +687,10 @@ impl UserInterface{
                 frame.render_widget(self.document_viewport.document_widget.widget(), self.document_viewport.document_widget.rect);
                 
                 // conditionally render
-                if self.display_line_numbers{
+                if self.document_viewport.display_line_numbers{
                     frame.render_widget(self.document_viewport.line_number_widget.widget(), self.document_viewport.line_number_widget.rect);
                 }
-                if self.display_status_bar{
+                if self.status_bar.display{
                     frame.render_widget(self.status_bar.modified_indicator.widget(), self.status_bar.modified_indicator.rect);
                     frame.render_widget(self.status_bar.file_name.widget(), self.status_bar.file_name.rect);
                     // TODO: add widget for number of selections
@@ -686,7 +722,7 @@ impl UserInterface{
                         frame.render_widget(self.util_bar.alternate_prompt.widget(mode), self.util_bar.alternate_prompt.rect);
                         frame.render_widget(self.util_bar.alternate_widget.widget(mode), self.util_bar.alternate_widget.rect);
                         frame.set_cursor(
-                            if self.util_bar_alternate_focused{
+                            if self.util_bar.alternate_focused{
                                 self.util_bar.alternate_widget.rect.x + self.util_bar.alternate_widget.text_box.cursor_position()
                                     .saturating_sub(self.util_bar.alternate_widget.text_box.view.horizontal_start() as u16)
                             }else{
@@ -702,6 +738,7 @@ impl UserInterface{
                     Mode::Space => {
                         frame.render_widget(ratatui::widgets::Clear, self.popups.space_mode.rect);
                         frame.render_widget(self.popups.space_mode.widget(), self.popups.space_mode.rect);
+                        // if cursor not within self.popups.space_mode.rect, render cursor
                     }
                 }
             }
