@@ -22,13 +22,13 @@ const COMMAND_PROMPT: &str = " Command: ";
 
 
 
-pub struct Utility{
+pub struct InteractiveTextBox{
     text: Rope,
     text_is_valid: bool,
     selection: Selection,
     view: View
 }
-impl Default for Utility{
+impl Default for InteractiveTextBox{
     fn default() -> Self{
         Self{
             text: Rope::from(""),
@@ -38,7 +38,7 @@ impl Default for Utility{
         }
     }
 }
-impl Utility{
+impl InteractiveTextBox{
     pub fn selection(&self) -> &Selection{
         &self.selection
     }
@@ -59,10 +59,6 @@ impl Utility{
     }
     pub fn cursor_position(&self) -> u16{
         self.selection.cursor(CursorSemantics::Block) as u16
-    }
-    pub fn set_widget_width(&mut self, width: u16){
-        let height = self.view.height();
-        self.view.set_size(width as usize, height);
     }
     pub fn clear(&mut self){
         *self = Self::default();
@@ -123,29 +119,29 @@ impl Utility{
 #[derive(Default)]
 pub struct UtilityWidget{
     rect: Rect,
-    util_bar: Utility,
+    text_box: InteractiveTextBox,
 }
 impl UtilityWidget{
-    pub fn util_bar(&self) -> &Utility{
-        &self.util_bar
+    pub fn text_box(&self) -> &InteractiveTextBox{
+        &self.text_box
     }
-    pub fn util_bar_mut(&mut self) -> &mut Utility{
-        &mut self.util_bar
+    pub fn text_box_mut(&mut self) -> &mut InteractiveTextBox{
+        &mut self.text_box
     }
     pub fn widget(&self, mode: Mode) -> Paragraph<'static>{
         match mode{
             Mode::Utility(UtilityKind::Goto) | Mode::Utility(UtilityKind::FindReplace) => {
-                let text = self.util_bar.text.clone();
-                if self.util_bar.text_is_valid{
-                    Paragraph::new(self.util_bar.view.text(&text))
+                let text = self.text_box.text.clone();
+                if self.text_box.text_is_valid{
+                    Paragraph::new(self.text_box.view.text(&text))
                 }else{
-                    Paragraph::new(self.util_bar.view.text(&text))
+                    Paragraph::new(self.text_box.view.text(&text))
                         .style(Style::default().fg(Color::Red))
                 }
             }
             Mode::Utility(UtilityKind::Command) => {
-                let text = self.util_bar.text.clone();
-                Paragraph::new(self.util_bar.view.text(&text))
+                let text = self.text_box.text.clone();
+                Paragraph::new(self.text_box.view.text(&text))
             }
             Mode::Utility(UtilityKind::Warning(kind)) => Paragraph::new(
                 match kind{
@@ -179,22 +175,22 @@ impl UtilityWidget{
 #[derive(Default)]
 pub struct UtilityAlternateWidget{
     rect: Rect,
-    util_bar: Utility,
+    text_box: InteractiveTextBox,
 }
 impl UtilityAlternateWidget{
-    pub fn util_bar(&self) -> &Utility{
-        &self.util_bar
+    pub fn text_box(&self) -> &InteractiveTextBox{
+        &self.text_box
     }
-    pub fn util_bar_mut(&mut self) -> &mut Utility{
-        &mut self.util_bar
+    pub fn text_box_mut(&mut self) -> &mut InteractiveTextBox{
+        &mut self.text_box
     }
     pub fn widget(&self, mode: Mode) -> Paragraph<'static>{
-        let text = self.util_bar.text.clone();
+        let text = self.text_box.text.clone();
         match mode{
             Mode::Utility(UtilityKind::FindReplace) => {
-                Paragraph::new(self.util_bar.view.text(&text))
+                Paragraph::new(self.text_box.view.text(&text))
             }
-            _ => Paragraph::new(self.util_bar.view.text(&text))
+            _ => Paragraph::new(self.text_box.view.text(&text))
         }
     }
 }
@@ -636,12 +632,14 @@ impl UserInterface{
             Mode::Utility(UtilityKind::Command) 
             | Mode::Utility(UtilityKind::Goto) 
             | Mode::Utility(UtilityKind::FindReplace) => {
-                self.util_bar.widget.util_bar.set_widget_width(self.util_bar.widget.rect.width);
-                self.util_bar.alternate_widget.util_bar.set_widget_width(self.util_bar.alternate_widget.rect.width);
+                let width = self.util_bar.widget.rect.width as usize;
+                self.util_bar.widget.text_box_mut().view_mut().set_size(width, 1);
+                let width = self.util_bar.alternate_widget.rect.width as usize;
+                self.util_bar.alternate_widget.text_box_mut().view_mut().set_size(width, 1);
             }
             _ => {
-                self.util_bar.widget.util_bar.set_widget_width(0);
-                self.util_bar.alternate_widget.util_bar.set_widget_width(0);
+                self.util_bar.widget.text_box_mut().view_mut().set_size(0, 1);
+                self.util_bar.alternate_widget.text_box_mut().view_mut().set_size(0, 1);
             }
         }
     }
@@ -678,7 +676,7 @@ impl UserInterface{
                         frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);
                         frame.render_widget(self.util_bar.widget.widget(mode), self.util_bar.widget.rect);
                         frame.set_cursor(
-                            self.util_bar.widget.rect.x + self.util_bar.widget.util_bar.cursor_position().saturating_sub(self.util_bar.widget.util_bar.view.horizontal_start() as u16),
+                            self.util_bar.widget.rect.x + self.util_bar.widget.text_box.cursor_position().saturating_sub(self.util_bar.widget.text_box.view.horizontal_start() as u16),
                             self.terminal_size.height
                         );
                     }
@@ -689,10 +687,10 @@ impl UserInterface{
                         frame.render_widget(self.util_bar.alternate_widget.widget(mode), self.util_bar.alternate_widget.rect);
                         frame.set_cursor(
                             if self.util_bar_alternate_focused{
-                                self.util_bar.alternate_widget.rect.x + self.util_bar.alternate_widget.util_bar.cursor_position()
-                                    .saturating_sub(self.util_bar.alternate_widget.util_bar.view.horizontal_start() as u16)
+                                self.util_bar.alternate_widget.rect.x + self.util_bar.alternate_widget.text_box.cursor_position()
+                                    .saturating_sub(self.util_bar.alternate_widget.text_box.view.horizontal_start() as u16)
                             }else{
-                                self.util_bar.widget.rect.x + self.util_bar.widget.util_bar.cursor_position().saturating_sub(self.util_bar.widget.util_bar.view.horizontal_start() as u16)
+                                self.util_bar.widget.rect.x + self.util_bar.widget.text_box.cursor_position().saturating_sub(self.util_bar.widget.text_box.view.horizontal_start() as u16)
                             },
                             self.terminal_size.height
                         );
