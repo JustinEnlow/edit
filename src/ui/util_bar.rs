@@ -127,13 +127,13 @@ impl UtilBar{
             | Mode::Utility(UtilityKind::Goto) 
             | Mode::Utility(UtilityKind::FindReplace) => {
                 let width = self.utility_widget.rect.width as usize;
-                self.utility_widget.text_box.view_mut().set_size(width, 1);
+                self.utility_widget.text_box.view.set_size(width, 1);
                 let width = self.alternate_utility_widget.rect.width as usize;
-                self.alternate_utility_widget.text_box.view_mut().set_size(width, 1);
+                self.alternate_utility_widget.text_box.view.set_size(width, 1);
             }
             _ => {
-                self.utility_widget.text_box.view_mut().set_size(0, 1);
-                self.alternate_utility_widget.text_box.view_mut().set_size(0, 1);
+                self.utility_widget.text_box.view.set_size(0, 1);
+                self.alternate_utility_widget.text_box.view.set_size(0, 1);
             }
         }
     }

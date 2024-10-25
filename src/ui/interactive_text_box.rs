@@ -10,7 +10,7 @@ use std::cmp::Ordering;
 pub struct InteractiveTextBox{
     pub text: Rope,
     pub text_is_valid: bool,
-    selection: Selection,
+    pub selection: Selection,
     pub view: View
 }
 impl Default for InteractiveTextBox{
@@ -24,21 +24,6 @@ impl Default for InteractiveTextBox{
     }
 }
 impl InteractiveTextBox{
-    pub fn selection(&self) -> &Selection{
-        &self.selection
-    }
-    pub fn selection_mut(&mut self) -> &mut Selection{
-        &mut self.selection
-    }
-    pub fn view(&self) -> &View{
-        &self.view
-    }
-    pub fn view_mut(&mut self) -> &mut View{
-        &mut self.view
-    }
-    pub fn text(&self) -> &Rope{
-        &self.text
-    }
     pub fn cursor_position(&self) -> u16{
         self.selection.cursor(CursorSemantics::Block) as u16
     }
@@ -95,5 +80,32 @@ impl InteractiveTextBox{
                 self.delete();
             }
         }
+    }
+
+
+
+    pub fn extend_selection_end(&mut self){
+        self.selection = self.selection.extend_line_text_end(&self.text, CursorSemantics::Block);
+    }
+    pub fn extend_selection_home(&mut self){
+        self.selection = self.selection.extend_home(&self.text, CursorSemantics::Block);
+    }
+    pub fn extend_selection_left(&mut self){
+        self.selection = self.selection.extend_left(&self.text, CursorSemantics::Block);
+    }
+    pub fn extend_selection_right(&mut self){
+        self.selection = self.selection.extend_right(&self.text, CursorSemantics::Block);
+    }
+    pub fn move_cursor_left(&mut self){
+        self.selection = self.selection.move_left(&self.text, CursorSemantics::Block);
+    }
+    pub fn move_cursor_line_end(&mut self){
+        self.selection = self.selection.move_line_text_end(&self.text, CursorSemantics::Block);
+    }
+    pub fn move_cursor_line_start(&mut self){
+        self.selection = self.selection.move_home(&self.text, CursorSemantics::Block);
+    }
+    pub fn move_cursor_right(&mut self){
+        self.selection = self.selection.move_right(&self.text, CursorSemantics::Block);
     }
 }
