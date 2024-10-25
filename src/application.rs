@@ -74,19 +74,15 @@ impl Application{
         let path = PathBuf::from(file_path).canonicalize()?;
         
         self.document = Document::open(&path, CURSOR_SEMANTICS)?;
-        //self.ui.file_name_widget_mut().set(self.document.file_name());
-        self.ui.status_bar_mut().file_name_widget_mut().set(self.document.file_name());
-        //self.ui.document_widget_mut().set_length(self.document.len());
-        self.ui.document_viewport_mut().document_widget_mut().set_length(self.document.len());
+        self.ui.status_bar.file_name_widget.file_name = self.document.file_name();
+        self.ui.document_viewport.document_widget.doc_length = self.document.len();
         
         self.ui.update_layouts(self.mode);
         
         // init doc view size
         self.document.view_mut().set_size(
-            //self.ui.document_widget().rect().width as usize, 
-            self.ui.document_viewport().document_widget().rect().width as usize,
-            //self.ui.document_widget().rect().height as usize
-            self.ui.document_viewport().document_widget().rect().height as usize
+            self.ui.document_viewport.document_widget.rect.width as usize,
+            self.ui.document_viewport.document_widget.rect.height as usize
         );
 
         let text = self.document.text().clone();
@@ -234,18 +230,18 @@ impl Application{
     }
 
     fn update_ui(&mut self, text: &ropey::Rope, selections: &Selections){
-        self.ui.document_viewport_mut().document_widget_mut().set_text_in_view(self.document.view().text(text));
-        self.ui.document_viewport_mut().line_number_widget_mut().set(self.document.view().line_numbers(text));
-        self.ui.document_viewport_mut().document_widget_mut().set_client_cursor_position(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));
-        self.ui.status_bar_mut().document_cursor_position_widget_mut().set(selections.cursor_positions(text, CURSOR_SEMANTICS));
-        self.ui.status_bar_mut().modified_indicator_widget_mut().set(self.document.is_modified());
+        self.ui.document_viewport.document_widget.text_in_view = self.document.view().text(text);
+        self.ui.document_viewport.line_number_widget.line_numbers_in_view = self.document.view().line_numbers(text);
+        self.ui.highlighter.set_client_cursor_position(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));  //TODO: impl fn logic here instead of in highlighter
+        self.ui.highlighter.selections = self.document.view().selections(selections, text, CURSOR_SEMANTICS);
+        self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone();
+        self.ui.status_bar.modified_indicator_widget.document_modified_status = self.document.is_modified();
     }
 
     fn update_cursor_positions(&mut self, text: &ropey::Rope, selections: &Selections){
-        //self.ui.document_widget_mut().set_client_cursor_position(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));
-        self.ui.document_viewport_mut().document_widget_mut().set_client_cursor_position(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));
-        //self.ui.document_cursor_position_widget_mut().set(selections.cursor_positions(text, CURSOR_SEMANTICS));
-        self.ui.status_bar_mut().document_cursor_position_widget_mut().set(selections.cursor_positions(text, CURSOR_SEMANTICS));
+        self.ui.highlighter.set_client_cursor_position(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));  //TODO: impl fn logic here instead of in highlighter
+        self.ui.highlighter.selections = self.document.view().selections(selections, text, CURSOR_SEMANTICS);
+        self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone()
     }
 
     //fn add_selection_above(&mut self){}
@@ -262,8 +258,7 @@ impl Application{
         self.update_ui(&text, &selections);
 
         if len != self.document.len(){  //if length has changed after backspace
-            //self.ui.document_widget_mut().set_length(self.document.len());
-            self.ui.document_viewport_mut().document_widget_mut().set_length(self.document.len());
+            self.ui.document_viewport.document_widget.doc_length = self.document.len();
         }
     }
     fn center_view_vertically_around_cursor(&mut self){
@@ -279,7 +274,7 @@ impl Application{
     fn clear_non_primary_selections(&mut self){
         assert!(self.mode == Mode::Insert);
         if self.document.selections().count() > 1{
-            self.document.selections_mut().clear_non_primary_selections();
+            *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
 
             let text = self.document.text().clone();
             let selections = self.document.selections().clone();
@@ -311,7 +306,7 @@ impl Application{
     }
     fn command_mode_accept(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Command));
-        if self.parse_command(&self.ui.util_bar().utility_widget().text_box().text().to_string()).is_ok(){
+        if self.parse_command(&self.ui.util_bar.utility_widget.text_box.text().to_string()).is_ok(){
             self.command_mode_exit();
         }else{
             self.command_mode_exit();
@@ -321,85 +316,85 @@ impl Application{
     }
     fn command_mode_backspace(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Command));
-        self.ui.util_bar_mut().utility_widget_mut().text_box_mut().backspace();
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        self.ui.util_bar.utility_widget.text_box.backspace();
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
     fn command_mode_delete(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Command));
-        self.ui.util_bar_mut().utility_widget_mut().text_box_mut().delete();
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        self.ui.util_bar.utility_widget.text_box.delete();
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
     fn command_mode_exit(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Command));
-        self.ui.util_bar_mut().utility_widget_mut().text_box_mut().clear();
+        self.ui.util_bar.utility_widget.text_box.clear();
         self.mode = Mode::Insert;
     }
     fn command_mode_extend_selection_end(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Command));
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().extend_line_text_end(&text, CURSOR_SEMANTICS);
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().extend_line_text_end(&text, CURSOR_SEMANTICS);
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
     fn command_mode_extend_selection_home(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Command));
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().extend_home(&text, CURSOR_SEMANTICS);
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().extend_home(&text, CURSOR_SEMANTICS);
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
     fn command_mode_extend_selection_left(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Command));
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().extend_left(&text, CURSOR_SEMANTICS);
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().extend_left(&text, CURSOR_SEMANTICS);
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
     fn command_mode_extend_selection_right(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Command));
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().extend_right(&text, CURSOR_SEMANTICS);
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().extend_right(&text, CURSOR_SEMANTICS);
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
     fn command_mode_insert_char(&mut self, c: char){
         assert!(self.mode == Mode::Utility(UtilityKind::Command));
-        self.ui.util_bar_mut().utility_widget_mut().text_box_mut().insert_char(c);
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        self.ui.util_bar.utility_widget.text_box.insert_char(c);
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
     fn command_mode_move_cursor_left(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Command));
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().move_left(&text, CURSOR_SEMANTICS);
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().move_left(&text, CURSOR_SEMANTICS);
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
     fn command_mode_move_cursor_line_end(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Command));
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().move_line_text_end(&text, CURSOR_SEMANTICS);
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().move_line_text_end(&text, CURSOR_SEMANTICS);
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
     fn command_mode_move_cursor_line_start(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Command));
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().move_home(&text, CURSOR_SEMANTICS);
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().move_home(&text, CURSOR_SEMANTICS);
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
     fn command_mode_move_cursor_right(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Command));
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().move_right(&text, CURSOR_SEMANTICS);
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().move_right(&text, CURSOR_SEMANTICS);
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
     fn copy(&mut self){
         assert!(self.mode == Mode::Insert);
@@ -423,7 +418,7 @@ impl Application{
             self.update_ui(&text, &selections);
 
             if len != self.document.len(){  //if length has changed after cut
-                self.ui.document_viewport_mut().document_widget_mut().set_length(self.document.len());
+                self.ui.document_viewport.document_widget.doc_length = self.document.len();
             }
         }else{
             self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::MultipleSelections));
@@ -441,18 +436,18 @@ impl Application{
         self.update_ui(&text, &selections);
 
         if len != self.document.len(){  //if length has changed after delete
-            self.ui.document_viewport_mut().document_widget_mut().set_length(self.document.len());
+            self.ui.document_viewport.document_widget.doc_length = self.document.len();
         }
     }
     fn display_line_numbers(&mut self){
         assert!(self.mode == Mode::Insert);
-        self.ui.document_viewport_mut().toggle_line_numbers();
+        self.ui.document_viewport.toggle_line_numbers();
                 
         self.ui.update_layouts(self.mode);
 
         self.document.view_mut().set_size(
-            self.ui.document_viewport().document_widget().rect().width as usize,
-            self.ui.document_viewport().document_widget().rect().height as usize
+            self.ui.document_viewport.document_widget.rect.width as usize,
+            self.ui.document_viewport.document_widget.rect.height as usize
         );
                 
         let text = self.document.text().clone();
@@ -462,13 +457,13 @@ impl Application{
     }
     fn display_status_bar(&mut self){
         assert!(self.mode == Mode::Insert);
-        self.ui.status_bar_mut().toggle_status_bar();
+        self.ui.status_bar.toggle_status_bar();
                 
         self.ui.update_layouts(self.mode);
 
         self.document.view_mut().set_size(
-            self.ui.document_viewport().document_widget().rect().width as usize,
-            self.ui.document_viewport().document_widget().rect().height as usize
+            self.ui.document_viewport.document_widget.rect.width as usize,
+            self.ui.document_viewport.document_widget.rect.height as usize
         );
 
         let text = self.document.text().clone();
@@ -611,169 +606,169 @@ impl Application{
     }
     fn find_replace_mode_backspace(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
-        if self.ui.util_bar().alternate_focused(){
-            self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().backspace();
-            let text = self.ui.util_bar().alternate_utility_widget().text_box().text().clone();
-            let selections = Selections::new(vec![self.ui.util_bar().alternate_utility_widget().text_box().selection().clone()], 0, &text);
-            *self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().alternate_utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        if self.ui.util_bar.alternate_focused{
+            self.ui.util_bar.alternate_utility_widget.text_box.backspace();
+            let text = self.ui.util_bar.alternate_utility_widget.text_box.text().clone();
+            let selections = Selections::new(vec![self.ui.util_bar.alternate_utility_widget.text_box.selection().clone()], 0, &text);
+            *self.ui.util_bar.alternate_utility_widget.text_box.view_mut() = self.ui.util_bar.alternate_utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
         }else{
-            self.ui.util_bar_mut().utility_widget_mut().text_box_mut().backspace();
-            let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-            let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-            *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+            self.ui.util_bar.utility_widget.text_box.backspace();
+            let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+            let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+            *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
         }
 
         self.find_replace_mode_text_validity_check();
     }
     fn find_replace_mode_delete(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
-        if self.ui.util_bar().alternate_focused(){
-            self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().delete();
-            let text = self.ui.util_bar().alternate_utility_widget().text_box().text().clone();
-            let selections = Selections::new(vec![self.ui.util_bar().alternate_utility_widget().text_box().selection().clone()], 0, &text);
-            *self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().alternate_utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        if self.ui.util_bar.alternate_focused{
+            self.ui.util_bar.alternate_utility_widget.text_box.delete();
+            let text = self.ui.util_bar.alternate_utility_widget.text_box.text().clone();
+            let selections = Selections::new(vec![self.ui.util_bar.alternate_utility_widget.text_box.selection().clone()], 0, &text);
+            *self.ui.util_bar.alternate_utility_widget.text_box.view_mut() = self.ui.util_bar.alternate_utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
         }else{
-            self.ui.util_bar_mut().utility_widget_mut().text_box_mut().delete();
-            let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-            let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-            *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+            self.ui.util_bar.utility_widget.text_box.delete();
+            let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+            let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+            *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
         }
 
         self.find_replace_mode_text_validity_check();
     }
     fn find_replace_mode_exit(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
-        self.ui.util_bar_mut().utility_widget_mut().text_box_mut().clear();
-        self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().clear();
-        self.ui.util_bar_mut().set_alternate_focused(false);
+        self.ui.util_bar.utility_widget.text_box.clear();
+        self.ui.util_bar.alternate_utility_widget.text_box.clear();
+        self.ui.util_bar.alternate_focused = false;
         self.mode = Mode::Insert;
     }
     fn find_replace_mode_extend_selection_end(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
-        if self.ui.util_bar().alternate_focused(){
-            let text = self.ui.util_bar().alternate_utility_widget().text_box().text().clone();
-            *self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().alternate_utility_widget().text_box().selection().extend_line_text_end(&text, CURSOR_SEMANTICS);
-            let selections = Selections::new(vec![self.ui.util_bar().alternate_utility_widget().text_box().selection().clone()], 0, &text);
-            *self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().alternate_utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        if self.ui.util_bar.alternate_focused{
+            let text = self.ui.util_bar.alternate_utility_widget.text_box.text().clone();
+            *self.ui.util_bar.alternate_utility_widget.text_box.selection_mut() = self.ui.util_bar.alternate_utility_widget.text_box.selection().extend_line_text_end(&text, CURSOR_SEMANTICS);
+            let selections = Selections::new(vec![self.ui.util_bar.alternate_utility_widget.text_box.selection().clone()], 0, &text);
+            *self.ui.util_bar.alternate_utility_widget.text_box.view_mut() = self.ui.util_bar.alternate_utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
         }else{
-            let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-            *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().extend_line_text_end(&text, CURSOR_SEMANTICS);
-            let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-            *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+            let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+            *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().extend_line_text_end(&text, CURSOR_SEMANTICS);
+            let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+            *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
         }
     }
     fn find_replace_mode_extend_selection_home(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
-        if self.ui.util_bar().alternate_focused(){
-            let text = self.ui.util_bar().alternate_utility_widget().text_box().text().clone();
-            *self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().alternate_utility_widget().text_box().selection().extend_home(&text, CURSOR_SEMANTICS);
-            let selections = Selections::new(vec![self.ui.util_bar().alternate_utility_widget().text_box().selection().clone()], 0, &text);
-            *self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().alternate_utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        if self.ui.util_bar.alternate_focused{
+            let text = self.ui.util_bar.alternate_utility_widget.text_box.text().clone();
+            *self.ui.util_bar.alternate_utility_widget.text_box.selection_mut() = self.ui.util_bar.alternate_utility_widget.text_box.selection().extend_home(&text, CURSOR_SEMANTICS);
+            let selections = Selections::new(vec![self.ui.util_bar.alternate_utility_widget.text_box.selection().clone()], 0, &text);
+            *self.ui.util_bar.alternate_utility_widget.text_box.view_mut() = self.ui.util_bar.alternate_utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
         }else{
-            let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-            *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().extend_home(&text, CURSOR_SEMANTICS);
-            let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-            *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+            let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+            *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().extend_home(&text, CURSOR_SEMANTICS);
+            let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+            *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
         }
     }
     fn find_replace_mode_extend_selection_left(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
-        if self.ui.util_bar().alternate_focused(){
-            let text = self.ui.util_bar().alternate_utility_widget().text_box().text().clone();
-            *self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().alternate_utility_widget().text_box().selection().extend_left(&text, CURSOR_SEMANTICS);
-            let selections = Selections::new(vec![self.ui.util_bar().alternate_utility_widget().text_box().selection().clone()], 0, &text);
-            *self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().alternate_utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        if self.ui.util_bar.alternate_focused{
+            let text = self.ui.util_bar.alternate_utility_widget.text_box.text().clone();
+            *self.ui.util_bar.alternate_utility_widget.text_box.selection_mut() = self.ui.util_bar.alternate_utility_widget.text_box.selection().extend_left(&text, CURSOR_SEMANTICS);
+            let selections = Selections::new(vec![self.ui.util_bar.alternate_utility_widget.text_box.selection().clone()], 0, &text);
+            *self.ui.util_bar.alternate_utility_widget.text_box.view_mut() = self.ui.util_bar.alternate_utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
         }else{
-            let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-            *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().extend_left(&text, CURSOR_SEMANTICS);
-            let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-            *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+            let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+            *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().extend_left(&text, CURSOR_SEMANTICS);
+            let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+            *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
         }
     }
     fn find_replace_mode_extend_selection_right(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
-        if self.ui.util_bar().alternate_focused(){
-            let text = self.ui.util_bar().alternate_utility_widget().text_box().text().clone();
-            *self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().alternate_utility_widget().text_box().selection().extend_right(&text, CURSOR_SEMANTICS);
-            let selections = Selections::new(vec![self.ui.util_bar().alternate_utility_widget().text_box().selection().clone()], 0, &text);
-            *self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().alternate_utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        if self.ui.util_bar.alternate_focused{
+            let text = self.ui.util_bar.alternate_utility_widget.text_box.text().clone();
+            *self.ui.util_bar.alternate_utility_widget.text_box.selection_mut() = self.ui.util_bar.alternate_utility_widget.text_box.selection().extend_right(&text, CURSOR_SEMANTICS);
+            let selections = Selections::new(vec![self.ui.util_bar.alternate_utility_widget.text_box.selection().clone()], 0, &text);
+            *self.ui.util_bar.alternate_utility_widget.text_box.view_mut() = self.ui.util_bar.alternate_utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
         }else{
-            let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-            *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().extend_right(&text, CURSOR_SEMANTICS);
-            let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-            *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+            let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+            *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().extend_right(&text, CURSOR_SEMANTICS);
+            let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+            *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
         }
     }
     fn find_replace_mode_insert_char(&mut self, c: char){
         assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
-        if self.ui.util_bar().alternate_focused(){
-            self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().insert_char(c);
-            let text = self.ui.util_bar().alternate_utility_widget().text_box().text().clone();
-            let selections = Selections::new(vec![self.ui.util_bar().alternate_utility_widget().text_box().selection().clone()], 0, &text);
-            *self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().alternate_utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        if self.ui.util_bar.alternate_focused{
+            self.ui.util_bar.alternate_utility_widget.text_box.insert_char(c);
+            let text = self.ui.util_bar.alternate_utility_widget.text_box.text().clone();
+            let selections = Selections::new(vec![self.ui.util_bar.alternate_utility_widget.text_box.selection().clone()], 0, &text);
+            *self.ui.util_bar.alternate_utility_widget.text_box.view_mut() = self.ui.util_bar.alternate_utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
         }else{
-            self.ui.util_bar_mut().utility_widget_mut().text_box_mut().insert_char(c);
-            let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-            let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-            *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+            self.ui.util_bar.utility_widget.text_box.insert_char(c);
+            let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+            let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+            *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
         }
         
         self.find_replace_mode_text_validity_check();
     }
     fn find_replace_mode_move_cursor_left(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
-        if self.ui.util_bar().alternate_focused(){
-            let text = self.ui.util_bar().alternate_utility_widget().text_box().text().clone();
-            *self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().alternate_utility_widget().text_box().selection().move_left(&text, CURSOR_SEMANTICS);
-            let selections = Selections::new(vec![self.ui.util_bar().alternate_utility_widget().text_box().selection().clone()], 0, &text);
-            *self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().alternate_utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        if self.ui.util_bar.alternate_focused{
+            let text = self.ui.util_bar.alternate_utility_widget.text_box.text().clone();
+            *self.ui.util_bar.alternate_utility_widget.text_box.selection_mut() = self.ui.util_bar.alternate_utility_widget.text_box.selection().move_left(&text, CURSOR_SEMANTICS);
+            let selections = Selections::new(vec![self.ui.util_bar.alternate_utility_widget.text_box.selection().clone()], 0, &text);
+            *self.ui.util_bar.alternate_utility_widget.text_box.view_mut() = self.ui.util_bar.alternate_utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
         }else{
-            let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-            *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().move_left(&text, CURSOR_SEMANTICS);
-            let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-            *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+            let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+            *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().move_left(&text, CURSOR_SEMANTICS);
+            let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+            *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
         }
     }
     fn find_replace_mode_move_cursor_line_end(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
-        if self.ui.util_bar().alternate_focused(){
-            let text = self.ui.util_bar().alternate_utility_widget().text_box().text().clone();
-            *self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().alternate_utility_widget().text_box().selection().move_line_text_end(&text, CURSOR_SEMANTICS);
-            let selections = Selections::new(vec![self.ui.util_bar().alternate_utility_widget().text_box().selection().clone()], 0, &text);
-            *self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().alternate_utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        if self.ui.util_bar.alternate_focused{
+            let text = self.ui.util_bar.alternate_utility_widget.text_box.text().clone();
+            *self.ui.util_bar.alternate_utility_widget.text_box.selection_mut() = self.ui.util_bar.alternate_utility_widget.text_box.selection().move_line_text_end(&text, CURSOR_SEMANTICS);
+            let selections = Selections::new(vec![self.ui.util_bar.alternate_utility_widget.text_box.selection().clone()], 0, &text);
+            *self.ui.util_bar.alternate_utility_widget.text_box.view_mut() = self.ui.util_bar.alternate_utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
         }else{
-            let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-            *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().move_line_text_end(&text, CURSOR_SEMANTICS);
-            let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-            *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+            let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+            *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().move_line_text_end(&text, CURSOR_SEMANTICS);
+            let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+            *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
         }
     }
     fn find_replace_mode_move_cursor_line_start(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
-        if self.ui.util_bar().alternate_focused(){
-            let text = self.ui.util_bar().alternate_utility_widget().text_box().text().clone();
-            *self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().alternate_utility_widget().text_box().selection().move_home(&text, CURSOR_SEMANTICS);
-            let selections = Selections::new(vec![self.ui.util_bar().alternate_utility_widget().text_box().selection().clone()], 0, &text);
-            *self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().alternate_utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        if self.ui.util_bar.alternate_focused{
+            let text = self.ui.util_bar.alternate_utility_widget.text_box.text().clone();
+            *self.ui.util_bar.alternate_utility_widget.text_box.selection_mut() = self.ui.util_bar.alternate_utility_widget.text_box.selection().move_home(&text, CURSOR_SEMANTICS);
+            let selections = Selections::new(vec![self.ui.util_bar.alternate_utility_widget.text_box.selection().clone()], 0, &text);
+            *self.ui.util_bar.alternate_utility_widget.text_box.view_mut() = self.ui.util_bar.alternate_utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
         }else{
-            let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-            *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().move_home(&text, CURSOR_SEMANTICS);
-            let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-            *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+            let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+            *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().move_home(&text, CURSOR_SEMANTICS);
+            let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+            *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
         }
     }
     fn find_replace_mode_move_cursor_right(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
-        if self.ui.util_bar().alternate_focused(){
-            let text = self.ui.util_bar().alternate_utility_widget().text_box().text().clone();
-            *self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().alternate_utility_widget().text_box().selection().move_right(&text, CURSOR_SEMANTICS);
-            let selections = Selections::new(vec![self.ui.util_bar().alternate_utility_widget().text_box().selection().clone()], 0, &text);
-            *self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().alternate_utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        if self.ui.util_bar.alternate_focused{
+            let text = self.ui.util_bar.alternate_utility_widget.text_box.text().clone();
+            *self.ui.util_bar.alternate_utility_widget.text_box.selection_mut() = self.ui.util_bar.alternate_utility_widget.text_box.selection().move_right(&text, CURSOR_SEMANTICS);
+            let selections = Selections::new(vec![self.ui.util_bar.alternate_utility_widget.text_box.selection().clone()], 0, &text);
+            *self.ui.util_bar.alternate_utility_widget.text_box.view_mut() = self.ui.util_bar.alternate_utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
         }else{
-            let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-            *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().move_right(&text, CURSOR_SEMANTICS);
-            let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-            *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+            let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+            *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().move_right(&text, CURSOR_SEMANTICS);
+            let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+            *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
         }
     }
     fn find_replace_mode_next_instance(&mut self){
@@ -784,21 +779,20 @@ impl Application{
     }
     fn find_replace_mode_switch_util_bar_focus(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
-        let toggle = !self.ui.util_bar().alternate_focused();
-        self.ui.util_bar_mut().set_alternate_focused(toggle);
+        self.ui.util_bar.alternate_focused = !self.ui.util_bar.alternate_focused;
     }
     fn find_replace_mode_text_validity_check(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
         //run text validity check
-        if !self.document.text().clone().to_string().contains(&self.ui.util_bar().utility_widget().text_box().text().to_string()){
-            self.ui.util_bar_mut().utility_widget_mut().text_box_mut().set_text_is_valid(false);
+        if !self.document.text().clone().to_string().contains(&self.ui.util_bar.utility_widget.text_box.text().to_string()){
+            self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
         }else{
-            self.ui.util_bar_mut().utility_widget_mut().text_box_mut().set_text_is_valid(true);
+            self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
         }
     }
     fn goto_mode_accept(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Goto));
-        if let Ok(line_number) = self.ui.util_bar().utility_widget().text_box().text().to_string().parse::<usize>(){
+        if let Ok(line_number) = self.ui.util_bar.utility_widget.text_box.text().to_string().parse::<usize>(){
             let line_number = line_number.saturating_sub(1);
 
             //if line_number < self.ui.document_length(){
@@ -806,7 +800,7 @@ impl Application{
                 let text =  self.document.text().clone();
                 
                 if self.document.selections().count() > 1{
-                    self.document.selections_mut().clear_non_primary_selections();
+                    *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
                 }
                 *self.document.selections_mut().primary_mut() = self.document.selections().primary().set_from_line_number(line_number, &text, Movement::Move, CURSOR_SEMANTICS);
                 
@@ -820,108 +814,108 @@ impl Application{
                 self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput));
             }
         }else{
-            self.ui.util_bar_mut().utility_widget_mut().text_box_mut().clear();
+            self.ui.util_bar.utility_widget.text_box.clear();
             self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput));
         }
     }
     fn goto_mode_backspace(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Goto));
-        self.ui.util_bar_mut().utility_widget_mut().text_box_mut().backspace();
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        self.ui.util_bar.utility_widget.text_box.backspace();
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     
         self.goto_mode_text_validity_check();
     }
     fn goto_mode_delete(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Goto));
-        self.ui.util_bar_mut().utility_widget_mut().text_box_mut().delete();
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        self.ui.util_bar.utility_widget.text_box.delete();
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     
         self.goto_mode_text_validity_check();
     }
     fn goto_mode_exit(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Goto));
-        self.ui.util_bar_mut().utility_widget_mut().text_box_mut().clear();
+        self.ui.util_bar.utility_widget.text_box.clear();
         self.mode = Mode::Insert;
     }
     fn goto_mode_extend_selection_end(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Goto));
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().extend_line_text_end(&text, CURSOR_SEMANTICS);
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().extend_line_text_end(&text, CURSOR_SEMANTICS);
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
     fn goto_mode_extend_selection_home(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Goto));
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().extend_home(&text, CURSOR_SEMANTICS);
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().extend_home(&text, CURSOR_SEMANTICS);
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
     fn goto_mode_extend_selection_left(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Goto));
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().extend_left(&text, CURSOR_SEMANTICS);
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().extend_left(&text, CURSOR_SEMANTICS);
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
     fn goto_mode_extend_selection_right(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Goto));
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().extend_right(&text, CURSOR_SEMANTICS);
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().extend_right(&text, CURSOR_SEMANTICS);
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
     fn goto_mode_insert_char(&mut self, c: char){
         assert!(self.mode == Mode::Utility(UtilityKind::Goto));
-        self.ui.util_bar_mut().utility_widget_mut().text_box_mut().insert_char(c);
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        self.ui.util_bar.utility_widget.text_box.insert_char(c);
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     
         self.goto_mode_text_validity_check();
     }
     fn goto_mode_move_cursor_left(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Goto));
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().move_left(&text, CURSOR_SEMANTICS);
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().move_left(&text, CURSOR_SEMANTICS);
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
     fn goto_mode_move_cursor_line_end(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Goto));
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().move_line_text_end(&text, CURSOR_SEMANTICS);
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().move_line_text_end(&text, CURSOR_SEMANTICS);
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
     fn goto_mode_move_cursor_line_start(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Goto));
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().move_home(&text, CURSOR_SEMANTICS);
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().move_home(&text, CURSOR_SEMANTICS);
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
     fn goto_mode_move_cursor_right(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Goto));
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().selection_mut() = self.ui.util_bar().utility_widget().text_box().selection().move_right(&text, CURSOR_SEMANTICS);
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        *self.ui.util_bar.utility_widget.text_box.selection_mut() = self.ui.util_bar.utility_widget.text_box.selection().move_right(&text, CURSOR_SEMANTICS);
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
     fn goto_mode_text_validity_check(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Goto));
         // run text validity check
         let mut is_numeric = true;
-        for grapheme in self.ui.util_bar().utility_widget().text_box().text().chars(){ // .graphemes(true)?
+        for grapheme in self.ui.util_bar.utility_widget.text_box.text().chars(){ // .graphemes(true)?
             if !grapheme.is_ascii_digit(){
                 is_numeric = false;
             }
         }
-        let exceeds_doc_length = match self.ui.util_bar().utility_widget().text_box().text().to_string().parse::<usize>(){
+        let exceeds_doc_length = match self.ui.util_bar.utility_widget.text_box.text().to_string().parse::<usize>(){
             Ok(line_number) => {
                 //line_number > self.ui.document_length()
                 line_number > self.document.len()
@@ -929,9 +923,9 @@ impl Application{
             Err(_) => false
         };
         if !is_numeric || exceeds_doc_length{
-            self.ui.util_bar_mut().utility_widget_mut().text_box_mut().set_text_is_valid(false);
+            self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
         }else{
-            self.ui.util_bar_mut().utility_widget_mut().text_box_mut().set_text_is_valid(true);
+            self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
         }
     }
     fn increment_primary_selection(&mut self){
@@ -949,7 +943,6 @@ impl Application{
     }
     fn insert_char(&mut self, c: char){
         assert!(self.mode == Mode::Insert);
-        //self.document.insert_char(c, CURSOR_SEMANTICS);
         self.document.insert_string(&c.to_string(), CURSOR_SEMANTICS);
 
         let text = self.document.text().clone();
@@ -961,7 +954,6 @@ impl Application{
     fn insert_newline(&mut self){
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
-        //self.document.enter(CURSOR_SEMANTICS);
         self.document.insert_string("\n", CURSOR_SEMANTICS);
 
         let text = self.document.text().clone();
@@ -971,13 +963,11 @@ impl Application{
         self.update_ui(&text, &selections);
 
         if len != self.document.len(){  //if length has changed after newline
-            //self.ui.document_widget_mut().set_length(self.document.len());
-            self.ui.document_viewport_mut().document_widget_mut().set_length(self.document.len());
+            self.ui.document_viewport.document_widget.doc_length = self.document.len();
         }
     }
     fn insert_tab(&mut self){
         assert!(self.mode == Mode::Insert);
-        //self.document.tab(CURSOR_SEMANTICS);
         self.document.insert_string("\t", CURSOR_SEMANTICS);
 
         let text = self.document.text().clone();
@@ -991,7 +981,7 @@ impl Application{
         let text = self.document.text().clone();
 
         if self.document.selections().count() > 1{
-            self.document.selections_mut().clear_non_primary_selections();
+            *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
         }
         for selection in self.document.selections_mut().iter_mut(){
             *selection = selection.move_doc_end(&text, CURSOR_SEMANTICS);
@@ -1010,7 +1000,7 @@ impl Application{
         let text = self.document.text().clone();
 
         if self.document.selections().count() > 1{
-            self.document.selections_mut().clear_non_primary_selections();
+            *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
         }
         for selection in self.document.selections_mut().iter_mut(){
             *selection = selection.move_doc_start(&text, CURSOR_SEMANTICS);
@@ -1203,8 +1193,7 @@ impl Application{
         self.update_ui(&text, &selections);
 
         if len != self.document.len(){  //if length has changed after paste
-            //self.ui.document_widget_mut().set_length(self.document.len());
-            self.ui.document_viewport_mut().document_widget_mut().set_length(self.document.len());
+            self.ui.document_viewport.document_widget.doc_length = self.document.len();
         }
     }
     fn quit(&mut self){
@@ -1231,8 +1220,7 @@ impl Application{
             self.update_ui(&text, &selections);
 
             if len != self.document.len(){  //if length has changed after paste
-                //self.ui.document_widget_mut().set_length(self.document.len());
-                self.ui.document_viewport_mut().document_widget_mut().set_length(self.document.len());
+                self.ui.document_viewport.document_widget.doc_length = self.document.len();
             }
         }else{
             // warn redo stack empty
@@ -1242,16 +1230,15 @@ impl Application{
         self.ui.set_terminal_size(x, y);
         self.ui.update_layouts(self.mode);
 
-        let text = self.ui.util_bar().utility_widget().text_box().text().clone();
-        let selections = Selections::new(vec![self.ui.util_bar().utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        let text = self.ui.util_bar.utility_widget.text_box.text().clone();
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.utility_widget.text_box.view_mut() = self.ui.util_bar.utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
 
-        let text = self.ui.util_bar().alternate_utility_widget().text_box().text().clone();
-        let selections = Selections::new(vec![self.ui.util_bar().alternate_utility_widget().text_box().selection().clone()], 0, &text);
-        *self.ui.util_bar_mut().alternate_utility_widget_mut().text_box_mut().view_mut() = self.ui.util_bar().alternate_utility_widget().text_box().view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        let text = self.ui.util_bar.alternate_utility_widget.text_box.text().clone();
+        let selections = Selections::new(vec![self.ui.util_bar.alternate_utility_widget.text_box.selection().clone()], 0, &text);
+        *self.ui.util_bar.alternate_utility_widget.text_box.view_mut() = self.ui.util_bar.alternate_utility_widget.text_box.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
 
-        //self.document.view_mut().set_size(self.ui.document_widget().rect().width as usize, self.ui.document_widget().rect().height as usize);
-        self.document.view_mut().set_size(self.ui.document_viewport().document_widget().rect().width as usize, self.ui.document_viewport().document_widget().rect().height as usize);
+        self.document.view_mut().set_size(self.ui.document_viewport.document_widget.rect.width as usize, self.ui.document_viewport.document_widget.rect.height as usize);
 
         let text = self.document.text().clone();
         let selections = self.document.selections().clone();
@@ -1314,7 +1301,7 @@ impl Application{
         let text = self.document.text().clone();
 
         if self.document.selections().count() > 1{
-            self.document.selections_mut().clear_non_primary_selections();
+            *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
         }
         *self.document.selections_mut().primary_mut() = self.document.selections().primary().select_all(&text, CURSOR_SEMANTICS);
 
@@ -1358,8 +1345,7 @@ impl Application{
             self.update_ui(&text, &selections);
 
             if len != self.document.len(){  //if length has changed after paste
-                //self.ui.document_widget_mut().set_length(self.document.len());
-                self.ui.document_viewport_mut().document_widget_mut().set_length(self.document.len());
+                self.ui.document_viewport.document_widget.doc_length = self.document.len();
             }
         }else{
             // warn undo stack empty
