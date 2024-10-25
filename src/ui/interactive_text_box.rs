@@ -38,7 +38,7 @@ impl InteractiveTextBox{
         let mut new_text = text.clone();
         new_text.insert_char(self.selection.cursor(CursorSemantics::Block), char);
         self.text = new_text;
-        self.selection = self.selection.move_right(&text, CursorSemantics::Block);
+        self.selection = self.selection.move_right(&self.text.clone(), CursorSemantics::Block);
     }
     pub fn delete(&mut self){
         let text = self.text.clone();

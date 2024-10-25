@@ -248,6 +248,30 @@ impl Application{
         self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone();
         self.ui.status_bar.modified_indicator_widget.document_modified_status = self.document.is_modified();
     }
+    fn update_cursor_positions(&mut self){
+        let text = self.document.text();
+        let selections = self.document.selections();
+        self.ui.highlighter.set_client_cursor_position(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));  //TODO: impl fn logic here instead of in highlighter
+        self.ui.highlighter.selections = self.document.view().selections(selections, text, CURSOR_SEMANTICS);
+        self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone()
+    }
+    fn scroll_and_update(&mut self){
+        let text = self.document.text().clone();
+        let selections = self.document.selections().clone();
+        *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+
+        self.update_ui();
+    }
+    fn checked_scroll_and_update(&mut self){
+        let text = self.document.text().clone();
+        let selections = self.document.selections().clone();
+        if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
+            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+            self.update_ui();
+        }else{
+            self.update_cursor_positions();
+        }
+    }
     fn update_util_bar_ui(&mut self){
         let text = self.ui.util_bar.utility_widget.text_box.text.clone();
         let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection.clone()], 0, &text);
@@ -259,14 +283,6 @@ impl Application{
         self.ui.util_bar.alternate_utility_widget.text_box.view = self.ui.util_bar.alternate_utility_widget.text_box.view.scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
 
-    fn update_cursor_positions(&mut self){
-        let text = self.document.text();
-        let selections = self.document.selections();
-        self.ui.highlighter.set_client_cursor_position(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));  //TODO: impl fn logic here instead of in highlighter
-        self.ui.highlighter.selections = self.document.view().selections(selections, text, CURSOR_SEMANTICS);
-        self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone()
-    }
-
     //fn add_selection_above(&mut self){}
     //fn add_selection_below(&mut self){}
     fn backspace(&mut self){
@@ -274,11 +290,7 @@ impl Application{
         let len = self.document.len();
         self.document.backspace(CURSOR_SEMANTICS);
 
-        let text = self.document.text().clone();
-        let selections = self.document.selections().clone();
-        *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-
-        self.update_ui();
+        self.scroll_and_update();
 
         if len != self.document.len(){  //if length has changed after backspace
             self.ui.document_viewport.document_widget.doc_length = self.document.len();
@@ -298,14 +310,7 @@ impl Application{
         if self.document.selections().count() > 1{
             *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
 
-            let text = self.document.text().clone();
-            let selections = self.document.selections().clone();
-            if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
-                *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-                self.update_ui();
-            }else{
-                self.update_cursor_positions();
-            }
+            self.checked_scroll_and_update();
         }else{
             self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::SingleSelection));
         }
@@ -318,13 +323,7 @@ impl Application{
             *selection = selection.collapse(&text, CURSOR_SEMANTICS);
         }
 
-        let selections = self.document.selections().clone();
-        if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-            self.update_ui();
-        }else{
-            self.update_cursor_positions();
-        }
+        self.checked_scroll_and_update();
     }
     fn command_mode_accept(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Command));
@@ -409,13 +408,8 @@ impl Application{
         if self.document.selections().count() == 1{
             let len = self.document.len();
             self.document.cut(CURSOR_SEMANTICS);
-            //TODO: should document widget length be set here instead of later?
 
-            let text = self.document.text().clone();
-            let selections = self.document.selections().clone();
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-
-            self.update_ui();
+            self.scroll_and_update();
 
             if len != self.document.len(){  //if length has changed after cut
                 self.ui.document_viewport.document_widget.doc_length = self.document.len();
@@ -429,11 +423,7 @@ impl Application{
         let len = self.document.len();
         self.document.delete(CURSOR_SEMANTICS);
 
-        let text = self.document.text().clone();
-        let selections = self.document.selections().clone();
-        *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-
-        self.update_ui();
+        self.scroll_and_update();
 
         if len != self.document.len(){  //if length has changed after delete
             self.ui.document_viewport.document_widget.doc_length = self.document.len();
@@ -473,13 +463,7 @@ impl Application{
             *selection = extend_fn(selection, &text, CURSOR_SEMANTICS);
         }
     
-        let selections = self.document.selections().clone();
-        if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-            self.update_ui();
-        }else{
-            self.update_cursor_positions();
-        }
+        self.checked_scroll_and_update();
     }
     fn extend_selection_down(&mut self){
         self.extend_selection(Selection::extend_down);
@@ -502,13 +486,7 @@ impl Application{
             *selection = extend_fn(selection, &text, &view, CURSOR_SEMANTICS);
         }
 
-        let selections = self.document.selections().clone();
-        if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-            self.update_ui();
-        }else{
-            self.update_cursor_positions();
-        }
+        self.checked_scroll_and_update();
     }
     fn extend_selection_page_down(&mut self){
         self.extend_selection_page(Selection::extend_page_down);
@@ -681,9 +659,7 @@ impl Application{
                 }
                 *self.document.selections_mut().primary_mut() = self.document.selections().primary().set_from_line_number(line_number, &text, Movement::Move, CURSOR_SEMANTICS);
                 
-                let selections = self.document.selections().clone();
-                *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-                self.update_ui();
+                self.scroll_and_update();
                 
                 self.goto_mode_exit();
             }else{
@@ -787,11 +763,7 @@ impl Application{
         if self.document.selections().count() > 1{
             *self.document.selections_mut() = self.document.selections().increment_primary_selection();
 
-            let text = self.document.text().clone();
-            let selections = self.document.selections().clone();
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-
-            self.update_ui();
+            self.scroll_and_update();
         }else{
             self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::SingleSelection))
         }
@@ -800,22 +772,14 @@ impl Application{
         assert!(self.mode == Mode::Insert);
         self.document.insert_string(&c.to_string(), CURSOR_SEMANTICS);
 
-        let text = self.document.text().clone();
-        let selections = self.document.selections().clone();
-        *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-
-        self.update_ui();
+        self.scroll_and_update();
     }
     fn insert_newline(&mut self){
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
         self.document.insert_string("\n", CURSOR_SEMANTICS);
 
-        let text = self.document.text().clone();
-        let selections = self.document.selections().clone();
-        *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-
-        self.update_ui();
+        self.scroll_and_update();
 
         if len != self.document.len(){  //if length has changed after newline
             self.ui.document_viewport.document_widget.doc_length = self.document.len();
@@ -825,11 +789,7 @@ impl Application{
         assert!(self.mode == Mode::Insert);
         self.document.insert_string("\t", CURSOR_SEMANTICS);
 
-        let text = self.document.text().clone();
-        let selections = self.document.selections().clone();
-        *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-
-        self.update_ui();
+        self.scroll_and_update();
     }
     fn move_cursor(&mut self, movement_fn: fn(&Selection, &Rope, CursorSemantics) -> Selection){
         assert!(self.mode == Mode::Insert);
@@ -843,13 +803,7 @@ impl Application{
             *selection = movement_fn(selection, &text, CURSOR_SEMANTICS);
         }
     
-        let selections = self.document.selections().clone();
-        if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-            self.update_ui();
-        }else{
-            self.update_cursor_positions();
-        }
+        self.checked_scroll_and_update();
     }
     fn move_cursor_document_end(&mut self){
         self.move_cursor(Selection::move_doc_end);
@@ -882,13 +836,7 @@ impl Application{
             *selection = movement_fn(selection, &text, &view, CURSOR_SEMANTICS);
         }
 
-        let selections = self.document.selections().clone();
-        if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-            self.update_ui();
-        }else{
-            self.update_cursor_positions();
-        }
+        self.checked_scroll_and_update();
     }
     fn move_cursor_page_down(&mut self){
         self.move_cursor_page(Selection::move_page_down);
@@ -944,11 +892,7 @@ impl Application{
         let len = self.document.len();
         self.document.paste(CURSOR_SEMANTICS);
 
-        let text = self.document.text().clone();
-        let selections = self.document.selections().clone();
-        *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-
-        self.update_ui();
+        self.scroll_and_update();
 
         if len != self.document.len(){  //if length has changed after paste
             self.ui.document_viewport.document_widget.doc_length = self.document.len();
@@ -971,11 +915,7 @@ impl Application{
 
         if let Ok(_) = self.document.redo(CURSOR_SEMANTICS){
             let len = self.document.len();
-            let text = self.document.text().clone();
-            let selections = self.document.selections().clone();
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-
-            self.update_ui();
+            self.scroll_and_update();
 
             if len != self.document.len(){  //if length has changed after paste
                 self.ui.document_viewport.document_widget.doc_length = self.document.len();
@@ -998,11 +938,7 @@ impl Application{
 
         self.document.view_mut().set_size(self.ui.document_viewport.document_widget.rect.width as usize, self.ui.document_viewport.document_widget.rect.height as usize);
 
-        let text = self.document.text().clone();
-        let selections = self.document.selections().clone();
-        *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-
-        self.update_ui();
+        self.scroll_and_update();
     }
     fn save(&mut self){
         assert!(self.mode == Mode::Insert);
@@ -1050,13 +986,7 @@ impl Application{
         }
         *self.document.selections_mut().primary_mut() = self.document.selections().primary().select_all(&text, CURSOR_SEMANTICS);
 
-        let selections = self.document.selections().clone();
-        if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-            self.update_ui();
-        }else{
-            self.update_cursor_positions();
-        }
+        self.checked_scroll_and_update();
     }
     fn set_mode_command(&mut self){
         assert!(self.mode == Mode::Insert);
@@ -1083,11 +1013,7 @@ impl Application{
 
         if let Ok(_) = self.document.undo(CURSOR_SEMANTICS){
             let len = self.document.len();
-            let text = self.document.text().clone();
-            let selections = self.document.selections().clone();
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-
-            self.update_ui();
+            self.scroll_and_update();
 
             if len != self.document.len(){  //if length has changed after paste
                 self.ui.document_viewport.document_widget.doc_length = self.document.len();
