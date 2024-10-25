@@ -4,8 +4,10 @@ use crossterm::cursor;
 use crossterm::event::{self, KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{backend::CrosstermBackend, Terminal};
 use crate::ui::UserInterface;
-use edit_core::selection::{CursorSemantics, Movement, Selections};
+use edit_core::selection::{CursorSemantics, Movement, Selection, Selections};
+use edit_core::view::View;
 use edit_core::document::Document;
+use ropey::Rope;
 
 
 
@@ -26,6 +28,13 @@ const CURSOR_SEMANTICS: CursorSemantics = match CURSOR_STYLE{
 const VIEW_SCROLL_AMOUNT: usize = 1;
 
 
+
+enum ScrollDirection{
+    Down,
+    Left,
+    Right,
+    Up
+}
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Mode{
@@ -456,14 +465,14 @@ impl Application{
 
         self.update_ui();
     }
-    fn extend_selection_down(&mut self){
+    fn extend_selection(&mut self, extend_fn: fn(&Selection, &Rope, CursorSemantics) -> Selection){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
-
+    
         for selection in self.document.selections_mut().iter_mut(){
-            *selection = selection.extend_down(&text, CURSOR_SEMANTICS);
+            *selection = extend_fn(selection, &text, CURSOR_SEMANTICS);
         }
-
+    
         let selections = self.document.selections().clone();
         if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
             *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
@@ -471,62 +480,26 @@ impl Application{
         }else{
             self.update_cursor_positions();
         }
+    }
+    fn extend_selection_down(&mut self){
+        self.extend_selection(Selection::extend_down);
     }
     fn extend_selection_end(&mut self){
-        assert!(self.mode == Mode::Insert);
-        let text = self.document.text().clone();
-
-        for selection in self.document.selections_mut().iter_mut(){
-            *selection = selection.extend_line_text_end(&text, CURSOR_SEMANTICS);
-        }
-
-        let selections = self.document.selections().clone();
-        if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-            self.update_ui();
-        }else{
-            self.update_cursor_positions();
-        }
+        self.extend_selection(Selection::extend_line_text_end);
     }
     fn extend_selection_home(&mut self){
-        assert!(self.mode == Mode::Insert);
-        let text = self.document.text().clone();
-
-        for selection in self.document.selections_mut().iter_mut(){
-            *selection = selection.extend_home(&text, CURSOR_SEMANTICS);
-        }
-
-        let selections = self.document.selections().clone();
-        if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-            self.update_ui();
-        }else{
-            self.update_cursor_positions();
-        }
+        self.extend_selection(Selection::extend_home);
     }
     fn extend_selection_left(&mut self){
-        assert!(self.mode == Mode::Insert);
-        let text = self.document.text().clone();
-
-        for selection in self.document.selections_mut().iter_mut(){
-            *selection = selection.extend_left(&text, CURSOR_SEMANTICS);
-        }
-
-        let selections = self.document.selections().clone();
-        if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-            self.update_ui();
-        }else{
-            self.update_cursor_positions();
-        }
+        self.extend_selection(Selection::extend_left);
     }
-    fn extend_selection_page_up(&mut self){
+    fn extend_selection_page(&mut self, extend_fn: fn(&Selection, &Rope, &View, CursorSemantics) -> Selection){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
         let view = self.document.view().clone();
 
         for selection in self.document.selections_mut().iter_mut(){
-            *selection = selection.extend_page_up(&text, &view, CURSOR_SEMANTICS);
+            *selection = extend_fn(selection, &text, &view, CURSOR_SEMANTICS);
         }
 
         let selections = self.document.selections().clone();
@@ -538,53 +511,16 @@ impl Application{
         }
     }
     fn extend_selection_page_down(&mut self){
-        assert!(self.mode == Mode::Insert);
-        let text = self.document.text().clone();
-        let view = self.document.view().clone();
-
-        for selection in self.document.selections_mut().iter_mut(){
-            *selection = selection.extend_page_down(&text, &view, CURSOR_SEMANTICS);
-        }
-
-        let selections = self.document.selections().clone();
-        if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-            self.update_ui();
-        }else{
-            self.update_cursor_positions();
-        }
+        self.extend_selection_page(Selection::extend_page_down);
+    }
+    fn extend_selection_page_up(&mut self){
+        self.extend_selection_page(Selection::extend_page_up);
     }
     fn extend_selection_right(&mut self){
-        assert!(self.mode == Mode::Insert);
-        let text = self.document.text().clone();
-
-        for selection in self.document.selections_mut().iter_mut(){
-            *selection = selection.extend_right(&text, CURSOR_SEMANTICS);
-        }
-
-        let selections = self.document.selections().clone();
-        if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-            self.update_ui();
-        }else{
-            self.update_cursor_positions();
-        }
+        self.extend_selection(Selection::extend_right);
     }
     fn extend_selection_up(&mut self){
-        assert!(self.mode == Mode::Insert);
-        let text = self.document.text().clone();
-
-        for selection in self.document.selections_mut().iter_mut(){
-            *selection = selection.extend_up(&text, CURSOR_SEMANTICS);
-        }
-
-        let selections = self.document.selections().clone();
-        if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-            self.update_ui();
-        }else{
-            self.update_cursor_positions();
-        }
+        self.extend_selection(Selection::extend_up);
     }
     fn find_replace_mode_accept(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
@@ -895,17 +831,18 @@ impl Application{
 
         self.update_ui();
     }
-    fn move_cursor_document_end(&mut self){
+    fn move_cursor(&mut self, movement_fn: fn(&Selection, &Rope, CursorSemantics) -> Selection){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
-
+    
         if self.document.selections().count() > 1{
             *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
         }
+    
         for selection in self.document.selections_mut().iter_mut(){
-            *selection = selection.move_doc_end(&text, CURSOR_SEMANTICS);
+            *selection = movement_fn(selection, &text, CURSOR_SEMANTICS);
         }
-
+    
         let selections = self.document.selections().clone();
         if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
             *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
@@ -913,80 +850,36 @@ impl Application{
         }else{
             self.update_cursor_positions();
         }
+    }
+    fn move_cursor_document_end(&mut self){
+        self.move_cursor(Selection::move_doc_end);
     }
     fn move_cursor_document_start(&mut self){
+        self.move_cursor(Selection::move_doc_start);
+    }
+    fn move_cursor_down(&mut self){
+        self.move_cursor(Selection::move_down);
+    }
+    fn move_cursor_left(&mut self){
+        self.move_cursor(Selection::move_left);
+    }
+    fn move_cursor_line_end(&mut self){
+        self.move_cursor(Selection::move_line_text_end);
+    }
+    fn move_cursor_line_start(&mut self){
+        self.move_cursor(Selection::move_home);
+    }
+    fn move_cursor_page(&mut self, movement_fn: fn(&Selection, &Rope, &View, CursorSemantics) -> Selection){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
+        let view = self.document.view().clone();
 
         if self.document.selections().count() > 1{
             *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
         }
-        for selection in self.document.selections_mut().iter_mut(){
-            *selection = selection.move_doc_start(&text, CURSOR_SEMANTICS);
-        }
-
-        let selections = self.document.selections().clone();
-        if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-            self.update_ui();
-        }else{
-            self.update_cursor_positions();
-        }
-    }
-    fn move_cursor_down(&mut self){
-        assert!(self.mode == Mode::Insert);
-        let text = self.document.text().clone();
 
         for selection in self.document.selections_mut().iter_mut(){
-            *selection = selection.move_down(&text, CURSOR_SEMANTICS);
-        }
-
-        let selections = self.document.selections().clone();
-        if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-            self.update_ui();
-        }else{
-            self.update_cursor_positions();
-        }
-    }
-    fn move_cursor_left(&mut self){
-        assert!(self.mode == Mode::Insert);
-        let text = self.document.text().clone();
-
-        for selection in self.document.selections_mut().iter_mut(){
-            *selection = selection.move_left(&text, CURSOR_SEMANTICS);
-        }
-
-        let selections = self.document.selections().clone();
-        if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-            self.update_ui();
-        }else{
-            self.update_cursor_positions();
-        }
-    }
-    fn move_cursor_line_end(&mut self){
-        assert!(self.mode == Mode::Insert);
-        let text = self.document.text().clone();
-
-        for selection in self.document.selections_mut().iter_mut(){
-            *selection = selection.move_line_text_end(&text, CURSOR_SEMANTICS);
-        }
-
-        let selections = self.document.selections().clone();
-        if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-            self.update_ui();
-        }else{
-            self.update_cursor_positions();
-        }
-    }
-    fn move_cursor_line_start(&mut self){
-        assert!(self.mode == Mode::Insert);
-        let text = self.document.text().clone();
-
-        for selection in self.document.selections_mut().iter_mut(){
-            *selection = selection.move_home(&text, CURSOR_SEMANTICS);
+            *selection = movement_fn(selection, &text, &view, CURSOR_SEMANTICS);
         }
 
         let selections = self.document.selections().clone();
@@ -998,70 +891,16 @@ impl Application{
         }
     }
     fn move_cursor_page_down(&mut self){
-        assert!(self.mode == Mode::Insert);
-        let text = self.document.text().clone();
-        let view = self.document.view().clone();
-
-        for selection in self.document.selections_mut().iter_mut(){
-            *selection = selection.move_page_down(&text, &view, CURSOR_SEMANTICS);
-        }
-
-        let selections = self.document.selections().clone();
-        if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-            self.update_ui();
-        }else{
-            self.update_cursor_positions();
-        }
+        self.move_cursor_page(Selection::move_page_down);
     }
     fn move_cursor_page_up(&mut self){
-        assert!(self.mode == Mode::Insert);
-        let text = self.document.text().clone();
-        let view = self.document.view().clone();
-
-        for selection in self.document.selections_mut().iter_mut(){
-            *selection = selection.move_page_up(&text, &view, CURSOR_SEMANTICS);
-        }
-
-        let selections = self.document.selections().clone();
-        if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-            self.update_ui();
-        }else{
-            self.update_cursor_positions();
-        }
+        self.move_cursor_page(Selection::move_page_up);
     }
     fn move_cursor_right(&mut self){
-        assert!(self.mode == Mode::Insert);
-        let text = self.document.text().clone();
-
-        for selection in self.document.selections_mut().iter_mut(){
-            *selection = selection.move_right(&text, CURSOR_SEMANTICS);
-        }
-
-        let selections = self.document.selections().clone();
-        if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-            self.update_ui();
-        }else{
-            self.update_cursor_positions();
-        }
+        self.move_cursor(Selection::move_right);
     }
     fn move_cursor_up(&mut self){
-        assert!(self.mode == Mode::Insert);
-        let text = self.document.text().clone();
-
-        for selection in self.document.selections_mut().iter_mut(){
-            *selection = selection.move_up(&text, CURSOR_SEMANTICS);
-        }
-
-        let selections = self.document.selections().clone();
-        if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-            self.update_ui();
-        }else{
-            self.update_cursor_positions();
-        }
+        self.move_cursor(Selection::move_up);
     }
     fn move_cursor_word_end(&mut self){
         assert!(self.mode == Mode::Insert);
@@ -1176,31 +1015,31 @@ impl Application{
             }
         }
     }
-    fn scroll_view_down(&mut self, amount: usize){
+    fn scroll_view(&mut self, direction: ScrollDirection, amount: usize){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
-
-        *self.document.view_mut() = self.document.view().scroll_down(amount, &text);
-
+    
+        let new_view = match direction{
+            ScrollDirection::Down => self.document.view().scroll_down(amount, &text),
+            ScrollDirection::Left => self.document.view().scroll_left(amount),
+            ScrollDirection::Right => self.document.view().scroll_right(amount, &text),
+            ScrollDirection::Up => self.document.view().scroll_up(amount),
+        };
+    
+        *self.document.view_mut() = new_view;
         self.update_ui();
+    }
+    fn scroll_view_down(&mut self, amount: usize){
+        self.scroll_view(ScrollDirection::Down, amount);
     }
     fn scroll_view_left(&mut self, amount: usize){
-        assert!(self.mode == Mode::Insert);
-        *self.document.view_mut() = self.document.view().scroll_left(amount);
-
-        self.update_ui();
+        self.scroll_view(ScrollDirection::Left, amount);
     }
     fn scroll_view_right(&mut self, amount: usize){
-        assert!(self.mode == Mode::Insert);
-        let text = self.document.text().clone();
-
-        *self.document.view_mut() = self.document.view().scroll_right(amount, &text);
-        self.update_ui();
+        self.scroll_view(ScrollDirection::Right, amount);
     }
     fn scroll_view_up(&mut self, amount: usize){
-        assert!(self.mode == Mode::Insert);
-        *self.document.view_mut() = self.document.view().scroll_up(amount);
-        self.update_ui();
+        self.scroll_view(ScrollDirection::Up, amount);
     }
     fn select_all(&mut self){
         assert!(self.mode == Mode::Insert);
