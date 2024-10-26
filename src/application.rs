@@ -2,6 +2,7 @@ use std::error::Error;
 use std::path::PathBuf;
 use crossterm::cursor;
 use crossterm::event::{self, KeyCode, KeyEvent, KeyModifiers};
+use ratatui::layout::Rect;
 use ratatui::{backend::CrosstermBackend, Terminal};
 use crate::ui::UserInterface;
 use edit_core::selection::{CursorSemantics, Movement, Selection, Selections};
@@ -71,11 +72,13 @@ pub struct Application{
 }
 impl Application{
     pub fn new(terminal: &Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<Self, Box<dyn Error>>{
+        let terminal_size = terminal.size()?;
+        let terminal_rect = Rect::new(0, 0, terminal_size.width, terminal_size.height);
         Ok(Self{
             should_quit: false,
             mode: Mode::Insert,
             document: Document::new(CURSOR_SEMANTICS),
-            ui: UserInterface::new(terminal.size()?),
+            ui: UserInterface::new(terminal_rect),
         })
     }
 
@@ -239,7 +242,7 @@ impl Application{
         self.ui.document_viewport.document_widget.text_in_view = self.document.view().text(text);
         self.ui.document_viewport.line_number_widget.line_numbers_in_view = self.document.view().line_numbers(text);
         self.ui.highlighter.set_client_cursor_position(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));  //TODO: impl fn logic here instead of in highlighter
-        self.ui.highlighter.selections = self.document.view().selections(selections, text, CURSOR_SEMANTICS);
+        self.ui.highlighter.selections = self.document.view().selections(selections, text);
         self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone();
         self.ui.status_bar.modified_indicator_widget.document_modified_status = self.document.is_modified();
     }
@@ -247,7 +250,7 @@ impl Application{
         let text = self.document.text();
         let selections = self.document.selections();
         self.ui.highlighter.set_client_cursor_position(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));  //TODO: impl fn logic here instead of in highlighter
-        self.ui.highlighter.selections = self.document.view().selections(selections, text, CURSOR_SEMANTICS);
+        self.ui.highlighter.selections = self.document.view().selections(selections, text);
         self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone()
     }
     fn scroll_and_update(&mut self){

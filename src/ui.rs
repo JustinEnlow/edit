@@ -94,7 +94,7 @@ impl UserInterface{
             |frame| {
                 // always render
                 frame.render_widget(self.document_viewport.document_widget.widget(), self.document_viewport.document_widget.rect);
-                //frame.render_widget(self.highlighter.clone(), self.highlighter.rect);
+                frame.render_widget(self.highlighter.clone(), self.highlighter.rect);
                 
                 // conditionally render
                 if self.document_viewport.display_line_numbers{
@@ -111,27 +111,27 @@ impl UserInterface{
                 // cursor rendering will prob change from frame.render_widget style to handling cursor drawing in each widget
                 match mode{
                     Mode::Insert => {
-                        if let Some(pos) = self.highlighter.cursors{
-                            frame.set_cursor(
-                                self.document_viewport.document_widget.rect.x + pos.x() as u16,
-                                self.document_viewport.document_widget.rect.y + pos.y() as u16
-                            )
-                        }
+                        //if let Some(pos) = self.highlighter.cursors{
+                        //    frame.set_cursor_position((
+                        //        self.document_viewport.document_widget.rect.x + pos.x() as u16,
+                        //        self.document_viewport.document_widget.rect.y + pos.y() as u16
+                        //    ))
+                        //}
                     }
                     Mode::Utility(UtilityKind::Goto | UtilityKind::Command) => {
                         frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);
                         frame.render_widget(self.util_bar.utility_widget.widget(mode), self.util_bar.utility_widget.rect);
-                        frame.set_cursor(
+                        frame.set_cursor_position((
                             self.util_bar.utility_widget.rect.x + self.util_bar.utility_widget.text_box.cursor_position().saturating_sub(self.util_bar.utility_widget.text_box.view.horizontal_start() as u16),
                             self.terminal_size.height
-                        );
+                        ));
                     }
                     Mode::Utility(UtilityKind::FindReplace) => {
                         frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);
                         frame.render_widget(self.util_bar.utility_widget.widget(mode), self.util_bar.utility_widget.rect);
                         frame.render_widget(self.util_bar.alternate_prompt.widget(mode), self.util_bar.alternate_prompt.rect);
                         frame.render_widget(self.util_bar.alternate_utility_widget.widget(mode), self.util_bar.alternate_utility_widget.rect);
-                        frame.set_cursor(
+                        frame.set_cursor_position((
                             if self.util_bar.alternate_focused{
                                 self.util_bar.alternate_utility_widget.rect.x + self.util_bar.alternate_utility_widget.text_box.cursor_position()
                                     .saturating_sub(self.util_bar.alternate_utility_widget.text_box.view.horizontal_start() as u16)
@@ -139,7 +139,7 @@ impl UserInterface{
                                 self.util_bar.utility_widget.rect.x + self.util_bar.utility_widget.text_box.cursor_position().saturating_sub(self.util_bar.utility_widget.text_box.view.horizontal_start() as u16)
                             },
                             self.terminal_size.height
-                        );
+                        ));
                     }
                     Mode::Utility(UtilityKind::Warning(_)) => {
                         frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);
