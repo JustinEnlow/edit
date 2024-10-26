@@ -1,0 +1,18 @@
+edit: simple terminal text editor for linux
+
+    - multi-cursor support  (Work In Progress/Partial Implementation)
+    - edit history(Undo/Redo)
+
+
+to install:
+    make sure you have rust installed: https://www.rust-lang.org/tools/install
+    clone repo
+    in directory you cloned the repo to, run:
+        cargo install --path .
+
+    this will create a binary at ~/.cargo/bin/edit
+
+to uninstall:
+    either delete 'edit' file at ~/.cargo/bin/edit
+    or run:
+        cargo uninstall edit
