@@ -114,13 +114,14 @@ impl Application{
             event::Event::Key(key_event) => {
                 match (key_event, self.mode){
                     // Insert Mode
+                    //TODO: combo keybinds(ctrl + shift, etc.) are not working in alacritty
                     //(KeyEvent{modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT, code, ..}, Mode::Insert) => {Action::}
-                    //(KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Esc, ..}, Mode::Insert(_)) => {Action::SomeAction}   //catch all for insert sub modes
                     (KeyEvent{modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT, code: KeyCode::PageDown, ..}, Mode::Insert) => {self.extend_selection_page_down()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT, code: KeyCode::PageUp, ..}, Mode::Insert) => {self.extend_selection_page_up()}
                     //(KeyEvent{modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT, code: KeyCode::Char('z'), ..}, Mode::Insert) => {self.redo()}   //idk why this won't work...
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('r'),     ..}, Mode::Insert) => {self.redo()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('z'),     ..}, Mode::Insert) => {self.undo()}
+                    //(KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('i'),     ..}, Mode::Insert) => {self.add_selection_above()}   //TODO: need a better keymap for this.
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Right,         ..}, Mode::Insert) => {self.move_cursor_word_end()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Left,          ..}, Mode::Insert) => {self.move_cursor_word_start()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Home,          ..}, Mode::Insert) => {self.move_cursor_document_start()}
@@ -281,7 +282,15 @@ impl Application{
         self.ui.util_bar.alternate_utility_widget.text_box.view = self.ui.util_bar.alternate_utility_widget.text_box.view.scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
 
-    //fn add_selection_above(&mut self){}
+    //fn add_selection_above(&mut self){
+    //    let text = self.document.text().clone();
+    //    if let Ok(selections) = self.document.selections().add_selection_above(&text){
+    //        *self.document.selections_mut() = selections;
+    //        self.checked_scroll_and_update();
+    //    }else{
+    //        //warn action could not be performed
+    //    }
+    //}
     //fn add_selection_below(&mut self){}
     fn backspace(&mut self){
         assert!(self.mode == Mode::Insert);

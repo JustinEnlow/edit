@@ -1,12 +1,13 @@
 TODO
 
-[ ] render selections
-[ ] impl undo/redo
+[x] render selections
+[x] impl undo/redo  //implemented in core
 [ ] colorize syntax/etc.
 [ ] display completion suggestions
-[ ] fix when scroll view right is held, it keeps scrolling after release, making editor unresponsive until it finishes scroll
+[x] fix when scroll view right is held, it keeps scrolling after release, making editor unresponsive until it finishes scroll
     - this seems to be resolved in release builds...
 
 
 always ensure:
     any input from the user should result in some visual response being displayed. never should a user action result in no change...
+    user should be able to negate this by removing code that triggers warning mode in each action fn called
