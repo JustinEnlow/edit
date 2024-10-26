@@ -93,12 +93,7 @@ impl Application{
             self.ui.document_viewport.document_widget.rect.width as usize,
             self.ui.document_viewport.document_widget.rect.height as usize
         );
-
-        let text = self.document.text().clone();
-        let selections = self.document.selections().clone();
-        *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-
-        self.update_ui();
+        self.scroll_and_update();
 
         loop{
             //terminal.hide_cursor()?;    //testing this to resolve cursor displaying in random places while moving quickly
@@ -928,13 +923,9 @@ impl Application{
         self.ui.set_terminal_size(x, y);
         self.ui.update_layouts(self.mode);
 
-        let text = self.ui.util_bar.utility_widget.text_box.text.clone();
-        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection.clone()], 0, &text);
-        self.ui.util_bar.utility_widget.text_box.view = self.ui.util_bar.utility_widget.text_box.view.scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        self.update_util_bar_ui();
 
-        let text = self.ui.util_bar.alternate_utility_widget.text_box.text.clone();
-        let selections = Selections::new(vec![self.ui.util_bar.alternate_utility_widget.text_box.selection.clone()], 0, &text);
-        self.ui.util_bar.alternate_utility_widget.text_box.view = self.ui.util_bar.alternate_utility_widget.text_box.view.scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        self.update_alternate_util_bar_ui();
 
         self.document.view_mut().set_size(self.ui.document_viewport.document_widget.rect.width as usize, self.ui.document_viewport.document_widget.rect.height as usize);
 
@@ -979,12 +970,11 @@ impl Application{
     }
     fn select_all(&mut self){
         assert!(self.mode == Mode::Insert);
-        let text = self.document.text().clone();
 
         if self.document.selections().count() > 1{
             *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
         }
-        *self.document.selections_mut().primary_mut() = self.document.selections().primary().select_all(&text, CURSOR_SEMANTICS);
+        *self.document.selections_mut().primary_mut() = self.document.selections().primary().select_all(self.document.text(), CURSOR_SEMANTICS);
 
         self.checked_scroll_and_update();
     }
@@ -1008,11 +998,11 @@ impl Application{
         assert!(self.mode == Mode::Space);
         self.mode = Mode::Insert;
     }
+    // TODO: undo takes a long time to undo when whole text deleted. see if this can be improved
     fn undo(&mut self){
         assert!(self.mode == Mode::Insert);
-
+        let len = self.document.len();
         if let Ok(_) = self.document.undo(CURSOR_SEMANTICS){
-            let len = self.document.len();
             self.scroll_and_update();
 
             if len != self.document.len(){  //if length has changed after paste
