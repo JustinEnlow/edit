@@ -16,7 +16,6 @@ pub struct Highlighter{
     // debug highlights //bg color
     // lsp highlights   //fg color
     pub selections: Option<Vec<Selection2d>>,   //bg color
-    //pub selections: Option<Vec<Selection>>,
     pub cursors: Option<Position>,//Option<Vec<Position>>, //bg color + fg color?
     // others idk
 }

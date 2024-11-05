@@ -39,9 +39,9 @@ enum ScrollDirection{
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Mode{
-    Insert, //Insert(Normal, Completion, Selection, etc)
+    Insert,
     Space,
-    Utility(UtilityKind),
+    Utility(UtilityKind),   //this actually may be better as separate Modes so that adding/removing to them can be easier...
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -112,21 +112,27 @@ impl Application{
     pub fn handle_event(&mut self) -> Result<(), Box<dyn Error>>{
         match event::read()?{
             event::Event::Key(key_event) => {
+                match (self.mode, key_event.modifiers, key_event.code){
+                    (Mode::Insert, modifiers, KeyCode::PageDown)  => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.extend_selection_page_down();}}
+                    (Mode::Insert, modifiers, KeyCode::PageUp)    => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.extend_selection_page_up();}}
+                    (Mode::Insert, modifiers, KeyCode::Up)        => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.add_selection_above();}}  //this works!!!
+                    // makes this impossible to represent in 2 separate matches
+                    //(Mode::Insert, modifiers, KeyCode::Char('z')) => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.redo();}}
+                    //(Mode::Insert, modifiers, KeyCode::Char('z')) => {if modifiers == (KeyModifiers::CONTROL){self.undo();}}
+                    _ => {self.no_op();}
+                }
                 match (key_event, self.mode){
                     // Insert Mode
-                    //TODO: combo keybinds(ctrl + shift, etc.) are not working in alacritty
-                    //(KeyEvent{modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT, code, ..}, Mode::Insert) => {Action::}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT, code: KeyCode::PageDown, ..}, Mode::Insert) => {self.extend_selection_page_down()}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT, code: KeyCode::PageUp, ..}, Mode::Insert) => {self.extend_selection_page_up()}
-                    //(KeyEvent{modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT, code: KeyCode::Char('z'), ..}, Mode::Insert) => {self.redo()}   //idk why this won't work...
+                    //(KeyEvent{modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT, code: KeyCode::PageDown, ..}, Mode::Insert) => {self.extend_selection_page_down()}
+                    //(KeyEvent{modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT, code: KeyCode::PageUp, ..}, Mode::Insert) => {self.extend_selection_page_up()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('r'),     ..}, Mode::Insert) => {self.redo()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('z'),     ..}, Mode::Insert) => {self.undo()}
-                    //(KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('i'),     ..}, Mode::Insert) => {self.add_selection_above()}   //TODO: need a better keymap for this.
+                    //(KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Up,            ..}, Mode::Insert) => {self.add_selection_above()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Right,         ..}, Mode::Insert) => {self.move_cursor_word_end()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Left,          ..}, Mode::Insert) => {self.move_cursor_word_start()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Home,          ..}, Mode::Insert) => {self.move_cursor_document_start()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::End,           ..}, Mode::Insert) => {self.move_cursor_document_end()}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Esc,           ..}, Mode::Insert) => {self.clear_non_primary_selections()}
+                    //(KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Esc,           ..}, Mode::Insert) => {self.clear_non_primary_selections()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('p'),     ..}, Mode::Insert) => {self.increment_primary_selection()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char(' '),     ..}, Mode::Insert) => {self.set_mode_space()}  //show context menu
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('q'),     ..}, Mode::Insert) => {self.quit()}
@@ -164,7 +170,8 @@ impl Application{
                     (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::PageDown,      ..}, Mode::Insert) => {self.move_cursor_page_down()}
                     (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Home,          ..}, Mode::Insert) => {self.move_cursor_line_start()}
                     (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::End,           ..}, Mode::Insert) => {self.move_cursor_line_end()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Esc,           ..}, Mode::Insert) => {self.collapse_selections()}   //depending on context: close suggestions, close context menu, collapse selections, clear non-primary selections
+                    //(KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Esc,           ..}, Mode::Insert) => {self.collapse_selections()}   //depending on context: close suggestions, close context menu, collapse selections, clear non-primary selections
+                    (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Esc,           ..}, Mode::Insert) => {self.esc_handle()}
                     (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Char(c), ..}, Mode::Insert) => {self.insert_char(c)}
 
                     // Space Mode
@@ -282,15 +289,25 @@ impl Application{
         self.ui.util_bar.alternate_utility_widget.text_box.view = self.ui.util_bar.alternate_utility_widget.text_box.view.scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
 
-    //fn add_selection_above(&mut self){
-    //    let text = self.document.text().clone();
-    //    if let Ok(selections) = self.document.selections().add_selection_above(&text){
-    //        *self.document.selections_mut() = selections;
-    //        self.checked_scroll_and_update();
-    //    }else{
-    //        //warn action could not be performed
-    //    }
-    //}
+    fn esc_handle(&mut self){
+        if self.document.selections().count() > 1{
+            self.clear_non_primary_selections();
+        }
+        else if self.document.selections().primary().is_extended(CURSOR_SEMANTICS){
+            self.collapse_selections();
+        }
+    }
+
+    fn add_selection_above(&mut self){
+        let text = self.document.text().clone();
+        if let Ok(selections) = self.document.selections().add_selection_above(&text){
+            *self.document.selections_mut() = selections;
+            self.checked_scroll_and_update();
+        }else{
+            //warn action could not be performed
+            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput));
+        }
+    }
     //fn add_selection_below(&mut self){}
     fn backspace(&mut self){
         assert!(self.mode == Mode::Insert);
@@ -918,18 +935,18 @@ impl Application{
         self.should_quit = true;
     }
     fn redo(&mut self){
-        assert!(self.mode == Mode::Insert);
-
-        if let Ok(_) = self.document.redo(CURSOR_SEMANTICS){
-            let len = self.document.len();
-            self.scroll_and_update();
-
-            if len != self.document.len(){  //if length has changed after paste
-                self.ui.document_viewport.document_widget.doc_length = self.document.len();
-            }
-        }else{
-            // warn redo stack empty
-        }
+//        assert!(self.mode == Mode::Insert);
+//
+//        if let Ok(_) = self.document.redo(CURSOR_SEMANTICS){
+//            let len = self.document.len();
+//            self.scroll_and_update();
+//
+//            if len != self.document.len(){  //if length has changed after paste
+//                self.ui.document_viewport.document_widget.doc_length = self.document.len();
+//            }
+//        }else{
+//            // warn redo stack empty
+//        }
     }
     fn resize(&mut self, x: u16, y: u16){
         self.ui.set_terminal_size(x, y);

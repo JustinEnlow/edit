@@ -2,6 +2,7 @@ edit: simple terminal text editor for linux
 
     - multi-cursor support  (Work In Progress/Partial Implementation)
     - edit history(Undo/Redo)
+    - ascii text editing(UTF-8 is WIP)
 
 
 to install:
