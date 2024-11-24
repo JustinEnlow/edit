@@ -21,12 +21,15 @@ pub struct Highlighter{
 }
 impl Highlighter{
     // TODO: can this be done by caller?
-    pub fn set_client_cursor_position(&mut self, positions: Vec<Position>){
-        if !positions.is_empty(){
-            self.cursors = Some(*positions.last().unwrap());
-        }else{
-            self.cursors = None;
-        }
+    //pub fn set_client_cursor_position(&mut self, positions: Vec<Position>){
+    //    if !positions.is_empty(){
+    //        self.cursors = Some(*positions.last().unwrap());
+    //    }else{
+    //        self.cursors = None;
+    //    }
+    //}
+    pub fn set_primary_cursor_position(&mut self, position: Option<Position>){
+        self.cursors = position;
     }
 }
 impl ratatui::widgets::Widget for Highlighter{

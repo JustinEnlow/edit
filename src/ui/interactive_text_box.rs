@@ -38,7 +38,10 @@ impl InteractiveTextBox{
         let mut new_text = text.clone();
         new_text.insert_char(self.selection.cursor(CursorSemantics::Block), char);
         self.text = new_text;
-        self.selection = self.selection.move_right(&self.text.clone(), CursorSemantics::Block);
+        //self.selection = self.selection.move_right(&self.text.clone(), CursorSemantics::Block);
+        if let Ok(new_selection) = self.selection.move_right(&self.text.clone(), CursorSemantics::Block){
+            self.selection = new_selection;
+        }
     }
     pub fn delete(&mut self){
         let text = self.text.clone();
@@ -47,7 +50,10 @@ impl InteractiveTextBox{
         match self.selection.cursor(CursorSemantics::Block).cmp(&self.selection.anchor()){
             Ordering::Less => {
                 new_text.remove(self.selection.head()..self.selection.anchor());
-                self.selection = self.selection.put_cursor(self.selection.cursor(CursorSemantics::Block), &text, Movement::Move, CursorSemantics::Block, true);
+                //self.selection = self.selection.put_cursor(self.selection.cursor(CursorSemantics::Block), &text, Movement::Move, CursorSemantics::Block, true);
+                if let Ok(new_selection) = self.selection.put_cursor(self.selection.cursor(CursorSemantics::Block), &text, Movement::Move, CursorSemantics::Block, true){
+                    self.selection = new_selection;
+                }
             }
             Ordering::Greater => {
                 if self.selection.cursor(CursorSemantics::Block) == text.len_chars(){
@@ -56,13 +62,19 @@ impl InteractiveTextBox{
                 else{
                     new_text.remove(self.selection.anchor()..self.selection.head());
                 }
-                self.selection = self.selection.put_cursor(self.selection.anchor(), &text, Movement::Move, CursorSemantics::Block, true);
+                //self.selection = self.selection.put_cursor(self.selection.anchor(), &text, Movement::Move, CursorSemantics::Block, true);
+                if let Ok(new_selection) = self.selection.put_cursor(self.selection.anchor(), &text, Movement::Move, CursorSemantics::Block, true){
+                    self.selection = new_selection;
+                }
             }
             Ordering::Equal => {
                 if self.selection.cursor(CursorSemantics::Block) == text.len_chars(){}    //do nothing
                 else{
                     new_text.remove(self.selection.anchor()..self.selection.head());
-                    self.selection = self.selection.put_cursor(self.selection.anchor(), &text, Movement::Move, CursorSemantics::Block, true);
+                    //self.selection = self.selection.put_cursor(self.selection.anchor(), &text, Movement::Move, CursorSemantics::Block, true);
+                    if let Ok(new_selection) = self.selection.put_cursor(self.selection.anchor(), &text, Movement::Move, CursorSemantics::Block, true){
+                        self.selection = new_selection;
+                    }
                 }
             }
         }
@@ -76,7 +88,10 @@ impl InteractiveTextBox{
             self.delete();
         }else{
             if self.selection.cursor(semantics) > 0{
-                self.selection = self.selection.move_left(&self.text, semantics);
+                //self.selection = self.selection.move_left(&self.text, semantics);
+                if let Ok(new_selection) = self.selection.move_left(&self.text, semantics){
+                    self.selection = new_selection;
+                }
                 self.delete();
             }
         }
@@ -85,27 +100,51 @@ impl InteractiveTextBox{
 
 
     pub fn extend_selection_end(&mut self){
-        self.selection = self.selection.extend_line_text_end(&self.text, CursorSemantics::Block);
+        //self.selection = self.selection.extend_line_text_end(&self.text, CursorSemantics::Block);
+        if let Ok(new_selection) = self.selection.extend_line_text_end(&self.text, CursorSemantics::Block){
+            self.selection = new_selection;
+        }
     }
     pub fn extend_selection_home(&mut self){
-        self.selection = self.selection.extend_home(&self.text, CursorSemantics::Block);
+        //self.selection = self.selection.extend_home(&self.text, CursorSemantics::Block);
+        if let Ok(new_selection) = self.selection.extend_home(&self.text, CursorSemantics::Block){
+            self.selection = new_selection;
+        }
     }
     pub fn extend_selection_left(&mut self){
-        self.selection = self.selection.extend_left(&self.text, CursorSemantics::Block);
+        //self.selection = self.selection.extend_left(&self.text, CursorSemantics::Block);
+        if let Ok(new_selection) = self.selection.extend_left(&self.text, CursorSemantics::Block){
+            self.selection = new_selection;
+        }
     }
     pub fn extend_selection_right(&mut self){
-        self.selection = self.selection.extend_right(&self.text, CursorSemantics::Block);
+        //self.selection = self.selection.extend_right(&self.text, CursorSemantics::Block);
+        if let Ok(new_selection) = self.selection.extend_right(&self.text, CursorSemantics::Block){
+            self.selection = new_selection;
+        }
     }
     pub fn move_cursor_left(&mut self){
-        self.selection = self.selection.move_left(&self.text, CursorSemantics::Block);
+        //self.selection = self.selection.move_left(&self.text, CursorSemantics::Block);
+        if let Ok(new_selection) = self.selection.move_left(&self.text, CursorSemantics::Block){
+            self.selection = new_selection;
+        }
     }
     pub fn move_cursor_line_end(&mut self){
-        self.selection = self.selection.move_line_text_end(&self.text, CursorSemantics::Block);
+        //self.selection = self.selection.move_line_text_end(&self.text, CursorSemantics::Block);
+        if let Ok(new_selection) = self.selection.move_line_text_end(&self.text, CursorSemantics::Block){
+            self.selection = new_selection;
+        }
     }
     pub fn move_cursor_line_start(&mut self){
-        self.selection = self.selection.move_home(&self.text, CursorSemantics::Block);
+        //self.selection = self.selection.move_home(&self.text, CursorSemantics::Block);
+        if let Ok(new_selection) = self.selection.move_home(&self.text, CursorSemantics::Block){
+            self.selection = new_selection;
+        }
     }
     pub fn move_cursor_right(&mut self){
-        self.selection = self.selection.move_right(&self.text, CursorSemantics::Block);
+        //self.selection = self.selection.move_right(&self.text, CursorSemantics::Block);
+        if let Ok(new_selection) = self.selection.move_right(&self.text, CursorSemantics::Block){
+            self.selection = new_selection;
+        }
     }
 }

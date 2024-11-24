@@ -116,6 +116,8 @@ impl Application{
                     (Mode::Insert, modifiers, KeyCode::PageDown)  => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.extend_selection_page_down();}}
                     (Mode::Insert, modifiers, KeyCode::PageUp)    => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.extend_selection_page_up();}}
                     (Mode::Insert, modifiers, KeyCode::Up)        => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.add_selection_above();}}  //this works!!!
+                    (Mode::Insert, modifiers, KeyCode::Down)      => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.add_selection_below();}}
+                    //(Mode::Insert, modifiers, KeyCode::Backspace) => {if modifiers == KeyModifiers::CONTROL{self.delete_word_backwards();}}   //TODO: add this functionality, and delete word forwards
                     // makes this impossible to represent in 2 separate matches
                     //(Mode::Insert, modifiers, KeyCode::Char('z')) => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.redo();}}
                     //(Mode::Insert, modifiers, KeyCode::Char('z')) => {if modifiers == (KeyModifiers::CONTROL){self.undo();}}
@@ -249,7 +251,8 @@ impl Application{
         let selections = self.document.selections();
         self.ui.document_viewport.document_widget.text_in_view = self.document.view().text(text);
         self.ui.document_viewport.line_number_widget.line_numbers_in_view = self.document.view().line_numbers(text);
-        self.ui.highlighter.set_client_cursor_position(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));  //TODO: impl fn logic here instead of in highlighter
+        //self.ui.highlighter.set_client_cursor_position(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));  //TODO: impl fn logic here instead of in highlighter
+        self.ui.highlighter.set_primary_cursor_position(self.document.view().primary_cursor_position(text, selections, CURSOR_SEMANTICS));
         self.ui.highlighter.selections = self.document.view().selections(selections, text);
         self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone();
         self.ui.status_bar.modified_indicator_widget.document_modified_status = self.document.is_modified();
@@ -257,10 +260,12 @@ impl Application{
     fn update_cursor_positions(&mut self){
         let text = self.document.text();
         let selections = self.document.selections();
-        self.ui.highlighter.set_client_cursor_position(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));  //TODO: impl fn logic here instead of in highlighter
+        //self.ui.highlighter.set_client_cursor_position(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));  //TODO: impl fn logic here instead of in highlighter
+        self.ui.highlighter.set_primary_cursor_position(self.document.view().primary_cursor_position(text, selections, CURSOR_SEMANTICS));
         self.ui.highlighter.selections = self.document.view().selections(selections, text);
         self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone()
     }
+    // should this take a selection to follow, instead of always following primary?
     fn scroll_and_update(&mut self){
         let text = self.document.text().clone();
         let selections = self.document.selections().clone();
@@ -296,11 +301,26 @@ impl Application{
         else if self.document.selections().primary().is_extended(CURSOR_SEMANTICS){
             self.collapse_selections();
         }
+        else{
+            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput));
+        }
     }
 
     fn add_selection_above(&mut self){
         let text = self.document.text().clone();
-        if let Ok(selections) = self.document.selections().add_selection_above(&text){
+        if let Ok(selections) = self.document.selections().add_selection_above(&text, CURSOR_SEMANTICS){
+            *self.document.selections_mut() = selections;
+            self.checked_scroll_and_update();
+        }else{
+            //warn action could not be performed
+            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput));
+
+            // could also match error. if error is multi-line selection, extend selection up
+        }
+    }
+    fn add_selection_below(&mut self){
+        let text = self.document.text().clone();
+        if let Ok(selections) = self.document.selections().add_selection_below(&text, CURSOR_SEMANTICS){
             *self.document.selections_mut() = selections;
             self.checked_scroll_and_update();
         }else{
@@ -308,7 +328,6 @@ impl Application{
             self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput));
         }
     }
-    //fn add_selection_below(&mut self){}
     fn backspace(&mut self){
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
@@ -331,9 +350,15 @@ impl Application{
     }
     fn clear_non_primary_selections(&mut self){
         assert!(self.mode == Mode::Insert);
-        if self.document.selections().count() > 1{
-            *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
-
+        //if self.document.selections().count() > 1{
+        //    *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
+//
+        //    self.checked_scroll_and_update();
+        //}else{
+        //    self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::SingleSelection));
+        //}
+        if let Ok(new_selections) = self.document.selections().clear_non_primary_selections(){
+            *self.document.selections_mut() = new_selections;
             self.checked_scroll_and_update();
         }else{
             self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::SingleSelection));
@@ -344,7 +369,14 @@ impl Application{
         let text = self.document.text().clone();
 
         for selection in self.document.selections_mut().iter_mut(){
-            *selection = selection.collapse(&text, CURSOR_SEMANTICS);
+            //*selection = selection.collapse(&text, CURSOR_SEMANTICS);
+            if let Ok(new_selection) = selection.collapse(&text, CURSOR_SEMANTICS){
+                *selection = new_selection;
+                // self.checked_scroll_and_update()     //handle collapse where selection extended beyond view size?
+            }else{
+                // warning
+                self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput))
+            }
         }
 
         self.checked_scroll_and_update();
@@ -421,25 +453,23 @@ impl Application{
     }
     fn copy(&mut self){
         assert!(self.mode == Mode::Insert);
-        if self.document.selections().count() == 1{
-            self.document.copy();
-        }else{
+        // Errors if more than one selection
+        if self.document.copy().is_err(){
             self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::MultipleSelections));
         }
     }
     fn cut(&mut self){
         assert!(self.mode == Mode::Insert);
-        if self.document.selections().count() == 1{
-            let len = self.document.len();
-            self.document.cut(CURSOR_SEMANTICS);
-
+        let len = self.document.len();
+        // Errors if more than one selection
+        if self.document.cut(CURSOR_SEMANTICS).is_err(){
+            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::MultipleSelections));
+        }else{
             self.scroll_and_update();
 
             if len != self.document.len(){  //if length has changed after cut
                 self.ui.document_viewport.document_widget.doc_length = self.document.len();
             }
-        }else{
-            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::MultipleSelections));
         }
     }
     fn delete(&mut self){
@@ -479,12 +509,18 @@ impl Application{
 
         self.update_ui();
     }
-    fn extend_selection(&mut self, extend_fn: fn(&Selection, &Rope, CursorSemantics) -> Selection){
+    fn extend_selection(&mut self, extend_fn: fn(&Selection, &Rope, CursorSemantics) -> Result<Selection, ()>){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
     
         for selection in self.document.selections_mut().iter_mut(){
-            *selection = extend_fn(selection, &text, CURSOR_SEMANTICS);
+            //*selection = extend_fn(selection, &text, CURSOR_SEMANTICS);
+            if let Ok(new_selection) = extend_fn(selection, &text, CURSOR_SEMANTICS){
+                *selection = new_selection;
+            }else{
+                //warning
+                self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput))
+            }
         }
     
         self.checked_scroll_and_update();
@@ -501,13 +537,19 @@ impl Application{
     fn extend_selection_left(&mut self){
         self.extend_selection(Selection::extend_left);
     }
-    fn extend_selection_page(&mut self, extend_fn: fn(&Selection, &Rope, &View, CursorSemantics) -> Selection){
+    fn extend_selection_page(&mut self, extend_fn: fn(&Selection, &Rope, &View, CursorSemantics) -> Result<Selection, ()>){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
         let view = self.document.view().clone();
 
         for selection in self.document.selections_mut().iter_mut(){
-            *selection = extend_fn(selection, &text, &view, CURSOR_SEMANTICS);
+            //*selection = extend_fn(selection, &text, &view, CURSOR_SEMANTICS);
+            if let Ok(new_selection) = extend_fn(selection, &text, &view, CURSOR_SEMANTICS){
+                *selection = new_selection;
+            }else{
+                // warning
+                self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput))
+            }
         }
 
         self.checked_scroll_and_update();
@@ -678,10 +720,21 @@ impl Application{
             if line_number < self.document.len(){   //&& line_number > 0
                 let text =  self.document.text().clone();
                 
-                if self.document.selections().count() > 1{
-                    *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
+                //if self.document.selections().count() > 1{
+                //    *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
+                //}
+                if let Ok(new_selections) = self.document.selections().clear_non_primary_selections(){
+                    *self.document.selections_mut() = new_selections;
+                }else{
+                    self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::SingleSelection));
                 }
-                *self.document.selections_mut().primary_mut() = self.document.selections().primary().set_from_line_number(line_number, &text, Movement::Move, CURSOR_SEMANTICS);
+                //*self.document.selections_mut().primary_mut() = self.document.selections().primary().set_from_line_number(line_number, &text, Movement::Move, CURSOR_SEMANTICS);
+                if let Ok(new_selection) = self.document.selections().primary().set_from_line_number(line_number, &text, Movement::Move, CURSOR_SEMANTICS){
+                    *self.document.selections_mut().primary_mut() = new_selection;
+                }else{
+                    // warning
+                    self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput))
+                }
                 
                 self.scroll_and_update();
                 
@@ -784,12 +837,18 @@ impl Application{
         }
     }
     fn increment_primary_selection(&mut self){
-        if self.document.selections().count() > 1{
-            *self.document.selections_mut() = self.document.selections().increment_primary_selection();
-
+        //if self.document.selections().count() > 1{
+        //    *self.document.selections_mut() = self.document.selections().increment_primary_selection();
+//
+        //    self.scroll_and_update();
+        //}else{
+        //    self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::SingleSelection))
+        //}
+        if let Ok(new_selections) = self.document.selections().increment_primary_selection(){
+            *self.document.selections_mut() = new_selections;
             self.scroll_and_update();
         }else{
-            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::SingleSelection))
+            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::SingleSelection));
         }
     }
     fn insert_char(&mut self, c: char){
@@ -815,16 +874,27 @@ impl Application{
 
         self.scroll_and_update();
     }
-    fn move_cursor(&mut self, movement_fn: fn(&Selection, &Rope, CursorSemantics) -> Selection){
+    fn move_cursor(&mut self, movement_fn: fn(&Selection, &Rope, CursorSemantics) -> Result<Selection, ()>){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
     
-        if self.document.selections().count() > 1{
-            *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
+        //if self.document.selections().count() > 1{
+        //    *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
+        //}
+        if let Ok(new_selections) = self.document.selections().clear_non_primary_selections(){
+            *self.document.selections_mut() = new_selections;
+        }else{
+            //self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::SingleSelection));
         }
     
         for selection in self.document.selections_mut().iter_mut(){
-            *selection = movement_fn(selection, &text, CURSOR_SEMANTICS);
+            //*selection = movement_fn(selection, &text, CURSOR_SEMANTICS);
+            if let Ok(new_selection) = movement_fn(selection, &text, CURSOR_SEMANTICS){
+                *selection = new_selection;
+            }else{
+                // warning
+                self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput))
+            }
         }
     
         self.checked_scroll_and_update();
@@ -847,17 +917,26 @@ impl Application{
     fn move_cursor_line_start(&mut self){
         self.move_cursor(Selection::move_home);
     }
-    fn move_cursor_page(&mut self, movement_fn: fn(&Selection, &Rope, &View, CursorSemantics) -> Selection){
+    fn move_cursor_page(&mut self, movement_fn: fn(&Selection, &Rope, &View, CursorSemantics) -> Result<Selection, ()>){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
         let view = self.document.view().clone();
 
-        if self.document.selections().count() > 1{
-            *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
+        //if self.document.selections().count() > 1{
+        //    *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
+        //}
+        if let Ok(new_selections) = self.document.selections().clear_non_primary_selections(){
+            *self.document.selections_mut() = new_selections;
         }
 
         for selection in self.document.selections_mut().iter_mut(){
-            *selection = movement_fn(selection, &text, &view, CURSOR_SEMANTICS);
+            //*selection = movement_fn(selection, &text, &view, CURSOR_SEMANTICS);
+            if let Ok(new_selection) = movement_fn(selection, &text, &view, CURSOR_SEMANTICS){
+                *selection = new_selection;
+            }else{
+                //warning
+                self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput))
+            }
         }
 
         self.checked_scroll_and_update();
@@ -935,18 +1014,18 @@ impl Application{
         self.should_quit = true;
     }
     fn redo(&mut self){
-//        assert!(self.mode == Mode::Insert);
-//
-//        if let Ok(_) = self.document.redo(CURSOR_SEMANTICS){
-//            let len = self.document.len();
-//            self.scroll_and_update();
-//
-//            if len != self.document.len(){  //if length has changed after paste
-//                self.ui.document_viewport.document_widget.doc_length = self.document.len();
-//            }
-//        }else{
-//            // warn redo stack empty
-//        }
+        assert!(self.mode == Mode::Insert);
+
+        if let Ok(_) = self.document.redo(CURSOR_SEMANTICS){
+            let len = self.document.len();
+            self.scroll_and_update();
+
+            if len != self.document.len(){  //if length has changed after paste
+                self.ui.document_viewport.document_widget.doc_length = self.document.len();
+            }
+        }else{
+            // warn redo stack empty
+        }
     }
     fn resize(&mut self, x: u16, y: u16){
         self.ui.set_terminal_size(x, y);
@@ -1000,10 +1079,19 @@ impl Application{
     fn select_all(&mut self){
         assert!(self.mode == Mode::Insert);
 
-        if self.document.selections().count() > 1{
-            *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
+        //if self.document.selections().count() > 1{
+        //    *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
+        //}
+        if let Ok(new_selections) = self.document.selections().clear_non_primary_selections(){
+            *self.document.selections_mut() = new_selections;
         }
-        *self.document.selections_mut().primary_mut() = self.document.selections().primary().select_all(self.document.text(), CURSOR_SEMANTICS);
+        //*self.document.selections_mut().primary_mut() = self.document.selections().primary().select_all(self.document.text(), CURSOR_SEMANTICS);
+        if let Ok(new_selection) = self.document.selections().primary().select_all(self.document.text(), CURSOR_SEMANTICS){
+            *self.document.selections_mut().primary_mut() = new_selection;
+        }else{
+            // warning
+            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput))
+        }
 
         self.checked_scroll_and_update();
     }
