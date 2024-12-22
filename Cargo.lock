@@ -125,7 +125,7 @@ dependencies = [
 [[package]]
 name = "edit_core"
 version = "0.1.0"
-source = "git+https://github.com/JustinEnlow/edit_core#b8ceb5a17b41909c9acf73c361f6a7bbf1332473"
+source = "git+https://github.com/JustinEnlow/edit_core#638f734342bc0f022a160d510fa83f9def0c1477"
 dependencies = [
  "ropey",
  "unicode-segmentation",

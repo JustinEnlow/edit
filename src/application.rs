@@ -5,7 +5,7 @@ use crossterm::event::{self, KeyCode, KeyEvent, KeyModifiers};
 use ratatui::layout::Rect;
 use ratatui::{backend::CrosstermBackend, Terminal};
 use crate::ui::UserInterface;
-use edit_core::selection::{CursorSemantics, Movement, Selection, Selections};
+use edit_core::selection::{CursorSemantics, Movement, Selection, Selections, SelectionError, SelectionsError};
 use edit_core::view::View;
 use edit_core::document::Document;
 use ropey::Rope;
@@ -115,27 +115,28 @@ impl Application{
                 match (self.mode, key_event.modifiers, key_event.code){
                     (Mode::Insert, modifiers, KeyCode::PageDown)  => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.extend_selection_page_down();}}
                     (Mode::Insert, modifiers, KeyCode::PageUp)    => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.extend_selection_page_up();}}
-                    (Mode::Insert, modifiers, KeyCode::Up)        => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.add_selection_above();}}  //this works!!!
+                    (Mode::Insert, modifiers, KeyCode::Up)        => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.add_selection_above();}}
                     (Mode::Insert, modifiers, KeyCode::Down)      => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.add_selection_below();}}
+                    (Mode::Insert, modifiers, KeyCode::Char('p')) => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.decrement_primary_selection();}
+                                                                                else if modifiers == KeyModifiers::CONTROL{self.increment_primary_selection();}}
                     //(Mode::Insert, modifiers, KeyCode::Backspace) => {if modifiers == KeyModifiers::CONTROL{self.delete_word_backwards();}}   //TODO: add this functionality, and delete word forwards
-                    // makes this impossible to represent in 2 separate matches
-                    //(Mode::Insert, modifiers, KeyCode::Char('z')) => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.redo();}}
-                    //(Mode::Insert, modifiers, KeyCode::Char('z')) => {if modifiers == (KeyModifiers::CONTROL){self.undo();}}
-                    _ => {self.no_op();}
+                    (Mode::Insert, modifiers, KeyCode::Char('z')) => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.redo();}
+                                                                                else if modifiers == (KeyModifiers::CONTROL){self.undo();}}
+                    _ => {self.no_op();}    //maybe warning unbound keypress
                 }
                 match (key_event, self.mode){
                     // Insert Mode
                     //(KeyEvent{modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT, code: KeyCode::PageDown, ..}, Mode::Insert) => {self.extend_selection_page_down()}
                     //(KeyEvent{modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT, code: KeyCode::PageUp, ..}, Mode::Insert) => {self.extend_selection_page_up()}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('r'),     ..}, Mode::Insert) => {self.redo()}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('z'),     ..}, Mode::Insert) => {self.undo()}
+                    //(KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('r'),     ..}, Mode::Insert) => {self.redo()}
+                    //(KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('z'),     ..}, Mode::Insert) => {self.undo()}
                     //(KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Up,            ..}, Mode::Insert) => {self.add_selection_above()}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Right,         ..}, Mode::Insert) => {self.move_cursor_word_end()}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Left,          ..}, Mode::Insert) => {self.move_cursor_word_start()}
+                    //(KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Right,         ..}, Mode::Insert) => {self.move_cursor_word_end()}
+                    //(KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Left,          ..}, Mode::Insert) => {self.move_cursor_word_start()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Home,          ..}, Mode::Insert) => {self.move_cursor_document_start()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::End,           ..}, Mode::Insert) => {self.move_cursor_document_end()}
                     //(KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Esc,           ..}, Mode::Insert) => {self.clear_non_primary_selections()}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('p'),     ..}, Mode::Insert) => {self.increment_primary_selection()}
+                    //(KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('p'),     ..}, Mode::Insert) => {self.increment_primary_selection()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char(' '),     ..}, Mode::Insert) => {self.set_mode_space()}  //show context menu
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('q'),     ..}, Mode::Insert) => {self.quit()}
                     (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('s'),     ..}, Mode::Insert) => {self.save()}
@@ -273,6 +274,7 @@ impl Application{
 
         self.update_ui();
     }
+    // should this take a selection to follow, instead of always following primary?
     fn checked_scroll_and_update(&mut self){
         let text = self.document.text().clone();
         let selections = self.document.selections().clone();
@@ -295,6 +297,7 @@ impl Application{
     }
 
     fn esc_handle(&mut self){
+        //TODO: if lsp suggestions displaying(currently unimplemented), exit that display
         if self.document.selections().count() > 1{
             self.clear_non_primary_selections();
         }
@@ -326,6 +329,8 @@ impl Application{
         }else{
             //warn action could not be performed
             self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput));
+
+            // could also match error. if error is multi-line selection, extend selection up
         }
     }
     fn backspace(&mut self){
@@ -350,18 +355,17 @@ impl Application{
     }
     fn clear_non_primary_selections(&mut self){
         assert!(self.mode == Mode::Insert);
-        //if self.document.selections().count() > 1{
-        //    *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
-//
-        //    self.checked_scroll_and_update();
-        //}else{
-        //    self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::SingleSelection));
-        //}
-        if let Ok(new_selections) = self.document.selections().clear_non_primary_selections(){
-            *self.document.selections_mut() = new_selections;
-            self.checked_scroll_and_update();
-        }else{
-            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::SingleSelection));
+        match self.document.selections().clear_non_primary_selections(){
+            Ok(new_selections) => {
+                *self.document.selections_mut() = new_selections;
+                self.checked_scroll_and_update();
+            }
+            Err(e) => {
+                match e{
+                    SelectionsError::SingleSelection => {self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::SingleSelection));}
+                    _ => {/*I don't think any other SelectionsErrors are possible here*/}
+                }
+            }
         }
     }
     fn collapse_selections(&mut self){
@@ -372,7 +376,7 @@ impl Application{
             //*selection = selection.collapse(&text, CURSOR_SEMANTICS);
             if let Ok(new_selection) = selection.collapse(&text, CURSOR_SEMANTICS){
                 *selection = new_selection;
-                // self.checked_scroll_and_update()     //handle collapse where selection extended beyond view size?
+                // self.checked_scroll_and_update()     //handle collapse where selection extended beyond view size?    //will view be following cursor anyways?
             }else{
                 // warning
                 self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput))
@@ -451,7 +455,7 @@ impl Application{
         self.ui.util_bar.utility_widget.text_box.move_cursor_right();
         self.update_util_bar_ui();
     }
-    fn copy(&mut self){
+    fn copy(&mut self){ //TODO: how can the user be given visual feedback that the requested action was accomplished? util bar indicator, similar to warning mode, without restricting further keypresses?
         assert!(self.mode == Mode::Insert);
         // Errors if more than one selection
         if self.document.copy().is_err(){
@@ -509,7 +513,7 @@ impl Application{
 
         self.update_ui();
     }
-    fn extend_selection(&mut self, extend_fn: fn(&Selection, &Rope, CursorSemantics) -> Result<Selection, ()>){
+    fn extend_selection(&mut self, extend_fn: fn(&Selection, &Rope, CursorSemantics) -> Result<Selection, SelectionError>){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
     
@@ -537,7 +541,7 @@ impl Application{
     fn extend_selection_left(&mut self){
         self.extend_selection(Selection::extend_left);
     }
-    fn extend_selection_page(&mut self, extend_fn: fn(&Selection, &Rope, &View, CursorSemantics) -> Result<Selection, ()>){
+    fn extend_selection_page(&mut self, extend_fn: fn(&Selection, &Rope, &View, CursorSemantics) -> Result<Selection, SelectionError>){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
         let view = self.document.view().clone();
@@ -568,6 +572,9 @@ impl Application{
     }
     fn find_replace_mode_accept(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
+        self.document.search(&self.ui.util_bar.utility_widget.text_box.text.to_string(), CURSOR_SEMANTICS);
+        self.scroll_and_update();
+        self.find_replace_mode_exit();
     }
     fn find_replace_mode_backspace(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
@@ -714,6 +721,7 @@ impl Application{
     fn goto_mode_accept(&mut self){
         assert!(self.mode == Mode::Utility(UtilityKind::Goto));
         if let Ok(line_number) = self.ui.util_bar.utility_widget.text_box.text.to_string().parse::<usize>(){
+            // if line_number <= self.document.len() && line_number > 0
             let line_number = line_number.saturating_sub(1);
 
             //if line_number < self.ui.document_length(){
@@ -721,24 +729,19 @@ impl Application{
                 let text =  self.document.text().clone();
                 
                 //if self.document.selections().count() > 1{
-                //    *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
-                //}
                 if let Ok(new_selections) = self.document.selections().clear_non_primary_selections(){
                     *self.document.selections_mut() = new_selections;
-                }else{
-                    self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::SingleSelection));
-                }
-                //*self.document.selections_mut().primary_mut() = self.document.selections().primary().set_from_line_number(line_number, &text, Movement::Move, CURSOR_SEMANTICS);
+                }else{/*already single selection, which is what we want*/}
+
                 if let Ok(new_selection) = self.document.selections().primary().set_from_line_number(line_number, &text, Movement::Move, CURSOR_SEMANTICS){
                     *self.document.selections_mut().primary_mut() = new_selection;
+                    self.scroll_and_update();
+                    self.goto_mode_exit();
                 }else{
                     // warning
-                    self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput))
+                    self.ui.util_bar.utility_widget.text_box.clear();
+                    self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput));
                 }
-                
-                self.scroll_and_update();
-                
-                self.goto_mode_exit();
             }else{
                 self.goto_mode_exit();
                 self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput));
@@ -837,14 +840,15 @@ impl Application{
         }
     }
     fn increment_primary_selection(&mut self){
-        //if self.document.selections().count() > 1{
-        //    *self.document.selections_mut() = self.document.selections().increment_primary_selection();
-//
-        //    self.scroll_and_update();
-        //}else{
-        //    self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::SingleSelection))
-        //}
         if let Ok(new_selections) = self.document.selections().increment_primary_selection(){
+            *self.document.selections_mut() = new_selections;
+            self.scroll_and_update();
+        }else{
+            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::SingleSelection));
+        }
+    }
+    fn decrement_primary_selection(&mut self){
+        if let Ok(new_selections) = self.document.selections().decrement_primary_selection(){
             *self.document.selections_mut() = new_selections;
             self.scroll_and_update();
         }else{
@@ -874,7 +878,7 @@ impl Application{
 
         self.scroll_and_update();
     }
-    fn move_cursor(&mut self, movement_fn: fn(&Selection, &Rope, CursorSemantics) -> Result<Selection, ()>){
+    fn move_cursor(&mut self, movement_fn: fn(&Selection, &Rope, CursorSemantics) -> Result<Selection, SelectionError>){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
     
@@ -917,7 +921,7 @@ impl Application{
     fn move_cursor_line_start(&mut self){
         self.move_cursor(Selection::move_home);
     }
-    fn move_cursor_page(&mut self, movement_fn: fn(&Selection, &Rope, &View, CursorSemantics) -> Result<Selection, ()>){
+    fn move_cursor_page(&mut self, movement_fn: fn(&Selection, &Rope, &View, CursorSemantics) -> Result<Selection, SelectionError>){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
         let view = self.document.view().clone();
@@ -953,12 +957,12 @@ impl Application{
     fn move_cursor_up(&mut self){
         self.move_cursor(Selection::move_up);
     }
-    fn move_cursor_word_end(&mut self){
-        assert!(self.mode == Mode::Insert);
-    }
-    fn move_cursor_word_start(&mut self){
-        assert!(self.mode == Mode::Insert);
-    }
+    //fn move_cursor_word_end(&mut self){
+    //    assert!(self.mode == Mode::Insert);
+    //}
+    //fn move_cursor_word_start(&mut self){
+    //    assert!(self.mode == Mode::Insert);
+    //}
     fn no_op(&mut self){}
     fn open_new_terminal_window(&self){
         //open new terminal window at current working directory
@@ -1025,6 +1029,7 @@ impl Application{
             }
         }else{
             // warn redo stack empty
+            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput));
         }
     }
     fn resize(&mut self, x: u16, y: u16){
@@ -1127,6 +1132,7 @@ impl Application{
             }
         }else{
             // warn undo stack empty
+            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput));
         }
     }
     fn warning_mode_exit(&mut self){
