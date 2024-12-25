@@ -1,4 +1,4 @@
-use crate::application::{Mode, UtilityKind};
+use crate::application::Mode;
 use document_viewport::DocumentViewport;
 use popups::Popups;
 use util_bar::UtilBar;
@@ -58,7 +58,7 @@ impl UserInterface{
                     // util(goto/find/command) bar rect height
                     Constraint::Length(
                         match mode{
-                            Mode::Utility(_) => 1,
+                            Mode::Warning(_) | Mode::Command | Mode::FindReplace | Mode::Goto => 1,
                             Mode::Insert
                             | Mode::Space => if self.status_bar.display{1}else{0}
                         }
@@ -118,7 +118,7 @@ impl UserInterface{
                         //    ))
                         //}
                     }
-                    Mode::Utility(UtilityKind::Goto | UtilityKind::Command) => {
+                    Mode::Goto | Mode::Command => {
                         frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);
                         frame.render_widget(self.util_bar.utility_widget.widget(mode), self.util_bar.utility_widget.rect);
                         frame.set_cursor_position((
@@ -126,7 +126,7 @@ impl UserInterface{
                             self.terminal_size.height
                         ));
                     }
-                    Mode::Utility(UtilityKind::FindReplace) => {
+                    Mode::FindReplace => {
                         frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);
                         frame.render_widget(self.util_bar.utility_widget.widget(mode), self.util_bar.utility_widget.rect);
                         frame.render_widget(self.util_bar.alternate_prompt.widget(mode), self.util_bar.alternate_prompt.rect);
@@ -141,7 +141,7 @@ impl UserInterface{
                             self.terminal_size.height
                         ));
                     }
-                    Mode::Utility(UtilityKind::Warning(_)) => {
+                    Mode::Warning(_) => {
                         frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);
                         frame.render_widget(self.util_bar.utility_widget.widget(mode), self.util_bar.utility_widget.rect);
                     }

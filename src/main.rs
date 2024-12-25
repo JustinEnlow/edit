@@ -1,6 +1,7 @@
 //#![warn(unused_results)]
 
-use crate::application::{Application, CURSOR_STYLE};
+use crate::application::Application;
+use crate::config::CURSOR_STYLE;
 use std::error::Error;
 use std::panic;
 use crossterm::{
@@ -12,7 +13,9 @@ use crossterm::{
 use ratatui::{backend::CrosstermBackend, Terminal};
 
 mod application;
+mod keybind;
 mod ui;
+mod config;
 
 // TODO: define panic hook to restore terminal to valid state   //https://ratatui.rs/recipes/apps/panic-hooks/
 
@@ -32,11 +35,19 @@ fn main() -> Result<(), Box<dyn Error>>{
 
     let mut terminal = setup_terminal()?;
     
-    let mut app = Application::new(&terminal)?;
-    if let Err(e) = app.run(file_path, &mut terminal){
-        restore_terminal(&mut terminal)?;
-        eprintln!("Encountered an error while running the application: {e}");
-        return Err(e.into());
+    match Application::new(&file_path, &terminal){
+        Ok(mut app) => {
+            if let Err(e) = app.run(&mut terminal){
+                restore_terminal(&mut terminal)?;
+                eprintln!("Encountered an error while running the application: {e}");
+                return Err(e.into());
+            }
+        }
+        Err(e) => {
+            restore_terminal(&mut terminal)?;
+            eprintln!("Encountered an error while setting up the application: {e}");
+            return Err(e.into());
+        }
     }
 
     restore_terminal(&mut terminal)?;

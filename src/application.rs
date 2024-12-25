@@ -1,7 +1,6 @@
 use std::error::Error;
 use std::path::PathBuf;
-use crossterm::cursor;
-use crossterm::event::{self, KeyCode, KeyModifiers};
+use crossterm::event;
 use ratatui::layout::Rect;
 use ratatui::{backend::CrosstermBackend, Terminal};
 use crate::ui::UserInterface;
@@ -9,28 +8,12 @@ use edit_core::selection::{CursorSemantics, Movement, Selection, Selections, Sel
 use edit_core::view::View;
 use edit_core::document::Document;
 use ropey::Rope;
+use crate::keybind;
+use crate::config::CURSOR_SEMANTICS;
 
 
 
-// users preferred cursor style
-    // Options:
-        // DefaultUserShape
-        // BlinkingBLock    //inform crossterm of capital L in 'Block'
-        // SteadyBlock
-        // BlinkingUnderScore
-        // SteadyUnderScore
-        // BlinkingBar
-        // SteadyBar
-pub const CURSOR_STYLE: cursor::SetCursorStyle = cursor::SetCursorStyle::SteadyBlock;
-const CURSOR_SEMANTICS: CursorSemantics = match CURSOR_STYLE{
-    cursor::SetCursorStyle::BlinkingBar | cursor::SetCursorStyle::SteadyBar => CursorSemantics::Bar,
-    _ => CursorSemantics::Block
-};
-const VIEW_SCROLL_AMOUNT: usize = 1;    //should this have separate vertical and horizontal definitions?
-
-
-
-enum ScrollDirection{
+pub enum ScrollDirection{
     Down,
     Left,
     Right,
@@ -41,14 +24,9 @@ enum ScrollDirection{
 pub enum Mode{
     Insert,
     Space,
-    Utility(UtilityKind),   //this actually may be better as separate Modes so that adding/removing to them can be easier...
-}
-
-#[derive(Clone, Copy, PartialEq)]
-pub enum UtilityKind{
     Warning(WarningKind),
     Command,
-    FindReplace,    //FindReplace mode can prob be replaced with Find mode, which upon acceptance would select all instances of the entered text, that can then be edited normally
+    FindReplace,
     Goto,
 }
 
@@ -71,35 +49,37 @@ pub struct Application{
     ui: UserInterface,
 }
 impl Application{
-    pub fn new(terminal: &Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<Self, Box<dyn Error>>{
+    pub fn new(file_path: &str, terminal: &Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<Self, Box<dyn Error>>{
         let terminal_size = terminal.size()?;
         let terminal_rect = Rect::new(0, 0, terminal_size.width, terminal_size.height);
-        Ok(Self{
+
+        let mut instance = Self{
             should_quit: false,
             mode: Mode::Insert,
             document: Document::new(CURSOR_SEMANTICS),
-            ui: UserInterface::new(terminal_rect),
-        })
+            ui: UserInterface::new(terminal_rect)
+        };
+
+        let path = PathBuf::from(file_path).canonicalize()?;
+
+        instance.document = Document::open(&path, CURSOR_SEMANTICS)?;
+        instance.ui.status_bar.file_name_widget.file_name = instance.document.file_name();
+        instance.ui.document_viewport.document_widget.doc_length = instance.document.len();
+        
+        instance.ui.update_layouts(instance.mode);
+        
+        //init backend doc view size
+        instance.document.view_mut().set_size(
+            instance.ui.document_viewport.document_widget.rect.width as usize,
+            instance.ui.document_viewport.document_widget.rect.height as usize
+        );
+        instance.scroll_and_update();
+
+        Ok(instance)
     }
 
-    pub fn run(&mut self, file_path: String, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<(), Box<dyn Error>>{
-        let path = PathBuf::from(file_path).canonicalize()?;
-        
-        self.document = Document::open(&path, CURSOR_SEMANTICS)?;
-        self.ui.status_bar.file_name_widget.file_name = self.document.file_name();
-        self.ui.document_viewport.document_widget.doc_length = self.document.len();
-        
-        self.ui.update_layouts(self.mode);
-        
-        // init doc view size
-        self.document.view_mut().set_size(
-            self.ui.document_viewport.document_widget.rect.width as usize,
-            self.ui.document_viewport.document_widget.rect.height as usize
-        );
-        self.scroll_and_update();
-
+    pub fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<(), Box<dyn Error>>{
         loop{
-            //terminal.hide_cursor()?;    //testing this to resolve cursor displaying in random places while moving quickly
             self.ui.update_layouts(self.mode);
             self.ui.render(terminal, self.mode)?;
             self.handle_event()?;
@@ -109,303 +89,16 @@ impl Application{
         }
     }
 
-    //TODO: maybe make a keybind.rs for these next several fns?
-    fn handle_insert_mode_keypress(&mut self, keycode: KeyCode, modifiers: KeyModifiers){
-        match (keycode, modifiers){
-            (KeyCode::Char(c), modifiers) => {
-                if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){
-                    if c == 'p'{self.decrement_primary_selection();}
-                    if c == 'z'{self.redo();}
-                }
-                else if modifiers == KeyModifiers::CONTROL{
-                    if c == ' '{self.set_mode_space();}
-                    if c == 'q'{self.quit();}
-                    if c == 's'{self.save();}
-                    if c == 'g'{self.set_mode_goto();}
-                    if c == 'f'{self.set_mode_find_replace();}
-                    if c == 'l'{self.display_line_numbers();}
-                    if c == 'k'{self.display_status_bar();}
-                    if c == 'o'{self.set_mode_command();}
-                    if c == 't'{self.open_new_terminal_window();}
-                    if c == 'a'{self.select_all();}
-                    if c == 'x'{self.cut();}
-                    if c == 'c'{self.copy();}
-                    if c == 'v'{self.paste();}
-                    if c == 'p'{self.increment_primary_selection();}
-                    if c == 'z'{self.undo();}
-                }
-                else if modifiers == KeyModifiers::SHIFT{self.insert_char(c);}
-                else if modifiers == KeyModifiers::NONE{self.insert_char(c);}
-                else{self.no_op();}
-            }
-            (KeyCode::PageDown, modifiers) => {
-                if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.extend_selection_page_down();}
-                else if modifiers == KeyModifiers::NONE{self.move_cursor_page_down();}
-                else{self.no_op();}
-            }
-            (KeyCode::PageUp, modifiers) => {
-                if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.extend_selection_page_up();}
-                else if modifiers == KeyModifiers::NONE{self.move_cursor_page_up();}
-                else{self.no_op();}
-            }
-            (KeyCode::Up, modifiers) => {
-                if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.add_selection_above();}
-                else if modifiers == KeyModifiers::SHIFT{self.extend_selection_up();}
-                else if modifiers == KeyModifiers::ALT{self.scroll_view_up(VIEW_SCROLL_AMOUNT);}
-                else if modifiers == KeyModifiers::NONE{self.move_cursor_up();}
-                else{self.no_op();}
-            }
-            (KeyCode::Down, modifiers) => {
-                if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.add_selection_below();}
-                else if modifiers == KeyModifiers::SHIFT{self.extend_selection_down();}
-                else if modifiers == KeyModifiers::ALT{self.scroll_view_down(VIEW_SCROLL_AMOUNT);}
-                else if modifiers == KeyModifiers::NONE{self.move_cursor_down();}
-                else{self.no_op();}
-            }
-            (KeyCode::Home, modifiers) => {
-                if modifiers == KeyModifiers::CONTROL{self.move_cursor_document_start();}
-                else if modifiers == KeyModifiers::SHIFT{self.extend_selection_home();}
-                else if modifiers == KeyModifiers::NONE{self.move_cursor_line_start();}
-                else{self.no_op();}
-            }
-            (KeyCode::End, modifiers) => {
-                if modifiers == KeyModifiers::CONTROL{self.move_cursor_document_end();}
-                else if modifiers == KeyModifiers::SHIFT{self.extend_selection_end();}
-                else if modifiers == KeyModifiers::NONE{self.move_cursor_line_end();}
-                else{self.no_op();}
-            }
-            (KeyCode::Right, modifiers) => {
-                if modifiers == KeyModifiers::SHIFT{self.extend_selection_right();}
-                else if modifiers == KeyModifiers::ALT{self.scroll_view_right(VIEW_SCROLL_AMOUNT);}
-                else if modifiers == KeyModifiers::NONE{self.move_cursor_right();}
-                else{self.no_op();}
-            }
-            (KeyCode::Left, modifiers) => {
-                if modifiers == KeyModifiers::SHIFT{self.extend_selection_left();}
-                else if modifiers == KeyModifiers::ALT{self.scroll_view_left(VIEW_SCROLL_AMOUNT);}
-                else if modifiers == KeyModifiers::NONE{self.move_cursor_left();}
-                else{self.no_op();}
-            }
-            (KeyCode::Tab, modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.insert_tab();}
-                else{self.no_op();}
-            }
-            (KeyCode::Enter, modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.insert_newline();}
-                else{self.no_op();}
-            }
-            (KeyCode::Delete, modifiers) => {
-                if modifiers == KeyModifiers::CONTROL{/*self.delete_word_forwards();*/} //TODO: impl this functionality
-                else if modifiers == KeyModifiers::NONE{self.delete();}
-                else{self.no_op();}
-            }
-            (KeyCode::Backspace, modifiers) => {
-                if modifiers == KeyModifiers::CONTROL{/*self.delete_word_backwards();*/}    //TODO: impl this functionality
-                else if modifiers == KeyModifiers::NONE{self.backspace();}
-                else{self.no_op();}
-            }
-            (KeyCode::Esc, modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.esc_handle();}  //how can this be disambiguated as custom behavior vs builtin fn?
-                else{self.no_op();}
-            }
-            _ => {self.no_op();}
-        }
-    }
-
-    fn handle_space_mode_keypress(&mut self, keycode: KeyCode, modifiers: KeyModifiers){
-        match (keycode, modifiers){
-            (KeyCode::Esc, modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.space_mode_exit();}
-                else{self.no_op();}
-            }
-            (KeyCode::Char('c'), modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.center_view_vertically_around_cursor();}    //this still needs be made to exit space mode
-                else{self.no_op();}
-            }
-            (KeyCode::Char('p'), modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.increment_primary_selection();}
-                else{self.no_op();}
-            }
-            _ => {self.no_op();}
-        }
-    }
-
-    fn handle_warning_mode_keypress(&mut self, keycode: KeyCode, modifiers: KeyModifiers){
-        match (keycode, modifiers){
-            (KeyCode::Char('q'), modifiers) => {
-                if modifiers == KeyModifiers::CONTROL{self.quit_ignoring_changes();}
-                else{self.no_op();}
-            }
-            (KeyCode::Esc, modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.warning_mode_exit();}
-                else{self.no_op();}
-            }
-            _ => {self.no_op();}
-        }
-    }
-
-    fn handle_goto_mode_keypress(&mut self, keycode: KeyCode, modifiers: KeyModifiers){
-        match (keycode, modifiers){
-            (KeyCode::Right, modifiers) => {
-                if modifiers == KeyModifiers::SHIFT{self.goto_mode_extend_selection_right();}
-                else if modifiers == KeyModifiers::NONE{self.goto_mode_move_cursor_right();}
-                else{self.no_op();}
-            }
-            (KeyCode::Left, modifiers)  => {
-                if modifiers == KeyModifiers::SHIFT{self.goto_mode_extend_selection_left();}
-                else if modifiers == KeyModifiers::NONE{self.goto_mode_move_cursor_left();}
-                else{self.no_op();}
-            }
-            (KeyCode::Home, modifiers)  => {
-                if modifiers == KeyModifiers::SHIFT{self.goto_mode_extend_selection_home();}
-                else if modifiers == KeyModifiers::NONE{self.goto_mode_move_cursor_line_start();}
-                else{self.no_op();}
-            }
-            (KeyCode::End, modifiers)   => {
-                if modifiers == KeyModifiers::SHIFT{self.goto_mode_extend_selection_end();}
-                else if modifiers == KeyModifiers::NONE{self.goto_mode_move_cursor_line_end();}
-                else{self.no_op();}
-            }
-            (KeyCode::Esc, modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.goto_mode_exit();}
-                else{self.no_op();}
-            }
-            (KeyCode::Enter, modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.goto_mode_accept();}
-                else{self.no_op();}
-            }
-            (KeyCode::Backspace, modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.goto_mode_backspace();}
-                else{self.no_op();}
-            }
-            (KeyCode::Delete, modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.goto_mode_delete();}
-                else{self.no_op();}
-            }
-            (KeyCode::Char(c), modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.goto_mode_insert_char(c);}
-                else{self.no_op();}
-            }
-            _ => {self.no_op();}
-        }
-    }
-
-    fn handle_find_replace_mode_keypress(&mut self, keycode: KeyCode, modifiers: KeyModifiers){
-        match (keycode, modifiers){
-            (KeyCode::Right, modifiers) => {
-                if modifiers == KeyModifiers::SHIFT{self.find_replace_mode_extend_selection_right();}
-                else if modifiers == KeyModifiers::NONE{self.find_replace_mode_move_cursor_right();}
-                else{self.no_op();}
-            }
-            (KeyCode::Left, modifiers) => {
-                if modifiers == KeyModifiers::SHIFT{self.find_replace_mode_extend_selection_left();}
-                else if modifiers == KeyModifiers::NONE{self.find_replace_mode_move_cursor_left();}
-                else{self.no_op();}
-            }
-            (KeyCode::Home, modifiers) => {
-                if modifiers == KeyModifiers::SHIFT{self.find_replace_mode_extend_selection_home();}
-                else if modifiers == KeyModifiers::NONE{self.find_replace_mode_move_cursor_line_start();}
-                else{self.no_op();}
-            }
-            (KeyCode::End, modifiers) => {
-                if modifiers == KeyModifiers::SHIFT{self.find_replace_mode_extend_selection_end();}
-                else if modifiers == KeyModifiers::NONE{self.find_replace_mode_move_cursor_line_end();}
-                else{self.no_op();}
-            }
-            (KeyCode::Char(c), modifiers) => {
-                if modifiers == KeyModifiers::SHIFT{self.find_replace_mode_insert_char(c);}
-                else if modifiers == KeyModifiers::NONE{self.find_replace_mode_insert_char(c);}
-                else{self.no_op();}
-            }
-            (KeyCode::Esc, modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.find_replace_mode_exit();}
-                else{self.no_op();}
-            }
-            (KeyCode::Tab, modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.find_replace_mode_switch_util_bar_focus();}
-                else{self.no_op();}
-            }
-            (KeyCode::Up, modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.find_replace_mode_previous_instance();}
-                else{self.no_op();}
-            }
-            (KeyCode::Down, modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.find_replace_mode_next_instance();}
-                else{self.no_op();}
-            }
-            (KeyCode::Backspace, modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.find_replace_mode_backspace();}
-                else{self.no_op();}
-            }
-            (KeyCode::Delete, modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.find_replace_mode_delete();}
-                else{self.no_op();}
-            }
-            (KeyCode::Enter, modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.find_replace_mode_accept();}
-                else{self.no_op();}
-            }
-            _ => {self.no_op();}
-        }
-    }
-
-    fn handle_command_mode_keypress(&mut self, keycode: KeyCode, modifiers: KeyModifiers){
-        match (keycode, modifiers){
-            (KeyCode::Char(c), modifiers) => {
-                if modifiers == KeyModifiers::SHIFT{self.command_mode_insert_char(c);}
-                else if modifiers == KeyModifiers::NONE{self.command_mode_insert_char(c);}
-                else{self.no_op();}
-            }
-            (KeyCode::Right, modifiers) => {
-                if modifiers == KeyModifiers::SHIFT{self.command_mode_extend_selection_right();}
-                else if modifiers == KeyModifiers::NONE{self.command_mode_move_cursor_right();}
-                else{self.no_op();}
-            }
-            (KeyCode::Left, modifiers) => {
-                if modifiers == KeyModifiers::SHIFT{self.command_mode_extend_selection_left();}
-                else if modifiers == KeyModifiers::NONE{self.command_mode_move_cursor_left();}
-                else{self.no_op();}
-            }
-            (KeyCode::Home, modifiers) => {
-                if modifiers == KeyModifiers::SHIFT{self.command_mode_extend_selection_home();}
-                else if modifiers == KeyModifiers::NONE{self.command_mode_move_cursor_line_start();}
-                else{self.no_op();}
-            }
-            (KeyCode::End, modifiers) => {
-                if modifiers == KeyModifiers::SHIFT{self.command_mode_extend_selection_end();}
-                else if modifiers == KeyModifiers::NONE{self.command_mode_move_cursor_line_end();}
-                else{self.no_op();}
-            }
-            (KeyCode::Esc, modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.command_mode_exit();}
-                else{self.no_op();}
-            }
-            (KeyCode::Enter, modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.command_mode_accept();}
-                else{self.no_op();}
-            }
-            (KeyCode::Backspace, modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.command_mode_backspace();}
-                else{self.no_op();}
-            }
-            (KeyCode::Delete, modifiers) => {
-                if modifiers == KeyModifiers::NONE{self.command_mode_delete();}
-                else{self.no_op();}
-            }
-            _ => {self.no_op();}
-        }
-    }
-
     fn handle_event(&mut self) -> Result<(), Box<dyn Error>>{
         match event::read()?{
             event::Event::Key(key_event) => {
                 match self.mode{
-                    Mode::Insert => {self.handle_insert_mode_keypress(key_event.code, key_event.modifiers);}
-                    Mode::Space => {self.handle_space_mode_keypress(key_event.code, key_event.modifiers);}
-                    Mode::Utility(UtilityKind::Warning(_)) => {self.handle_warning_mode_keypress(key_event.code, key_event.modifiers);}
-                    Mode::Utility(UtilityKind::Goto) => {self.handle_goto_mode_keypress(key_event.code, key_event.modifiers);}
-                    Mode::Utility(UtilityKind::FindReplace) => {self.handle_find_replace_mode_keypress(key_event.code, key_event.modifiers);}
-                    Mode::Utility(UtilityKind::Command) => {self.handle_command_mode_keypress(key_event.code, key_event.modifiers);}
+                    Mode::Insert => {keybind::handle_insert_mode_keypress(self, key_event.code, key_event.modifiers);}
+                    Mode::Space => {keybind::handle_space_mode_keypress(self, key_event.code, key_event.modifiers);}
+                    Mode::Warning(_) => {keybind::handle_warning_mode_keypress(self, key_event.code, key_event.modifiers);}
+                    Mode::Goto => {keybind::handle_goto_mode_keypress(self, key_event.code, key_event.modifiers);}
+                    Mode::FindReplace => {keybind::handle_find_replace_mode_keypress(self, key_event.code, key_event.modifiers);}
+                    Mode::Command => {keybind::handle_command_mode_keypress(self, key_event.code, key_event.modifiers);}
                 }
             },
             event::Event::Resize(x, y) => self.resize(x, y),
@@ -416,9 +109,9 @@ impl Application{
     }
 
     // could make separate files for categories of fns. builtin.rs and custom.rs...       custom::escape_handle()     builtin::add_selection_above()
-
+    // or all in one commands.rs file?...
     /////////////////////////////////////////////////////////////////////////// Reuse ////////////////////////////////////////////////////////////////////////////////
-    fn update_ui(&mut self){
+    pub fn update_ui(&mut self){
         let text = self.document.text();
         let selections = self.document.selections();
         self.ui.document_viewport.document_widget.text_in_view = self.document.view().text(text);
@@ -428,7 +121,7 @@ impl Application{
         self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone();
         self.ui.status_bar.modified_indicator_widget.document_modified_status = self.document.is_modified();
     }
-    fn update_cursor_positions(&mut self){
+    pub fn update_cursor_positions(&mut self){
         let text = self.document.text();
         let selections = self.document.selections();
         self.ui.highlighter.set_primary_cursor_position(self.document.view().primary_cursor_position(text, selections, CURSOR_SEMANTICS));
@@ -436,7 +129,7 @@ impl Application{
         self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone()
     }
     // should this take a selection to follow, instead of always following primary?
-    fn scroll_and_update(&mut self){
+    pub fn scroll_and_update(&mut self){
         let text = self.document.text().clone();
         let selections = self.document.selections().clone();
         *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
@@ -444,7 +137,7 @@ impl Application{
         self.update_ui();
     }
     // should this take a selection to follow, instead of always following primary?
-    fn checked_scroll_and_update(&mut self){
+    pub fn checked_scroll_and_update(&mut self){
         let text = self.document.text().clone();
         let selections = self.document.selections().clone();
         if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
@@ -454,12 +147,12 @@ impl Application{
             self.update_cursor_positions();
         }
     }
-    fn update_util_bar_ui(&mut self){
+    pub fn update_util_bar_ui(&mut self){
         let text = self.ui.util_bar.utility_widget.text_box.text.clone();
         let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection.clone()], 0, &text);
         self.ui.util_bar.utility_widget.text_box.view = self.ui.util_bar.utility_widget.text_box.view.scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
-    fn update_alternate_util_bar_ui(&mut self){
+    pub fn update_alternate_util_bar_ui(&mut self){
         let text = self.ui.util_bar.alternate_utility_widget.text_box.text.clone();
         let selections = Selections::new(vec![self.ui.util_bar.alternate_utility_widget.text_box.selection.clone()], 0, &text);
         self.ui.util_bar.alternate_utility_widget.text_box.view = self.ui.util_bar.alternate_utility_widget.text_box.view.scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
@@ -467,7 +160,7 @@ impl Application{
     /////////////////////////////////////////////////////////////////////////// Reuse ////////////////////////////////////////////////////////////////////////////////
 
     /////////////////////////////////////////////////////////////////////////// Custom ////////////////////////////////////////////////////////////////////////////////
-    fn esc_handle(&mut self){
+    pub fn esc_handle(&mut self){
         assert!(self.mode == Mode::Insert);
         //TODO: if lsp suggestions displaying(currently unimplemented), exit that display
         if self.document.selections().count() > 1{
@@ -477,13 +170,13 @@ impl Application{
             self.collapse_selections();
         }
         else{
-            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput));
+            self.mode = Mode::Warning(WarningKind::InvalidInput);
         }
     }
     /////////////////////////////////////////////////////////////////////////// Custom ////////////////////////////////////////////////////////////////////////////////
     
     /////////////////////////////////////////////////////////////////////////// Built in ////////////////////////////////////////////////////////////////////////////////
-    fn add_selection_above(&mut self){
+    pub fn add_selection_above(&mut self){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
         match self.document.selections().add_selection_above(&text, CURSOR_SEMANTICS){
@@ -493,7 +186,7 @@ impl Application{
             }
             Err(e) => {
                 match e{
-                    SelectionsError::CannotAddSelectionAbove => {self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput));}
+                    SelectionsError::CannotAddSelectionAbove => {self.mode = Mode::Warning(WarningKind::InvalidInput);}
                     SelectionsError::SpansMultipleLines => {/*extend selection up*/}
                     _ => {/*warn unhandled error*/}
                 }
@@ -501,7 +194,7 @@ impl Application{
         }
     }
     //TODO: impl similarly to add_selection_above...
-    fn add_selection_below(&mut self){
+    pub fn add_selection_below(&mut self){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
         if let Ok(selections) = self.document.selections().add_selection_below(&text, CURSOR_SEMANTICS){
@@ -509,12 +202,12 @@ impl Application{
             self.checked_scroll_and_update();
         }else{
             //warn action could not be performed
-            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput));
+            self.mode = Mode::Warning(WarningKind::InvalidInput);
 
             // could also match error. if error is multi-line selection, extend selection up
         }
     }
-    fn backspace(&mut self){
+    pub fn backspace(&mut self){
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
         self.document.backspace(CURSOR_SEMANTICS);
@@ -525,7 +218,7 @@ impl Application{
             self.ui.document_viewport.document_widget.doc_length = self.document.len();
         }
     }
-    fn center_view_vertically_around_cursor(&mut self){
+    pub fn center_view_vertically_around_cursor(&mut self){
         assert!(self.mode == Mode::Space);
         let text = self.document.text().clone();
         let selections = self.document.selections().clone();
@@ -534,7 +227,7 @@ impl Application{
         //exit space mode
         self.mode = Mode::Insert;
     }
-    fn clear_non_primary_selections(&mut self){
+    pub fn clear_non_primary_selections(&mut self){
         assert!(self.mode == Mode::Insert);
         match self.document.selections().clear_non_primary_selections(){
             Ok(new_selections) => {
@@ -543,107 +236,107 @@ impl Application{
             }
             Err(e) => {
                 match e{
-                    SelectionsError::SingleSelection => {self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::SingleSelection));}
+                    SelectionsError::SingleSelection => {self.mode = Mode::Warning(WarningKind::SingleSelection);}
                     _ => {/*I don't think any other SelectionsErrors are possible here*/}
                 }
             }
         }
     }
-    fn collapse_selections(&mut self){
+    pub fn collapse_selections(&mut self){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
         for selection in self.document.selections_mut().iter_mut(){
             if let Ok(new_selection) = selection.collapse(&text, CURSOR_SEMANTICS){
                 *selection = new_selection;
             }else{
-                self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput))
+                self.mode = Mode::Warning(WarningKind::InvalidInput)
             }
         }
         self.checked_scroll_and_update();
     }
-    fn command_mode_accept(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Command));
+    pub fn command_mode_accept(&mut self){
+        assert!(self.mode == Mode::Command);
         if self.parse_command(&self.ui.util_bar.utility_widget.text_box.text.to_string()).is_ok(){
             self.command_mode_exit();
         }else{
             self.command_mode_exit();
-            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::CommandParseFailed));
+            self.mode = Mode::Warning(WarningKind::CommandParseFailed);
         }
         //ui.scroll(editor);
     }
-    fn command_mode_backspace(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Command));
+    pub fn command_mode_backspace(&mut self){
+        assert!(self.mode == Mode::Command);
         self.ui.util_bar.utility_widget.text_box.backspace();
         self.update_util_bar_ui();
     }
-    fn command_mode_delete(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Command));
+    pub fn command_mode_delete(&mut self){
+        assert!(self.mode == Mode::Command);
         self.ui.util_bar.utility_widget.text_box.delete();
         self.update_util_bar_ui();
     }
-    fn command_mode_exit(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Command));
+    pub fn command_mode_exit(&mut self){
+        assert!(self.mode == Mode::Command);
         self.ui.util_bar.utility_widget.text_box.clear();
         self.mode = Mode::Insert;
     }
-    fn command_mode_extend_selection_end(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Command));
+    pub fn command_mode_extend_selection_end(&mut self){
+        assert!(self.mode == Mode::Command);
         self.ui.util_bar.utility_widget.text_box.extend_selection_end();
         self.update_util_bar_ui();
     }
-    fn command_mode_extend_selection_home(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Command));
+    pub fn command_mode_extend_selection_home(&mut self){
+        assert!(self.mode == Mode::Command);
         self.ui.util_bar.utility_widget.text_box.extend_selection_home();
         self.update_util_bar_ui();
     }
-    fn command_mode_extend_selection_left(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Command));
+    pub fn command_mode_extend_selection_left(&mut self){
+        assert!(self.mode == Mode::Command);
         self.ui.util_bar.utility_widget.text_box.extend_selection_left();
         self.update_util_bar_ui();
     }
-    fn command_mode_extend_selection_right(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Command));
+    pub fn command_mode_extend_selection_right(&mut self){
+        assert!(self.mode == Mode::Command);
         self.ui.util_bar.utility_widget.text_box.extend_selection_right();
         self.update_util_bar_ui();
     }
-    fn command_mode_insert_char(&mut self, c: char){
-        assert!(self.mode == Mode::Utility(UtilityKind::Command));
+    pub fn command_mode_insert_char(&mut self, c: char){
+        assert!(self.mode == Mode::Command);
         self.ui.util_bar.utility_widget.text_box.insert_char(c);
         self.update_util_bar_ui();
     }
-    fn command_mode_move_cursor_left(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Command));
+    pub fn command_mode_move_cursor_left(&mut self){
+        assert!(self.mode == Mode::Command);
         self.ui.util_bar.utility_widget.text_box.move_cursor_left();
         self.update_util_bar_ui();
     }
-    fn command_mode_move_cursor_line_end(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Command));
+    pub fn command_mode_move_cursor_line_end(&mut self){
+        assert!(self.mode == Mode::Command);
         self.ui.util_bar.utility_widget.text_box.move_cursor_line_end();
         self.update_util_bar_ui();
     }
-    fn command_mode_move_cursor_line_start(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Command));
+    pub fn command_mode_move_cursor_line_start(&mut self){
+        assert!(self.mode == Mode::Command);
         self.ui.util_bar.utility_widget.text_box.move_cursor_line_start();
         self.update_util_bar_ui();
     }
-    fn command_mode_move_cursor_right(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Command));
+    pub fn command_mode_move_cursor_right(&mut self){
+        assert!(self.mode == Mode::Command);
         self.ui.util_bar.utility_widget.text_box.move_cursor_right();
         self.update_util_bar_ui();
     }
-    fn copy(&mut self){ //TODO: how can the user be given visual feedback that the requested action was accomplished? util bar indicator, similar to warning mode, without restricting further keypresses?
+    pub fn copy(&mut self){ //TODO: how can the user be given visual feedback that the requested action was accomplished? util bar indicator, similar to warning mode, without restricting further keypresses?
         assert!(self.mode == Mode::Insert);
         // Errors if more than one selection
         if self.document.copy().is_err(){
-            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::MultipleSelections));
+            self.mode = Mode::Warning(WarningKind::MultipleSelections);
         }
     }
-    fn cut(&mut self){
+    pub fn cut(&mut self){
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
         // Errors if more than one selection
         if self.document.cut(CURSOR_SEMANTICS).is_err(){
-            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::MultipleSelections));
+            self.mode = Mode::Warning(WarningKind::MultipleSelections);
         }else{
             self.scroll_and_update();
 
@@ -652,7 +345,7 @@ impl Application{
             }
         }
     }
-    fn delete(&mut self){
+    pub fn delete(&mut self){
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
         self.document.delete(CURSOR_SEMANTICS);
@@ -663,7 +356,7 @@ impl Application{
             self.ui.document_viewport.document_widget.doc_length = self.document.len();
         }
     }
-    fn display_line_numbers(&mut self){
+    pub fn display_line_numbers(&mut self){
         assert!(self.mode == Mode::Insert);
         self.ui.document_viewport.toggle_line_numbers();
                 
@@ -676,7 +369,7 @@ impl Application{
 
         self.update_ui();
     }
-    fn display_status_bar(&mut self){
+    pub fn display_status_bar(&mut self){
         assert!(self.mode == Mode::Insert);
         self.ui.status_bar.toggle_status_bar();
                 
@@ -689,7 +382,7 @@ impl Application{
 
         self.update_ui();
     }
-    fn extend_selection(&mut self, extend_fn: fn(&Selection, &Rope, CursorSemantics) -> Result<Selection, SelectionError>){
+    pub fn extend_selection(&mut self, extend_fn: fn(&Selection, &Rope, CursorSemantics) -> Result<Selection, SelectionError>){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
     
@@ -699,25 +392,25 @@ impl Application{
                 *selection = new_selection;
             }else{
                 //warning
-                self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput))
+                self.mode = Mode::Warning(WarningKind::InvalidInput);
             }
         }
     
         self.checked_scroll_and_update();
     }
-    fn extend_selection_down(&mut self){
+    pub fn extend_selection_down(&mut self){
         self.extend_selection(Selection::extend_down);
     }
-    fn extend_selection_end(&mut self){
+    pub fn extend_selection_end(&mut self){
         self.extend_selection(Selection::extend_line_text_end);
     }
-    fn extend_selection_home(&mut self){
+    pub fn extend_selection_home(&mut self){
         self.extend_selection(Selection::extend_home);
     }
-    fn extend_selection_left(&mut self){
+    pub fn extend_selection_left(&mut self){
         self.extend_selection(Selection::extend_left);
     }
-    fn extend_selection_page(&mut self, extend_fn: fn(&Selection, &Rope, &View, CursorSemantics) -> Result<Selection, SelectionError>){
+    pub fn extend_selection_page(&mut self, extend_fn: fn(&Selection, &Rope, &View, CursorSemantics) -> Result<Selection, SelectionError>){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
         let view = self.document.view().clone();
@@ -728,32 +421,32 @@ impl Application{
                 *selection = new_selection;
             }else{
                 // warning
-                self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput))
+                self.mode = Mode::Warning(WarningKind::InvalidInput);
             }
         }
 
         self.checked_scroll_and_update();
     }
-    fn extend_selection_page_down(&mut self){
+    pub fn extend_selection_page_down(&mut self){
         self.extend_selection_page(Selection::extend_page_down);
     }
-    fn extend_selection_page_up(&mut self){
+    pub fn extend_selection_page_up(&mut self){
         self.extend_selection_page(Selection::extend_page_up);
     }
-    fn extend_selection_right(&mut self){
+    pub fn extend_selection_right(&mut self){
         self.extend_selection(Selection::extend_right);
     }
-    fn extend_selection_up(&mut self){
+    pub fn extend_selection_up(&mut self){
         self.extend_selection(Selection::extend_up);
     }
-    fn find_replace_mode_accept(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
+    pub fn find_replace_mode_accept(&mut self){
+        assert!(self.mode == Mode::FindReplace);
         self.document.search(&self.ui.util_bar.utility_widget.text_box.text.to_string(), CURSOR_SEMANTICS);
         self.scroll_and_update();
         self.find_replace_mode_exit();
     }
-    fn find_replace_mode_backspace(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
+    pub fn find_replace_mode_backspace(&mut self){
+        assert!(self.mode == Mode::FindReplace);
         if self.ui.util_bar.alternate_focused{
             self.ui.util_bar.alternate_utility_widget.text_box.backspace();
             self.update_alternate_util_bar_ui();
@@ -764,8 +457,8 @@ impl Application{
 
         self.find_replace_mode_text_validity_check();
     }
-    fn find_replace_mode_delete(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
+    pub fn find_replace_mode_delete(&mut self){
+        assert!(self.mode == Mode::FindReplace);
         if self.ui.util_bar.alternate_focused{
             self.ui.util_bar.alternate_utility_widget.text_box.delete();
             self.update_alternate_util_bar_ui();
@@ -776,15 +469,15 @@ impl Application{
 
         self.find_replace_mode_text_validity_check();
     }
-    fn find_replace_mode_exit(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
+    pub fn find_replace_mode_exit(&mut self){
+        assert!(self.mode == Mode::FindReplace);
         self.ui.util_bar.utility_widget.text_box.clear();
         self.ui.util_bar.alternate_utility_widget.text_box.clear();
         self.ui.util_bar.alternate_focused = false;
         self.mode = Mode::Insert;
     }
-    fn find_replace_mode_extend_selection_end(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
+    pub fn find_replace_mode_extend_selection_end(&mut self){
+        assert!(self.mode == Mode::FindReplace);
         if self.ui.util_bar.alternate_focused{
             self.ui.util_bar.alternate_utility_widget.text_box.extend_selection_end();
             self.update_alternate_util_bar_ui();
@@ -793,8 +486,8 @@ impl Application{
             self.update_util_bar_ui();
         }
     }
-    fn find_replace_mode_extend_selection_home(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
+    pub fn find_replace_mode_extend_selection_home(&mut self){
+        assert!(self.mode == Mode::FindReplace);
         if self.ui.util_bar.alternate_focused{
             self.ui.util_bar.alternate_utility_widget.text_box.extend_selection_home();
             self.update_alternate_util_bar_ui();
@@ -803,8 +496,8 @@ impl Application{
             self.update_util_bar_ui();
         }
     }
-    fn find_replace_mode_extend_selection_left(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
+    pub fn find_replace_mode_extend_selection_left(&mut self){
+        assert!(self.mode == Mode::FindReplace);
         if self.ui.util_bar.alternate_focused{
             self.ui.util_bar.alternate_utility_widget.text_box.extend_selection_left();
             self.update_alternate_util_bar_ui();
@@ -813,8 +506,8 @@ impl Application{
             self.update_util_bar_ui();
         }
     }
-    fn find_replace_mode_extend_selection_right(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
+    pub fn find_replace_mode_extend_selection_right(&mut self){
+        assert!(self.mode == Mode::FindReplace);
         if self.ui.util_bar.alternate_focused{
             self.ui.util_bar.alternate_utility_widget.text_box.extend_selection_right();
             self.update_alternate_util_bar_ui();
@@ -823,8 +516,8 @@ impl Application{
             self.update_util_bar_ui();
         }
     }
-    fn find_replace_mode_insert_char(&mut self, c: char){
-        assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
+    pub fn find_replace_mode_insert_char(&mut self, c: char){
+        assert!(self.mode == Mode::FindReplace);
         if self.ui.util_bar.alternate_focused{
             self.ui.util_bar.alternate_utility_widget.text_box.insert_char(c);
             self.update_alternate_util_bar_ui();
@@ -835,8 +528,8 @@ impl Application{
         
         self.find_replace_mode_text_validity_check();
     }
-    fn find_replace_mode_move_cursor_left(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
+    pub fn find_replace_mode_move_cursor_left(&mut self){
+        assert!(self.mode == Mode::FindReplace);
         if self.ui.util_bar.alternate_focused{
             self.ui.util_bar.alternate_utility_widget.text_box.move_cursor_left();
             self.update_alternate_util_bar_ui();
@@ -845,8 +538,8 @@ impl Application{
             self.update_util_bar_ui();
         }
     }
-    fn find_replace_mode_move_cursor_line_end(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
+    pub fn find_replace_mode_move_cursor_line_end(&mut self){
+        assert!(self.mode == Mode::FindReplace);
         if self.ui.util_bar.alternate_focused{
             self.ui.util_bar.alternate_utility_widget.text_box.move_cursor_line_end();
             self.update_alternate_util_bar_ui();
@@ -855,8 +548,8 @@ impl Application{
             self.update_util_bar_ui();
         }
     }
-    fn find_replace_mode_move_cursor_line_start(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
+    pub fn find_replace_mode_move_cursor_line_start(&mut self){
+        assert!(self.mode == Mode::FindReplace);
         if self.ui.util_bar.alternate_focused{
             self.ui.util_bar.alternate_utility_widget.text_box.move_cursor_line_start();
             self.update_alternate_util_bar_ui();
@@ -865,8 +558,8 @@ impl Application{
             self.update_util_bar_ui();
         }
     }
-    fn find_replace_mode_move_cursor_right(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
+    pub fn find_replace_mode_move_cursor_right(&mut self){
+        assert!(self.mode == Mode::FindReplace);
         if self.ui.util_bar.alternate_focused{
             self.ui.util_bar.alternate_utility_widget.text_box.move_cursor_right();
             self.update_alternate_util_bar_ui();
@@ -875,18 +568,18 @@ impl Application{
             self.update_util_bar_ui();
         }
     }
-    fn find_replace_mode_next_instance(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
+    pub fn find_replace_mode_next_instance(&mut self){
+        assert!(self.mode == Mode::FindReplace);
     }
-    fn find_replace_mode_previous_instance(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
+    pub fn find_replace_mode_previous_instance(&mut self){
+        assert!(self.mode == Mode::FindReplace);
     }
-    fn find_replace_mode_switch_util_bar_focus(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
+    pub fn find_replace_mode_switch_util_bar_focus(&mut self){
+        assert!(self.mode == Mode::FindReplace);
         self.ui.util_bar.alternate_focused = !self.ui.util_bar.alternate_focused;
     }
-    fn find_replace_mode_text_validity_check(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::FindReplace));
+    pub fn find_replace_mode_text_validity_check(&mut self){
+        assert!(self.mode == Mode::FindReplace);
         //run text validity check
         if !self.document.text().clone().to_string().contains(&self.ui.util_bar.utility_widget.text_box.text.to_string()){
             self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
@@ -894,8 +587,8 @@ impl Application{
             self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
         }
     }
-    fn goto_mode_accept(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Goto));
+    pub fn goto_mode_accept(&mut self){
+        assert!(self.mode == Mode::Goto);
         if let Ok(line_number) = self.ui.util_bar.utility_widget.text_box.text.to_string().parse::<usize>(){
             // if line_number <= self.document.len() && line_number > 0
             let line_number = line_number.saturating_sub(1);
@@ -916,85 +609,85 @@ impl Application{
                 }else{
                     // warning
                     self.ui.util_bar.utility_widget.text_box.clear();
-                    self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput));
+                    self.mode = Mode::Warning(WarningKind::InvalidInput);
                 }
             }else{
                 self.goto_mode_exit();
-                self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput));
+                self.mode = Mode::Warning(WarningKind::InvalidInput);
             }
         }else{
             self.ui.util_bar.utility_widget.text_box.clear();
-            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput));
+            self.mode = Mode::Warning(WarningKind::InvalidInput);
         }
     }
-    fn goto_mode_backspace(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Goto));
+    pub fn goto_mode_backspace(&mut self){
+        assert!(self.mode == Mode::Goto);
         self.ui.util_bar.utility_widget.text_box.backspace();
         self.update_util_bar_ui();
     
         self.goto_mode_text_validity_check();
     }
-    fn goto_mode_delete(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Goto));
+    pub fn goto_mode_delete(&mut self){
+        assert!(self.mode == Mode::Goto);
         self.ui.util_bar.utility_widget.text_box.delete();
         self.update_util_bar_ui();
     
         self.goto_mode_text_validity_check();
     }
-    fn goto_mode_exit(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Goto));
+    pub fn goto_mode_exit(&mut self){
+        assert!(self.mode == Mode::Goto);
         self.ui.util_bar.utility_widget.text_box.clear();
         self.mode = Mode::Insert;
     }
-    fn goto_mode_extend_selection_end(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Goto));
+    pub fn goto_mode_extend_selection_end(&mut self){
+        assert!(self.mode == Mode::Goto);
         self.ui.util_bar.utility_widget.text_box.extend_selection_end();
         self.update_util_bar_ui();
     }
-    fn goto_mode_extend_selection_home(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Goto));
+    pub fn goto_mode_extend_selection_home(&mut self){
+        assert!(self.mode == Mode::Goto);
         self.ui.util_bar.utility_widget.text_box.extend_selection_home();
         self.update_util_bar_ui();
     }
-    fn goto_mode_extend_selection_left(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Goto));
+    pub fn goto_mode_extend_selection_left(&mut self){
+        assert!(self.mode == Mode::Goto);
         self.ui.util_bar.utility_widget.text_box.extend_selection_left();
         self.update_util_bar_ui();
     }
-    fn goto_mode_extend_selection_right(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Goto));
+    pub fn goto_mode_extend_selection_right(&mut self){
+        assert!(self.mode == Mode::Goto);
         self.ui.util_bar.utility_widget.text_box.extend_selection_right();
         self.update_util_bar_ui();
     }
-    fn goto_mode_insert_char(&mut self, c: char){
-        assert!(self.mode == Mode::Utility(UtilityKind::Goto));
+    pub fn goto_mode_insert_char(&mut self, c: char){
+        assert!(self.mode == Mode::Goto);
         self.ui.util_bar.utility_widget.text_box.insert_char(c);
         self.update_util_bar_ui();
     
         self.goto_mode_text_validity_check();
     }
-    fn goto_mode_move_cursor_left(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Goto));
+    pub fn goto_mode_move_cursor_left(&mut self){
+        assert!(self.mode == Mode::Goto);
         self.ui.util_bar.utility_widget.text_box.move_cursor_left();
         self.update_util_bar_ui();
     }
-    fn goto_mode_move_cursor_line_end(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Goto));
+    pub fn goto_mode_move_cursor_line_end(&mut self){
+        assert!(self.mode == Mode::Goto);
         self.ui.util_bar.utility_widget.text_box.move_cursor_line_end();
         self.update_util_bar_ui();
     }
-    fn goto_mode_move_cursor_line_start(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Goto));
+    pub fn goto_mode_move_cursor_line_start(&mut self){
+        assert!(self.mode == Mode::Goto);
         self.ui.util_bar.utility_widget.text_box.move_cursor_line_start();
         self.update_util_bar_ui();
     }
-    fn goto_mode_move_cursor_right(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Goto));
+    pub fn goto_mode_move_cursor_right(&mut self){
+        assert!(self.mode == Mode::Goto);
         self.ui.util_bar.utility_widget.text_box.move_cursor_right();
         self.update_util_bar_ui();
     }
-    fn goto_mode_text_validity_check(&mut self){
-        assert!(self.mode == Mode::Utility(UtilityKind::Goto));
+    pub fn goto_mode_text_validity_check(&mut self){
+        assert!(self.mode == Mode::Goto);
         // run text validity check
         let mut is_numeric = true;
         for grapheme in self.ui.util_bar.utility_widget.text_box.text.chars(){ // .graphemes(true)?
@@ -1015,32 +708,32 @@ impl Application{
             self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
         }
     }
-    fn increment_primary_selection(&mut self){
+    pub fn increment_primary_selection(&mut self){
         if let Ok(new_selections) = self.document.selections().increment_primary_selection(){
             *self.document.selections_mut() = new_selections;
             self.scroll_and_update();
             //TODO: if in space mode, exit space mode
         }else{
-            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::SingleSelection));
+            self.mode = Mode::Warning(WarningKind::SingleSelection);
         }
     }
     // this should be organized alphabetically in source code fns
-    fn decrement_primary_selection(&mut self){
+    pub fn decrement_primary_selection(&mut self){
         if let Ok(new_selections) = self.document.selections().decrement_primary_selection(){
             *self.document.selections_mut() = new_selections;
             self.scroll_and_update();
             //TODO: if in space mode, exit space mode
         }else{
-            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::SingleSelection));
+            self.mode = Mode::Warning(WarningKind::SingleSelection);
         }
     }
-    fn insert_char(&mut self, c: char){
+    pub fn insert_char(&mut self, c: char){
         assert!(self.mode == Mode::Insert);
         self.document.insert_string(&c.to_string(), CURSOR_SEMANTICS);
 
         self.scroll_and_update();
     }
-    fn insert_newline(&mut self){
+    pub fn insert_newline(&mut self){
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
         self.document.insert_string("\n", CURSOR_SEMANTICS);
@@ -1051,13 +744,13 @@ impl Application{
             self.ui.document_viewport.document_widget.doc_length = self.document.len();
         }
     }
-    fn insert_tab(&mut self){
+    pub fn insert_tab(&mut self){
         assert!(self.mode == Mode::Insert);
         self.document.insert_string("\t", CURSOR_SEMANTICS);
 
         self.scroll_and_update();
     }
-    fn move_cursor(&mut self, movement_fn: fn(&Selection, &Rope, CursorSemantics) -> Result<Selection, SelectionError>){
+    pub fn move_cursor(&mut self, movement_fn: fn(&Selection, &Rope, CursorSemantics) -> Result<Selection, SelectionError>){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
     
@@ -1076,31 +769,31 @@ impl Application{
                 *selection = new_selection;
             }else{
                 // warning
-                self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput))
+                self.mode = Mode::Warning(WarningKind::InvalidInput);
             }
         }
     
         self.checked_scroll_and_update();
     }
-    fn move_cursor_document_end(&mut self){
+    pub fn move_cursor_document_end(&mut self){
         self.move_cursor(Selection::move_doc_end);
     }
-    fn move_cursor_document_start(&mut self){
+    pub fn move_cursor_document_start(&mut self){
         self.move_cursor(Selection::move_doc_start);
     }
-    fn move_cursor_down(&mut self){
+    pub fn move_cursor_down(&mut self){
         self.move_cursor(Selection::move_down);
     }
-    fn move_cursor_left(&mut self){
+    pub fn move_cursor_left(&mut self){
         self.move_cursor(Selection::move_left);
     }
-    fn move_cursor_line_end(&mut self){
+    pub fn move_cursor_line_end(&mut self){
         self.move_cursor(Selection::move_line_text_end);
     }
-    fn move_cursor_line_start(&mut self){
+    pub fn move_cursor_line_start(&mut self){
         self.move_cursor(Selection::move_home);
     }
-    fn move_cursor_page(&mut self, movement_fn: fn(&Selection, &Rope, &View, CursorSemantics) -> Result<Selection, SelectionError>){
+    pub fn move_cursor_page(&mut self, movement_fn: fn(&Selection, &Rope, &View, CursorSemantics) -> Result<Selection, SelectionError>){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
         let view = self.document.view().clone();
@@ -1118,22 +811,22 @@ impl Application{
                 *selection = new_selection;
             }else{
                 //warning
-                self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput))
+                self.mode = Mode::Warning(WarningKind::InvalidInput);
             }
         }
 
         self.checked_scroll_and_update();
     }
-    fn move_cursor_page_down(&mut self){
+    pub fn move_cursor_page_down(&mut self){
         self.move_cursor_page(Selection::move_page_down);
     }
-    fn move_cursor_page_up(&mut self){
+    pub fn move_cursor_page_up(&mut self){
         self.move_cursor_page(Selection::move_page_up);
     }
-    fn move_cursor_right(&mut self){
+    pub fn move_cursor_right(&mut self){
         self.move_cursor(Selection::move_right);
     }
-    fn move_cursor_up(&mut self){
+    pub fn move_cursor_up(&mut self){
         self.move_cursor(Selection::move_up);
     }
     //fn move_cursor_word_end(&mut self){
@@ -1142,15 +835,15 @@ impl Application{
     //fn move_cursor_word_start(&mut self){
     //    assert!(self.mode == Mode::Insert);
     //}
-    fn no_op(&mut self){/* warn unbound keypress */}
-    fn open_new_terminal_window(&self){
+    pub fn no_op(&mut self){/* warn unbound keypress */}
+    pub fn open_new_terminal_window(&self){
         //open new terminal window at current working directory
         let _ = std::process::Command::new("alacritty")
             .spawn()
             .expect("failed to spawn new terminal at current directory");
     }
     pub fn parse_command(&self, args: &str) -> Result<(), ()>{
-        assert!(self.mode == Mode::Utility(UtilityKind::Command));
+        assert!(self.mode == Mode::Command);
         let mut args = args.split_whitespace();
         
         let command = args.next().unwrap();
@@ -1173,7 +866,7 @@ impl Application{
     
         Ok(())
     }
-    fn paste(&mut self){
+    pub fn paste(&mut self){
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
         self.document.paste(CURSOR_SEMANTICS);
@@ -1184,19 +877,19 @@ impl Application{
             self.ui.document_viewport.document_widget.doc_length = self.document.len();
         }
     }
-    fn quit(&mut self){
+    pub fn quit(&mut self){
         assert!(self.mode == Mode::Insert);
         //if self.ui.document_modified(){
         if self.document.is_modified(){
-            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::FileIsModified));
+            self.mode = Mode::Warning(WarningKind::FileIsModified);
         }else{
             self.should_quit = true;
         }
     }
-    fn quit_ignoring_changes(&mut self){
+    pub fn quit_ignoring_changes(&mut self){
         self.should_quit = true;
     }
-    fn redo(&mut self){
+    pub fn redo(&mut self){
         assert!(self.mode == Mode::Insert);
 
         if let Ok(_) = self.document.redo(CURSOR_SEMANTICS){
@@ -1208,10 +901,10 @@ impl Application{
             }
         }else{
             // warn redo stack empty
-            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput));
+            self.mode = Mode::Warning(WarningKind::InvalidInput);
         }
     }
-    fn resize(&mut self, x: u16, y: u16){
+    pub fn resize(&mut self, x: u16, y: u16){
         self.ui.set_terminal_size(x, y);
         self.ui.update_layouts(self.mode);
 
@@ -1223,18 +916,18 @@ impl Application{
 
         self.scroll_and_update();
     }
-    fn save(&mut self){
+    pub fn save(&mut self){
         assert!(self.mode == Mode::Insert);
         match self.document.save(){
             Ok(_) => {
                 self.update_ui();
             }
             Err(_) => {
-                self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::FileSaveFailed));
+                self.mode = Mode::Warning(WarningKind::FileSaveFailed);
             }
         }
     }
-    fn scroll_view(&mut self, direction: ScrollDirection, amount: usize){
+    pub fn scroll_view(&mut self, direction: ScrollDirection, amount: usize){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
     
@@ -1248,19 +941,19 @@ impl Application{
         *self.document.view_mut() = new_view;
         self.update_ui();
     }
-    fn scroll_view_down(&mut self, amount: usize){
+    pub fn scroll_view_down(&mut self, amount: usize){
         self.scroll_view(ScrollDirection::Down, amount);
     }
-    fn scroll_view_left(&mut self, amount: usize){
+    pub fn scroll_view_left(&mut self, amount: usize){
         self.scroll_view(ScrollDirection::Left, amount);
     }
-    fn scroll_view_right(&mut self, amount: usize){
+    pub fn scroll_view_right(&mut self, amount: usize){
         self.scroll_view(ScrollDirection::Right, amount);
     }
-    fn scroll_view_up(&mut self, amount: usize){
+    pub fn scroll_view_up(&mut self, amount: usize){
         self.scroll_view(ScrollDirection::Up, amount);
     }
-    fn select_all(&mut self){
+    pub fn select_all(&mut self){
         assert!(self.mode == Mode::Insert);
         if let Ok(new_selections) = self.document.selections().clear_non_primary_selections(){
             *self.document.selections_mut() = new_selections;
@@ -1268,33 +961,33 @@ impl Application{
         if let Ok(new_selection) = self.document.selections().primary().select_all(self.document.text(), CURSOR_SEMANTICS){
             *self.document.selections_mut().primary_mut() = new_selection;
         }else{
-            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput))
+            self.mode = Mode::Warning(WarningKind::InvalidInput);
         }
 
         self.checked_scroll_and_update();
     }
-    fn set_mode_command(&mut self){
+    pub fn set_mode_command(&mut self){
         assert!(self.mode == Mode::Insert);
-        self.mode = Mode::Utility(UtilityKind::Command);
+        self.mode = Mode::Command;
     }
-    fn set_mode_find_replace(&mut self){
+    pub fn set_mode_find_replace(&mut self){
         assert!(self.mode == Mode::Insert);
-        self.mode = Mode::Utility(UtilityKind::FindReplace);
+        self.mode = Mode::FindReplace;
     }
-    fn set_mode_goto(&mut self){
+    pub fn set_mode_goto(&mut self){
         assert!(self.mode == Mode::Insert);
-        self.mode = Mode::Utility(UtilityKind::Goto);
+        self.mode = Mode::Goto;
     }
-    fn set_mode_space(&mut self){
+    pub fn set_mode_space(&mut self){
         assert!(self.mode == Mode::Insert);
         self.mode = Mode::Space;
     }
-    fn space_mode_exit(&mut self){
+    pub fn space_mode_exit(&mut self){
         assert!(self.mode == Mode::Space);
         self.mode = Mode::Insert;
     }
     // TODO: undo takes a long time to undo when whole text deleted. see if this can be improved
-    fn undo(&mut self){
+    pub fn undo(&mut self){
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
         if let Ok(_) = self.document.undo(CURSOR_SEMANTICS){
@@ -1305,11 +998,11 @@ impl Application{
             }
         }else{
             // warn undo stack empty
-            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput));
+            self.mode = Mode::Warning(WarningKind::InvalidInput);
         }
     }
-    fn warning_mode_exit(&mut self){
-        assert!(matches!(self.mode, Mode::Utility(UtilityKind::Warning(_))));
+    pub fn warning_mode_exit(&mut self){
+        assert!(matches!(self.mode, Mode::Warning(_)));
         self.mode = Mode::Insert;
     }
     /////////////////////////////////////////////////////////////////////////// Built in ////////////////////////////////////////////////////////////////////////////////
