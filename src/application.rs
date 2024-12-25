@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::path::PathBuf;
 use crossterm::cursor;
-use crossterm::event::{self, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{self, KeyCode, KeyModifiers};
 use ratatui::layout::Rect;
 use ratatui::{backend::CrosstermBackend, Terminal};
 use crate::ui::UserInterface;
@@ -26,7 +26,7 @@ const CURSOR_SEMANTICS: CursorSemantics = match CURSOR_STYLE{
     cursor::SetCursorStyle::BlinkingBar | cursor::SetCursorStyle::SteadyBar => CursorSemantics::Bar,
     _ => CursorSemantics::Block
 };
-const VIEW_SCROLL_AMOUNT: usize = 1;
+const VIEW_SCROLL_AMOUNT: usize = 1;    //should this have separate vertical and horizontal definitions?
 
 
 
@@ -109,150 +109,320 @@ impl Application{
         }
     }
 
-    pub fn handle_event(&mut self) -> Result<(), Box<dyn Error>>{
+    //TODO: maybe make a keybind.rs for these next several fns?
+    fn handle_insert_mode_keypress(&mut self, keycode: KeyCode, modifiers: KeyModifiers){
+        match (keycode, modifiers){
+            (KeyCode::Char(c), modifiers) => {
+                if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){
+                    if c == 'p'{self.decrement_primary_selection();}
+                    if c == 'z'{self.redo();}
+                }
+                else if modifiers == KeyModifiers::CONTROL{
+                    if c == ' '{self.set_mode_space();}
+                    if c == 'q'{self.quit();}
+                    if c == 's'{self.save();}
+                    if c == 'g'{self.set_mode_goto();}
+                    if c == 'f'{self.set_mode_find_replace();}
+                    if c == 'l'{self.display_line_numbers();}
+                    if c == 'k'{self.display_status_bar();}
+                    if c == 'o'{self.set_mode_command();}
+                    if c == 't'{self.open_new_terminal_window();}
+                    if c == 'a'{self.select_all();}
+                    if c == 'x'{self.cut();}
+                    if c == 'c'{self.copy();}
+                    if c == 'v'{self.paste();}
+                    if c == 'p'{self.increment_primary_selection();}
+                    if c == 'z'{self.undo();}
+                }
+                else if modifiers == KeyModifiers::SHIFT{self.insert_char(c);}
+                else if modifiers == KeyModifiers::NONE{self.insert_char(c);}
+                else{self.no_op();}
+            }
+            (KeyCode::PageDown, modifiers) => {
+                if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.extend_selection_page_down();}
+                else if modifiers == KeyModifiers::NONE{self.move_cursor_page_down();}
+                else{self.no_op();}
+            }
+            (KeyCode::PageUp, modifiers) => {
+                if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.extend_selection_page_up();}
+                else if modifiers == KeyModifiers::NONE{self.move_cursor_page_up();}
+                else{self.no_op();}
+            }
+            (KeyCode::Up, modifiers) => {
+                if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.add_selection_above();}
+                else if modifiers == KeyModifiers::SHIFT{self.extend_selection_up();}
+                else if modifiers == KeyModifiers::ALT{self.scroll_view_up(VIEW_SCROLL_AMOUNT);}
+                else if modifiers == KeyModifiers::NONE{self.move_cursor_up();}
+                else{self.no_op();}
+            }
+            (KeyCode::Down, modifiers) => {
+                if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.add_selection_below();}
+                else if modifiers == KeyModifiers::SHIFT{self.extend_selection_down();}
+                else if modifiers == KeyModifiers::ALT{self.scroll_view_down(VIEW_SCROLL_AMOUNT);}
+                else if modifiers == KeyModifiers::NONE{self.move_cursor_down();}
+                else{self.no_op();}
+            }
+            (KeyCode::Home, modifiers) => {
+                if modifiers == KeyModifiers::CONTROL{self.move_cursor_document_start();}
+                else if modifiers == KeyModifiers::SHIFT{self.extend_selection_home();}
+                else if modifiers == KeyModifiers::NONE{self.move_cursor_line_start();}
+                else{self.no_op();}
+            }
+            (KeyCode::End, modifiers) => {
+                if modifiers == KeyModifiers::CONTROL{self.move_cursor_document_end();}
+                else if modifiers == KeyModifiers::SHIFT{self.extend_selection_end();}
+                else if modifiers == KeyModifiers::NONE{self.move_cursor_line_end();}
+                else{self.no_op();}
+            }
+            (KeyCode::Right, modifiers) => {
+                if modifiers == KeyModifiers::SHIFT{self.extend_selection_right();}
+                else if modifiers == KeyModifiers::ALT{self.scroll_view_right(VIEW_SCROLL_AMOUNT);}
+                else if modifiers == KeyModifiers::NONE{self.move_cursor_right();}
+                else{self.no_op();}
+            }
+            (KeyCode::Left, modifiers) => {
+                if modifiers == KeyModifiers::SHIFT{self.extend_selection_left();}
+                else if modifiers == KeyModifiers::ALT{self.scroll_view_left(VIEW_SCROLL_AMOUNT);}
+                else if modifiers == KeyModifiers::NONE{self.move_cursor_left();}
+                else{self.no_op();}
+            }
+            (KeyCode::Tab, modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.insert_tab();}
+                else{self.no_op();}
+            }
+            (KeyCode::Enter, modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.insert_newline();}
+                else{self.no_op();}
+            }
+            (KeyCode::Delete, modifiers) => {
+                if modifiers == KeyModifiers::CONTROL{/*self.delete_word_forwards();*/} //TODO: impl this functionality
+                else if modifiers == KeyModifiers::NONE{self.delete();}
+                else{self.no_op();}
+            }
+            (KeyCode::Backspace, modifiers) => {
+                if modifiers == KeyModifiers::CONTROL{/*self.delete_word_backwards();*/}    //TODO: impl this functionality
+                else if modifiers == KeyModifiers::NONE{self.backspace();}
+                else{self.no_op();}
+            }
+            (KeyCode::Esc, modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.esc_handle();}  //how can this be disambiguated as custom behavior vs builtin fn?
+                else{self.no_op();}
+            }
+            _ => {self.no_op();}
+        }
+    }
+
+    fn handle_space_mode_keypress(&mut self, keycode: KeyCode, modifiers: KeyModifiers){
+        match (keycode, modifiers){
+            (KeyCode::Esc, modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.space_mode_exit();}
+                else{self.no_op();}
+            }
+            (KeyCode::Char('c'), modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.center_view_vertically_around_cursor();}    //this still needs be made to exit space mode
+                else{self.no_op();}
+            }
+            (KeyCode::Char('p'), modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.increment_primary_selection();}
+                else{self.no_op();}
+            }
+            _ => {self.no_op();}
+        }
+    }
+
+    fn handle_warning_mode_keypress(&mut self, keycode: KeyCode, modifiers: KeyModifiers){
+        match (keycode, modifiers){
+            (KeyCode::Char('q'), modifiers) => {
+                if modifiers == KeyModifiers::CONTROL{self.quit_ignoring_changes();}
+                else{self.no_op();}
+            }
+            (KeyCode::Esc, modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.warning_mode_exit();}
+                else{self.no_op();}
+            }
+            _ => {self.no_op();}
+        }
+    }
+
+    fn handle_goto_mode_keypress(&mut self, keycode: KeyCode, modifiers: KeyModifiers){
+        match (keycode, modifiers){
+            (KeyCode::Right, modifiers) => {
+                if modifiers == KeyModifiers::SHIFT{self.goto_mode_extend_selection_right();}
+                else if modifiers == KeyModifiers::NONE{self.goto_mode_move_cursor_right();}
+                else{self.no_op();}
+            }
+            (KeyCode::Left, modifiers)  => {
+                if modifiers == KeyModifiers::SHIFT{self.goto_mode_extend_selection_left();}
+                else if modifiers == KeyModifiers::NONE{self.goto_mode_move_cursor_left();}
+                else{self.no_op();}
+            }
+            (KeyCode::Home, modifiers)  => {
+                if modifiers == KeyModifiers::SHIFT{self.goto_mode_extend_selection_home();}
+                else if modifiers == KeyModifiers::NONE{self.goto_mode_move_cursor_line_start();}
+                else{self.no_op();}
+            }
+            (KeyCode::End, modifiers)   => {
+                if modifiers == KeyModifiers::SHIFT{self.goto_mode_extend_selection_end();}
+                else if modifiers == KeyModifiers::NONE{self.goto_mode_move_cursor_line_end();}
+                else{self.no_op();}
+            }
+            (KeyCode::Esc, modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.goto_mode_exit();}
+                else{self.no_op();}
+            }
+            (KeyCode::Enter, modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.goto_mode_accept();}
+                else{self.no_op();}
+            }
+            (KeyCode::Backspace, modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.goto_mode_backspace();}
+                else{self.no_op();}
+            }
+            (KeyCode::Delete, modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.goto_mode_delete();}
+                else{self.no_op();}
+            }
+            (KeyCode::Char(c), modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.goto_mode_insert_char(c);}
+                else{self.no_op();}
+            }
+            _ => {self.no_op();}
+        }
+    }
+
+    fn handle_find_replace_mode_keypress(&mut self, keycode: KeyCode, modifiers: KeyModifiers){
+        match (keycode, modifiers){
+            (KeyCode::Right, modifiers) => {
+                if modifiers == KeyModifiers::SHIFT{self.find_replace_mode_extend_selection_right();}
+                else if modifiers == KeyModifiers::NONE{self.find_replace_mode_move_cursor_right();}
+                else{self.no_op();}
+            }
+            (KeyCode::Left, modifiers) => {
+                if modifiers == KeyModifiers::SHIFT{self.find_replace_mode_extend_selection_left();}
+                else if modifiers == KeyModifiers::NONE{self.find_replace_mode_move_cursor_left();}
+                else{self.no_op();}
+            }
+            (KeyCode::Home, modifiers) => {
+                if modifiers == KeyModifiers::SHIFT{self.find_replace_mode_extend_selection_home();}
+                else if modifiers == KeyModifiers::NONE{self.find_replace_mode_move_cursor_line_start();}
+                else{self.no_op();}
+            }
+            (KeyCode::End, modifiers) => {
+                if modifiers == KeyModifiers::SHIFT{self.find_replace_mode_extend_selection_end();}
+                else if modifiers == KeyModifiers::NONE{self.find_replace_mode_move_cursor_line_end();}
+                else{self.no_op();}
+            }
+            (KeyCode::Char(c), modifiers) => {
+                if modifiers == KeyModifiers::SHIFT{self.find_replace_mode_insert_char(c);}
+                else if modifiers == KeyModifiers::NONE{self.find_replace_mode_insert_char(c);}
+                else{self.no_op();}
+            }
+            (KeyCode::Esc, modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.find_replace_mode_exit();}
+                else{self.no_op();}
+            }
+            (KeyCode::Tab, modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.find_replace_mode_switch_util_bar_focus();}
+                else{self.no_op();}
+            }
+            (KeyCode::Up, modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.find_replace_mode_previous_instance();}
+                else{self.no_op();}
+            }
+            (KeyCode::Down, modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.find_replace_mode_next_instance();}
+                else{self.no_op();}
+            }
+            (KeyCode::Backspace, modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.find_replace_mode_backspace();}
+                else{self.no_op();}
+            }
+            (KeyCode::Delete, modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.find_replace_mode_delete();}
+                else{self.no_op();}
+            }
+            (KeyCode::Enter, modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.find_replace_mode_accept();}
+                else{self.no_op();}
+            }
+            _ => {self.no_op();}
+        }
+    }
+
+    fn handle_command_mode_keypress(&mut self, keycode: KeyCode, modifiers: KeyModifiers){
+        match (keycode, modifiers){
+            (KeyCode::Char(c), modifiers) => {
+                if modifiers == KeyModifiers::SHIFT{self.command_mode_insert_char(c);}
+                else if modifiers == KeyModifiers::NONE{self.command_mode_insert_char(c);}
+                else{self.no_op();}
+            }
+            (KeyCode::Right, modifiers) => {
+                if modifiers == KeyModifiers::SHIFT{self.command_mode_extend_selection_right();}
+                else if modifiers == KeyModifiers::NONE{self.command_mode_move_cursor_right();}
+                else{self.no_op();}
+            }
+            (KeyCode::Left, modifiers) => {
+                if modifiers == KeyModifiers::SHIFT{self.command_mode_extend_selection_left();}
+                else if modifiers == KeyModifiers::NONE{self.command_mode_move_cursor_left();}
+                else{self.no_op();}
+            }
+            (KeyCode::Home, modifiers) => {
+                if modifiers == KeyModifiers::SHIFT{self.command_mode_extend_selection_home();}
+                else if modifiers == KeyModifiers::NONE{self.command_mode_move_cursor_line_start();}
+                else{self.no_op();}
+            }
+            (KeyCode::End, modifiers) => {
+                if modifiers == KeyModifiers::SHIFT{self.command_mode_extend_selection_end();}
+                else if modifiers == KeyModifiers::NONE{self.command_mode_move_cursor_line_end();}
+                else{self.no_op();}
+            }
+            (KeyCode::Esc, modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.command_mode_exit();}
+                else{self.no_op();}
+            }
+            (KeyCode::Enter, modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.command_mode_accept();}
+                else{self.no_op();}
+            }
+            (KeyCode::Backspace, modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.command_mode_backspace();}
+                else{self.no_op();}
+            }
+            (KeyCode::Delete, modifiers) => {
+                if modifiers == KeyModifiers::NONE{self.command_mode_delete();}
+                else{self.no_op();}
+            }
+            _ => {self.no_op();}
+        }
+    }
+
+    fn handle_event(&mut self) -> Result<(), Box<dyn Error>>{
         match event::read()?{
             event::Event::Key(key_event) => {
-                match (self.mode, key_event.modifiers, key_event.code){
-                    (Mode::Insert, modifiers, KeyCode::PageDown)  => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.extend_selection_page_down();}}
-                    (Mode::Insert, modifiers, KeyCode::PageUp)    => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.extend_selection_page_up();}}
-                    (Mode::Insert, modifiers, KeyCode::Up)        => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.add_selection_above();}}
-                    (Mode::Insert, modifiers, KeyCode::Down)      => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.add_selection_below();}}
-                    (Mode::Insert, modifiers, KeyCode::Char('p')) => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.decrement_primary_selection();}
-                                                                                else if modifiers == KeyModifiers::CONTROL{self.increment_primary_selection();}}
-                    //(Mode::Insert, modifiers, KeyCode::Backspace) => {if modifiers == KeyModifiers::CONTROL{self.delete_word_backwards();}}   //TODO: add this functionality, and delete word forwards
-                    (Mode::Insert, modifiers, KeyCode::Char('z')) => {if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){self.redo();}
-                                                                                else if modifiers == (KeyModifiers::CONTROL){self.undo();}}
-                    _ => {self.no_op();}    //maybe warning unbound keypress
-                }
-                match (key_event, self.mode){
-                    // Insert Mode
-                    //(KeyEvent{modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT, code: KeyCode::PageDown, ..}, Mode::Insert) => {self.extend_selection_page_down()}
-                    //(KeyEvent{modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT, code: KeyCode::PageUp, ..}, Mode::Insert) => {self.extend_selection_page_up()}
-                    //(KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('r'),     ..}, Mode::Insert) => {self.redo()}
-                    //(KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('z'),     ..}, Mode::Insert) => {self.undo()}
-                    //(KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Up,            ..}, Mode::Insert) => {self.add_selection_above()}
-                    //(KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Right,         ..}, Mode::Insert) => {self.move_cursor_word_end()}
-                    //(KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Left,          ..}, Mode::Insert) => {self.move_cursor_word_start()}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Home,          ..}, Mode::Insert) => {self.move_cursor_document_start()}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::End,           ..}, Mode::Insert) => {self.move_cursor_document_end()}
-                    //(KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Esc,           ..}, Mode::Insert) => {self.clear_non_primary_selections()}
-                    //(KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('p'),     ..}, Mode::Insert) => {self.increment_primary_selection()}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char(' '),     ..}, Mode::Insert) => {self.set_mode_space()}  //show context menu
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('q'),     ..}, Mode::Insert) => {self.quit()}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('s'),     ..}, Mode::Insert) => {self.save()}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('g'),     ..}, Mode::Insert) => {self.set_mode_goto()}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('f'),     ..}, Mode::Insert) => {self.set_mode_find_replace()}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('l'),     ..}, Mode::Insert) => {self.display_line_numbers()}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('k'),     ..}, Mode::Insert) => {self.display_status_bar()}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('o'),     ..}, Mode::Insert) => {self.set_mode_command()}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('t'),     ..}, Mode::Insert) => {self.open_new_terminal_window()}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('a'),     ..}, Mode::Insert) => {self.select_all()}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('x'),     ..}, Mode::Insert) => {self.cut()}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('c'),     ..}, Mode::Insert) => {self.copy()}
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('v'),     ..}, Mode::Insert) => {self.paste()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT,   code: KeyCode::Right,         ..}, Mode::Insert) => {self.extend_selection_right()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT,   code: KeyCode::Left,          ..}, Mode::Insert) => {self.extend_selection_left()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT,   code: KeyCode::Up,            ..}, Mode::Insert) => {self.extend_selection_up()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT,   code: KeyCode::Down,          ..}, Mode::Insert) => {self.extend_selection_down()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT,   code: KeyCode::Home,          ..}, Mode::Insert) => {self.extend_selection_home()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT,   code: KeyCode::End,           ..}, Mode::Insert) => {self.extend_selection_end()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT,   code: KeyCode::Char(c),       ..}, Mode::Insert) => {self.insert_char(c)}
-                    (KeyEvent{modifiers: KeyModifiers::ALT,     code: KeyCode::Down,          ..}, Mode::Insert) => {self.scroll_view_down(VIEW_SCROLL_AMOUNT)}
-                    (KeyEvent{modifiers: KeyModifiers::ALT,     code: KeyCode::Left,          ..}, Mode::Insert) => {self.scroll_view_left(VIEW_SCROLL_AMOUNT)}
-                    (KeyEvent{modifiers: KeyModifiers::ALT,     code: KeyCode::Right,         ..}, Mode::Insert) => {self.scroll_view_right(VIEW_SCROLL_AMOUNT)}
-                    (KeyEvent{modifiers: KeyModifiers::ALT,     code: KeyCode::Up,            ..}, Mode::Insert) => {self.scroll_view_up(VIEW_SCROLL_AMOUNT)}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Tab,           ..}, Mode::Insert) => {self.insert_tab()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Enter,         ..}, Mode::Insert) => {self.insert_newline()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Delete,        ..}, Mode::Insert) => {self.delete()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Backspace,     ..}, Mode::Insert) => {self.backspace()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Up,            ..}, Mode::Insert) => {self.move_cursor_up()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Down,          ..}, Mode::Insert) => {self.move_cursor_down()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Left,          ..}, Mode::Insert) => {self.move_cursor_left()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Right,         ..}, Mode::Insert) => {self.move_cursor_right()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::PageUp,        ..}, Mode::Insert) => {self.move_cursor_page_up()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::PageDown,      ..}, Mode::Insert) => {self.move_cursor_page_down()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Home,          ..}, Mode::Insert) => {self.move_cursor_line_start()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::End,           ..}, Mode::Insert) => {self.move_cursor_line_end()}
-                    //(KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Esc,           ..}, Mode::Insert) => {self.collapse_selections()}   //depending on context: close suggestions, close context menu, collapse selections, clear non-primary selections
-                    (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Esc,           ..}, Mode::Insert) => {self.esc_handle()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Char(c), ..}, Mode::Insert) => {self.insert_char(c)}
-
-                    // Space Mode
-                    (KeyEvent{modifiers: KeyModifiers::NONE, code: KeyCode::Esc, ..}, Mode::Space) => {self.space_mode_exit()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE, code: KeyCode::Char('c'), ..}, Mode::Space) => {self.center_view_vertically_around_cursor()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE, code: KeyCode::Char('p'), ..}, Mode::Space) => {self.increment_primary_selection()}
-
-                    // Warning Mode
-                    (KeyEvent{modifiers: KeyModifiers::CONTROL, code: KeyCode::Char('q'), ..}, Mode::Utility(UtilityKind::Warning(_))) => {self.quit_ignoring_changes()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,    code: KeyCode::Esc,       ..}, Mode::Utility(UtilityKind::Warning(_))) => {self.warning_mode_exit()}
-    
-                    // Goto Mode
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Right,         ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_extend_selection_right()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Left,          ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_extend_selection_left()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Home,          ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_extend_selection_home()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::End,           ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_extend_selection_end()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Esc,           ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_exit()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Enter,         ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_accept()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Backspace,     ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_backspace()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Delete,        ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_delete()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Right,         ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_move_cursor_right()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Left,          ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_move_cursor_left()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Home,          ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_move_cursor_line_start()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::End,           ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_move_cursor_line_end()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Char(c), ..}, Mode::Utility(UtilityKind::Goto)) => {self.goto_mode_insert_char(c)}
-                
-                    // FindReplace Mode
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Right,         ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_extend_selection_right()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Left,          ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_extend_selection_left()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Home,          ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_extend_selection_home()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::End,           ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_extend_selection_end()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Char(c), ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_insert_char(c)}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Esc,           ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_exit()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Tab,           ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_switch_util_bar_focus()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Up,            ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_previous_instance()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Down,          ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_next_instance()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Backspace,     ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_backspace()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Delete,        ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_delete()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Right,         ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_move_cursor_right()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Left,          ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_move_cursor_left()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Home,          ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_move_cursor_line_start()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::End,           ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_move_cursor_line_end()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Enter,         ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_accept()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Char(c), ..}, Mode::Utility(UtilityKind::FindReplace)) => {self.find_replace_mode_insert_char(c)}
-                
-                    // Command Mode
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Right,         ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_extend_selection_right()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Left,          ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_extend_selection_left()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Home,          ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_extend_selection_home()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::End,           ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_extend_selection_end()}
-                    (KeyEvent{modifiers: KeyModifiers::SHIFT, code: KeyCode::Char(c), ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_insert_char(c)}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Esc,           ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_exit()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Char(c), ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_insert_char(c)}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Enter,         ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_accept()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Backspace,     ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_backspace()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Delete,        ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_delete()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Right,         ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_move_cursor_right()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Left,          ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_move_cursor_left()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::Home,          ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_move_cursor_line_start()}
-                    (KeyEvent{modifiers: KeyModifiers::NONE,  code: KeyCode::End,           ..}, Mode::Utility(UtilityKind::Command)) => {self.command_mode_move_cursor_line_end()}
-    
-                    // unhandled keybinds
-                    _ => {self.no_op()}
+                match self.mode{
+                    Mode::Insert => {self.handle_insert_mode_keypress(key_event.code, key_event.modifiers);}
+                    Mode::Space => {self.handle_space_mode_keypress(key_event.code, key_event.modifiers);}
+                    Mode::Utility(UtilityKind::Warning(_)) => {self.handle_warning_mode_keypress(key_event.code, key_event.modifiers);}
+                    Mode::Utility(UtilityKind::Goto) => {self.handle_goto_mode_keypress(key_event.code, key_event.modifiers);}
+                    Mode::Utility(UtilityKind::FindReplace) => {self.handle_find_replace_mode_keypress(key_event.code, key_event.modifiers);}
+                    Mode::Utility(UtilityKind::Command) => {self.handle_command_mode_keypress(key_event.code, key_event.modifiers);}
                 }
             },
             event::Event::Resize(x, y) => self.resize(x, y),
-            _ => self.no_op(),
+            _ => self.no_op(),  //TODO: this no_op should be disambiguated from a keypress no_op, so that they can impl different behavior...
         }
 
         Ok(())
     }
 
+    // could make separate files for categories of fns. builtin.rs and custom.rs...       custom::escape_handle()     builtin::add_selection_above()
+
+    /////////////////////////////////////////////////////////////////////////// Reuse ////////////////////////////////////////////////////////////////////////////////
     fn update_ui(&mut self){
         let text = self.document.text();
         let selections = self.document.selections();
         self.ui.document_viewport.document_widget.text_in_view = self.document.view().text(text);
         self.ui.document_viewport.line_number_widget.line_numbers_in_view = self.document.view().line_numbers(text);
-        //self.ui.highlighter.set_client_cursor_position(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));  //TODO: impl fn logic here instead of in highlighter
         self.ui.highlighter.set_primary_cursor_position(self.document.view().primary_cursor_position(text, selections, CURSOR_SEMANTICS));
         self.ui.highlighter.selections = self.document.view().selections(selections, text);
         self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone();
@@ -261,7 +431,6 @@ impl Application{
     fn update_cursor_positions(&mut self){
         let text = self.document.text();
         let selections = self.document.selections();
-        //self.ui.highlighter.set_client_cursor_position(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));  //TODO: impl fn logic here instead of in highlighter
         self.ui.highlighter.set_primary_cursor_position(self.document.view().primary_cursor_position(text, selections, CURSOR_SEMANTICS));
         self.ui.highlighter.selections = self.document.view().selections(selections, text);
         self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone()
@@ -295,8 +464,11 @@ impl Application{
         let selections = Selections::new(vec![self.ui.util_bar.alternate_utility_widget.text_box.selection.clone()], 0, &text);
         self.ui.util_bar.alternate_utility_widget.text_box.view = self.ui.util_bar.alternate_utility_widget.text_box.view.scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
+    /////////////////////////////////////////////////////////////////////////// Reuse ////////////////////////////////////////////////////////////////////////////////
 
+    /////////////////////////////////////////////////////////////////////////// Custom ////////////////////////////////////////////////////////////////////////////////
     fn esc_handle(&mut self){
+        assert!(self.mode == Mode::Insert);
         //TODO: if lsp suggestions displaying(currently unimplemented), exit that display
         if self.document.selections().count() > 1{
             self.clear_non_primary_selections();
@@ -308,20 +480,29 @@ impl Application{
             self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput));
         }
     }
-
+    /////////////////////////////////////////////////////////////////////////// Custom ////////////////////////////////////////////////////////////////////////////////
+    
+    /////////////////////////////////////////////////////////////////////////// Built in ////////////////////////////////////////////////////////////////////////////////
     fn add_selection_above(&mut self){
+        assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
-        if let Ok(selections) = self.document.selections().add_selection_above(&text, CURSOR_SEMANTICS){
-            *self.document.selections_mut() = selections;
-            self.checked_scroll_and_update();
-        }else{
-            //warn action could not be performed
-            self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput));
-
-            // could also match error. if error is multi-line selection, extend selection up
+        match self.document.selections().add_selection_above(&text, CURSOR_SEMANTICS){
+            Ok(selections) => {
+                *self.document.selections_mut() = selections;
+                self.checked_scroll_and_update();   //follow self.document.selections().first()
+            }
+            Err(e) => {
+                match e{
+                    SelectionsError::CannotAddSelectionAbove => {self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput));}
+                    SelectionsError::SpansMultipleLines => {/*extend selection up*/}
+                    _ => {/*warn unhandled error*/}
+                }
+            }
         }
     }
+    //TODO: impl similarly to add_selection_above...
     fn add_selection_below(&mut self){
+        assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
         if let Ok(selections) = self.document.selections().add_selection_below(&text, CURSOR_SEMANTICS){
             *self.document.selections_mut() = selections;
@@ -371,18 +552,13 @@ impl Application{
     fn collapse_selections(&mut self){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
-
         for selection in self.document.selections_mut().iter_mut(){
-            //*selection = selection.collapse(&text, CURSOR_SEMANTICS);
             if let Ok(new_selection) = selection.collapse(&text, CURSOR_SEMANTICS){
                 *selection = new_selection;
-                // self.checked_scroll_and_update()     //handle collapse where selection extended beyond view size?    //will view be following cursor anyways?
             }else{
-                // warning
                 self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput))
             }
         }
-
         self.checked_scroll_and_update();
     }
     fn command_mode_accept(&mut self){
@@ -843,14 +1019,17 @@ impl Application{
         if let Ok(new_selections) = self.document.selections().increment_primary_selection(){
             *self.document.selections_mut() = new_selections;
             self.scroll_and_update();
+            //TODO: if in space mode, exit space mode
         }else{
             self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::SingleSelection));
         }
     }
+    // this should be organized alphabetically in source code fns
     fn decrement_primary_selection(&mut self){
         if let Ok(new_selections) = self.document.selections().decrement_primary_selection(){
             *self.document.selections_mut() = new_selections;
             self.scroll_and_update();
+            //TODO: if in space mode, exit space mode
         }else{
             self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::SingleSelection));
         }
@@ -963,7 +1142,7 @@ impl Application{
     //fn move_cursor_word_start(&mut self){
     //    assert!(self.mode == Mode::Insert);
     //}
-    fn no_op(&mut self){}
+    fn no_op(&mut self){/* warn unbound keypress */}
     fn open_new_terminal_window(&self){
         //open new terminal window at current working directory
         let _ = std::process::Command::new("alacritty")
@@ -1083,18 +1262,12 @@ impl Application{
     }
     fn select_all(&mut self){
         assert!(self.mode == Mode::Insert);
-
-        //if self.document.selections().count() > 1{
-        //    *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
-        //}
         if let Ok(new_selections) = self.document.selections().clear_non_primary_selections(){
             *self.document.selections_mut() = new_selections;
         }
-        //*self.document.selections_mut().primary_mut() = self.document.selections().primary().select_all(self.document.text(), CURSOR_SEMANTICS);
         if let Ok(new_selection) = self.document.selections().primary().select_all(self.document.text(), CURSOR_SEMANTICS){
             *self.document.selections_mut().primary_mut() = new_selection;
         }else{
-            // warning
             self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::InvalidInput))
         }
 
@@ -1136,7 +1309,8 @@ impl Application{
         }
     }
     fn warning_mode_exit(&mut self){
-        // assert warning mode
+        assert!(matches!(self.mode, Mode::Utility(UtilityKind::Warning(_))));
         self.mode = Mode::Insert;
     }
+    /////////////////////////////////////////////////////////////////////////// Built in ////////////////////////////////////////////////////////////////////////////////
 }
