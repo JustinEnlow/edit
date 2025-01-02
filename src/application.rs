@@ -6,10 +6,10 @@ use ratatui::{backend::CrosstermBackend, Terminal};
 use crate::ui::UserInterface;
 use edit_core::selection::{CursorSemantics, Movement, Selection, Selections, SelectionError, SelectionsError};
 use edit_core::view::View;
-use edit_core::document::Document;
+use edit_core::document::{Document, DocumentError};
 use ropey::Rope;
 use crate::keybind;
-use crate::config::CURSOR_SEMANTICS;
+use crate::config::{CURSOR_SEMANTICS, SHOW_SAME_STATE_WARNINGS};
 
 
 
@@ -38,6 +38,7 @@ pub enum WarningKind{
     SingleSelection,
     MultipleSelections,
     InvalidInput,
+    //SameState     //"Requested action results in the same state"  //TODO
 }
 
 
@@ -73,7 +74,7 @@ impl Application{
             instance.ui.document_viewport.document_widget.rect.width as usize,
             instance.ui.document_viewport.document_widget.rect.height as usize
         );
-        instance.scroll_and_update();
+        instance.scroll_and_update(&instance.document.selections().primary().clone());
 
         Ok(instance)
     }
@@ -128,20 +129,20 @@ impl Application{
         self.ui.highlighter.selections = self.document.view().selections(selections, text);
         self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone()
     }
-    // should this take a selection to follow, instead of always following primary?
-    pub fn scroll_and_update(&mut self){
+    //TODO: should this take a selection to follow, instead of always following primary?
+    pub fn scroll_and_update(&mut self, selection: &Selection){    //, selection_to_follow: &Selection
         let text = self.document.text().clone();
-        let selections = self.document.selections().clone();
-        *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        //let selections = self.document.selections().clone();
+        *self.document.view_mut() = self.document.view().scroll_following_cursor(/*selections.primary()*/selection, &text, CURSOR_SEMANTICS);
 
         self.update_ui();
     }
-    // should this take a selection to follow, instead of always following primary?
-    pub fn checked_scroll_and_update(&mut self){
+    //TODO: should this take a selection to follow, instead of always following primary?
+    pub fn checked_scroll_and_update(&mut self, selection: &Selection){    //, selection_to_follow: &Selection
         let text = self.document.text().clone();
-        let selections = self.document.selections().clone();
-        if self.document.view().should_scroll(selections.primary(), &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        //let selections = self.document.selections().clone();
+        if self.document.view().should_scroll(/*selections.primary()*/selection, &text, CURSOR_SEMANTICS){
+            *self.document.view_mut() = self.document.view().scroll_following_cursor(/*selections.primary()*/selection, &text, CURSOR_SEMANTICS);
             self.update_ui();
         }else{
             self.update_cursor_positions();
@@ -170,7 +171,9 @@ impl Application{
             self.collapse_selections();
         }
         else{
-            self.mode = Mode::Warning(WarningKind::InvalidInput);
+            if SHOW_SAME_STATE_WARNINGS{
+                self.mode = Mode::Warning(WarningKind::InvalidInput);
+            }
         }
     }
     /////////////////////////////////////////////////////////////////////////// Custom ////////////////////////////////////////////////////////////////////////////////
@@ -182,62 +185,93 @@ impl Application{
         match self.document.selections().add_selection_above(&text, CURSOR_SEMANTICS){
             Ok(selections) => {
                 *self.document.selections_mut() = selections;
-                self.checked_scroll_and_update();   //follow self.document.selections().first()
+                self.checked_scroll_and_update(&self.document.selections().first().clone());
             }
             Err(e) => {
+                let this_file = std::panic::Location::caller().file();
+                let line_number = std::panic::Location::caller().line();
                 match e{
-                    SelectionsError::CannotAddSelectionAbove => {self.mode = Mode::Warning(WarningKind::InvalidInput);}
-                    SelectionsError::SpansMultipleLines => {/*extend selection up*/}
-                    _ => {/*warn unhandled error*/}
+                    SelectionsError::CannotAddSelectionAbove => {
+                        if SHOW_SAME_STATE_WARNINGS{
+                            self.mode = Mode::Warning(WarningKind::InvalidInput);
+                        }
+                    }
+                    SelectionsError::SpansMultipleLines => {/*TODO: extend selection up*/}
+                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
                 }
             }
         }
     }
-    //TODO: impl similarly to add_selection_above...
     pub fn add_selection_below(&mut self){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
-        if let Ok(selections) = self.document.selections().add_selection_below(&text, CURSOR_SEMANTICS){
-            *self.document.selections_mut() = selections;
-            self.checked_scroll_and_update();
-        }else{
-            //warn action could not be performed
-            self.mode = Mode::Warning(WarningKind::InvalidInput);
-
-            // could also match error. if error is multi-line selection, extend selection up
+        match self.document.selections().add_selection_below(&text, CURSOR_SEMANTICS){
+            Ok(selections) => {
+                *self.document.selections_mut() = selections;
+                self.checked_scroll_and_update(&self.document.selections().last().clone());
+            }
+            Err(e) => {
+                let this_file = std::panic::Location::caller().file();
+                let line_number = std::panic::Location::caller().line();
+                match e{
+                    SelectionsError::CannotAddSelectionBelow => {
+                        if SHOW_SAME_STATE_WARNINGS{
+                            self.mode = Mode::Warning(WarningKind::InvalidInput);
+                        }
+                    }
+                    SelectionsError::SpansMultipleLines => {/*TODO: extend selection down*/}
+                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                }
+            }
         }
     }
     pub fn backspace(&mut self){
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
-        self.document.backspace(CURSOR_SEMANTICS);
-
-        self.scroll_and_update();
-
-        if len != self.document.len(){  //if length has changed after backspace
-            self.ui.document_viewport.document_widget.doc_length = self.document.len();
+        match self.document.backspace(CURSOR_SEMANTICS){
+            Ok(_) => {
+                self.scroll_and_update(&self.document.selections().primary().clone());
+                if len != self.document.len(){  //if length has changed after backspace
+                    self.ui.document_viewport.document_widget.doc_length = self.document.len();
+                }
+            }
+            Err(e) => {
+                let this_file = std::panic::Location::caller().file();
+                let line_number = std::panic::Location::caller().line();
+                match e{
+                    DocumentError::SelectionAtDocBounds => {
+                        if SHOW_SAME_STATE_WARNINGS{
+                            self.mode = Mode::Warning(WarningKind::InvalidInput);
+                        }
+                    }
+                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                }
+            }
         }
     }
     pub fn center_view_vertically_around_cursor(&mut self){
-        assert!(self.mode == Mode::Space);
+        assert!(self.mode == Mode::Insert || self.mode == Mode::Space);
         let text = self.document.text().clone();
-        let selections = self.document.selections().clone();
-        *self.document.view_mut() = self.document.view().center_vertically_around_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        *self.document.view_mut() = self.document.view().center_vertically_around_cursor(&self.document.selections().primary().clone(), &text, CURSOR_SEMANTICS);   //TODO: can this fail?
         self.update_ui();
-        //exit space mode
-        self.mode = Mode::Insert;
+
+        if self.mode == Mode::Space{
+            self.mode = Mode::Insert;
+        }
     }
     pub fn clear_non_primary_selections(&mut self){
         assert!(self.mode == Mode::Insert);
         match self.document.selections().clear_non_primary_selections(){
             Ok(new_selections) => {
                 *self.document.selections_mut() = new_selections;
-                self.checked_scroll_and_update();
+                self.checked_scroll_and_update(&self.document.selections().primary().clone());
             }
             Err(e) => {
+                let this_file = std::panic::Location::caller().file();
+                let line_number = std::panic::Location::caller().line();
                 match e{
                     SelectionsError::SingleSelection => {self.mode = Mode::Warning(WarningKind::SingleSelection);}
-                    _ => {/*I don't think any other SelectionsErrors are possible here*/}
+                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
                 }
             }
         }
@@ -245,14 +279,26 @@ impl Application{
     pub fn collapse_selections(&mut self){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
-        for selection in self.document.selections_mut().iter_mut(){
-            if let Ok(new_selection) = selection.collapse(&text, CURSOR_SEMANTICS){
-                *selection = new_selection;
-            }else{
-                self.mode = Mode::Warning(WarningKind::InvalidInput)
+        for selection in self.document.selections_mut().iter_mut(){ //TODO: consider how to handle errors when iterating over multiple selections...
+            match selection.collapse(&text, CURSOR_SEMANTICS){
+                Ok(new_selection) => {
+                    *selection = new_selection;
+                }
+                Err(e) => {
+                    let this_file = std::panic::Location::caller().file();
+                    let line_number = std::panic::Location::caller().line();
+                    match e{
+                        SelectionError::ResultsInSameState => {
+                            if SHOW_SAME_STATE_WARNINGS{
+                                self.mode = Mode::Warning(WarningKind::InvalidInput);
+                            }
+                        }
+                        _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    }
+                }
             }
         }
-        self.checked_scroll_and_update();
+        self.checked_scroll_and_update(&self.document.selections().primary().clone());   //TODO: should this be moved up into the Ok match arm?  //can't borrow self in Ok match arm above because we are iterating through multiple selections
     }
     pub fn command_mode_accept(&mut self){
         assert!(self.mode == Mode::Command);
@@ -324,36 +370,75 @@ impl Application{
         self.ui.util_bar.utility_widget.text_box.move_cursor_right();
         self.update_util_bar_ui();
     }
-    pub fn copy(&mut self){ //TODO: how can the user be given visual feedback that the requested action was accomplished? util bar indicator, similar to warning mode, without restricting further keypresses?
+    pub fn copy(&mut self){
         assert!(self.mode == Mode::Insert);
-        // Errors if more than one selection
-        if self.document.copy().is_err(){
-            self.mode = Mode::Warning(WarningKind::MultipleSelections);
+        match self.document.copy(){
+            Ok(_) => {
+                //TODO: how can the user be given visual feedback that the requested action was accomplished? util bar indicator, similar to warning mode, without restricting further keypresses?
+            }
+            Err(e) => {
+                let this_file = std::panic::Location::caller().file();
+                let line_number = std::panic::Location::caller().line();
+                match e{
+                    DocumentError::SelectionsError(selections_error) => {
+                        match selections_error{
+                            SelectionsError::MultipleSelections => {self.mode = Mode::Warning(WarningKind::MultipleSelections);}
+                            _ => {panic!("{selections_error:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                        }
+                    }
+                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                } 
+            }
         }
     }
     pub fn cut(&mut self){
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
-        // Errors if more than one selection
-        if self.document.cut(CURSOR_SEMANTICS).is_err(){
-            self.mode = Mode::Warning(WarningKind::MultipleSelections);
-        }else{
-            self.scroll_and_update();
-
-            if len != self.document.len(){  //if length has changed after cut
-                self.ui.document_viewport.document_widget.doc_length = self.document.len();
+        match self.document.cut(CURSOR_SEMANTICS){
+            Ok(_) => {
+                self.scroll_and_update(&self.document.selections().primary().clone());
+                if len != self.document.len(){  //if length has changed after cut
+                    self.ui.document_viewport.document_widget.doc_length = self.document.len();
+                }
+            }
+            Err(e) => {
+                let this_file = std::panic::Location::caller().file();
+                let line_number = std::panic::Location::caller().line();
+                match e{
+                    DocumentError::SelectionAtDocBounds => {}
+                    DocumentError::SelectionsError(selections_error) => {
+                        match selections_error{
+                            SelectionsError::MultipleSelections => {self.mode = Mode::Warning(WarningKind::MultipleSelections);}
+                            _ => {panic!("{selections_error:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                        }
+                    }
+                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                }
             }
         }
     }
     pub fn delete(&mut self){
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
-        self.document.delete(CURSOR_SEMANTICS);
-
-        self.scroll_and_update();
-
-        if len != self.document.len(){  //if length has changed after delete
-            self.ui.document_viewport.document_widget.doc_length = self.document.len();
+        match self.document.delete(CURSOR_SEMANTICS){
+            Ok(_) => {
+                self.scroll_and_update(&self.document.selections().primary().clone());
+                if len != self.document.len(){  //if length has changed after delete
+                    self.ui.document_viewport.document_widget.doc_length = self.document.len();
+                }
+            }
+            Err(e) => {
+                let this_file = std::panic::Location::caller().file();
+                let line_number = std::panic::Location::caller().line();
+                match e{
+                    DocumentError::SelectionAtDocBounds => {
+                        if SHOW_SAME_STATE_WARNINGS{
+                            self.mode = Mode::Warning(WarningKind::InvalidInput);
+                        }
+                    }
+                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                }
+            }
         }
     }
     pub fn display_line_numbers(&mut self){
@@ -361,12 +446,10 @@ impl Application{
         self.ui.document_viewport.toggle_line_numbers();
                 
         self.ui.update_layouts(self.mode);
-
         self.document.view_mut().set_size(
             self.ui.document_viewport.document_widget.rect.width as usize,
             self.ui.document_viewport.document_widget.rect.height as usize
         );
-
         self.update_ui();
     }
     pub fn display_status_bar(&mut self){
@@ -374,12 +457,10 @@ impl Application{
         self.ui.status_bar.toggle_status_bar();
                 
         self.ui.update_layouts(self.mode);
-
         self.document.view_mut().set_size(
             self.ui.document_viewport.document_widget.rect.width as usize,
             self.ui.document_viewport.document_widget.rect.height as usize
         );
-
         self.update_ui();
     }
     pub fn extend_selection(&mut self, extend_fn: fn(&Selection, &Rope, CursorSemantics) -> Result<Selection, SelectionError>){
@@ -387,16 +468,25 @@ impl Application{
         let text = self.document.text().clone();
     
         for selection in self.document.selections_mut().iter_mut(){
-            //*selection = extend_fn(selection, &text, CURSOR_SEMANTICS);
-            if let Ok(new_selection) = extend_fn(selection, &text, CURSOR_SEMANTICS){
-                *selection = new_selection;
-            }else{
-                //warning
-                self.mode = Mode::Warning(WarningKind::InvalidInput);
+            match extend_fn(selection, &text, CURSOR_SEMANTICS){
+                Ok(new_selection) => {
+                    *selection = new_selection;
+                }
+                Err(e) => {
+                    let this_file = std::panic::Location::caller().file();
+                    let line_number = std::panic::Location::caller().line();
+                    match e{
+                        SelectionError::ResultsInSameState => {
+                            if SHOW_SAME_STATE_WARNINGS{
+                                self.mode = Mode::Warning(WarningKind::InvalidInput);
+                            }
+                        }
+                        _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.");}
+                    }
+                }
             }
         }
-    
-        self.checked_scroll_and_update();
+        self.checked_scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn extend_selection_down(&mut self){
         self.extend_selection(Selection::extend_down);
@@ -416,16 +506,25 @@ impl Application{
         let view = self.document.view().clone();
 
         for selection in self.document.selections_mut().iter_mut(){
-            //*selection = extend_fn(selection, &text, &view, CURSOR_SEMANTICS);
-            if let Ok(new_selection) = extend_fn(selection, &text, &view, CURSOR_SEMANTICS){
-                *selection = new_selection;
-            }else{
-                // warning
-                self.mode = Mode::Warning(WarningKind::InvalidInput);
+            match extend_fn(selection, &text, &view, CURSOR_SEMANTICS){
+                Ok(new_selection) => {
+                    *selection = new_selection;
+                }
+                Err(e) => {
+                    let this_file = std::panic::Location::caller().file();
+                    let line_number = std::panic::Location::caller().line();
+                    match e{
+                        SelectionError::ResultsInSameState => {
+                            if SHOW_SAME_STATE_WARNINGS{
+                                self.mode = Mode::Warning(WarningKind::InvalidInput);
+                            }
+                        }
+                        _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.");}
+                    }
+                }
             }
         }
-
-        self.checked_scroll_and_update();
+        self.checked_scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn extend_selection_page_down(&mut self){
         self.extend_selection_page(Selection::extend_page_down);
@@ -441,8 +540,8 @@ impl Application{
     }
     pub fn find_replace_mode_accept(&mut self){
         assert!(self.mode == Mode::FindReplace);
-        self.document.search(&self.ui.util_bar.utility_widget.text_box.text.to_string(), CURSOR_SEMANTICS);
-        self.scroll_and_update();
+        self.document.search(&self.ui.util_bar.utility_widget.text_box.text.to_string());
+        self.scroll_and_update(&self.document.selections().primary().clone());
         self.find_replace_mode_exit();
     }
     pub fn find_replace_mode_backspace(&mut self){
@@ -604,7 +703,7 @@ impl Application{
 
                 if let Ok(new_selection) = self.document.selections().primary().set_from_line_number(line_number, &text, Movement::Move, CURSOR_SEMANTICS){
                     *self.document.selections_mut().primary_mut() = new_selection;
-                    self.scroll_and_update();
+                    self.scroll_and_update(&self.document.selections().primary().clone());
                     self.goto_mode_exit();
                 }else{
                     // warning
@@ -709,71 +808,132 @@ impl Application{
         }
     }
     pub fn increment_primary_selection(&mut self){
-        if let Ok(new_selections) = self.document.selections().increment_primary_selection(){
-            *self.document.selections_mut() = new_selections;
-            self.scroll_and_update();
-            //TODO: if in space mode, exit space mode
-        }else{
-            self.mode = Mode::Warning(WarningKind::SingleSelection);
+        assert!(self.mode == Mode::Insert || self.mode == Mode::Space);
+        match self.document.selections().increment_primary_selection(){
+            Ok(new_selections) => {
+                *self.document.selections_mut() = new_selections;
+                self.scroll_and_update(&self.document.selections().primary().clone());
+                if self.mode == Mode::Space{
+                    self.mode = Mode::Insert;
+                }
+            }
+            Err(e) => {
+                let this_file = std::panic::Location::caller().file();
+                let line_number = std::panic::Location::caller().line();
+                match e{
+                    SelectionsError::SingleSelection => {self.mode = Mode::Warning(WarningKind::SingleSelection);}
+                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                }
+            }
         }
     }
-    // this should be organized alphabetically in source code fns
+    //TODO: this should be organized alphabetically in source code fns
     pub fn decrement_primary_selection(&mut self){
-        if let Ok(new_selections) = self.document.selections().decrement_primary_selection(){
-            *self.document.selections_mut() = new_selections;
-            self.scroll_and_update();
-            //TODO: if in space mode, exit space mode
-        }else{
-            self.mode = Mode::Warning(WarningKind::SingleSelection);
+        assert!(self.mode == Mode::Insert || self.mode == Mode::Space);
+        match self.document.selections().decrement_primary_selection(){
+            Ok(new_selections) => {
+                *self.document.selections_mut() = new_selections;
+                self.scroll_and_update(&self.document.selections().primary().clone());
+                if self.mode == Mode::Space{
+                    self.mode = Mode::Insert;
+                }
+            }
+            Err(e) => {
+                let this_file = std::panic::Location::caller().file();
+                let line_number = std::panic::Location::caller().line();
+                match e{
+                    SelectionsError::SingleSelection => {self.mode = Mode::Warning(WarningKind::SingleSelection);}
+                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                }
+            }
         }
     }
     pub fn insert_char(&mut self, c: char){
         assert!(self.mode == Mode::Insert);
-        self.document.insert_string(&c.to_string(), CURSOR_SEMANTICS);
-
-        self.scroll_and_update();
+        match self.document.insert_string(&c.to_string(), CURSOR_SEMANTICS){
+            Ok(_) => {self.scroll_and_update(&self.document.selections().primary().clone());}
+            Err(e) => {
+                let this_file = std::panic::Location::caller().file();
+                let line_number = std::panic::Location::caller().line();
+                match e{
+                    DocumentError::InvalidInput => {
+                        if SHOW_SAME_STATE_WARNINGS{
+                            self.mode = Mode::Warning(WarningKind::InvalidInput);
+                        }
+                    }
+                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                }
+            }
+        }
     }
     pub fn insert_newline(&mut self){
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
-        self.document.insert_string("\n", CURSOR_SEMANTICS);
-
-        self.scroll_and_update();
-
-        if len != self.document.len(){  //if length has changed after newline
-            self.ui.document_viewport.document_widget.doc_length = self.document.len();
+        match self.document.insert_string("\n", CURSOR_SEMANTICS){
+            Ok(_) => {
+                self.scroll_and_update(&self.document.selections().primary().clone());
+                if len != self.document.len(){  //if length has changed after newline
+                    self.ui.document_viewport.document_widget.doc_length = self.document.len();
+                }
+            }
+            Err(e) => {
+                let this_file = std::panic::Location::caller().file();
+                let line_number = std::panic::Location::caller().line();
+                match e{
+                    DocumentError::InvalidInput => {
+                        if SHOW_SAME_STATE_WARNINGS{
+                            self.mode = Mode::Warning(WarningKind::InvalidInput);
+                        }
+                    }
+                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                }
+            }
         }
     }
     pub fn insert_tab(&mut self){
         assert!(self.mode == Mode::Insert);
-        self.document.insert_string("\t", CURSOR_SEMANTICS);
-
-        self.scroll_and_update();
+        match self.document.insert_string("\t", CURSOR_SEMANTICS){
+            Ok(_) => {self.scroll_and_update(&self.document.selections().primary().clone());}
+            Err(e) => {
+                let this_file = std::panic::Location::caller().file();
+                let line_number = std::panic::Location::caller().line();
+                match e{
+                    DocumentError::InvalidInput => {
+                        if SHOW_SAME_STATE_WARNINGS{
+                            self.mode = Mode::Warning(WarningKind::InvalidInput);
+                        }
+                    }
+                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                }
+            }
+        }
     }
     pub fn move_cursor(&mut self, movement_fn: fn(&Selection, &Rope, CursorSemantics) -> Result<Selection, SelectionError>){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
     
-        //if self.document.selections().count() > 1{
-        //    *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
-        //}
         if let Ok(new_selections) = self.document.selections().clear_non_primary_selections(){
             *self.document.selections_mut() = new_selections;
-        }else{
-            //self.mode = Mode::Utility(UtilityKind::Warning(WarningKind::SingleSelection));
-        }
+        }// intentionally ignoring any errors
     
         for selection in self.document.selections_mut().iter_mut(){
-            //*selection = movement_fn(selection, &text, CURSOR_SEMANTICS);
-            if let Ok(new_selection) = movement_fn(selection, &text, CURSOR_SEMANTICS){
-                *selection = new_selection;
-            }else{
-                // warning
-                self.mode = Mode::Warning(WarningKind::InvalidInput);
+            match movement_fn(selection, &text, CURSOR_SEMANTICS){
+                Ok(new_selection) => {*selection = new_selection;}
+                Err(e) => {
+                    let this_file = std::panic::Location::caller().file();
+                    let line_number = std::panic::Location::caller().line();
+                    match e{
+                        SelectionError::ResultsInSameState => {
+                            if SHOW_SAME_STATE_WARNINGS{
+                                self.mode = Mode::Warning(WarningKind::InvalidInput);
+                            }
+                        }
+                        _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    }
+                }
             }
         }
-    
-        self.checked_scroll_and_update();
+        self.checked_scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn move_cursor_document_end(&mut self){
         self.move_cursor(Selection::move_doc_end);
@@ -798,24 +958,28 @@ impl Application{
         let text = self.document.text().clone();
         let view = self.document.view().clone();
 
-        //if self.document.selections().count() > 1{
-        //    *self.document.selections_mut() = self.document.selections().clear_non_primary_selections();
-        //}
         if let Ok(new_selections) = self.document.selections().clear_non_primary_selections(){
             *self.document.selections_mut() = new_selections;
-        }
+        }// intentionally ignoring any errors
 
         for selection in self.document.selections_mut().iter_mut(){
-            //*selection = movement_fn(selection, &text, &view, CURSOR_SEMANTICS);
-            if let Ok(new_selection) = movement_fn(selection, &text, &view, CURSOR_SEMANTICS){
-                *selection = new_selection;
-            }else{
-                //warning
-                self.mode = Mode::Warning(WarningKind::InvalidInput);
+            match movement_fn(selection, &text, &view, CURSOR_SEMANTICS){
+                Ok(new_selection) => {*selection = new_selection;}
+                Err(e) => {
+                    let this_file = std::panic::Location::caller().file();
+                    let line_number = std::panic::Location::caller().line();
+                    match e{
+                        SelectionError::ResultsInSameState => {
+                            if SHOW_SAME_STATE_WARNINGS{
+                                self.mode = Mode::Warning(WarningKind::InvalidInput);
+                            }
+                        }
+                        _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    }
+                }
             }
         }
-
-        self.checked_scroll_and_update();
+        self.checked_scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn move_cursor_page_down(&mut self){
         self.move_cursor_page(Selection::move_page_down);
@@ -826,19 +990,21 @@ impl Application{
     pub fn move_cursor_right(&mut self){
         self.move_cursor(Selection::move_right);
     }
+    pub fn move_cursor_word_boundary_forward(&mut self){
+        self.move_cursor(Selection::move_right_word_boundary);
+    }
+    pub fn move_cursor_word_boundary_backward(&mut self){
+        self.move_cursor(Selection::move_left_word_boundary);
+    }
     pub fn move_cursor_up(&mut self){
         self.move_cursor(Selection::move_up);
     }
-    //fn move_cursor_word_end(&mut self){
-    //    assert!(self.mode == Mode::Insert);
-    //}
-    //fn move_cursor_word_start(&mut self){
-    //    assert!(self.mode == Mode::Insert);
-    //}
-    pub fn no_op(&mut self){/* warn unbound keypress */}
+    pub fn no_op(&mut self){/* TODO: warn unbound keypress */}
     pub fn open_new_terminal_window(&self){
-        //open new terminal window at current working directory
-        let _ = std::process::Command::new("alacritty")
+        let _ = std::process::Command::new("alacritty")     //TODO: have user define TERMINAL const in config.rs   //or check env vars for $TERM?
+            //.arg("msg")     // these extra commands just make new instances use the same backend(daemon?)
+            //.arg("create-window")
+            //.current_dir(std::env::current_dir().unwrap())    //not needed here, because term spawned here defaults to this directory, but good to know
             .spawn()
             .expect("failed to spawn new terminal at current directory");
     }
@@ -848,19 +1014,7 @@ impl Application{
         
         let command = args.next().unwrap();
         match command{
-            "term" => {
-//                // open new terminal window at current directory.. TODO: fix this closes child when parent closes
-//                //command: alacritty --working-directory $PWD
-//                // does this work with $TERM when $TERM isn't alacritty?
-//                std::process::Command::new("alacritty")
-//                //Command::new("$TERM") //this causes a panic
-//                    //not needed here, because term spawned here defaults to this directory, but good to know
-//                    //.current_dir("/home/j/Documents/programming/rust/nlo_text_editor/")
-//                    //.output() // output keeps current process from working until child process closes
-//                    .spawn()
-//                    .expect("failed to spawn new terminal at current directory");
-                self.open_new_terminal_window();
-            }
+            "term" => {self.open_new_terminal_window();}
             _ => {return Err(())}
         }
     
@@ -869,12 +1023,25 @@ impl Application{
     pub fn paste(&mut self){
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
-        self.document.paste(CURSOR_SEMANTICS);
-
-        self.scroll_and_update();
-
-        if len != self.document.len(){  //if length has changed after paste
-            self.ui.document_viewport.document_widget.doc_length = self.document.len();
+        match self.document.paste(CURSOR_SEMANTICS){
+            Ok(_) => {
+                self.scroll_and_update(&self.document.selections().primary().clone());
+                if len != self.document.len(){  //if length has changed after paste
+                    self.ui.document_viewport.document_widget.doc_length = self.document.len();
+                }
+            }
+            Err(e) => {
+                let this_file = std::panic::Location::caller().file();
+                let line_number = std::panic::Location::caller().line();
+                match e{
+                    DocumentError::InvalidInput => {
+                        if SHOW_SAME_STATE_WARNINGS{
+                            self.mode = Mode::Warning(WarningKind::InvalidInput);
+                        }
+                    }
+                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                }
+            }
         }
     }
     pub fn quit(&mut self){
@@ -891,17 +1058,22 @@ impl Application{
     }
     pub fn redo(&mut self){
         assert!(self.mode == Mode::Insert);
-
-        if let Ok(_) = self.document.redo(CURSOR_SEMANTICS){
-            let len = self.document.len();
-            self.scroll_and_update();
-
-            if len != self.document.len(){  //if length has changed after paste
-                self.ui.document_viewport.document_widget.doc_length = self.document.len();
+        let len = self.document.len();
+        match self.document.redo(CURSOR_SEMANTICS){
+            Ok(_) => {
+                self.scroll_and_update(&self.document.selections().primary().clone());
+                if len != self.document.len(){  //if length has changed after paste
+                    self.ui.document_viewport.document_widget.doc_length = self.document.len();
+                }
             }
-        }else{
-            // warn redo stack empty
-            self.mode = Mode::Warning(WarningKind::InvalidInput);
+            Err(e) => {
+                let this_file = std::panic::Location::caller().file();
+                let line_number = std::panic::Location::caller().line();
+                match e{
+                    DocumentError::NoChangesToRedo => {self.mode = Mode::Warning(WarningKind::InvalidInput);}
+                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                }
+            }
         }
     }
     pub fn resize(&mut self, x: u16, y: u16){
@@ -914,7 +1086,7 @@ impl Application{
 
         self.document.view_mut().set_size(self.ui.document_viewport.document_widget.rect.width as usize, self.ui.document_viewport.document_widget.rect.height as usize);
 
-        self.scroll_and_update();
+        self.scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn save(&mut self){
         assert!(self.mode == Mode::Insert);
@@ -931,7 +1103,7 @@ impl Application{
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
     
-        let new_view = match direction{
+        let new_view = match direction{ //TODO: should these functions error if already at doc bounds?...
             ScrollDirection::Down => self.document.view().scroll_down(amount, &text),
             ScrollDirection::Left => self.document.view().scroll_left(amount),
             ScrollDirection::Right => self.document.view().scroll_right(amount, &text),
@@ -958,13 +1130,24 @@ impl Application{
         if let Ok(new_selections) = self.document.selections().clear_non_primary_selections(){
             *self.document.selections_mut() = new_selections;
         }
-        if let Ok(new_selection) = self.document.selections().primary().select_all(self.document.text(), CURSOR_SEMANTICS){
-            *self.document.selections_mut().primary_mut() = new_selection;
-        }else{
-            self.mode = Mode::Warning(WarningKind::InvalidInput);
+        match self.document.selections().primary().select_all(self.document.text(), CURSOR_SEMANTICS){
+            Ok(new_selection) => {
+                *self.document.selections_mut().primary_mut() = new_selection;
+                self.checked_scroll_and_update(&self.document.selections().primary().clone());
+            }
+            Err(e) => {
+                let this_file = std::panic::Location::caller().file();
+                let line_number = std::panic::Location::caller().line();
+                match e{
+                    SelectionError::ResultsInSameState => {
+                        if SHOW_SAME_STATE_WARNINGS{
+                            self.mode = Mode::Warning(WarningKind::InvalidInput);
+                        }
+                    }
+                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                }
+            }
         }
-
-        self.checked_scroll_and_update();
     }
     pub fn set_mode_command(&mut self){
         assert!(self.mode == Mode::Insert);
@@ -990,15 +1173,21 @@ impl Application{
     pub fn undo(&mut self){
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
-        if let Ok(_) = self.document.undo(CURSOR_SEMANTICS){
-            self.scroll_and_update();
-
-            if len != self.document.len(){  //if length has changed after paste
-                self.ui.document_viewport.document_widget.doc_length = self.document.len();
+        match self.document.undo(CURSOR_SEMANTICS){
+            Ok(_) => {
+                self.scroll_and_update(&self.document.selections().primary().clone());
+                if len != self.document.len(){  //if length has changed after paste
+                    self.ui.document_viewport.document_widget.doc_length = self.document.len();
+                }
             }
-        }else{
-            // warn undo stack empty
-            self.mode = Mode::Warning(WarningKind::InvalidInput);
+            Err(e) => {
+                let this_file = std::panic::Location::caller().file();
+                let line_number = std::panic::Location::caller().line();
+                match e{
+                    DocumentError::NoChangesToUndo => {self.mode = Mode::Warning(WarningKind::InvalidInput);}
+                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                }
+            }
         }
     }
     pub fn warning_mode_exit(&mut self){

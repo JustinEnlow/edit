@@ -13,4 +13,11 @@ pub const CURSOR_SEMANTICS: CursorSemantics = match CURSOR_STYLE{
 pub const VIEW_SCROLL_AMOUNT: usize = 1;    //should this have separate vertical and horizontal definitions?
 
 // should TAB_WIDTH be defined here instead of in edit_core?
+
 // what other config should be here?
+    //themeing/coloring consts
+
+// By default, this editor shows a warning when a requested action would result in the same state.
+// This is to make every action have a visible response.
+// To disable, change to false...
+pub const SHOW_SAME_STATE_WARNINGS: bool = true;
