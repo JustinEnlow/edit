@@ -1,8 +1,92 @@
 edit: simple terminal text editor for linux
 
-    - multi-cursor support  (Work In Progress/Partial Implementation)
-    - edit history(Undo/Redo)
-    - ascii text editing(UTF-8 is WIP)
+Features:
+    Text Editing:
+        [ ] multi-cursor/multi-selection editing    (cursor is the mobile part of an extended selection, or a non extended selection)
+            [ ] move cursor(UTF-8 is WIP)
+                [x] up, down, left, right
+                [x] line start/end
+                [x] page up/down
+                [x] doc start/end
+                [ ] word boundaries
+            [ ] extend selection(UTF-8 is WIP)
+                [x] up, down, left, right
+                [x] line start/end
+                [x] page up/down
+                [x] doc start/end
+                [ ] word boundaries
+            [ ] add selection
+                [x] above(and make view follow top selection)
+                [x] below(and make view follow bottom selection)
+                [ ] at mouse cursor?
+            [ ] remove selection
+        [ ] Text Insertion
+            [ ] Single grapheme
+                [x] ascii
+                [ ] UTF-8
+            [ ] Multi grapheme
+                [x] ascii
+                [ ] UTF-8
+        [ ] Text Deletion
+            [x] Directionally(ascii, UTF-8 WIP)
+            [x] Whole Selection(ascii, UTF-8 WIP)
+            [ ] Word Boundaries(ascii, UTF-8 WIP)
+        [ ] Cut/Copy/Paste
+            [x] internally
+                [ ] maybe add vim style registers
+            [ ] externally using system wide tools
+        [x] History/Undo/Redo
+        [ ] auto indentation
+        [ ] suggestions
+
+    User Interface(all elements themeable):
+        [ ] Text Document
+            [x] ascii text rendering
+            [ ] utf-8 text rendering
+            [x] cursor/selection rendering(done for document, still WIP in utilities)
+        [ ] Scroll bar(shows relative location in document)
+        [x] Toggleable Line Numbers
+        [ ] Toggleable Status Bar
+            [x] Modified Indicator
+            [x] File name
+            [ ] Selection Indicator(1/1 = primary cursor is the only one, 3/125 = primary cursor is the 3rd selection of 125)
+            [x] primary cursor location indicator(line num:column num)
+        [ ] Utility Bar
+            [x] go to line
+            [x] command parser
+                [x] built in and custom commands
+            [ ] search or find/replace
+                [x] match search text
+                [ ] match case insensitive search text
+                [ ] match regex pattern
+                [ ] incremental search
+            [x] Warning (display useful warnings and visual responses to redundant/unhandled input)
+        [ ] Space mode/popup widget
+            - allows for calling of functions without a modified(ctrl, shift, alt, etc) keybind. (like vim normal mode, i guess)
+    
+    File Operations(Open/Close/Save)
+        [x] yes
+    Editing Tools
+    Performance
+        [ ] make performant (trying, but i honestly have no clue what i am doing...)
+
+    Customization and Extensibility
+        [ ] user config file
+        [ ] custom keybinds
+
+Future Features:
+    Code Editing:
+        [ ] LSP
+        [ ] TreeSitter
+        [ ] DAP
+        [ ] ...more
+
+Non-Features:
+    cross platform usability
+    tabs/splits (this is the job of a window manager/terminal multiplexer)
+    auto save   (just save the damn thing manually. wtf?!)
+    macros  (maybe useful? but i never have...)
+    text wrapping   (is this something i want to even bother with?)
 
 
 to install:
