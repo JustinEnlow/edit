@@ -32,7 +32,7 @@ To meet reqs as code editor:
     [ ] colorize syntax/etc.(treesitter)
     [ ] debug adapter protocol
     [ ] display completion suggestions from lsp
-    [ ] move/extend/delete to code objects boundaries from lsp
+    [ ] move/extend/delete to code textobject boundaries from lsp
 
 
 
