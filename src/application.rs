@@ -5,7 +5,7 @@ use ratatui::layout::Rect;
 use ratatui::{backend::CrosstermBackend, Terminal};
 use crate::ui::UserInterface;
 use edit_core::selection::{CursorSemantics, Movement, Selection, Selections, SelectionError, SelectionsError};
-use edit_core::view::View;
+use edit_core::view::{View, ViewError};
 use edit_core::document::{Document, DocumentError};
 use ropey::Rope;
 use crate::keybind;
@@ -13,12 +13,12 @@ use crate::config::{CURSOR_SEMANTICS, SHOW_SAME_STATE_WARNINGS};
 
 
 
-pub enum ScrollDirection{
-    Down,
-    Left,
-    Right,
-    Up
-}
+//pub enum ScrollDirection{
+//    Down,
+//    Left,
+//    Right,
+//    Up
+//}
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Mode{
@@ -1122,31 +1122,93 @@ impl Application{
             }
         }
     }
-    pub fn scroll_view(&mut self, direction: ScrollDirection, amount: usize){
+    //pub fn scroll_view(&mut self, direction: ScrollDirection, amount: usize){
+    //    assert!(self.mode == Mode::Insert);
+    //    let text = self.document.text().clone();
+    //
+    //    let new_view = match direction{ //TODO: should these functions error if already at doc bounds?...
+    //        ScrollDirection::Down => self.document.view().scroll_down(amount, &text),
+    //        ScrollDirection::Left => self.document.view().scroll_left(amount),
+    //        ScrollDirection::Right => self.document.view().scroll_right(amount, &text),
+    //        ScrollDirection::Up => self.document.view().scroll_up(amount),
+    //    };
+    //
+    //    *self.document.view_mut() = new_view;
+    //    self.update_ui();
+    //}
+    pub fn scroll_view_down(&mut self, amount: usize){
+        //self.scroll_view(ScrollDirection::Down, amount);
+
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
-    
-        let new_view = match direction{ //TODO: should these functions error if already at doc bounds?...
-            ScrollDirection::Down => self.document.view().scroll_down(amount, &text),
-            ScrollDirection::Left => self.document.view().scroll_left(amount),
-            ScrollDirection::Right => self.document.view().scroll_right(amount, &text),
-            ScrollDirection::Up => self.document.view().scroll_up(amount),
-        };
-    
-        *self.document.view_mut() = new_view;
-        self.update_ui();
-    }
-    pub fn scroll_view_down(&mut self, amount: usize){
-        self.scroll_view(ScrollDirection::Down, amount);
+        
+        match self.document.view().scroll_down(amount, &text){
+            Ok(new_view) => {
+                *self.document.view_mut() = new_view;
+                self.update_ui();
+            }
+            Err(e) => {
+                match e{
+                    ViewError::InvalidInput => {self.mode = Mode::Warning(WarningKind::InvalidInput);}
+                    ViewError::ResultsInSameState => {self.mode = Mode::Warning(WarningKind::InvalidInput);}    //should be same state warning
+                }
+            }
+        }
     }
     pub fn scroll_view_left(&mut self, amount: usize){
-        self.scroll_view(ScrollDirection::Left, amount);
+        //self.scroll_view(ScrollDirection::Left, amount);
+
+        assert!(self.mode == Mode::Insert);
+        
+        match self.document.view().scroll_left(amount){
+            Ok(new_view) => {
+                *self.document.view_mut() = new_view;
+                self.update_ui();
+            }
+            Err(e) => {
+                match e{
+                    ViewError::InvalidInput => {self.mode = Mode::Warning(WarningKind::InvalidInput);}
+                    ViewError::ResultsInSameState => {self.mode = Mode::Warning(WarningKind::InvalidInput);}    //should be same state warning
+                }
+            }
+        }
     }
     pub fn scroll_view_right(&mut self, amount: usize){
-        self.scroll_view(ScrollDirection::Right, amount);
+        //self.scroll_view(ScrollDirection::Right, amount);
+
+        assert!(self.mode == Mode::Insert);
+        let text = self.document.text().clone();
+        
+        match self.document.view().scroll_right(amount, &text){
+            Ok(new_view) => {
+                *self.document.view_mut() = new_view;
+                self.update_ui();
+            }
+            Err(e) => {
+                match e{
+                    ViewError::InvalidInput => {self.mode = Mode::Warning(WarningKind::InvalidInput);}
+                    ViewError::ResultsInSameState => {self.mode = Mode::Warning(WarningKind::InvalidInput);}    //should be same state warning
+                }
+            }
+        }
     }
     pub fn scroll_view_up(&mut self, amount: usize){
-        self.scroll_view(ScrollDirection::Up, amount);
+        //self.scroll_view(ScrollDirection::Up, amount);
+
+        assert!(self.mode == Mode::Insert);
+        
+        match self.document.view().scroll_up(amount){
+            Ok(new_view) => {
+                *self.document.view_mut() = new_view;
+                self.update_ui();
+            }
+            Err(e) => {
+                match e{
+                    ViewError::InvalidInput => {self.mode = Mode::Warning(WarningKind::InvalidInput);}
+                    ViewError::ResultsInSameState => {self.mode = Mode::Warning(WarningKind::InvalidInput);}    //should be same state warning
+                }
+            }
+        }
     }
     pub fn select_all(&mut self){
         assert!(self.mode == Mode::Insert);
