@@ -8,18 +8,18 @@ Features:
                 [x] line start/end
                 [x] page up/down
                 [x] doc start/end
-                [ ] word boundaries
+                [x] word boundaries
             [ ] extend selection(UTF-8 is WIP)
                 [x] up, down, left, right
                 [x] line start/end
                 [x] page up/down
                 [x] doc start/end
-                [ ] word boundaries
+                [x] word boundaries
             [ ] add selection
                 [x] above(and make view follow top selection)
                 [x] below(and make view follow bottom selection)
                 [ ] at mouse cursor?
-            [ ] remove selection
+            [x] remove selection
         [ ] Text Insertion
             [ ] Single grapheme
                 [x] ascii

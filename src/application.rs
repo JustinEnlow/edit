@@ -1082,6 +1082,23 @@ impl Application{
             }
         }
     }
+    pub fn remove_primary_selection(&mut self){
+        assert!(self.mode == Mode::Insert);
+        match self.document.selections().remove_primary_selection(){
+            Ok(selections) => {
+                *self.document.selections_mut() = selections;
+                self.checked_scroll_and_update(&self.document.selections().primary().clone());
+            }
+            Err(e) => {
+                let this_file = std::panic::Location::caller().file();
+                let line_number = std::panic::Location::caller().line();
+                match e{
+                    SelectionsError::SingleSelection => {self.mode = Mode::Warning(WarningKind::SingleSelection);}
+                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                }
+            }
+        }
+    }
     pub fn resize(&mut self, x: u16, y: u16){
         self.ui.set_terminal_size(x, y);
         self.ui.update_layouts(self.mode);

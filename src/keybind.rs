@@ -27,6 +27,7 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
                 if c == 'v'{app.paste();}
                 if c == 'p'{app.increment_primary_selection();}
                 if c == 'z'{app.undo();}
+                if c == 'r'{app.remove_primary_selection();}
             }
             else if modifiers == KeyModifiers::SHIFT{app.insert_char(c);}
             else if modifiers == KeyModifiers::NONE{app.insert_char(c);}
