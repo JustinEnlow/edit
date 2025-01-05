@@ -25,7 +25,7 @@ impl Default for InteractiveTextBox{
 }
 impl InteractiveTextBox{
     pub fn cursor_position(&self) -> u16{
-        self.selection.cursor(CursorSemantics::Block) as u16
+        self.selection.cursor(&self.text, CursorSemantics::Block) as u16
     }
     pub fn clear(&mut self){
         *self = Self::default();
@@ -36,7 +36,7 @@ impl InteractiveTextBox{
         }
         let text = self.text.clone();
         let mut new_text = text.clone();
-        new_text.insert_char(self.selection.cursor(CursorSemantics::Block), char);
+        new_text.insert_char(self.selection.cursor(&text, CursorSemantics::Block), char);
         self.text = new_text;
         //self.selection = self.selection.move_right(&self.text.clone(), CursorSemantics::Block);
         if let Ok(new_selection) = self.selection.move_right(&self.text.clone(), CursorSemantics::Block){
@@ -47,17 +47,17 @@ impl InteractiveTextBox{
         let text = self.text.clone();
         let mut new_text = self.text.clone();
 
-        match self.selection.cursor(CursorSemantics::Block).cmp(&self.selection.anchor()){
+        match self.selection.cursor(&text, CursorSemantics::Block).cmp(&self.selection.anchor()){
             Ordering::Less => {
                 new_text.remove(self.selection.head()..self.selection.anchor());
                 //self.selection = self.selection.put_cursor(self.selection.cursor(CursorSemantics::Block), &text, Movement::Move, CursorSemantics::Block, true);
-                if let Ok(new_selection) = self.selection.put_cursor(self.selection.cursor(CursorSemantics::Block), &text, Movement::Move, CursorSemantics::Block, true){
+                if let Ok(new_selection) = self.selection.put_cursor(self.selection.cursor(&text, CursorSemantics::Block), &text, Movement::Move, CursorSemantics::Block, true){
                     self.selection = new_selection;
                 }
             }
             Ordering::Greater => {
-                if self.selection.cursor(CursorSemantics::Block) == text.len_chars(){
-                    new_text.remove(self.selection.anchor()..self.selection.cursor(CursorSemantics::Block));
+                if self.selection.cursor(&text, CursorSemantics::Block) == text.len_chars(){
+                    new_text.remove(self.selection.anchor()..self.selection.cursor(&text, CursorSemantics::Block));
                 }
                 else{
                     new_text.remove(self.selection.anchor()..self.selection.head());
@@ -68,7 +68,7 @@ impl InteractiveTextBox{
                 }
             }
             Ordering::Equal => {
-                if self.selection.cursor(CursorSemantics::Block) == text.len_chars(){}    //do nothing
+                if self.selection.cursor(&text, CursorSemantics::Block) == text.len_chars(){}    //do nothing
                 else{
                     new_text.remove(self.selection.anchor()..self.selection.head());
                     //self.selection = self.selection.put_cursor(self.selection.anchor(), &text, Movement::Move, CursorSemantics::Block, true);
@@ -87,7 +87,7 @@ impl InteractiveTextBox{
         if self.selection.is_extended(semantics){
             self.delete();
         }else{
-            if self.selection.cursor(semantics) > 0{
+            if self.selection.cursor(&self.text, semantics) > 0{
                 //self.selection = self.selection.move_left(&self.text, semantics);
                 if let Ok(new_selection) = self.selection.move_left(&self.text, semantics){
                     self.selection = new_selection;
