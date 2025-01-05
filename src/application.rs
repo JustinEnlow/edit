@@ -252,8 +252,22 @@ impl Application{
     pub fn center_view_vertically_around_cursor(&mut self){
         assert!(self.mode == Mode::Insert || self.mode == Mode::Space);
         let text = self.document.text().clone();
-        *self.document.view_mut() = self.document.view().center_vertically_around_cursor(&self.document.selections().primary().clone(), &text, CURSOR_SEMANTICS);   //TODO: can this fail?
-        self.update_ui();
+        //*self.document.view_mut() = self.document.view().center_vertically_around_cursor(&self.document.selections().primary().clone(), &text, CURSOR_SEMANTICS);   //TODO: can this fail?
+        //self.update_ui();
+        match self.document.view().center_vertically_around_cursor(&self.document.selections().primary().clone(), &text, CURSOR_SEMANTICS){
+            Ok(new_view) => {
+                *self.document.view_mut() = new_view;
+                self.update_ui();
+            }
+            Err(e) => {
+                let this_file = std::panic::Location::caller().file();
+                let line_number = std::panic::Location::caller().line();
+                match e{
+                    ViewError::ResultsInSameState => {self.mode = Mode::Warning(WarningKind::InvalidInput);}    //should be same state warning
+                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                }
+            }
+        }
 
         if self.mode == Mode::Space{
             self.mode = Mode::Insert;
