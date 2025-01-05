@@ -535,6 +535,12 @@ impl Application{
     pub fn extend_selection_right(&mut self){
         self.extend_selection(Selection::extend_right);
     }
+    pub fn extend_selection_word_boundary_forward(&mut self){
+        self.extend_selection(Selection::extend_right_word_boundary);
+    }
+    pub fn extend_selection_word_boundary_backward(&mut self){
+        self.extend_selection(Selection::extend_left_word_boundary);
+    }
     pub fn extend_selection_up(&mut self){
         self.extend_selection(Selection::extend_up);
     }

@@ -69,14 +69,16 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
             else{app.no_op();}
         }
         (KeyCode::Right, modifiers) => {
-            if modifiers == KeyModifiers::CONTROL{app.move_cursor_word_boundary_forward();}
+            if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){app.extend_selection_word_boundary_forward();}
+            else if modifiers == KeyModifiers::CONTROL{app.move_cursor_word_boundary_forward();}
             else if modifiers == KeyModifiers::SHIFT{app.extend_selection_right();}
             else if modifiers == KeyModifiers::ALT{app.scroll_view_right(VIEW_SCROLL_AMOUNT);}
             else if modifiers == KeyModifiers::NONE{app.move_cursor_right();}
             else{app.no_op();}
         }
         (KeyCode::Left, modifiers) => {
-            if modifiers == KeyModifiers::CONTROL{app.move_cursor_word_boundary_backward();}
+            if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){app.extend_selection_word_boundary_backward();}
+            else if modifiers == KeyModifiers::CONTROL{app.move_cursor_word_boundary_backward();}
             else if modifiers == KeyModifiers::SHIFT{app.extend_selection_left();}
             else if modifiers == KeyModifiers::ALT{app.scroll_view_left(VIEW_SCROLL_AMOUNT);}
             else if modifiers == KeyModifiers::NONE{app.move_cursor_left();}
