@@ -119,6 +119,8 @@ impl Application{
         self.ui.document_viewport.line_number_widget.line_numbers_in_view = self.document.view().line_numbers(text);
         self.ui.highlighter.set_primary_cursor_position(self.document.view().primary_cursor_position(text, selections, CURSOR_SEMANTICS));
         self.ui.highlighter.selections = self.document.view().selections(selections, text);
+        self.ui.status_bar.selections_widget.primary_selection_index = selections.primary_selection_index();
+        self.ui.status_bar.selections_widget.num_selections = selections.count();
         self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone();
         self.ui.status_bar.modified_indicator_widget.document_modified_status = self.document.is_modified();
     }
@@ -127,22 +129,20 @@ impl Application{
         let selections = self.document.selections();
         self.ui.highlighter.set_primary_cursor_position(self.document.view().primary_cursor_position(text, selections, CURSOR_SEMANTICS));
         self.ui.highlighter.selections = self.document.view().selections(selections, text);
+        self.ui.status_bar.selections_widget.primary_selection_index = selections.primary_selection_index();
+        self.ui.status_bar.selections_widget.num_selections = selections.count();
         self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone()
     }
-    //TODO: should this take a selection to follow, instead of always following primary?
-    pub fn scroll_and_update(&mut self, selection: &Selection){    //, selection_to_follow: &Selection
+    pub fn scroll_and_update(&mut self, selection: &Selection){
         let text = self.document.text().clone();
-        //let selections = self.document.selections().clone();
-        *self.document.view_mut() = self.document.view().scroll_following_cursor(/*selections.primary()*/selection, &text, CURSOR_SEMANTICS);
+        *self.document.view_mut() = self.document.view().scroll_following_cursor(selection, &text, CURSOR_SEMANTICS);
 
         self.update_ui();
     }
-    //TODO: should this take a selection to follow, instead of always following primary?
-    pub fn checked_scroll_and_update(&mut self, selection: &Selection){    //, selection_to_follow: &Selection
+    pub fn checked_scroll_and_update(&mut self, selection: &Selection){
         let text = self.document.text().clone();
-        //let selections = self.document.selections().clone();
-        if self.document.view().should_scroll(/*selections.primary()*/selection, &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(/*selections.primary()*/selection, &text, CURSOR_SEMANTICS);
+        if self.document.view().should_scroll(selection, &text, CURSOR_SEMANTICS){
+            *self.document.view_mut() = self.document.view().scroll_following_cursor(selection, &text, CURSOR_SEMANTICS);
             self.update_ui();
         }else{
             self.update_cursor_positions();

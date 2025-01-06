@@ -11,13 +11,32 @@ const MODIFIED_INDICATOR: &str = "[Modified]";
 
 
 #[derive(Default)]
+pub struct SelectionsWidget{
+    pub rect: Rect,
+    pub primary_selection_index: usize,
+    pub num_selections: usize
+}
+impl SelectionsWidget{
+    pub fn widget(&self) -> Paragraph<'static>{
+        let selections = format!("selections: {}/{}", self.primary_selection_index + 1, self.num_selections);
+        Paragraph::new(selections)
+            .alignment(Alignment::Center)
+            .style(
+                Style::default()
+                    .bg(Color::DarkGray)
+                    .bold()
+            )
+    }
+}
+
+#[derive(Default)]
 pub struct DocumentCursorPositionWidget{
     pub rect: Rect,
     pub document_cursor_position: Position,
 }
 impl DocumentCursorPositionWidget{
     pub fn widget(&self) -> Paragraph<'static>{
-        let position = format!("{}:{}", self.document_cursor_position.y() + 1, self.document_cursor_position.x() + 1);
+        let position = format!("cursor: {}:{}", self.document_cursor_position.y() + 1, self.document_cursor_position.x() + 1);
         Paragraph::new(position)
             .alignment(Alignment::Right)
             .style(
@@ -73,6 +92,7 @@ pub struct StatusBar{
     pub display: bool,
     pub modified_indicator_widget: ModifiedIndicatorWidget,
     pub file_name_widget: FileNameWidget,
+    pub selections_widget: SelectionsWidget,
     pub document_cursor_position_widget: DocumentCursorPositionWidget,
 }
 impl Default for StatusBar{
@@ -81,6 +101,7 @@ impl Default for StatusBar{
             display: true,
             modified_indicator_widget: ModifiedIndicatorWidget::default(),
             file_name_widget: FileNameWidget::default(),
+            selections_widget: SelectionsWidget::default(),
             document_cursor_position_widget: DocumentCursorPositionWidget::default()
         }
     }
@@ -101,16 +122,17 @@ impl StatusBar{
                             MODIFIED_INDICATOR.len() as u16
                         }else{0}
                     ),
-                    //TODO: num selections widget
-                    //
                     // file_name width
                     Constraint::Max(
                         if let Some(file_name) = &self.file_name_widget.file_name{
                             file_name.len() as u16
                         }else{0}
                     ),
+                    // selections widget
+                    Constraint::Min(0),
                     // cursor position indicator width
-                    Constraint::Min(0)
+                    //Constraint::Min(0)
+                    Constraint::Max(format!("cursor: {}:{}", self.document_cursor_position_widget.document_cursor_position.y() + 1, self.document_cursor_position_widget.document_cursor_position.x() + 1).len() as u16)
                 ]
             )
             .split(rect)

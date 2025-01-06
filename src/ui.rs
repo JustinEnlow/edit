@@ -79,7 +79,8 @@ impl UserInterface{
         self.highlighter.rect = document_viewport_rect[2];
         self.status_bar.modified_indicator_widget.rect = status_bar_rect[0];
         self.status_bar.file_name_widget.rect = status_bar_rect[1];
-        self.status_bar.document_cursor_position_widget.rect = status_bar_rect[2];
+        self.status_bar.selections_widget.rect = status_bar_rect[2];
+        self.status_bar.document_cursor_position_widget.rect = status_bar_rect[3];
         self.util_bar.prompt.rect = util_rect[0];
         self.util_bar.utility_widget.rect = util_rect[1];
         self.util_bar.alternate_prompt.rect = util_rect[2];
@@ -103,7 +104,7 @@ impl UserInterface{
                 if self.status_bar.display{
                     frame.render_widget(self.status_bar.modified_indicator_widget.widget(), self.status_bar.modified_indicator_widget.rect);
                     frame.render_widget(self.status_bar.file_name_widget.widget(), self.status_bar.file_name_widget.rect);
-                    // TODO: add widget for number of selections
+                    frame.render_widget(self.status_bar.selections_widget.widget(), self.status_bar.selections_widget.rect);
                     frame.render_widget(self.status_bar.document_cursor_position_widget.widget(), self.status_bar.document_cursor_position_widget.rect);
                 }
 
