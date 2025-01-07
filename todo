@@ -9,21 +9,21 @@ To meet reqs as simple text editor:
         [x] input text selected within whole document(selections can then be edited all at once)
             [ ] search case insensitively?
         [ ] input text selected only within already selected text(selections can then be edited all at once)
-        [ ] may also want to impl a way to remove the current primary selection(like when searching all at once and without regex)
+        [x] may also want to impl a way to remove the current primary selection(like when searching all at once and without regex)
             - this allows for removing matched instances of input text that you don't want to be edited
     [ ] suggestions from words already in doc
     [ ] render interactive_text_box selections(find/replace, goto, command, etc.)
     [ ] merge overlapping selections. (selection extension fns should all do this. prob in core)
     [ ] move/extend/delete to word boundaries(need good definition for word boundaries)
     [ ] move view
-        [ ] by specified amount, up until doc boundaries(still need to return err if already at doc boundaries)
+        [x] by specified amount, up until doc boundaries
         [ ] to doc boundaries in one keypress(example: alt+home for left boundary, alt+end for right boundary, alt+pg_up for top boundary, alt+pg_down for bottom boundary)
     [ ] move selected line/lines up or down in document(alt+up/alt+down in vs code)
     [ ] selection copied indicator
     [ ] cursor/selections should prob not render in all modes...
     [ ] system wide cut/copy/paste
     [ ] add lib.rs. move code into lib.rs except main. unit test library
-    [ ] add status bar widget for number of selections(1/1 = primary cursor is the only one, 3/125 = primary cursor is the 3rd selection of 125)
+    [x] add status bar widget for number of selections(1/1 = primary cursor is the only one, 3/125 = primary cursor is the 3rd selection of 125)
     [ ] cursor line/cursor column highlighting(with user defined colors in config.rs)
     [ ] loading indicator on save/open/big edits like undoing a deletion of the whole text
 

@@ -46,10 +46,10 @@ Features:
             [x] cursor/selection rendering(done for document, still WIP in utilities)
         [ ] Scroll bar(shows relative location in document)
         [x] Toggleable Line Numbers
-        [ ] Toggleable Status Bar
+        [x] Toggleable Status Bar
             [x] Modified Indicator
             [x] File name
-            [ ] Selection Indicator(1/1 = primary cursor is the only one, 3/125 = primary cursor is the 3rd selection of 125)
+            [x] Selection Indicator(1/1 = primary cursor is the only one, 3/125 = primary cursor is the 3rd selection of 125)
             [x] primary cursor location indicator(line num:column num)
         [ ] Utility Bar
             [x] go to line
@@ -63,10 +63,16 @@ Features:
             [x] Warning (display useful warnings and visual responses to redundant/unhandled input)
         [ ] Space mode/popup widget
             - allows for calling of functions without a modified(ctrl, shift, alt, etc) keybind. (like vim normal mode, i guess)
+        [ ] highlighter(color various ui elements)
+            [ ] cursor/selections
+            [ ] cursor line(highlight the line the primary cursor is on)
+            [ ] cursor column(highlight the column the primary cursor is on)
+
     
     File Operations(Open/Close/Save)
         [x] yes
     Editing Tools
+        [ ]
     Performance
         [ ] make performant (trying, but i honestly have no clue what i am doing...)
 
