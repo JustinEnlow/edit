@@ -500,6 +500,7 @@ impl Application{
                 }
             }
         }
+        *self.document.selections_mut() = self.document.selections().merge_overlapping(&text);
         self.checked_scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn extend_selection_down(&mut self){
@@ -538,6 +539,7 @@ impl Application{
                 }
             }
         }
+        *self.document.selections_mut() = self.document.selections().merge_overlapping(&text);
         self.checked_scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn extend_selection_page_down(&mut self){
