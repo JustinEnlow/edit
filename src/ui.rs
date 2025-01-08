@@ -58,7 +58,7 @@ impl UserInterface{
                     // util(goto/find/command) bar rect height
                     Constraint::Length(
                         match mode{
-                            Mode::Warning(_) | Mode::Command | Mode::FindReplace | Mode::Goto => 1,
+                            Mode::Warning(_) | Mode::Command | Mode::Find | Mode::Goto => 1,
                             //Mode::Insert
                             //| Mode::Space => if self.status_bar.display{1}else{0}
                             Mode::Insert => if self.util_bar.utility_widget.display_copied_indicator || self.status_bar.display{1}else{0}
@@ -87,8 +87,8 @@ impl UserInterface{
         self.status_bar.document_cursor_position_widget.rect = status_bar_rect[3];  //[5] with selections padding enabled
         self.util_bar.prompt.rect = util_rect[0];
         self.util_bar.utility_widget.rect = util_rect[1];
-        self.util_bar.alternate_prompt.rect = util_rect[2];
-        self.util_bar.alternate_utility_widget.rect = util_rect[3];
+        //self.util_bar.alternate_prompt.rect = util_rect[2];
+        //self.util_bar.alternate_utility_widget.rect = util_rect[3];
         self.popups.space_mode_widget.rect = sized_centered_rect(self.popups.space_mode_widget.widest_element_len, self.popups.space_mode_widget.num_elements, self.terminal_size);
 
         self.util_bar.update_width(mode);
@@ -113,7 +113,6 @@ impl UserInterface{
                 }
 
                 // render according to mode
-                // cursor rendering will prob change from frame.render_widget style to handling cursor drawing in each widget
                 match mode{
                     Mode::Insert => {
                         //if let Some(pos) = self.highlighter.cursors{
@@ -141,18 +140,18 @@ impl UserInterface{
                             self.terminal_size.height
                         ));
                     }
-                    Mode::FindReplace => {
+                    Mode::Find => {
                         frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);
                         frame.render_widget(self.util_bar.utility_widget.widget(mode), self.util_bar.utility_widget.rect);
-                        frame.render_widget(self.util_bar.alternate_prompt.widget(mode), self.util_bar.alternate_prompt.rect);
-                        frame.render_widget(self.util_bar.alternate_utility_widget.widget(mode), self.util_bar.alternate_utility_widget.rect);
+                        //frame.render_widget(self.util_bar.alternate_prompt.widget(mode), self.util_bar.alternate_prompt.rect);
+                        //frame.render_widget(self.util_bar.alternate_utility_widget.widget(mode), self.util_bar.alternate_utility_widget.rect);
                         frame.set_cursor_position((
-                            if self.util_bar.alternate_focused{
+                            /*if self.util_bar.alternate_focused{
                                 self.util_bar.alternate_utility_widget.rect.x + self.util_bar.alternate_utility_widget.text_box.cursor_position()
                                     .saturating_sub(self.util_bar.alternate_utility_widget.text_box.view.horizontal_start() as u16)
-                            }else{
+                            }else{*/
                                 self.util_bar.utility_widget.rect.x + self.util_bar.utility_widget.text_box.cursor_position().saturating_sub(self.util_bar.utility_widget.text_box.view.horizontal_start() as u16)
-                            },
+                            /*}*/,
                             self.terminal_size.height
                         ));
                     }

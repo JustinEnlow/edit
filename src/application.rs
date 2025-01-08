@@ -26,7 +26,7 @@ pub enum Mode{
     Space,
     Warning(WarningKind),
     Command,
-    FindReplace,
+    Find,
     Goto,
 }
 
@@ -99,7 +99,7 @@ impl Application{
                     Mode::Space => {keybind::handle_space_mode_keypress(self, key_event.code, key_event.modifiers);}
                     Mode::Warning(_) => {keybind::handle_warning_mode_keypress(self, key_event.code, key_event.modifiers);}
                     Mode::Goto => {keybind::handle_goto_mode_keypress(self, key_event.code, key_event.modifiers);}
-                    Mode::FindReplace => {keybind::handle_find_replace_mode_keypress(self, key_event.code, key_event.modifiers);}
+                    Mode::Find => {keybind::handle_find_replace_mode_keypress(self, key_event.code, key_event.modifiers);}
                     Mode::Command => {keybind::handle_command_mode_keypress(self, key_event.code, key_event.modifiers);}
                 }
             },
@@ -154,11 +154,11 @@ impl Application{
         let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection.clone()], 0, &text);
         self.ui.util_bar.utility_widget.text_box.view = self.ui.util_bar.utility_widget.text_box.view.scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
-    pub fn update_alternate_util_bar_ui(&mut self){
-        let text = self.ui.util_bar.alternate_utility_widget.text_box.text.clone();
-        let selections = Selections::new(vec![self.ui.util_bar.alternate_utility_widget.text_box.selection.clone()], 0, &text);
-        self.ui.util_bar.alternate_utility_widget.text_box.view = self.ui.util_bar.alternate_utility_widget.text_box.view.scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
-    }
+    //pub fn update_alternate_util_bar_ui(&mut self){
+    //    let text = self.ui.util_bar.alternate_utility_widget.text_box.text.clone();
+    //    let selections = Selections::new(vec![self.ui.util_bar.alternate_utility_widget.text_box.selection.clone()], 0, &text);
+    //    self.ui.util_bar.alternate_utility_widget.text_box.view = self.ui.util_bar.alternate_utility_widget.text_box.view.scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+    //}
     /////////////////////////////////////////////////////////////////////////// Reuse ////////////////////////////////////////////////////////////////////////////////
 
     /////////////////////////////////////////////////////////////////////////// Custom ////////////////////////////////////////////////////////////////////////////////
@@ -561,147 +561,147 @@ impl Application{
     pub fn extend_selection_up(&mut self){
         self.extend_selection(Selection::extend_up);
     }
-    pub fn find_replace_mode_accept(&mut self){
-        assert!(self.mode == Mode::FindReplace);
+    pub fn find_mode_accept(&mut self){
+        assert!(self.mode == Mode::Find);
         self.document.search(&self.ui.util_bar.utility_widget.text_box.text.to_string());
         self.scroll_and_update(&self.document.selections().primary().clone());
-        self.find_replace_mode_exit();
+        self.find_mode_exit();
     }
-    pub fn find_replace_mode_backspace(&mut self){
-        assert!(self.mode == Mode::FindReplace);
-        if self.ui.util_bar.alternate_focused{
-            self.ui.util_bar.alternate_utility_widget.text_box.backspace();
-            self.update_alternate_util_bar_ui();
-        }else{
+    pub fn find_mode_backspace(&mut self){
+        assert!(self.mode == Mode::Find);
+        //if self.ui.util_bar.alternate_focused{
+        //    self.ui.util_bar.alternate_utility_widget.text_box.backspace();
+        //    self.update_alternate_util_bar_ui();
+        //}else{
             self.ui.util_bar.utility_widget.text_box.backspace();
             self.update_util_bar_ui();
-        }
+        //}
 
-        self.find_replace_mode_text_validity_check();
+        self.find_mode_text_validity_check();
     }
-    pub fn find_replace_mode_delete(&mut self){
-        assert!(self.mode == Mode::FindReplace);
-        if self.ui.util_bar.alternate_focused{
-            self.ui.util_bar.alternate_utility_widget.text_box.delete();
-            self.update_alternate_util_bar_ui();
-        }else{
+    pub fn find_mode_delete(&mut self){
+        assert!(self.mode == Mode::Find);
+        //if self.ui.util_bar.alternate_focused{
+        //    self.ui.util_bar.alternate_utility_widget.text_box.delete();
+        //    self.update_alternate_util_bar_ui();
+        //}else{
             self.ui.util_bar.utility_widget.text_box.delete();
             self.update_util_bar_ui();
-        }
+        //}
 
-        self.find_replace_mode_text_validity_check();
+        self.find_mode_text_validity_check();
     }
-    pub fn find_replace_mode_exit(&mut self){
-        assert!(self.mode == Mode::FindReplace);
+    pub fn find_mode_exit(&mut self){
+        assert!(self.mode == Mode::Find);
         self.ui.util_bar.utility_widget.text_box.clear();
-        self.ui.util_bar.alternate_utility_widget.text_box.clear();
-        self.ui.util_bar.alternate_focused = false;
+        //self.ui.util_bar.alternate_utility_widget.text_box.clear();
+        //self.ui.util_bar.alternate_focused = false;
         self.mode = Mode::Insert;
     }
-    pub fn find_replace_mode_extend_selection_end(&mut self){
-        assert!(self.mode == Mode::FindReplace);
-        if self.ui.util_bar.alternate_focused{
-            self.ui.util_bar.alternate_utility_widget.text_box.extend_selection_end();
-            self.update_alternate_util_bar_ui();
-        }else{
+    pub fn find_mode_extend_selection_end(&mut self){
+        assert!(self.mode == Mode::Find);
+        //if self.ui.util_bar.alternate_focused{
+        //    self.ui.util_bar.alternate_utility_widget.text_box.extend_selection_end();
+        //    self.update_alternate_util_bar_ui();
+        //}else{
             self.ui.util_bar.utility_widget.text_box.extend_selection_end();
             self.update_util_bar_ui();
-        }
+        //}
     }
-    pub fn find_replace_mode_extend_selection_home(&mut self){
-        assert!(self.mode == Mode::FindReplace);
-        if self.ui.util_bar.alternate_focused{
-            self.ui.util_bar.alternate_utility_widget.text_box.extend_selection_home();
-            self.update_alternate_util_bar_ui();
-        }else{
+    pub fn find_mode_extend_selection_home(&mut self){
+        assert!(self.mode == Mode::Find);
+        //if self.ui.util_bar.alternate_focused{
+        //    self.ui.util_bar.alternate_utility_widget.text_box.extend_selection_home();
+        //    self.update_alternate_util_bar_ui();
+        //}else{
             self.ui.util_bar.utility_widget.text_box.extend_selection_home();
             self.update_util_bar_ui();
-        }
+        //}
     }
-    pub fn find_replace_mode_extend_selection_left(&mut self){
-        assert!(self.mode == Mode::FindReplace);
-        if self.ui.util_bar.alternate_focused{
-            self.ui.util_bar.alternate_utility_widget.text_box.extend_selection_left();
-            self.update_alternate_util_bar_ui();
-        }else{
+    pub fn find_mode_extend_selection_left(&mut self){
+        assert!(self.mode == Mode::Find);
+        //if self.ui.util_bar.alternate_focused{
+        //    self.ui.util_bar.alternate_utility_widget.text_box.extend_selection_left();
+        //    self.update_alternate_util_bar_ui();
+        //}else{
             self.ui.util_bar.utility_widget.text_box.extend_selection_left();
             self.update_util_bar_ui();
-        }
+        //}
     }
-    pub fn find_replace_mode_extend_selection_right(&mut self){
-        assert!(self.mode == Mode::FindReplace);
-        if self.ui.util_bar.alternate_focused{
-            self.ui.util_bar.alternate_utility_widget.text_box.extend_selection_right();
-            self.update_alternate_util_bar_ui();
-        }else{
+    pub fn find_mode_extend_selection_right(&mut self){
+        assert!(self.mode == Mode::Find);
+        //if self.ui.util_bar.alternate_focused{
+        //    self.ui.util_bar.alternate_utility_widget.text_box.extend_selection_right();
+        //    self.update_alternate_util_bar_ui();
+        //}else{
             self.ui.util_bar.utility_widget.text_box.extend_selection_right();
             self.update_util_bar_ui();
-        }
+        //}
     }
-    pub fn find_replace_mode_insert_char(&mut self, c: char){
-        assert!(self.mode == Mode::FindReplace);
-        if self.ui.util_bar.alternate_focused{
-            self.ui.util_bar.alternate_utility_widget.text_box.insert_char(c);
-            self.update_alternate_util_bar_ui();
-        }else{
+    pub fn find_mode_insert_char(&mut self, c: char){
+        assert!(self.mode == Mode::Find);
+        //if self.ui.util_bar.alternate_focused{
+        //    self.ui.util_bar.alternate_utility_widget.text_box.insert_char(c);
+        //    self.update_alternate_util_bar_ui();
+        //}else{
             self.ui.util_bar.utility_widget.text_box.insert_char(c);
             self.update_util_bar_ui();
-        }
+        //}
         
-        self.find_replace_mode_text_validity_check();
+        self.find_mode_text_validity_check();
     }
-    pub fn find_replace_mode_move_cursor_left(&mut self){
-        assert!(self.mode == Mode::FindReplace);
-        if self.ui.util_bar.alternate_focused{
-            self.ui.util_bar.alternate_utility_widget.text_box.move_cursor_left();
-            self.update_alternate_util_bar_ui();
-        }else{
+    pub fn find_mode_move_cursor_left(&mut self){
+        assert!(self.mode == Mode::Find);
+        //if self.ui.util_bar.alternate_focused{
+        //    self.ui.util_bar.alternate_utility_widget.text_box.move_cursor_left();
+        //    self.update_alternate_util_bar_ui();
+        //}else{
             self.ui.util_bar.utility_widget.text_box.move_cursor_left();
             self.update_util_bar_ui();
-        }
+        //}
     }
-    pub fn find_replace_mode_move_cursor_line_end(&mut self){
-        assert!(self.mode == Mode::FindReplace);
-        if self.ui.util_bar.alternate_focused{
-            self.ui.util_bar.alternate_utility_widget.text_box.move_cursor_line_end();
-            self.update_alternate_util_bar_ui();
-        }else{
+    pub fn find_mode_move_cursor_line_end(&mut self){
+        assert!(self.mode == Mode::Find);
+        //if self.ui.util_bar.alternate_focused{
+        //    self.ui.util_bar.alternate_utility_widget.text_box.move_cursor_line_end();
+        //    self.update_alternate_util_bar_ui();
+        //}else{
             self.ui.util_bar.utility_widget.text_box.move_cursor_line_end();
             self.update_util_bar_ui();
-        }
+        //}
     }
-    pub fn find_replace_mode_move_cursor_line_start(&mut self){
-        assert!(self.mode == Mode::FindReplace);
-        if self.ui.util_bar.alternate_focused{
-            self.ui.util_bar.alternate_utility_widget.text_box.move_cursor_line_start();
-            self.update_alternate_util_bar_ui();
-        }else{
+    pub fn find_mode_move_cursor_line_start(&mut self){
+        assert!(self.mode == Mode::Find);
+        //if self.ui.util_bar.alternate_focused{
+        //    self.ui.util_bar.alternate_utility_widget.text_box.move_cursor_line_start();
+        //    self.update_alternate_util_bar_ui();
+        //}else{
             self.ui.util_bar.utility_widget.text_box.move_cursor_line_start();
             self.update_util_bar_ui();
-        }
+        //}
     }
-    pub fn find_replace_mode_move_cursor_right(&mut self){
-        assert!(self.mode == Mode::FindReplace);
-        if self.ui.util_bar.alternate_focused{
-            self.ui.util_bar.alternate_utility_widget.text_box.move_cursor_right();
-            self.update_alternate_util_bar_ui();
-        }else{
+    pub fn find_mode_move_cursor_right(&mut self){
+        assert!(self.mode == Mode::Find);
+        //if self.ui.util_bar.alternate_focused{
+        //    self.ui.util_bar.alternate_utility_widget.text_box.move_cursor_right();
+        //    self.update_alternate_util_bar_ui();
+        //}else{
             self.ui.util_bar.utility_widget.text_box.move_cursor_right();
             self.update_util_bar_ui();
-        }
+        //}
     }
-    pub fn find_replace_mode_next_instance(&mut self){
-        assert!(self.mode == Mode::FindReplace);
-    }
-    pub fn find_replace_mode_previous_instance(&mut self){
-        assert!(self.mode == Mode::FindReplace);
-    }
-    pub fn find_replace_mode_switch_util_bar_focus(&mut self){
-        assert!(self.mode == Mode::FindReplace);
-        self.ui.util_bar.alternate_focused = !self.ui.util_bar.alternate_focused;
-    }
-    pub fn find_replace_mode_text_validity_check(&mut self){
-        assert!(self.mode == Mode::FindReplace);
+    //pub fn find_replace_mode_next_instance(&mut self){
+    //    assert!(self.mode == Mode::Find);
+    //}
+    //pub fn find_replace_mode_previous_instance(&mut self){
+    //    assert!(self.mode == Mode::Find);
+    //}
+    //pub fn find_replace_mode_switch_util_bar_focus(&mut self){
+    //    assert!(self.mode == Mode::FindReplace);
+    //    self.ui.util_bar.alternate_focused = !self.ui.util_bar.alternate_focused;
+    //}
+    pub fn find_mode_text_validity_check(&mut self){
+        assert!(self.mode == Mode::Find);
         //run text validity check
         if !self.document.text().clone().to_string().contains(&self.ui.util_bar.utility_widget.text_box.text.to_string()){
             self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
@@ -1122,7 +1122,7 @@ impl Application{
 
         self.update_util_bar_ui();
 
-        self.update_alternate_util_bar_ui();
+        //self.update_alternate_util_bar_ui();
 
         self.document.view_mut().set_size(self.ui.document_viewport.document_widget.rect.width as usize, self.ui.document_viewport.document_widget.rect.height as usize);
 
@@ -1257,7 +1257,7 @@ impl Application{
     }
     pub fn set_mode_find_replace(&mut self){
         assert!(self.mode == Mode::Insert);
-        self.mode = Mode::FindReplace;
+        self.mode = Mode::Find;
     }
     pub fn set_mode_goto(&mut self){
         assert!(self.mode == Mode::Insert);

@@ -192,56 +192,56 @@ pub fn handle_goto_mode_keypress(app: &mut Application, keycode: KeyCode, modifi
 pub fn handle_find_replace_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
     match (keycode, modifiers){
         (KeyCode::Right, modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.find_replace_mode_extend_selection_right();}
-            else if modifiers == KeyModifiers::NONE{app.find_replace_mode_move_cursor_right();}
+            if modifiers == KeyModifiers::SHIFT{app.find_mode_extend_selection_right();}
+            else if modifiers == KeyModifiers::NONE{app.find_mode_move_cursor_right();}
             else{app.no_op();}
         }
         (KeyCode::Left, modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.find_replace_mode_extend_selection_left();}
-            else if modifiers == KeyModifiers::NONE{app.find_replace_mode_move_cursor_left();}
+            if modifiers == KeyModifiers::SHIFT{app.find_mode_extend_selection_left();}
+            else if modifiers == KeyModifiers::NONE{app.find_mode_move_cursor_left();}
             else{app.no_op();}
         }
         (KeyCode::Home, modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.find_replace_mode_extend_selection_home();}
-            else if modifiers == KeyModifiers::NONE{app.find_replace_mode_move_cursor_line_start();}
+            if modifiers == KeyModifiers::SHIFT{app.find_mode_extend_selection_home();}
+            else if modifiers == KeyModifiers::NONE{app.find_mode_move_cursor_line_start();}
             else{app.no_op();}
         }
         (KeyCode::End, modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.find_replace_mode_extend_selection_end();}
-            else if modifiers == KeyModifiers::NONE{app.find_replace_mode_move_cursor_line_end();}
+            if modifiers == KeyModifiers::SHIFT{app.find_mode_extend_selection_end();}
+            else if modifiers == KeyModifiers::NONE{app.find_mode_move_cursor_line_end();}
             else{app.no_op();}
         }
         (KeyCode::Char(c), modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.find_replace_mode_insert_char(c);}
-            else if modifiers == KeyModifiers::NONE{app.find_replace_mode_insert_char(c);}
+            if modifiers == KeyModifiers::SHIFT{app.find_mode_insert_char(c);}
+            else if modifiers == KeyModifiers::NONE{app.find_mode_insert_char(c);}
             else{app.no_op();}
         }
         (KeyCode::Esc, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.find_replace_mode_exit();}
+            if modifiers == KeyModifiers::NONE{app.find_mode_exit();}
             else{app.no_op();}
         }
-        (KeyCode::Tab, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.find_replace_mode_switch_util_bar_focus();}
-            else{app.no_op();}
+        (KeyCode::Tab, _modifiers) => {
+            //if modifiers == KeyModifiers::NONE{app.find_replace_mode_switch_util_bar_focus();}
+            /*else{*/app.no_op();//}
         }
-        (KeyCode::Up, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.find_replace_mode_previous_instance();}
-            else{app.no_op();}
+        (KeyCode::Up, _modifiers) => {
+            //if modifiers == KeyModifiers::NONE{app.find_replace_mode_previous_instance();}
+            /*else{*/app.no_op();//}
         }
-        (KeyCode::Down, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.find_replace_mode_next_instance();}
-            else{app.no_op();}
+        (KeyCode::Down, _modifiers) => {
+            //if modifiers == KeyModifiers::NONE{app.find_replace_mode_next_instance();}
+            /*else{*/app.no_op();//}
         }
         (KeyCode::Backspace, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.find_replace_mode_backspace();}
+            if modifiers == KeyModifiers::NONE{app.find_mode_backspace();}
             else{app.no_op();}
         }
         (KeyCode::Delete, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.find_replace_mode_delete();}
+            if modifiers == KeyModifiers::NONE{app.find_mode_delete();}
             else{app.no_op();}
         }
         (KeyCode::Enter, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.find_replace_mode_accept();}
+            if modifiers == KeyModifiers::NONE{app.find_mode_accept();}
             else{app.no_op();}
         }
         _ => {app.no_op();}
