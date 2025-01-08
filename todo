@@ -19,7 +19,7 @@ To meet reqs as simple text editor:
         [x] by specified amount, up until doc boundaries
         [ ] to doc boundaries in one keypress(example: alt+home for left boundary, alt+end for right boundary, alt+pg_up for top boundary, alt+pg_down for bottom boundary)
     [ ] move selected line/lines up or down in document(alt+up/alt+down in vs code)
-    [ ] selection copied indicator
+    [x] selection copied indicator
     [ ] cursor/selections should prob not render in all modes...
     [ ] system wide cut/copy/paste
     [ ] add lib.rs. move code into lib.rs except main. unit test library

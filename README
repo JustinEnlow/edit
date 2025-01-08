@@ -61,6 +61,7 @@ Features:
                 [ ] match regex pattern
                 [ ] incremental search
             [x] Warning (display useful warnings and visual responses to redundant/unhandled input)
+            [x] Text copied indicator
         [ ] Space mode/popup widget
             - allows for calling of functions without a modified(ctrl, shift, alt, etc) keybind. (like vim normal mode, i guess)
         [ ] highlighter(color various ui elements)

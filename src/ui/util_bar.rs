@@ -18,6 +18,7 @@ const COMMAND_PROMPT: &str = " Command: ";
 pub struct UtilityWidget{
     pub rect: Rect,
     pub text_box: InteractiveTextBox,
+    pub display_copied_indicator: bool,
 }
 impl UtilityWidget{
     pub fn widget(&self, mode: Mode) -> Paragraph<'static>{
@@ -60,6 +61,15 @@ impl UtilityWidget{
                 .alignment(ratatui::prelude::Alignment::Center)
                 .style(Style::default().bg(Color::Red).bold())
             ,
+            Mode::Insert => {
+                if self.display_copied_indicator{
+                    Paragraph::new("Text copied to clipboard.")
+                        .alignment(ratatui::prelude::Alignment::Center)
+                        .style(Style::default().bg(Color::Green).bold())
+                }else{
+                    Paragraph::new("".to_string())
+                }
+            }
             _ => Paragraph::new("".to_string())
         }
     }

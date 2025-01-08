@@ -118,6 +118,7 @@ impl UserInterface{
                         //        self.document_viewport.document_widget.rect.y + pos.y() as u16
                         //    ))
                         //}
+                        frame.render_widget(self.util_bar.utility_widget.widget(mode), self.util_bar.utility_widget.rect);  //only for copied_indicator
                     }
                     Mode::Goto | Mode::Command => {
                         frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);

@@ -80,10 +80,16 @@ impl Application{
     }
 
     pub fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<(), Box<dyn Error>>{
+        let mut clear_copied_indicator = false;
         loop{
             self.ui.update_layouts(self.mode);
             self.ui.render(terminal, self.mode)?;
             self.handle_event()?;
+            if clear_copied_indicator{  //TODO: copied indicator handling is a bit hacky. is there a better way to impl this?...
+                self.ui.util_bar.utility_widget.display_copied_indicator = false;
+                clear_copied_indicator = false;
+            }
+            if self.ui.util_bar.utility_widget.display_copied_indicator{clear_copied_indicator = true;}
             if self.should_quit{
                 return Ok(());
             }
@@ -163,8 +169,9 @@ impl Application{
     /////////////////////////////////////////////////////////////////////////// Custom ////////////////////////////////////////////////////////////////////////////////
     pub fn esc_handle(&mut self){
         assert!(self.mode == Mode::Insert);
+        if self.ui.util_bar.utility_widget.display_copied_indicator{self.ui.util_bar.utility_widget.display_copied_indicator = false;}
         //TODO: if lsp suggestions displaying(currently unimplemented), exit that display
-        if self.document.selections().count() > 1{
+        else if self.document.selections().count() > 1{
             self.clear_non_primary_selections();
         }
         else if self.document.selections().primary().is_extended(CURSOR_SEMANTICS){
@@ -388,7 +395,8 @@ impl Application{
         assert!(self.mode == Mode::Insert);
         match self.document.copy(){
             Ok(_) => {
-                //TODO: how can the user be given visual feedback that the requested action was accomplished? util bar indicator, similar to warning mode, without restricting further keypresses?
+                self.ui.util_bar.utility_widget.display_copied_indicator = true;
+                self.update_ui();
             }
             Err(e) => {
                 let this_file = std::panic::Location::caller().file();
