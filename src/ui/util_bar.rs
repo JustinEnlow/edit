@@ -2,8 +2,9 @@ use crate::ui::interactive_text_box::InteractiveTextBox;
 use crate::application::{Mode, WarningKind};
 use ratatui::layout::Rect;
 use ratatui::widgets::Paragraph;
-use ratatui::style::{Style, Color, Stylize};
+use ratatui::style::{Style, Stylize};
 use ratatui::layout::{Direction, Layout, Constraint};
+use crate::config::{UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR, UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR, WARNING_BACKGROUND_COLOR, WARNING_FOREGROUND_COLOR, COPIED_INDICATOR_BACKGROUND_COLOR, COPIED_INDICATOR_FOREGROUND_COLOR};
 
 
 
@@ -19,6 +20,7 @@ pub struct UtilityWidget{
     pub rect: Rect,
     pub text_box: InteractiveTextBox,
     pub display_copied_indicator: bool,
+    pub clear_copied_indicator: bool,   // clear_copied_indicator exists because copied_indicator widget rendering needs to persist for an entire loop cycle(until next keypress)
 }
 impl UtilityWidget{
     pub fn widget(&self, mode: Mode) -> Paragraph<'static>{
@@ -27,9 +29,18 @@ impl UtilityWidget{
                 let text = self.text_box.text.clone();
                 if self.text_box.text_is_valid{
                     Paragraph::new(self.text_box.view.text(&text))
+                        .style(
+                            Style::default()
+                            .bg(UTIL_BAR_BACKGROUND_COLOR)
+                            .fg(UTIL_BAR_FOREGROUND_COLOR)
+                        )
                 }else{
                     Paragraph::new(self.text_box.view.text(&text))
-                        .style(Style::default().fg(Color::Red))
+                        .style(
+                            Style::default()
+                                //.fg(Color::Red)
+                                .fg(UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR)
+                        )
                 }
             }
             Mode::Command => {
@@ -56,16 +67,31 @@ impl UtilityWidget{
                     WarningKind::InvalidInput => {
                         "WARNING! Invalid input."
                     }
+                    WarningKind::SameState => {
+                        "WARNING! Requested action results in the same state."
+                    }
                 }
             )
                 .alignment(ratatui::prelude::Alignment::Center)
-                .style(Style::default().bg(Color::Red).bold())
+                .style(
+                    Style::default()
+                        //.bg(Color::Red)
+                        .bg(WARNING_BACKGROUND_COLOR)
+                        .fg(WARNING_FOREGROUND_COLOR)
+                        .bold()
+                )
             ,
             Mode::Insert => {
                 if self.display_copied_indicator{
                     Paragraph::new("Text copied to clipboard.")
                         .alignment(ratatui::prelude::Alignment::Center)
-                        .style(Style::default().bg(Color::Green).bold())
+                        .style(
+                            Style::default()
+                                //.bg(Color::Green)
+                                .bg(COPIED_INDICATOR_BACKGROUND_COLOR)
+                                .fg(COPIED_INDICATOR_FOREGROUND_COLOR)
+                                .bold()
+                        )
                 }else{
                     Paragraph::new("".to_string())
                 }

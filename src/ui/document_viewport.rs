@@ -1,7 +1,8 @@
 use ratatui::layout::Rect;
 use ratatui::widgets::Paragraph;
-use ratatui::style::{Style, Color};
+use ratatui::style::Style;
 use ratatui::layout::{Alignment, Direction, Layout, Constraint};
+use crate::config::{LINE_NUMBER_BACKGROUNG_COLOR, LINE_NUMBER_FOREGROUNG_COLOR, DOCUMENT_BACKGROUND_COLOR, DOCUMENT_FOREGROUND_COLOR};
 
 
 
@@ -13,7 +14,11 @@ pub struct LineNumberWidget{
 impl LineNumberWidget{
     pub fn widget(&self) -> Paragraph<'static>{
         Paragraph::new(self.line_numbers_in_view.clone())
-            .style(Style::default().fg(Color::Rgb(100, 100, 100)))
+            .style(
+                Style::default()
+                    .bg(LINE_NUMBER_BACKGROUNG_COLOR)
+                    .fg(LINE_NUMBER_FOREGROUNG_COLOR)
+            )
             .alignment(Alignment::Right)
     }
 }
@@ -28,6 +33,11 @@ impl DocumentWidget{
     pub fn widget(&self) -> Paragraph<'static>{
         //let lines: Vec<String> = self.text_in_view.clone().lines().map(|line| line.to_string()).collect();
         Paragraph::new(self.text_in_view.clone())
+            .style(
+                Style::default()
+                    .bg(DOCUMENT_BACKGROUND_COLOR)
+                    .fg(DOCUMENT_FOREGROUND_COLOR)
+            )
     }
 }
 

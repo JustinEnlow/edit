@@ -38,7 +38,8 @@ pub enum WarningKind{
     SingleSelection,
     MultipleSelections,
     InvalidInput,
-    //SameState     //"Requested action results in the same state"  //TODO
+    SameState,
+    //UnhandledError(Error)    //should unhandled/"impossible here" errors have their own warning mode that displays the error text in the util bar, instead of potentially panicking?... prob should still panic if results in an invalid state...
 }
 
 
@@ -80,16 +81,10 @@ impl Application{
     }
 
     pub fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<(), Box<dyn Error>>{
-        let mut clear_copied_indicator = false;
         loop{
             self.ui.update_layouts(self.mode);
             self.ui.render(terminal, self.mode)?;
             self.handle_event()?;
-            if clear_copied_indicator{  //TODO: copied indicator handling is a bit hacky. is there a better way to impl this?...
-                self.ui.util_bar.utility_widget.display_copied_indicator = false;
-                clear_copied_indicator = false;
-            }
-            if self.ui.util_bar.utility_widget.display_copied_indicator{clear_copied_indicator = true;}
             if self.should_quit{
                 return Ok(());
             }
@@ -179,7 +174,7 @@ impl Application{
         }
         else{
             if SHOW_SAME_STATE_WARNINGS{
-                self.mode = Mode::Warning(WarningKind::InvalidInput);
+                self.mode = Mode::Warning(WarningKind::SameState);
             }
         }
     }
@@ -200,11 +195,11 @@ impl Application{
                 match e{
                     SelectionsError::CannotAddSelectionAbove => {
                         if SHOW_SAME_STATE_WARNINGS{
-                            self.mode = Mode::Warning(WarningKind::InvalidInput);
+                            self.mode = Mode::Warning(WarningKind::SameState);
                         }
                     }
                     SelectionsError::SpansMultipleLines => {/*TODO: extend selection up*/}
-                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}   //TODO: figure out how to diplay recoverable errors in warning mode
                 }
             }
         }
@@ -223,7 +218,7 @@ impl Application{
                 match e{
                     SelectionsError::CannotAddSelectionBelow => {
                         if SHOW_SAME_STATE_WARNINGS{
-                            self.mode = Mode::Warning(WarningKind::InvalidInput);
+                            self.mode = Mode::Warning(WarningKind::SameState);
                         }
                     }
                     SelectionsError::SpansMultipleLines => {/*TODO: extend selection down*/}
@@ -248,7 +243,7 @@ impl Application{
                 match e{
                     DocumentError::SelectionAtDocBounds => {
                         if SHOW_SAME_STATE_WARNINGS{
-                            self.mode = Mode::Warning(WarningKind::InvalidInput);
+                            self.mode = Mode::Warning(WarningKind::SameState);
                         }
                     }
                     _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
@@ -259,8 +254,6 @@ impl Application{
     pub fn center_view_vertically_around_cursor(&mut self){
         assert!(self.mode == Mode::Insert || self.mode == Mode::Space);
         let text = self.document.text().clone();
-        //*self.document.view_mut() = self.document.view().center_vertically_around_cursor(&self.document.selections().primary().clone(), &text, CURSOR_SEMANTICS);   //TODO: can this fail?
-        //self.update_ui();
         match self.document.view().center_vertically_around_cursor(&self.document.selections().primary().clone(), &text, CURSOR_SEMANTICS){
             Ok(new_view) => {
                 *self.document.view_mut() = new_view;
@@ -270,7 +263,7 @@ impl Application{
                 let this_file = std::panic::Location::caller().file();
                 let line_number = std::panic::Location::caller().line();
                 match e{
-                    ViewError::ResultsInSameState => {self.mode = Mode::Warning(WarningKind::InvalidInput);}    //should be same state warning
+                    ViewError::ResultsInSameState => {self.mode = Mode::Warning(WarningKind::SameState);}
                     _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
                 }
             }
@@ -291,7 +284,7 @@ impl Application{
                 let this_file = std::panic::Location::caller().file();
                 let line_number = std::panic::Location::caller().line();
                 match e{
-                    SelectionsError::SingleSelection => {self.mode = Mode::Warning(WarningKind::SingleSelection);}
+                    SelectionsError::SingleSelection => {self.mode = Mode::Warning(WarningKind::SingleSelection);}  //this could be a SameState Warning
                     _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
                 }
             }
@@ -311,7 +304,7 @@ impl Application{
                     match e{
                         SelectionError::ResultsInSameState => {
                             if SHOW_SAME_STATE_WARNINGS{
-                                self.mode = Mode::Warning(WarningKind::InvalidInput);
+                                self.mode = Mode::Warning(WarningKind::SameState);
                             }
                         }
                         _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
@@ -427,7 +420,7 @@ impl Application{
                 let this_file = std::panic::Location::caller().file();
                 let line_number = std::panic::Location::caller().line();
                 match e{
-                    DocumentError::SelectionAtDocBounds => {}
+                    DocumentError::SelectionAtDocBounds => {}   //TODO: figure out when this happens, and set proper warning
                     DocumentError::SelectionsError(selections_error) => {
                         match selections_error{
                             SelectionsError::MultipleSelections => {self.mode = Mode::Warning(WarningKind::MultipleSelections);}
@@ -455,7 +448,7 @@ impl Application{
                 match e{
                     DocumentError::SelectionAtDocBounds => {
                         if SHOW_SAME_STATE_WARNINGS{
-                            self.mode = Mode::Warning(WarningKind::InvalidInput);
+                            self.mode = Mode::Warning(WarningKind::SameState);
                         }
                     }
                     _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
@@ -500,7 +493,7 @@ impl Application{
                     match e{
                         SelectionError::ResultsInSameState => {
                             if SHOW_SAME_STATE_WARNINGS{
-                                self.mode = Mode::Warning(WarningKind::InvalidInput);
+                                self.mode = Mode::Warning(WarningKind::SameState);
                             }
                         }
                         _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.");}
@@ -539,7 +532,7 @@ impl Application{
                     match e{
                         SelectionError::ResultsInSameState => {
                             if SHOW_SAME_STATE_WARNINGS{
-                                self.mode = Mode::Warning(WarningKind::InvalidInput);
+                                self.mode = Mode::Warning(WarningKind::SameState);
                             }
                         }
                         _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.");}
@@ -738,15 +731,15 @@ impl Application{
                 }else{
                     // warning
                     self.ui.util_bar.utility_widget.text_box.clear();
-                    self.mode = Mode::Warning(WarningKind::InvalidInput);
+                    self.mode = Mode::Warning(WarningKind::InvalidInput);   //is invalid input correct here?
                 }
             }else{
                 self.goto_mode_exit();
-                self.mode = Mode::Warning(WarningKind::InvalidInput);
+                self.mode = Mode::Warning(WarningKind::InvalidInput);   //is invalid input correct here?
             }
         }else{
             self.ui.util_bar.utility_widget.text_box.clear();
-            self.mode = Mode::Warning(WarningKind::InvalidInput);
+            self.mode = Mode::Warning(WarningKind::InvalidInput);   //is invalid input correct here?
         }
     }
     pub fn goto_mode_backspace(&mut self){
@@ -888,7 +881,7 @@ impl Application{
                 match e{
                     DocumentError::InvalidInput => {
                         if SHOW_SAME_STATE_WARNINGS{
-                            self.mode = Mode::Warning(WarningKind::InvalidInput);
+                            self.mode = Mode::Warning(WarningKind::SameState);
                         }
                     }
                     _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
@@ -912,7 +905,7 @@ impl Application{
                 match e{
                     DocumentError::InvalidInput => {
                         if SHOW_SAME_STATE_WARNINGS{
-                            self.mode = Mode::Warning(WarningKind::InvalidInput);
+                            self.mode = Mode::Warning(WarningKind::SameState);
                         }
                     }
                     _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
@@ -930,7 +923,7 @@ impl Application{
                 match e{
                     DocumentError::InvalidInput => {
                         if SHOW_SAME_STATE_WARNINGS{
-                            self.mode = Mode::Warning(WarningKind::InvalidInput);
+                            self.mode = Mode::Warning(WarningKind::SameState);
                         }
                     }
                     _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
@@ -955,7 +948,7 @@ impl Application{
                     match e{
                         SelectionError::ResultsInSameState => {
                             if SHOW_SAME_STATE_WARNINGS{
-                                self.mode = Mode::Warning(WarningKind::InvalidInput);
+                                self.mode = Mode::Warning(WarningKind::SameState);
                             }
                         }
                         _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
@@ -1001,7 +994,7 @@ impl Application{
                     match e{
                         SelectionError::ResultsInSameState => {
                             if SHOW_SAME_STATE_WARNINGS{
-                                self.mode = Mode::Warning(WarningKind::InvalidInput);
+                                self.mode = Mode::Warning(WarningKind::SameState);
                             }
                         }
                         _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
@@ -1066,7 +1059,7 @@ impl Application{
                 match e{
                     DocumentError::InvalidInput => {
                         if SHOW_SAME_STATE_WARNINGS{
-                            self.mode = Mode::Warning(WarningKind::InvalidInput);
+                            self.mode = Mode::Warning(WarningKind::SameState);
                         }
                     }
                     _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
@@ -1100,7 +1093,7 @@ impl Application{
                 let this_file = std::panic::Location::caller().file();
                 let line_number = std::panic::Location::caller().line();
                 match e{
-                    DocumentError::NoChangesToRedo => {self.mode = Mode::Warning(WarningKind::InvalidInput);}
+                    DocumentError::NoChangesToRedo => {self.mode = Mode::Warning(WarningKind::SameState);}  //TODO: should undo/redo specific error mode be added?
                     _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
                 }
             }
@@ -1160,7 +1153,7 @@ impl Application{
     //    *self.document.view_mut() = new_view;
     //    self.update_ui();
     //}
-    pub fn scroll_view_down(&mut self, amount: usize){
+    pub fn scroll_view_down(&mut self, amount: usize){  //TODO: add SHOW_SAME_STATE_WARNINGS check to all scroll_view fns
         //self.scroll_view(ScrollDirection::Down, amount);
 
         assert!(self.mode == Mode::Insert);
@@ -1174,7 +1167,7 @@ impl Application{
             Err(e) => {
                 match e{
                     ViewError::InvalidInput => {self.mode = Mode::Warning(WarningKind::InvalidInput);}
-                    ViewError::ResultsInSameState => {self.mode = Mode::Warning(WarningKind::InvalidInput);}    //should be same state warning
+                    ViewError::ResultsInSameState => {self.mode = Mode::Warning(WarningKind::SameState);}
                 }
             }
         }
@@ -1192,7 +1185,7 @@ impl Application{
             Err(e) => {
                 match e{
                     ViewError::InvalidInput => {self.mode = Mode::Warning(WarningKind::InvalidInput);}
-                    ViewError::ResultsInSameState => {self.mode = Mode::Warning(WarningKind::InvalidInput);}    //should be same state warning
+                    ViewError::ResultsInSameState => {self.mode = Mode::Warning(WarningKind::SameState);}
                 }
             }
         }
@@ -1211,7 +1204,7 @@ impl Application{
             Err(e) => {
                 match e{
                     ViewError::InvalidInput => {self.mode = Mode::Warning(WarningKind::InvalidInput);}
-                    ViewError::ResultsInSameState => {self.mode = Mode::Warning(WarningKind::InvalidInput);}    //should be same state warning
+                    ViewError::ResultsInSameState => {self.mode = Mode::Warning(WarningKind::SameState);}
                 }
             }
         }
@@ -1229,7 +1222,7 @@ impl Application{
             Err(e) => {
                 match e{
                     ViewError::InvalidInput => {self.mode = Mode::Warning(WarningKind::InvalidInput);}
-                    ViewError::ResultsInSameState => {self.mode = Mode::Warning(WarningKind::InvalidInput);}    //should be same state warning
+                    ViewError::ResultsInSameState => {self.mode = Mode::Warning(WarningKind::SameState);}
                 }
             }
         }
@@ -1250,7 +1243,7 @@ impl Application{
                 match e{
                     SelectionError::ResultsInSameState => {
                         if SHOW_SAME_STATE_WARNINGS{
-                            self.mode = Mode::Warning(WarningKind::InvalidInput);
+                            self.mode = Mode::Warning(WarningKind::SameState);
                         }
                     }
                     _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
@@ -1293,7 +1286,7 @@ impl Application{
                 let this_file = std::panic::Location::caller().file();
                 let line_number = std::panic::Location::caller().line();
                 match e{
-                    DocumentError::NoChangesToUndo => {self.mode = Mode::Warning(WarningKind::InvalidInput);}
+                    DocumentError::NoChangesToUndo => {self.mode = Mode::Warning(WarningKind::SameState);}   //TODO: should undo/redo specific error mode be added?
                     _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
                 }
             }

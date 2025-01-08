@@ -1,8 +1,9 @@
 use edit_core::Position;
 use ratatui::layout::Rect;
 use ratatui::widgets::Paragraph;
-use ratatui::style::{Style, Color, Stylize};
+use ratatui::style::{Style, Stylize};
 use ratatui::layout::{Alignment, Direction, Layout, Constraint};
+use crate::config::{STATUS_BAR_BACKGROUND_COLOR, STATUS_BAR_FOREGROUND_COLOR};
 
 
 
@@ -23,7 +24,9 @@ impl SelectionsWidget{
             .alignment(Alignment::Center)
             .style(
                 Style::default()
-                    .bg(Color::DarkGray)
+                    //.bg(Color::DarkGray)
+                    .bg(STATUS_BAR_BACKGROUND_COLOR)
+                    .fg(STATUS_BAR_FOREGROUND_COLOR)
                     .bold()
             )
     }
@@ -41,7 +44,9 @@ impl DocumentCursorPositionWidget{
             .alignment(Alignment::Right)
             .style(
                 Style::default()
-                    .bg(Color::DarkGray)
+                    //.bg(Color::DarkGray)
+                    .bg(STATUS_BAR_BACKGROUND_COLOR)
+                    .fg(STATUS_BAR_FOREGROUND_COLOR)
                     .bold()
             )
     }
@@ -64,7 +69,9 @@ impl FileNameWidget{
             .alignment(Alignment::Left)
             .style(
                 Style::default()
-                    .bg(Color::DarkGray)
+                    //.bg(Color::DarkGray)
+                    .bg(STATUS_BAR_BACKGROUND_COLOR)
+                    .fg(STATUS_BAR_FOREGROUND_COLOR)
                     .bold()
             )
     }
@@ -77,13 +84,26 @@ pub struct ModifiedIndicatorWidget{
 }
 impl ModifiedIndicatorWidget{
     pub fn widget(&self) -> Paragraph<'static>{
-        Paragraph::new(MODIFIED_INDICATOR)
-            .alignment(Alignment::Left)
+        if self.document_modified_status{
+            Paragraph::new(MODIFIED_INDICATOR)
+                .alignment(Alignment::Left)
+                .style(
+                    Style::default()
+                        //.bg(Color::DarkGray)
+                        .bg(STATUS_BAR_BACKGROUND_COLOR)
+                        .fg(STATUS_BAR_FOREGROUND_COLOR)
+                        .bold()
+                )
+        }else{
+            Paragraph::new("".repeat(MODIFIED_INDICATOR.len()))
             .style(
                 Style::default()
-                    .bg(Color::DarkGray)
+                    //.bg(Color::DarkGray)
+                    .bg(STATUS_BAR_BACKGROUND_COLOR)
+                    .fg(STATUS_BAR_FOREGROUND_COLOR)
                     .bold()
             )
+        }
     }
 }
 
@@ -116,22 +136,25 @@ impl StatusBar{
             .direction(Direction::Horizontal)
             .constraints(
                 vec![
-                    // modified indicator width
-                    Constraint::Max(
-                        if self.modified_indicator_widget.document_modified_status{
-                            MODIFIED_INDICATOR.len() as u16
-                        }else{0}
-                    ),
                     // file_name width
                     Constraint::Max(
                         if let Some(file_name) = &self.file_name_widget.file_name{
                             file_name.len() as u16
                         }else{0}
                     ),
+                    // modified indicator width
+                    Constraint::Max(
+                        //if self.modified_indicator_widget.document_modified_status{
+                            MODIFIED_INDICATOR.len() as u16
+                        //}else{0}
+                    ),
                         //TODO: add padding around selections widget
+                    //Constraint::Min(0),
                     // selections widget
                     Constraint::Min(0),
+                    //Constraint::Max(format!("selections: {}/{}", self.selections_widget.primary_selection_index + 1, self.selections_widget.num_selections).len() as u16),
                         //TODO: add padding around selections widget
+                    //Constraint::Min(0),
                     // cursor position indicator width
                     //Constraint::Min(0)
                     Constraint::Max(format!("cursor: {}:{}", self.document_cursor_position_widget.document_cursor_position.y() + 1, self.document_cursor_position_widget.document_cursor_position.x() + 1).len() as u16)

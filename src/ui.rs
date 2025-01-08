@@ -59,8 +59,10 @@ impl UserInterface{
                     Constraint::Length(
                         match mode{
                             Mode::Warning(_) | Mode::Command | Mode::FindReplace | Mode::Goto => 1,
-                            Mode::Insert
-                            | Mode::Space => if self.status_bar.display{1}else{0}
+                            //Mode::Insert
+                            //| Mode::Space => if self.status_bar.display{1}else{0}
+                            Mode::Insert => if self.util_bar.utility_widget.display_copied_indicator || self.status_bar.display{1}else{0}
+                            Mode::Space => if self.status_bar.display{1}else{0}
                         }
                     )
                 ]
@@ -77,10 +79,12 @@ impl UserInterface{
         // dont have to set line num right padding(document_and_line_num_rect[1])
         self.document_viewport.document_widget.rect = document_viewport_rect[2];
         self.highlighter.rect = document_viewport_rect[2];
-        self.status_bar.modified_indicator_widget.rect = status_bar_rect[0];
-        self.status_bar.file_name_widget.rect = status_bar_rect[1];
-        self.status_bar.selections_widget.rect = status_bar_rect[2];
-        self.status_bar.document_cursor_position_widget.rect = status_bar_rect[3];
+        self.status_bar.file_name_widget.rect = status_bar_rect[0];
+        self.status_bar.modified_indicator_widget.rect = status_bar_rect[1];
+        //selections padding(status_bar_rect[2])
+        self.status_bar.selections_widget.rect = status_bar_rect[2];    //[3] with selections padding enabled
+        //selections padding(status_bar_rect[4])
+        self.status_bar.document_cursor_position_widget.rect = status_bar_rect[3];  //[5] with selections padding enabled
         self.util_bar.prompt.rect = util_rect[0];
         self.util_bar.utility_widget.rect = util_rect[1];
         self.util_bar.alternate_prompt.rect = util_rect[2];
@@ -118,7 +122,16 @@ impl UserInterface{
                         //        self.document_viewport.document_widget.rect.y + pos.y() as u16
                         //    ))
                         //}
-                        frame.render_widget(self.util_bar.utility_widget.widget(mode), self.util_bar.utility_widget.rect);  //only for copied_indicator
+                        
+                        // clear_copied_indicator exists because copied_indicator widget rendering needs to persist for an entire loop cycle(until next keypress)
+                        if self.util_bar.utility_widget.clear_copied_indicator{
+                            self.util_bar.utility_widget.display_copied_indicator = false;
+                            self.util_bar.utility_widget.clear_copied_indicator = false;
+                        }
+                        if self.util_bar.utility_widget.display_copied_indicator{
+                            frame.render_widget(self.util_bar.utility_widget.widget(mode), self.util_bar.utility_widget.rect);
+                            self.util_bar.utility_widget.clear_copied_indicator = true;
+                        }
                     }
                     Mode::Goto | Mode::Command => {
                         frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);

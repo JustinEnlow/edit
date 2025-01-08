@@ -3,8 +3,24 @@ use edit_core::{
     Position
 };
 use ratatui::layout::Rect;
-use ratatui::style::{Style, Color};
+use ratatui::style::Style;
+use crate::config::{SELECTION_BACKGROUND_COLOR, SELECTION_FOREGROUND_COLOR, CURSOR_BACKGROUND_COLOR, CURSOR_FOREGROUND_COLOR};
 
+
+/*TODO: separate Highlighter struct members into their own widget components, so they can be rendered separately in ui.rs       //or maybe each ui component should have its own highlighting sub component...
+    pub struct DocumentSelections{  //maybe syntax highlighting/error highlighting belong here too, idk...
+        pub rect: Rect,
+        pub selections: Option<Vec<Selection2d>>,
+        pub cursors: Option<Position>, or Option<Vec<Position>>
+    }
+    impl DocumentSelections{
+        fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer){}
+    }
+
+    pub struct UtilBarSelections{}
+    pub struct SyntaxHighlighting{}
+
+*/
 
 
 // render order matters. for example, always render cursors after selections, so that the cursor shows on top of the selection.
@@ -43,8 +59,10 @@ impl ratatui::widgets::Widget for Highlighter{
         
                     if let Some(cell) = buf.cell_mut((x_pos, y_pos)){
                         cell.set_style(Style::default()
-                            .bg(Color::Blue)
-                            .fg(Color::Black)
+                            //.bg(Color::Blue)
+                            .bg(SELECTION_BACKGROUND_COLOR)
+                            //.fg(Color::Black)
+                            .fg(SELECTION_FOREGROUND_COLOR)
                         );
                     }
                 }
@@ -54,8 +72,10 @@ impl ratatui::widgets::Widget for Highlighter{
         if let Some(cursor) = self.cursors{
             if let Some(cell) = buf.cell_mut((area.left() + (cursor.x() as u16), area.top() + (cursor.y() as u16))){
                 cell.set_style(Style::default()
-                    .bg(Color::White)
-                    .fg(Color::Black)
+                    //.bg(Color::White)
+                    .bg(CURSOR_BACKGROUND_COLOR)
+                    //.fg(Color::Black)
+                    .fg(CURSOR_FOREGROUND_COLOR)
                 );
             }
         }
