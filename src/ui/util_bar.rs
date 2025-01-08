@@ -50,25 +50,28 @@ impl UtilityWidget{
             Mode::Warning(kind) => Paragraph::new(
                 match kind{
                     WarningKind::FileIsModified => {
-                        "WARNING! File has unsaved changes. Press close again to ignore and close."
+                        "WARNING! File has unsaved changes. Press close again to ignore and close.".to_string()
                     }
                     WarningKind::FileSaveFailed => {
-                        "WARNING! File could not be saved."
+                        "WARNING! File could not be saved.".to_string()
                     }
                     WarningKind::CommandParseFailed => {
-                        "WARNING! Failed to parse command. Command may be undefined."
+                        "WARNING! Failed to parse command. Command may be undefined.".to_string()
                     }
                     WarningKind::SingleSelection => {
-                        "WARNING! Requested action cannot be performed on single selection."
+                        "WARNING! Requested action cannot be performed on single selection.".to_string()
                     }
                     WarningKind::MultipleSelections => {
-                        "WARNING! Requested action cannot be performed on multiple selections."
+                        "WARNING! Requested action cannot be performed on multiple selections.".to_string()
                     }
                     WarningKind::InvalidInput => {
-                        "WARNING! Invalid input."
+                        "WARNING! Invalid input.".to_string()
                     }
                     WarningKind::SameState => {
-                        "WARNING! Requested action results in the same state."
+                        "WARNING! Requested action results in the same state.".to_string()
+                    }
+                    WarningKind::UnhandledError(e) => {
+                        e
                     }
                 }
             )

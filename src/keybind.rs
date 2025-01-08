@@ -220,18 +220,18 @@ pub fn handle_find_replace_mode_keypress(app: &mut Application, keycode: KeyCode
             if modifiers == KeyModifiers::NONE{app.find_mode_exit();}
             else{app.no_op();}
         }
-        (KeyCode::Tab, _modifiers) => {
-            //if modifiers == KeyModifiers::NONE{app.find_replace_mode_switch_util_bar_focus();}
-            /*else{*/app.no_op();//}
-        }
-        (KeyCode::Up, _modifiers) => {
-            //if modifiers == KeyModifiers::NONE{app.find_replace_mode_previous_instance();}
-            /*else{*/app.no_op();//}
-        }
-        (KeyCode::Down, _modifiers) => {
-            //if modifiers == KeyModifiers::NONE{app.find_replace_mode_next_instance();}
-            /*else{*/app.no_op();//}
-        }
+        //(KeyCode::Tab, _modifiers) => {
+        //    //if modifiers == KeyModifiers::NONE{app.find_replace_mode_switch_util_bar_focus();}
+        //    /*else{*/app.no_op();//}
+        //}
+        //(KeyCode::Up, _modifiers) => {
+        //    //if modifiers == KeyModifiers::NONE{app.find_replace_mode_previous_instance();}
+        //    /*else{*/app.no_op();//}
+        //}
+        //(KeyCode::Down, _modifiers) => {
+        //    //if modifiers == KeyModifiers::NONE{app.find_replace_mode_next_instance();}
+        //    /*else{*/app.no_op();//}
+        //}
         (KeyCode::Backspace, modifiers) => {
             if modifiers == KeyModifiers::NONE{app.find_mode_backspace();}
             else{app.no_op();}

@@ -20,7 +20,7 @@ use crate::config::{CURSOR_SEMANTICS, SHOW_SAME_STATE_WARNINGS};
 //    Up
 //}
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, /*Copy, */PartialEq)]
 pub enum Mode{
     Insert,
     Space,
@@ -30,7 +30,7 @@ pub enum Mode{
     Goto,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, /*Copy, */PartialEq, Eq)]
 pub enum WarningKind{
     FileIsModified,
     FileSaveFailed,
@@ -39,7 +39,7 @@ pub enum WarningKind{
     MultipleSelections,
     InvalidInput,
     SameState,
-    //UnhandledError(Error)    //should unhandled/"impossible here" errors have their own warning mode that displays the error text in the util bar, instead of potentially panicking?... prob should still panic if results in an invalid state...
+    UnhandledError(String)    //should unhandled/"impossible here" errors have their own warning mode that displays the error text in the util bar, instead of potentially panicking?... prob should still panic if results in an invalid state...
 }
 
 
@@ -68,7 +68,7 @@ impl Application{
         instance.ui.status_bar.file_name_widget.file_name = instance.document.file_name();
         instance.ui.document_viewport.document_widget.doc_length = instance.document.len();
         
-        instance.ui.update_layouts(instance.mode);
+        instance.ui.update_layouts(instance.mode.clone());
         
         //init backend doc view size
         instance.document.view_mut().set_size(
@@ -82,8 +82,8 @@ impl Application{
 
     pub fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<(), Box<dyn Error>>{
         loop{
-            self.ui.update_layouts(self.mode);
-            self.ui.render(terminal, self.mode)?;
+            self.ui.update_layouts(self.mode.clone());
+            self.ui.render(terminal, self.mode.clone())?;
             self.handle_event()?;
             if self.should_quit{
                 return Ok(());
@@ -137,7 +137,6 @@ impl Application{
     pub fn scroll_and_update(&mut self, selection: &Selection){
         let text = self.document.text().clone();
         *self.document.view_mut() = self.document.view().scroll_following_cursor(selection, &text, CURSOR_SEMANTICS);
-
         self.update_ui();
     }
     pub fn checked_scroll_and_update(&mut self, selection: &Selection){
@@ -199,7 +198,8 @@ impl Application{
                         }
                     }
                     SelectionsError::SpansMultipleLines => {/*TODO: extend selection up*/}
-                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}   //TODO: figure out how to diplay recoverable errors in warning mode
+                    //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}   //TODO: figure out how to diplay recoverable errors in warning mode
+                    _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
             }
         }
@@ -222,7 +222,8 @@ impl Application{
                         }
                     }
                     SelectionsError::SpansMultipleLines => {/*TODO: extend selection down*/}
-                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
             }
         }
@@ -246,7 +247,8 @@ impl Application{
                             self.mode = Mode::Warning(WarningKind::SameState);
                         }
                     }
-                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
             }
         }
@@ -264,7 +266,8 @@ impl Application{
                 let line_number = std::panic::Location::caller().line();
                 match e{
                     ViewError::ResultsInSameState => {self.mode = Mode::Warning(WarningKind::SameState);}
-                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
             }
         }
@@ -285,7 +288,8 @@ impl Application{
                 let line_number = std::panic::Location::caller().line();
                 match e{
                     SelectionsError::SingleSelection => {self.mode = Mode::Warning(WarningKind::SingleSelection);}  //this could be a SameState Warning
-                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
             }
         }
@@ -307,7 +311,8 @@ impl Application{
                                 self.mode = Mode::Warning(WarningKind::SameState);
                             }
                         }
-                        _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                        //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                        _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                     }
                 }
             }
@@ -398,10 +403,12 @@ impl Application{
                     DocumentError::SelectionsError(selections_error) => {
                         match selections_error{
                             SelectionsError::MultipleSelections => {self.mode = Mode::Warning(WarningKind::MultipleSelections);}
-                            _ => {panic!("{selections_error:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                            //_ => {panic!("{selections_error:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                            _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{selections_error:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                         }
                     }
-                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 } 
             }
         }
@@ -424,10 +431,12 @@ impl Application{
                     DocumentError::SelectionsError(selections_error) => {
                         match selections_error{
                             SelectionsError::MultipleSelections => {self.mode = Mode::Warning(WarningKind::MultipleSelections);}
-                            _ => {panic!("{selections_error:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                            //_ => {panic!("{selections_error:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                            _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{selections_error:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                         }
                     }
-                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
             }
         }
@@ -451,7 +460,8 @@ impl Application{
                             self.mode = Mode::Warning(WarningKind::SameState);
                         }
                     }
-                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
             }
         }
@@ -460,7 +470,7 @@ impl Application{
         assert!(self.mode == Mode::Insert);
         self.ui.document_viewport.toggle_line_numbers();
                 
-        self.ui.update_layouts(self.mode);
+        self.ui.update_layouts(self.mode.clone());
         self.document.view_mut().set_size(
             self.ui.document_viewport.document_widget.rect.width as usize,
             self.ui.document_viewport.document_widget.rect.height as usize
@@ -471,7 +481,7 @@ impl Application{
         assert!(self.mode == Mode::Insert);
         self.ui.status_bar.toggle_status_bar();
                 
-        self.ui.update_layouts(self.mode);
+        self.ui.update_layouts(self.mode.clone());
         self.document.view_mut().set_size(
             self.ui.document_viewport.document_widget.rect.width as usize,
             self.ui.document_viewport.document_widget.rect.height as usize
@@ -496,7 +506,8 @@ impl Application{
                                 self.mode = Mode::Warning(WarningKind::SameState);
                             }
                         }
-                        _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.");}
+                        //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.");}
+                        _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                     }
                 }
             }
@@ -535,7 +546,8 @@ impl Application{
                                 self.mode = Mode::Warning(WarningKind::SameState);
                             }
                         }
-                        _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.");}
+                        //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.");}
+                        _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                     }
                 }
             }
@@ -845,7 +857,8 @@ impl Application{
                 let line_number = std::panic::Location::caller().line();
                 match e{
                     SelectionsError::SingleSelection => {self.mode = Mode::Warning(WarningKind::SingleSelection);}
-                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
             }
         }
@@ -866,7 +879,8 @@ impl Application{
                 let line_number = std::panic::Location::caller().line();
                 match e{
                     SelectionsError::SingleSelection => {self.mode = Mode::Warning(WarningKind::SingleSelection);}
-                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
             }
         }
@@ -884,7 +898,8 @@ impl Application{
                             self.mode = Mode::Warning(WarningKind::SameState);
                         }
                     }
-                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
             }
         }
@@ -908,7 +923,8 @@ impl Application{
                             self.mode = Mode::Warning(WarningKind::SameState);
                         }
                     }
-                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
             }
         }
@@ -926,7 +942,8 @@ impl Application{
                             self.mode = Mode::Warning(WarningKind::SameState);
                         }
                     }
-                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
             }
         }
@@ -951,7 +968,8 @@ impl Application{
                                 self.mode = Mode::Warning(WarningKind::SameState);
                             }
                         }
-                        _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                        //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                        _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                     }
                 }
             }
@@ -997,7 +1015,8 @@ impl Application{
                                 self.mode = Mode::Warning(WarningKind::SameState);
                             }
                         }
-                        _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                        //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                        _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                     }
                 }
             }
@@ -1062,7 +1081,8 @@ impl Application{
                             self.mode = Mode::Warning(WarningKind::SameState);
                         }
                     }
-                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
             }
         }
@@ -1094,7 +1114,8 @@ impl Application{
                 let line_number = std::panic::Location::caller().line();
                 match e{
                     DocumentError::NoChangesToRedo => {self.mode = Mode::Warning(WarningKind::SameState);}  //TODO: should undo/redo specific error mode be added?
-                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
             }
         }
@@ -1111,14 +1132,15 @@ impl Application{
                 let line_number = std::panic::Location::caller().line();
                 match e{
                     SelectionsError::SingleSelection => {self.mode = Mode::Warning(WarningKind::SingleSelection);}
-                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
             }
         }
     }
     pub fn resize(&mut self, x: u16, y: u16){
         self.ui.set_terminal_size(x, y);
-        self.ui.update_layouts(self.mode);
+        self.ui.update_layouts(self.mode.clone());
 
         self.update_util_bar_ui();
 
@@ -1246,7 +1268,8 @@ impl Application{
                             self.mode = Mode::Warning(WarningKind::SameState);
                         }
                     }
-                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
             }
         }
@@ -1287,7 +1310,8 @@ impl Application{
                 let line_number = std::panic::Location::caller().line();
                 match e{
                     DocumentError::NoChangesToUndo => {self.mode = Mode::Warning(WarningKind::SameState);}   //TODO: should undo/redo specific error mode be added?
-                    _ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                    _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
             }
         }

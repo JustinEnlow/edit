@@ -70,10 +70,10 @@ impl UserInterface{
             .split(self.terminal_size)
     }
     pub fn update_layouts(&mut self, mode: Mode){
-        let terminal_rect = self.layout_terminal(mode);
+        let terminal_rect = self.layout_terminal(mode.clone());
         let document_viewport_rect = self.document_viewport.layout(terminal_rect[0]);
         let status_bar_rect = self.status_bar.layout(terminal_rect[1]);
-        let util_rect = self.util_bar.layout(mode, terminal_rect[2]);
+        let util_rect = self.util_bar.layout(mode.clone(), terminal_rect[2]);
 
         self.document_viewport.line_number_widget.rect = document_viewport_rect[0];
         // dont have to set line num right padding(document_and_line_num_rect[1])
@@ -128,21 +128,21 @@ impl UserInterface{
                             self.util_bar.utility_widget.clear_copied_indicator = false;
                         }
                         if self.util_bar.utility_widget.display_copied_indicator{
-                            frame.render_widget(self.util_bar.utility_widget.widget(mode), self.util_bar.utility_widget.rect);
+                            frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
                             self.util_bar.utility_widget.clear_copied_indicator = true;
                         }
                     }
                     Mode::Goto | Mode::Command => {
-                        frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);
-                        frame.render_widget(self.util_bar.utility_widget.widget(mode), self.util_bar.utility_widget.rect);
+                        frame.render_widget(self.util_bar.prompt.widget(mode.clone()), self.util_bar.prompt.rect);
+                        frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
                         frame.set_cursor_position((
                             self.util_bar.utility_widget.rect.x + self.util_bar.utility_widget.text_box.cursor_position().saturating_sub(self.util_bar.utility_widget.text_box.view.horizontal_start() as u16),
                             self.terminal_size.height
                         ));
                     }
                     Mode::Find => {
-                        frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);
-                        frame.render_widget(self.util_bar.utility_widget.widget(mode), self.util_bar.utility_widget.rect);
+                        frame.render_widget(self.util_bar.prompt.widget(mode.clone()), self.util_bar.prompt.rect);
+                        frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
                         //frame.render_widget(self.util_bar.alternate_prompt.widget(mode), self.util_bar.alternate_prompt.rect);
                         //frame.render_widget(self.util_bar.alternate_utility_widget.widget(mode), self.util_bar.alternate_utility_widget.rect);
                         frame.set_cursor_position((
@@ -156,8 +156,8 @@ impl UserInterface{
                         ));
                     }
                     Mode::Warning(_) => {
-                        frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);
-                        frame.render_widget(self.util_bar.utility_widget.widget(mode), self.util_bar.utility_widget.rect);
+                        frame.render_widget(self.util_bar.prompt.widget(mode.clone()), self.util_bar.prompt.rect);
+                        frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
                     }
                     Mode::Space => {
                         frame.render_widget(ratatui::widgets::Clear, self.popups.space_mode_widget.rect);
