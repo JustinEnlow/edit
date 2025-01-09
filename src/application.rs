@@ -504,7 +504,46 @@ impl Application{
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
     
-        for selection in self.document.selections_mut().iter_mut(){
+        //for selection in self.document.selections_mut().iter_mut(){
+        //    match extend_fn(selection, &text, CURSOR_SEMANTICS){
+        //        Ok(new_selection) => {*selection = new_selection;}
+        //        Err(e) => {
+        //            let this_file = std::panic::Location::caller().file();
+        //            let line_number = std::panic::Location::caller().line();
+        //            match e{
+        //                SelectionError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
+        //                //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.");}
+        //                _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+        //            }
+        //        }
+        //    }
+        //}
+        //*self.document.selections_mut() = match self.document.selections().merge_overlapping(&text, CURSOR_SEMANTICS){
+        //    Ok(val) => val,
+        //    Err(_) => panic!()  //currently panicking when single selection. have core impl return reasonable error value to match against
+        //};
+        //self.checked_scroll_and_update(&self.document.selections().primary().clone());
+        if self.document.selections().count() > 1{
+            for selection in self.document.selections_mut().iter_mut(){
+                match extend_fn(selection, &text, CURSOR_SEMANTICS){
+                    Ok(new_selection) => {*selection = new_selection;}
+                    Err(e) => {
+                        let this_file = std::panic::Location::caller().file();
+                        let line_number = std::panic::Location::caller().line();
+                        match e{
+                            SelectionError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
+                            //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.");}
+                            _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+                        }
+                    }
+                }
+            }
+            *self.document.selections_mut() = match self.document.selections().merge_overlapping(&text, CURSOR_SEMANTICS){
+                Ok(val) => val,
+                Err(_) => panic!()  //currently panicking when single selection. have core impl return reasonable error value to match against
+            };
+        }else{
+            let selection = self.document.selections_mut().primary_mut();
             match extend_fn(selection, &text, CURSOR_SEMANTICS){
                 Ok(new_selection) => {*selection = new_selection;}
                 Err(e) => {
@@ -518,10 +557,6 @@ impl Application{
                 }
             }
         }
-        *self.document.selections_mut() = match self.document.selections().merge_overlapping(&text, CURSOR_SEMANTICS){
-            Ok(val) => val,
-            Err(_) => panic!()
-        };
         self.checked_scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn extend_selection_down(&mut self){
@@ -541,7 +576,46 @@ impl Application{
         let text = self.document.text().clone();
         let view = self.document.view().clone();
 
-        for selection in self.document.selections_mut().iter_mut(){
+        //for selection in self.document.selections_mut().iter_mut(){
+        //    match extend_fn(selection, &text, &view, CURSOR_SEMANTICS){
+        //        Ok(new_selection) => {*selection = new_selection;}
+        //        Err(e) => {
+        //            let this_file = std::panic::Location::caller().file();
+        //            let line_number = std::panic::Location::caller().line();
+        //            match e{
+        //                SelectionError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
+        //                //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.");}
+        //                _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+        //            }
+        //        }
+        //    }
+        //}
+        //*self.document.selections_mut() = match self.document.selections().merge_overlapping(&text, CURSOR_SEMANTICS){
+        //    Ok(val) => val,
+        //    Err(_) => panic!()  //currently panicking when single selection. have core impl return reasonable error value to match against
+        //};
+        //self.checked_scroll_and_update(&self.document.selections().primary().clone());
+        if self.document.selections().count() > 1{
+            for selection in self.document.selections_mut().iter_mut(){
+                match extend_fn(selection, &text, &view, CURSOR_SEMANTICS){
+                    Ok(new_selection) => {*selection = new_selection;}
+                    Err(e) => {
+                        let this_file = std::panic::Location::caller().file();
+                        let line_number = std::panic::Location::caller().line();
+                        match e{
+                            SelectionError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
+                            //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.");}
+                            _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+                        }
+                    }
+                }
+            }
+            *self.document.selections_mut() = match self.document.selections().merge_overlapping(&text, CURSOR_SEMANTICS){
+                Ok(val) => val,
+                Err(_) => panic!()  //currently panicking when single selection. have core impl return reasonable error value to match against
+            };
+        }else{
+            let selection = self.document.selections_mut().primary_mut();
             match extend_fn(selection, &text, &view, CURSOR_SEMANTICS){
                 Ok(new_selection) => {*selection = new_selection;}
                 Err(e) => {
@@ -555,10 +629,6 @@ impl Application{
                 }
             }
         }
-        *self.document.selections_mut() = match self.document.selections().merge_overlapping(&text, CURSOR_SEMANTICS){
-            Ok(val) => val,
-            Err(_) => panic!()
-        };
         self.checked_scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn extend_selection_page_down(&mut self){

@@ -34,12 +34,12 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
             else{app.no_op();}
         }
         (KeyCode::PageDown, modifiers) => {
-            if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){app.extend_selection_page_down();}
+            if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){app.extend_selection_page_down();}    //should this be shift+page_down?
             else if modifiers == KeyModifiers::NONE{app.move_cursor_page_down();}
             else{app.no_op();}
         }
         (KeyCode::PageUp, modifiers) => {
-            if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){app.extend_selection_page_up();}
+            if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){app.extend_selection_page_up();}  //should this be shift+page_up?
             else if modifiers == KeyModifiers::NONE{app.move_cursor_page_up();}
             else{app.no_op();}
         }
