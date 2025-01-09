@@ -15,6 +15,7 @@ Features:
                 [x] page up/down
                 [x] doc start/end
                 [x] word boundaries
+                [x] merge overlapping
             [ ] add selection
                 [x] above(and make view follow top selection)
                 [x] below(and make view follow bottom selection)

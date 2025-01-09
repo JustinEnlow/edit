@@ -94,12 +94,12 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
             else{app.no_op();}
         }
         (KeyCode::Delete, modifiers) => {
-            if modifiers == KeyModifiers::CONTROL{/*app.delete_word_forwards();*/} //TODO: impl this functionality
+            if modifiers == KeyModifiers::CONTROL{app.delete_to_next_word_boundary();}
             else if modifiers == KeyModifiers::NONE{app.delete();}
             else{app.no_op();}
         }
         (KeyCode::Backspace, modifiers) => {
-            if modifiers == KeyModifiers::CONTROL{/*app.delete_word_backwards();*/}    //TODO: impl this functionality
+            if modifiers == KeyModifiers::CONTROL{app.delete_to_previous_word_boundary();}
             else if modifiers == KeyModifiers::NONE{app.backspace();}
             else{app.no_op();}
         }

@@ -179,6 +179,8 @@ impl Application{
     }
     /////////////////////////////////////////////////////////////////////////// Custom ////////////////////////////////////////////////////////////////////////////////
     
+    //TODO: fixed unexpected edge cases for multicursor movement fns. do same for extension and possibly for insertion/deletion, if they prove to need it...
+
     /////////////////////////////////////////////////////////////////////////// Built in ////////////////////////////////////////////////////////////////////////////////
     pub fn add_selection_above(&mut self){
         assert!(self.mode == Mode::Insert);
@@ -192,11 +194,7 @@ impl Application{
                 let this_file = std::panic::Location::caller().file();
                 let line_number = std::panic::Location::caller().line();
                 match e{
-                    SelectionsError::CannotAddSelectionAbove => {
-                        if SHOW_SAME_STATE_WARNINGS{
-                            self.mode = Mode::Warning(WarningKind::SameState);
-                        }
-                    }
+                    SelectionsError::CannotAddSelectionAbove => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
                     SelectionsError::SpansMultipleLines => {/*TODO: extend selection up*/}
                     //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}   //TODO: figure out how to diplay recoverable errors in warning mode
                     _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
@@ -216,11 +214,7 @@ impl Application{
                 let this_file = std::panic::Location::caller().file();
                 let line_number = std::panic::Location::caller().line();
                 match e{
-                    SelectionsError::CannotAddSelectionBelow => {
-                        if SHOW_SAME_STATE_WARNINGS{
-                            self.mode = Mode::Warning(WarningKind::SameState);
-                        }
-                    }
+                    SelectionsError::CannotAddSelectionBelow => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
                     SelectionsError::SpansMultipleLines => {/*TODO: extend selection down*/}
                     //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
                     _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
@@ -242,18 +236,14 @@ impl Application{
                 let this_file = std::panic::Location::caller().file();
                 let line_number = std::panic::Location::caller().line();
                 match e{
-                    DocumentError::SelectionAtDocBounds => {
-                        if SHOW_SAME_STATE_WARNINGS{
-                            self.mode = Mode::Warning(WarningKind::SameState);
-                        }
-                    }
+                    DocumentError::SelectionAtDocBounds => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
                     //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
                     _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
             }
         }
     }
-    pub fn center_view_vertically_around_cursor(&mut self){
+    pub fn center_view_vertically_around_cursor(&mut self){ //TODO: still need to handle already centered cursor not showing same state warning
         assert!(self.mode == Mode::Insert || self.mode == Mode::Space);
         let text = self.document.text().clone();
         match self.document.view().center_vertically_around_cursor(&self.document.selections().primary().clone(), &text, CURSOR_SEMANTICS){
@@ -265,7 +255,7 @@ impl Application{
                 let this_file = std::panic::Location::caller().file();
                 let line_number = std::panic::Location::caller().line();
                 match e{
-                    ViewError::ResultsInSameState => {self.mode = Mode::Warning(WarningKind::SameState);}
+                    ViewError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
                     //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
                     _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
@@ -299,18 +289,12 @@ impl Application{
         let text = self.document.text().clone();
         for selection in self.document.selections_mut().iter_mut(){ //TODO: consider how to handle errors when iterating over multiple selections...
             match selection.collapse(&text, CURSOR_SEMANTICS){
-                Ok(new_selection) => {
-                    *selection = new_selection;
-                }
+                Ok(new_selection) => {*selection = new_selection;}
                 Err(e) => {
                     let this_file = std::panic::Location::caller().file();
                     let line_number = std::panic::Location::caller().line();
                     match e{
-                        SelectionError::ResultsInSameState => {
-                            if SHOW_SAME_STATE_WARNINGS{
-                                self.mode = Mode::Warning(WarningKind::SameState);
-                            }
-                        }
+                        SelectionError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
                         //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
                         _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                     }
@@ -318,6 +302,28 @@ impl Application{
             }
         }
         self.checked_scroll_and_update(&self.document.selections().primary().clone());   //TODO: should this be moved up into the Ok match arm?  //can't borrow self in Ok match arm above because we are iterating through multiple selections
+        
+        // possibly improved impl
+        //let mut movement_succeeded = false;
+        //for selection in self.document.selections_mut().iter_mut(){
+        //    match selection.collapse(&text, CURSOR_SEMANTICS){
+        //        Ok(new_selection) => {
+        //            *selection = new_selection;
+        //            movement_succeeded = true;
+        //        }
+        //        Err(e) => {
+        //            let this_file = std::panic::Location::caller().file();
+        //            let line_number = std::panic::Location::caller().line();
+        //            match e{
+        //                SelectionError::ResultsInSameState => {/*same state handled later in fn*/}
+        //                //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+        //                _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+        //            }
+        //        }
+        //    }
+        //}
+        //if !movement_succeeded && SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}
+        //self.checked_scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn command_mode_accept(&mut self){
         assert!(self.mode == Mode::Command);
@@ -455,16 +461,22 @@ impl Application{
                 let this_file = std::panic::Location::caller().file();
                 let line_number = std::panic::Location::caller().line();
                 match e{
-                    DocumentError::SelectionAtDocBounds => {
-                        if SHOW_SAME_STATE_WARNINGS{
-                            self.mode = Mode::Warning(WarningKind::SameState);
-                        }
-                    }
+                    DocumentError::SelectionAtDocBounds => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
                     //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
                     _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
             }
         }
+    }
+    pub fn delete_to_next_word_boundary(&mut self){ //TODO: why does this panic at doc start?
+        //assert!(self.mode == Mode::Insert);
+        //self.extend_selection_word_boundary_forward();
+        //self.delete();
+    }
+    pub fn delete_to_previous_word_boundary(&mut self){ //TODO: why does this panic at doc start?
+        //assert!(self.mode == Mode::Insert);
+        //self.extend_selection_word_boundary_backward();
+        //self.delete();
     }
     pub fn display_line_numbers(&mut self){
         assert!(self.mode == Mode::Insert);
@@ -494,25 +506,22 @@ impl Application{
     
         for selection in self.document.selections_mut().iter_mut(){
             match extend_fn(selection, &text, CURSOR_SEMANTICS){
-                Ok(new_selection) => {
-                    *selection = new_selection;
-                }
+                Ok(new_selection) => {*selection = new_selection;}
                 Err(e) => {
                     let this_file = std::panic::Location::caller().file();
                     let line_number = std::panic::Location::caller().line();
                     match e{
-                        SelectionError::ResultsInSameState => {
-                            if SHOW_SAME_STATE_WARNINGS{
-                                self.mode = Mode::Warning(WarningKind::SameState);
-                            }
-                        }
+                        SelectionError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
                         //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.");}
                         _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                     }
                 }
             }
         }
-        *self.document.selections_mut() = self.document.selections().merge_overlapping(&text);
+        *self.document.selections_mut() = match self.document.selections().merge_overlapping(&text, CURSOR_SEMANTICS){
+            Ok(val) => val,
+            Err(_) => panic!()
+        };
         self.checked_scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn extend_selection_down(&mut self){
@@ -534,25 +543,22 @@ impl Application{
 
         for selection in self.document.selections_mut().iter_mut(){
             match extend_fn(selection, &text, &view, CURSOR_SEMANTICS){
-                Ok(new_selection) => {
-                    *selection = new_selection;
-                }
+                Ok(new_selection) => {*selection = new_selection;}
                 Err(e) => {
                     let this_file = std::panic::Location::caller().file();
                     let line_number = std::panic::Location::caller().line();
                     match e{
-                        SelectionError::ResultsInSameState => {
-                            if SHOW_SAME_STATE_WARNINGS{
-                                self.mode = Mode::Warning(WarningKind::SameState);
-                            }
-                        }
+                        SelectionError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
                         //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.");}
                         _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                     }
                 }
             }
         }
-        *self.document.selections_mut() = self.document.selections().merge_overlapping(&text);
+        *self.document.selections_mut() = match self.document.selections().merge_overlapping(&text, CURSOR_SEMANTICS){
+            Ok(val) => val,
+            Err(_) => panic!()
+        };
         self.checked_scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn extend_selection_page_down(&mut self){
@@ -893,11 +899,7 @@ impl Application{
                 let this_file = std::panic::Location::caller().file();
                 let line_number = std::panic::Location::caller().line();
                 match e{
-                    DocumentError::InvalidInput => {
-                        if SHOW_SAME_STATE_WARNINGS{
-                            self.mode = Mode::Warning(WarningKind::SameState);
-                        }
-                    }
+                    DocumentError::InvalidInput => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
                     //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
                     _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
@@ -918,11 +920,7 @@ impl Application{
                 let this_file = std::panic::Location::caller().file();
                 let line_number = std::panic::Location::caller().line();
                 match e{
-                    DocumentError::InvalidInput => {
-                        if SHOW_SAME_STATE_WARNINGS{
-                            self.mode = Mode::Warning(WarningKind::SameState);
-                        }
-                    }
+                    DocumentError::InvalidInput => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
                     //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
                     _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
@@ -937,38 +935,43 @@ impl Application{
                 let this_file = std::panic::Location::caller().file();
                 let line_number = std::panic::Location::caller().line();
                 match e{
-                    DocumentError::InvalidInput => {
-                        if SHOW_SAME_STATE_WARNINGS{
-                            self.mode = Mode::Warning(WarningKind::SameState);
-                        }
-                    }
+                    DocumentError::InvalidInput => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
                     //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
                     _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
             }
         }
     }
-    pub fn move_cursor(&mut self, movement_fn: fn(&Selection, &Rope, CursorSemantics) -> Result<Selection, SelectionError>){
+    pub fn move_cursor_document_end(&mut self){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
     
-        if let Ok(new_selections) = self.document.selections().clear_non_primary_selections(){
-            *self.document.selections_mut() = new_selections;
-        }// intentionally ignoring any errors
+        if self.document.selections().count() > 1{
+            if let Ok(new_selections) = self.document.selections().clear_non_primary_selections(){
+                *self.document.selections_mut() = new_selections;
+            }// intentionally ignoring any errors
     
-        for selection in self.document.selections_mut().iter_mut(){
-            match movement_fn(selection, &text, CURSOR_SEMANTICS){
+            let selection = self.document.selections_mut().primary_mut();
+            match selection.move_doc_end(&text, CURSOR_SEMANTICS){
                 Ok(new_selection) => {*selection = new_selection;}
                 Err(e) => {
                     let this_file = std::panic::Location::caller().file();
                     let line_number = std::panic::Location::caller().line();
                     match e{
-                        SelectionError::ResultsInSameState => {
-                            if SHOW_SAME_STATE_WARNINGS{
-                                self.mode = Mode::Warning(WarningKind::SameState);
-                            }
-                        }
-                        //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                        SelectionError::ResultsInSameState => {/*don't show same state warning, because we are clearing non primary*/}
+                        _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+                    }
+                }
+            }
+        }else{
+            let selection = self.document.selections_mut().primary_mut();
+            match selection.move_doc_end(&text, CURSOR_SEMANTICS){
+                Ok(new_selection) => {*selection = new_selection;}
+                Err(e) => {
+                    let this_file = std::panic::Location::caller().file();
+                    let line_number = std::panic::Location::caller().line();
+                    match e{
+                        SelectionError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
                         _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                     }
                 }
@@ -976,24 +979,169 @@ impl Application{
         }
         self.checked_scroll_and_update(&self.document.selections().primary().clone());
     }
-    pub fn move_cursor_document_end(&mut self){
-        self.move_cursor(Selection::move_doc_end);
-    }
     pub fn move_cursor_document_start(&mut self){
-        self.move_cursor(Selection::move_doc_start);
+        assert!(self.mode == Mode::Insert);
+        let text = self.document.text().clone();
+    
+        if self.document.selections().count() > 1{
+            if let Ok(new_selections) = self.document.selections().clear_non_primary_selections(){
+                *self.document.selections_mut() = new_selections;
+            }// intentionally ignoring any errors
+    
+            let selection = self.document.selections_mut().primary_mut();
+            match selection.move_doc_start(&text, CURSOR_SEMANTICS){
+                Ok(new_selection) => {*selection = new_selection;}
+                Err(e) => {
+                    let this_file = std::panic::Location::caller().file();
+                    let line_number = std::panic::Location::caller().line();
+                    match e{
+                        SelectionError::ResultsInSameState => {/*don't show same state warning, because we are clearing non primary*/}
+                        _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+                    }
+                }
+            }
+        }else{
+            let selection = self.document.selections_mut().primary_mut();
+            match selection.move_doc_start(&text, CURSOR_SEMANTICS){
+                Ok(new_selection) => {*selection = new_selection;}
+                Err(e) => {
+                    let this_file = std::panic::Location::caller().file();
+                    let line_number = std::panic::Location::caller().line();
+                    match e{
+                        SelectionError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
+                        _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+                    }
+                }
+            }
+        }
+        self.checked_scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn move_cursor_down(&mut self){
-        self.move_cursor(Selection::move_down);
+        assert!(self.mode == Mode::Insert);
+        let text = self.document.text().clone();
+
+        if self.document.selections().count() > 1{
+            for selection in self.document.selections_mut().iter_mut(){
+                match selection.move_down(&text, CURSOR_SEMANTICS){
+                    Ok(new_selection) => {*selection = new_selection;}
+                    Err(e) => {
+                        let this_file = std::panic::Location::caller().file();
+                        let line_number = std::panic::Location::caller().line();
+                        match e{
+                            SelectionError::ResultsInSameState => {/*do nothing. overlapping selections will be merged*/}
+                            _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+                        }
+                    }
+                }
+            }
+            *self.document.selections_mut() = match self.document.selections().merge_overlapping(&text, CURSOR_SEMANTICS){
+                Ok(val) => val,
+                Err(_) => panic!()
+            };
+        }else{
+            let selection = self.document.selections_mut().primary_mut();
+            match selection.move_down(&text, CURSOR_SEMANTICS){
+                Ok(new_selection) => {*selection = new_selection;}
+                Err(e) => {
+                    let this_file = std::panic::Location::caller().file();
+                    let line_number = std::panic::Location::caller().line();
+                    match e{
+                        SelectionError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
+                        _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+                    }
+                }
+            }
+        }
+        self.checked_scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn move_cursor_left(&mut self){
-        self.move_cursor(Selection::move_left);
+        assert!(self.mode == Mode::Insert);
+        let text = self.document.text().clone();
+
+        if self.document.selections().count() > 1{
+            for selection in self.document.selections_mut().iter_mut(){
+                match selection.move_left(&text, CURSOR_SEMANTICS){
+                    Ok(new_selection) => {*selection = new_selection;}
+                    Err(e) => {
+                        let this_file = std::panic::Location::caller().file();
+                        let line_number = std::panic::Location::caller().line();
+                        match e{
+                            SelectionError::ResultsInSameState => {/*do nothing. overlapping selections will be merged*/}
+                            _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+                        }
+                    }
+                }
+            }
+            *self.document.selections_mut() = match self.document.selections().merge_overlapping(&text, CURSOR_SEMANTICS){
+                Ok(val) => val,
+                Err(_) => panic!()
+            };
+        }else{
+            let selection = self.document.selections_mut().primary_mut();
+            match selection.move_left(&text, CURSOR_SEMANTICS){
+                Ok(new_selection) => {*selection = new_selection;}
+                Err(e) => {
+                    let this_file = std::panic::Location::caller().file();
+                    let line_number = std::panic::Location::caller().line();
+                    match e{
+                        SelectionError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
+                        _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+                    }
+                }
+            }
+        }
+        self.checked_scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn move_cursor_line_end(&mut self){
-        self.move_cursor(Selection::move_line_text_end);
+        assert!(self.mode == Mode::Insert);
+        let text = self.document.text().clone();
+    
+        let mut movement_succeeded = false;
+        for selection in self.document.selections_mut().iter_mut(){
+            match selection.move_line_text_end(&text, CURSOR_SEMANTICS){
+                Ok(new_selection) => {
+                    *selection = new_selection;
+                    movement_succeeded = true;
+                }
+                Err(e) => {
+                    let this_file = std::panic::Location::caller().file();
+                    let line_number = std::panic::Location::caller().line();
+                    match e{
+                        SelectionError::ResultsInSameState => {/*same state handled later in fn*/}
+                        _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+                    }
+                }
+            }
+        }
+        if !movement_succeeded && SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}
+        self.checked_scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn move_cursor_line_start(&mut self){
-        self.move_cursor(Selection::move_home);
+        assert!(self.mode == Mode::Insert);
+        let text = self.document.text().clone();
+    
+        let mut movement_succeeded = false;
+        for selection in self.document.selections_mut().iter_mut(){
+            match selection.move_line_text_start(&text, CURSOR_SEMANTICS){
+                Ok(new_selection) => {
+                    *selection = new_selection;
+                    movement_succeeded = true;
+                }
+                Err(e) => {
+                    let this_file = std::panic::Location::caller().file();
+                    let line_number = std::panic::Location::caller().line();
+                    match e{
+                        SelectionError::ResultsInSameState => {/*same state handled later in fn*/}
+                        _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+                    }
+                }
+            }
+        }
+        if !movement_succeeded && SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}
+        self.checked_scroll_and_update(&self.document.selections().primary().clone());
     }
+    //TODO: if multicursor and cursor at page top/bottom, triggers same state warning. should clear non primary instead
+    // is this truly the desired behavior?...vs code seems to move grouped multicursors down by a page instead
     pub fn move_cursor_page(&mut self, movement_fn: fn(&Selection, &Rope, &View, CursorSemantics) -> Result<Selection, SelectionError>){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
@@ -1010,12 +1158,7 @@ impl Application{
                     let this_file = std::panic::Location::caller().file();
                     let line_number = std::panic::Location::caller().line();
                     match e{
-                        SelectionError::ResultsInSameState => {
-                            if SHOW_SAME_STATE_WARNINGS{
-                                self.mode = Mode::Warning(WarningKind::SameState);
-                            }
-                        }
-                        //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
+                        SelectionError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
                         _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                     }
                 }
@@ -1030,16 +1173,156 @@ impl Application{
         self.move_cursor_page(Selection::move_page_up);
     }
     pub fn move_cursor_right(&mut self){
-        self.move_cursor(Selection::move_right);
+        assert!(self.mode == Mode::Insert);
+        let text = self.document.text().clone();
+
+        if self.document.selections().count() > 1{
+            for selection in self.document.selections_mut().iter_mut(){
+                match selection.move_right(&text, CURSOR_SEMANTICS){
+                    Ok(new_selection) => {*selection = new_selection;}
+                    Err(e) => {
+                        let this_file = std::panic::Location::caller().file();
+                        let line_number = std::panic::Location::caller().line();
+                        match e{
+                            SelectionError::ResultsInSameState => {/*do nothing. overlapping selections will be merged*/}
+                            _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+                        }
+                    }
+                }
+            }
+            *self.document.selections_mut() = match self.document.selections().merge_overlapping(&text, CURSOR_SEMANTICS){
+                Ok(val) => val,
+                Err(_) => panic!()
+            };
+        }else{
+            let selection = self.document.selections_mut().primary_mut();
+            match selection.move_right(&text, CURSOR_SEMANTICS){
+                Ok(new_selection) => {*selection = new_selection;}
+                Err(e) => {
+                    let this_file = std::panic::Location::caller().file();
+                    let line_number = std::panic::Location::caller().line();
+                    match e{
+                        SelectionError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
+                        _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+                    }
+                }
+            }
+        }
+        self.checked_scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn move_cursor_word_boundary_forward(&mut self){
-        self.move_cursor(Selection::move_right_word_boundary);
+        assert!(self.mode == Mode::Insert);
+        let text = self.document.text().clone();
+
+        if self.document.selections().count() > 1{
+            for selection in self.document.selections_mut().iter_mut(){
+                match selection.move_right_word_boundary(&text, CURSOR_SEMANTICS){
+                    Ok(new_selection) => {*selection = new_selection;}
+                    Err(e) => {
+                        let this_file = std::panic::Location::caller().file();
+                        let line_number = std::panic::Location::caller().line();
+                        match e{
+                            SelectionError::ResultsInSameState => {/*do nothing. overlapping selections will be merged*/}
+                            _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+                        }
+                    }
+                }
+            }
+            *self.document.selections_mut() = match self.document.selections().merge_overlapping(&text, CURSOR_SEMANTICS){
+                Ok(val) => val,
+                Err(_) => panic!()
+            };
+        }else{
+            let selection = self.document.selections_mut().primary_mut();
+            match selection.move_right_word_boundary(&text, CURSOR_SEMANTICS){
+                Ok(new_selection) => {*selection = new_selection;}
+                Err(e) => {
+                    let this_file = std::panic::Location::caller().file();
+                    let line_number = std::panic::Location::caller().line();
+                    match e{
+                        SelectionError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
+                        _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+                    }
+                }
+            }
+        }
+        self.checked_scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn move_cursor_word_boundary_backward(&mut self){
-        self.move_cursor(Selection::move_left_word_boundary);
+        assert!(self.mode == Mode::Insert);
+        let text = self.document.text().clone();
+
+        if self.document.selections().count() > 1{
+            for selection in self.document.selections_mut().iter_mut(){
+                match selection.move_left_word_boundary(&text, CURSOR_SEMANTICS){
+                    Ok(new_selection) => {*selection = new_selection;}
+                    Err(e) => {
+                        let this_file = std::panic::Location::caller().file();
+                        let line_number = std::panic::Location::caller().line();
+                        match e{
+                            SelectionError::ResultsInSameState => {/*do nothing. overlapping selections will be merged*/}
+                            _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+                        }
+                    }
+                }
+            }
+            *self.document.selections_mut() = match self.document.selections().merge_overlapping(&text, CURSOR_SEMANTICS){
+                Ok(val) => val,
+                Err(_) => panic!()
+            };
+        }else{
+            let selection = self.document.selections_mut().primary_mut();
+            match selection.move_left_word_boundary(&text, CURSOR_SEMANTICS){
+                Ok(new_selection) => {*selection = new_selection;}
+                Err(e) => {
+                    let this_file = std::panic::Location::caller().file();
+                    let line_number = std::panic::Location::caller().line();
+                    match e{
+                        SelectionError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
+                        _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+                    }
+                }
+            }
+        }
+        self.checked_scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn move_cursor_up(&mut self){
-        self.move_cursor(Selection::move_up);
+        assert!(self.mode == Mode::Insert);
+        let text = self.document.text().clone();
+
+        if self.document.selections().count() > 1{
+            for selection in self.document.selections_mut().iter_mut(){
+                match selection.move_up(&text, CURSOR_SEMANTICS){
+                    Ok(new_selection) => {*selection = new_selection;}
+                    Err(e) => {
+                        let this_file = std::panic::Location::caller().file();
+                        let line_number = std::panic::Location::caller().line();
+                        match e{
+                            SelectionError::ResultsInSameState => {/*do nothing. overlapping selections will be merged*/}
+                            _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+                        }
+                    }
+                }
+            }
+            *self.document.selections_mut() = match self.document.selections().merge_overlapping(&text, CURSOR_SEMANTICS){
+                Ok(val) => val,
+                Err(_) => panic!()
+            };
+        }else{
+            let selection = self.document.selections_mut().primary_mut();
+            match selection.move_up(&text, CURSOR_SEMANTICS){
+                Ok(new_selection) => {*selection = new_selection;}
+                Err(e) => {
+                    let this_file = std::panic::Location::caller().file();
+                    let line_number = std::panic::Location::caller().line();
+                    match e{
+                        SelectionError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
+                        _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+                    }
+                }
+            }
+        }
+        self.checked_scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn no_op(&mut self){/* TODO: warn unbound keypress */}
     pub fn open_new_terminal_window(&self){
@@ -1076,11 +1359,7 @@ impl Application{
                 let this_file = std::panic::Location::caller().file();
                 let line_number = std::panic::Location::caller().line();
                 match e{
-                    DocumentError::InvalidInput => {
-                        if SHOW_SAME_STATE_WARNINGS{
-                            self.mode = Mode::Warning(WarningKind::SameState);
-                        }
-                    }
+                    DocumentError::InvalidInput => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
                     //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
                     _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
@@ -1113,7 +1392,7 @@ impl Application{
                 let this_file = std::panic::Location::caller().file();
                 let line_number = std::panic::Location::caller().line();
                 match e{
-                    DocumentError::NoChangesToRedo => {self.mode = Mode::Warning(WarningKind::SameState);}  //TODO: should undo/redo specific error mode be added?
+                    DocumentError::NoChangesToRedo => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}  //TODO: should undo/redo specific error mode be added?
                     //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
                     _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
@@ -1189,7 +1468,7 @@ impl Application{
             Err(e) => {
                 match e{
                     ViewError::InvalidInput => {self.mode = Mode::Warning(WarningKind::InvalidInput);}
-                    ViewError::ResultsInSameState => {self.mode = Mode::Warning(WarningKind::SameState);}
+                    ViewError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
                 }
             }
         }
@@ -1207,7 +1486,7 @@ impl Application{
             Err(e) => {
                 match e{
                     ViewError::InvalidInput => {self.mode = Mode::Warning(WarningKind::InvalidInput);}
-                    ViewError::ResultsInSameState => {self.mode = Mode::Warning(WarningKind::SameState);}
+                    ViewError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
                 }
             }
         }
@@ -1226,7 +1505,7 @@ impl Application{
             Err(e) => {
                 match e{
                     ViewError::InvalidInput => {self.mode = Mode::Warning(WarningKind::InvalidInput);}
-                    ViewError::ResultsInSameState => {self.mode = Mode::Warning(WarningKind::SameState);}
+                    ViewError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
                 }
             }
         }
@@ -1244,7 +1523,7 @@ impl Application{
             Err(e) => {
                 match e{
                     ViewError::InvalidInput => {self.mode = Mode::Warning(WarningKind::InvalidInput);}
-                    ViewError::ResultsInSameState => {self.mode = Mode::Warning(WarningKind::SameState);}
+                    ViewError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
                 }
             }
         }
@@ -1263,11 +1542,7 @@ impl Application{
                 let this_file = std::panic::Location::caller().file();
                 let line_number = std::panic::Location::caller().line();
                 match e{
-                    SelectionError::ResultsInSameState => {
-                        if SHOW_SAME_STATE_WARNINGS{
-                            self.mode = Mode::Warning(WarningKind::SameState);
-                        }
-                    }
+                    SelectionError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
                     //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
                     _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
@@ -1309,7 +1584,7 @@ impl Application{
                 let this_file = std::panic::Location::caller().file();
                 let line_number = std::panic::Location::caller().line();
                 match e{
-                    DocumentError::NoChangesToUndo => {self.mode = Mode::Warning(WarningKind::SameState);}   //TODO: should undo/redo specific error mode be added?
+                    DocumentError::NoChangesToUndo => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}   //TODO: should undo/redo specific error mode be added?
                     //_ => {panic!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")}
                     _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }

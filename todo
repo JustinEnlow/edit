@@ -13,7 +13,7 @@ To meet reqs as simple text editor:
             - this allows for removing matched instances of input text that you don't want to be edited
     [ ] suggestions from words already in doc
     [ ] render interactive_text_box selections(find/replace, goto, command, etc.)
-    [ ] merge overlapping selections. (selection extension fns should all do this. prob in core)
+    [x] merge overlapping selections. (selection extension fns should all do this. prob in core)
     [ ] move/extend/delete to word boundaries(need good definition for word boundaries)
     [ ] move view
         [x] by specified amount, up until doc boundaries
