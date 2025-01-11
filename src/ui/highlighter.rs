@@ -50,9 +50,9 @@ impl Highlighter{
 }
 impl ratatui::widgets::Widget for Highlighter{
     fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer){
-        if let Some(selections) = self.selections{
+        if let Some(selections) = self.selections{  //selection not rendering properly on last empty line following previous newline, when cursor rendering below is not drawn there. maybe this is correct, because there is technically no content there...
             for selection in selections.iter(){
-                if selection.head().x() - selection.anchor().x() == 0{continue;}
+                if selection.head().x() - selection.anchor().x() == 0{continue;}    //should this use start and end instead?
                 for col in selection.anchor().x()../*=*/selection.head().x(){
                     let x_pos = area.left() + (col as u16);
                     let y_pos = selection.head().y() as u16;
