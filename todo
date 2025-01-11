@@ -1,31 +1,126 @@
 TODO
 
 To meet reqs as simple text editor:
-    [ ] implement search: (2 forms: select all matching instances then edit normally, or vs code style find/replace)
-        [ ] incremental search
-            - would need to store selections previous to search, in case user exits search mode(need to figure out where to store this...)
-            - then search any time input text is edited in util bar
-        [ ] regex
-        [x] input text selected within whole document(selections can then be edited all at once)
-            [ ] search case insensitively?
-        [ ] input text selected only within already selected text(selections can then be edited all at once)
-        [x] may also want to impl a way to remove the current primary selection(like when searching all at once and without regex)
-            - this allows for removing matched instances of input text that you don't want to be edited
-    [ ] suggestions from words already in doc
-    [ ] render interactive_text_box selections(find/replace, goto, command, etc.)
-    [x] merge overlapping selections. (selection extension fns should all do this. prob in core)
-    [ ] move/extend/delete to word boundaries(need good definition for word boundaries)
-    [ ] move view
-        [x] by specified amount, up until doc boundaries
-        [ ] to doc boundaries in one keypress(example: alt+home for left boundary, alt+end for right boundary, alt+pg_up for top boundary, alt+pg_down for bottom boundary)
-    [ ] move selected line/lines up or down in document(alt+up/alt+down in vs code)
-    [x] selection copied indicator
-    [ ] cursor/selections should prob not render in all modes...
-    [ ] system wide cut/copy/paste
-    [ ] add lib.rs. move code into lib.rs except main. unit test library
-    [x] add status bar widget for number of selections(1/1 = primary cursor is the only one, 3/125 = primary cursor is the 3rd selection of 125)
-    [ ] cursor line/cursor column highlighting(with user defined colors in config.rs)
-    [ ] loading indicator on save/open/big edits like undoing a deletion of the whole text
+    [ ] implement core behavior and test
+        - consider implications of underlying data structure
+            array of lines
+            rope
+            gap buffer
+            others?
+        [x] move within doc boundaries + 1 past doc end, so new text can be inserted
+            - impl first with single cursor/selection, then with multi cursor/selections  (merge overlapping cursors)
+            - impl with bar and block cursor semantics
+            [x] up
+            [x] down
+            [x] left
+            [x] right
+            [x] home
+                [x] line start
+                [x] line text start
+            [x] line text end
+            [x] right word boundary
+            [x] left word boundary
+            [x] page up
+            [x] page down
+            [x] doc start
+            [x] doc end + 1 past doc end, so new text can be inserted
+            - ensure behavior
+                - cursor should never move further right visually than line end + newline char
+                - restrict cursor to document start/end
+                - cursor left at line start moves to previous line end if available
+                - cursor right at line end moves to next line start if available
+                - make cursor maintain horizontal position or go to line end when moving up/down
+        [x] extend selections within doc boundaries
+            - impl first with single cursor/selection, then with multi cursor/selection   (merge overlapping cursors/selections)
+            - impl with bar and block cursor semantics
+            [x] up
+            [x] down
+            [x] left
+            [x] right
+            [x] home
+                [x] line start
+                [x] line text start
+            [x] line text end
+            [x] right word boundary
+            [x] left word boundary
+            [x] page up
+            [x] page down
+            [x] doc start
+            [x] doc end
+            - ensure behavior
+                extensions should never go past document boundaries
+                other...
+        [ ] selection management
+            [ ] add selection
+                [ ] above
+                [ ] below
+            [x] remove primary selection    - this allows for removing matched instances of search text that you don't want to be edited, or removing selection added above/below where they don't need to be edited
+            [x] increment primary selection index
+            [x] decrement primary selection index
+            [ ] match search text
+                [x] case sensitive
+                [ ] case insensitive
+                [ ] regex
+                [x] within whole document
+                [ ] within already selected text(single or multi)
+            [ ] split selection(s?) at specified character(single or multi)
+                //example "fn something(input1: usize, input2: usize)"
+                    select inside parens    "fn something([input1: usize, input2: usize])"
+                    split on ','            "fn something([input1: usize], [input2: usize])"
+        [x] editing functionality(first on single selections then multi selections)
+            [x] insert
+                [x] text
+                [x] newlines
+                    [ ] auto-indent?...for text editor, maybe just match previous line's indentation?
+                [ ] tabs
+                    [x] soft tabs(insert set number of spaces)
+                    [ ] hard tabs('\t')
+            [x] remove
+                [x] delete
+                    [x] single grapheme
+                    [x] whole selection
+                [x] backspace
+                    [x] single grapheme
+                    [x] whole selection
+            [x] replace
+            [x] cut/copy/paste(impl in editor only, then use system tools to allow system wide)
+            [x] history
+                [x] undo
+                [x] redo
+            [x] impl save functionality
+
+    [ ] impl frontend behavior
+        [x] set up as document viewer with no scrolling or resizing
+            [x] add ability to close editor/document
+        [x] set up as document viewer with resizing
+        [x] set up as document viewer with movement/selection extension within static view
+            [x] render selections
+        [x] set up as document viewer with scrolling attached to cursor position
+        [x] set up as document viewer with scrolling detached from cursor position
+            [x] view scroll(this will be implemented in core and called from front end)
+                [x] up
+                [x] down
+                [x] left
+                [x] right
+        [ ] set up UI elements
+            [ ] document viewport
+            [ ] line numbers
+            [ ] status bar
+                [x] add status bar widget for number of selections(1/1 = primary cursor is the only one, 3/125 = primary cursor is the 3rd selection of 125)
+                [ ] loading indicator on save/open/big edits like undoing a deletion of the whole text
+            [ ] util bar
+                [ ] render interactive_text_box text + handle movement/selection extension
+                [ ] render interactive_text_box selections(find/replace, goto, command, etc.)
+                [ ] warning mode
+                [x] selection copied indicator
+            [ ] popups
+                [ ] completion suggestions from words already in doc
+            [ ] highlighter(may be better to have a highlighter for each individual ui element)
+                [ ] cursor line/cursor column highlighting(with user defined colors in config.rs)
+
+
+
+
 
 To meet reqs as code editor:
     [ ] auto indent
@@ -39,4 +134,3 @@ To meet reqs as code editor:
 always ensure:
     any input from the user should result in some visual response being displayed. never should a user action result in no change...
     user should be able to negate this by removing code that triggers warning mode in each action fn called, or a config flag
-
