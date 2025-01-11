@@ -31,7 +31,6 @@ pub struct DocumentWidget{
 }
 impl DocumentWidget{
     pub fn widget(&self) -> Paragraph<'static>{
-        //let lines: Vec<String> = self.text_in_view.clone().lines().map(|line| line.to_string()).collect();
         Paragraph::new(self.text_in_view.clone())
             .style(
                 Style::default()

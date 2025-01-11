@@ -24,7 +24,6 @@ impl SelectionsWidget{
             .alignment(Alignment::Center)
             .style(
                 Style::default()
-                    //.bg(Color::DarkGray)
                     .bg(STATUS_BAR_BACKGROUND_COLOR)
                     .fg(STATUS_BAR_FOREGROUND_COLOR)
                     .bold()
@@ -44,7 +43,6 @@ impl DocumentCursorPositionWidget{
             .alignment(Alignment::Right)
             .style(
                 Style::default()
-                    //.bg(Color::DarkGray)
                     .bg(STATUS_BAR_BACKGROUND_COLOR)
                     .fg(STATUS_BAR_FOREGROUND_COLOR)
                     .bold()
@@ -69,7 +67,6 @@ impl FileNameWidget{
             .alignment(Alignment::Left)
             .style(
                 Style::default()
-                    //.bg(Color::DarkGray)
                     .bg(STATUS_BAR_BACKGROUND_COLOR)
                     .fg(STATUS_BAR_FOREGROUND_COLOR)
                     .bold()
@@ -89,7 +86,6 @@ impl ModifiedIndicatorWidget{
                 .alignment(Alignment::Left)
                 .style(
                     Style::default()
-                        //.bg(Color::DarkGray)
                         .bg(STATUS_BAR_BACKGROUND_COLOR)
                         .fg(STATUS_BAR_FOREGROUND_COLOR)
                         .bold()
@@ -98,7 +94,6 @@ impl ModifiedIndicatorWidget{
             Paragraph::new("".repeat(MODIFIED_INDICATOR.len()))
             .style(
                 Style::default()
-                    //.bg(Color::DarkGray)
                     .bg(STATUS_BAR_BACKGROUND_COLOR)
                     .fg(STATUS_BAR_FOREGROUND_COLOR)
                     .bold()

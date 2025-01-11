@@ -59,9 +59,7 @@ impl ratatui::widgets::Widget for Highlighter{
         
                     if let Some(cell) = buf.cell_mut((x_pos, y_pos)){
                         cell.set_style(Style::default()
-                            //.bg(Color::Blue)
                             .bg(SELECTION_BACKGROUND_COLOR)
-                            //.fg(Color::Black)
                             .fg(SELECTION_FOREGROUND_COLOR)
                         );
                     }
@@ -72,9 +70,7 @@ impl ratatui::widgets::Widget for Highlighter{
         if let Some(cursor) = self.cursors{
             if let Some(cell) = buf.cell_mut((area.left() + (cursor.x() as u16), area.top() + (cursor.y() as u16))){
                 cell.set_style(Style::default()
-                    //.bg(Color::White)
                     .bg(CURSOR_BACKGROUND_COLOR)
-                    //.fg(Color::Black)
                     .fg(CURSOR_FOREGROUND_COLOR)
                 );
             }

@@ -10,7 +10,6 @@ use crate::config::{UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR, UTIL_B
 
 const GOTO_PROMPT: &str = " Go to: ";
 const FIND_PROMPT: &str = " Find: ";
-//const REPLACE_PROMPT: &str = " Replace: ";
 const COMMAND_PROMPT: &str = " Command: ";
 
 
@@ -38,7 +37,6 @@ impl UtilityWidget{
                     Paragraph::new(self.text_box.view.text(&text))
                         .style(
                             Style::default()
-                                //.fg(Color::Red)
                                 .fg(UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR)
                         )
                 }
@@ -78,7 +76,6 @@ impl UtilityWidget{
                 .alignment(ratatui::prelude::Alignment::Center)
                 .style(
                     Style::default()
-                        //.bg(Color::Red)
                         .bg(WARNING_BACKGROUND_COLOR)
                         .fg(WARNING_FOREGROUND_COLOR)
                         .bold()
@@ -90,7 +87,6 @@ impl UtilityWidget{
                         .alignment(ratatui::prelude::Alignment::Center)
                         .style(
                             Style::default()
-                                //.bg(Color::Green)
                                 .bg(COPIED_INDICATOR_BACKGROUND_COLOR)
                                 .fg(COPIED_INDICATOR_FOREGROUND_COLOR)
                                 .bold()
@@ -103,22 +99,6 @@ impl UtilityWidget{
         }
     }
 }
-//#[derive(Default)]
-//pub struct UtilityAlternateWidget{
-//    pub rect: Rect,
-//    pub text_box: InteractiveTextBox,
-//}
-//impl UtilityAlternateWidget{
-//    pub fn widget(&self, mode: Mode) -> Paragraph<'static>{
-//        let text = self.text_box.text.clone();
-//        match mode{
-//            Mode::FindReplace => {
-//                Paragraph::new(self.text_box.view.text(&text))
-//            }
-//            _ => Paragraph::new(self.text_box.view.text(&text))
-//        }
-//    }
-//}
 
 #[derive(Default)]
 pub struct UtilityPromptWidget{
@@ -135,29 +115,11 @@ impl UtilityPromptWidget{
     }
 }
 
-//#[derive(Default)]
-//pub struct UtilityAlternatePromptWidget{
-//    pub rect: Rect
-//}
-//impl UtilityAlternatePromptWidget{
-//    pub fn widget(&self, mode: Mode) -> Paragraph<'static>{
-//        match mode{
-//            Mode::FindReplace => {
-//                Paragraph::new(REPLACE_PROMPT)
-//            },
-//            _ => Paragraph::new("")
-//        }
-//    }
-//}
-
 /// Container type for widgets on the util bar.
 #[derive(Default)]
 pub struct UtilBar{
-    //pub alternate_focused: bool,
     pub prompt: UtilityPromptWidget,
-    //pub alternate_prompt: UtilityAlternatePromptWidget,
     pub utility_widget: UtilityWidget,
-    //pub alternate_utility_widget: UtilityAlternateWidget,
 }
 impl UtilBar{
     pub fn update_width(&mut self, mode: Mode){
@@ -167,12 +129,9 @@ impl UtilBar{
             | Mode::Find => {
                 let width = self.utility_widget.rect.width as usize;
                 self.utility_widget.text_box.view.set_size(width, 1);
-                //let width = self.alternate_utility_widget.rect.width as usize;
-                //self.alternate_utility_widget.text_box.view.set_size(width, 1);
             }
             _ => {
                 self.utility_widget.text_box.view.set_size(0, 1);
-                //self.alternate_utility_widget.text_box.view.set_size(0, 1);
             }
         }
     }
@@ -200,25 +159,10 @@ impl UtilBar{
                             | Mode::Space
                             | Mode::Warning(_) => rect.width,
                             Mode::Goto => rect.width - GOTO_PROMPT.len() as u16,
-                            Mode::Command => rect.width - COMMAND_PROMPT.len() as u16,                            
-                            //Mode::FindReplace => (rect.width / 2) - FIND_PROMPT.len() as u16,
+                            Mode::Command => rect.width - COMMAND_PROMPT.len() as u16,
                             Mode::Find => rect.width - FIND_PROMPT.len() as u16,
                         }
                     ),
-                    // util bar alternate prompt width
-                    //Constraint::Length(
-                    //    match mode{
-                    //        Mode::FindReplace => REPLACE_PROMPT.len() as u16,
-                    //        _ => 0
-                    //    }
-                    //),
-                    // util bar alternate rect width
-                    //Constraint::Length(
-                    //    match mode{
-                    //        Mode::FindReplace => (rect. width / 2).saturating_sub(REPLACE_PROMPT.len() as u16),
-                    //        _ => 0
-                    //    }
-                    //),
                     // used to fill in space when other two are 0 length
                     Constraint::Length(0)
                 ]

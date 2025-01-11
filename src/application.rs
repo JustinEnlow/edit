@@ -226,25 +226,17 @@ impl Application{
     pub fn save(&mut self){
         assert!(self.mode == Mode::Insert);
         match self.document.save(){
-            Ok(_) => {
-                self.update_ui();
-            }
-            Err(_) => {
-                self.mode = Mode::Warning(WarningKind::FileSaveFailed);
-            }
+            Ok(_) => {self.update_ui();}
+            Err(_) => {self.mode = Mode::Warning(WarningKind::FileSaveFailed);}
         }
     }
     pub fn quit(&mut self){
         assert!(self.mode == Mode::Insert);
-        if self.document.is_modified(){ //if self.ui.document_modified(){   //this is the old impl when editor was set up for client/server and state needed to be stored in ui
-            self.mode = Mode::Warning(WarningKind::FileIsModified);
-        }else{
-            self.should_quit = true;
-        }
+        //if self.ui.document_modified(){   //this is the old impl when editor was set up for client/server and state needed to be stored in ui
+        if self.document.is_modified(){self.mode = Mode::Warning(WarningKind::FileIsModified);}
+        else{self.should_quit = true;}
     }
-    pub fn quit_ignoring_changes(&mut self){
-        self.should_quit = true;
-    }
+    pub fn quit_ignoring_changes(&mut self){self.should_quit = true;}
 
     //Editing Functions
     pub fn insert_char(&mut self, c: char){
@@ -267,9 +259,8 @@ impl Application{
         match self.document.insert_string("\n", CURSOR_SEMANTICS){
             Ok(_) => {
                 self.scroll_and_update(&self.document.selections().primary().clone());
-                if len != self.document.len(){  //if length has changed after newline
-                    self.ui.document_viewport.document_widget.doc_length = self.document.len();
-                }
+                //if length has changed after newline
+                if len != self.document.len(){self.ui.document_viewport.document_widget.doc_length = self.document.len();}
             }
             Err(e) => {
                 let this_file = std::panic::Location::caller().file();
@@ -301,9 +292,8 @@ impl Application{
         match self.document.delete(CURSOR_SEMANTICS){
             Ok(_) => {
                 self.scroll_and_update(&self.document.selections().primary().clone());
-                if len != self.document.len(){  //if length has changed after delete
-                    self.ui.document_viewport.document_widget.doc_length = self.document.len();
-                }
+                //if length has changed after delete
+                if len != self.document.len(){self.ui.document_viewport.document_widget.doc_length = self.document.len();}
             }
             Err(e) => {
                 let this_file = std::panic::Location::caller().file();
@@ -331,9 +321,8 @@ impl Application{
         match self.document.backspace(CURSOR_SEMANTICS){
             Ok(_) => {
                 self.scroll_and_update(&self.document.selections().primary().clone());
-                if len != self.document.len(){  //if length has changed after backspace
-                    self.ui.document_viewport.document_widget.doc_length = self.document.len();
-                }
+                //if length has changed after backspace
+                if len != self.document.len(){self.ui.document_viewport.document_widget.doc_length = self.document.len();}
             }
             Err(e) => {
                 let this_file = std::panic::Location::caller().file();
@@ -351,9 +340,8 @@ impl Application{
         match self.document.cut(CURSOR_SEMANTICS){
             Ok(_) => {
                 self.scroll_and_update(&self.document.selections().primary().clone());
-                if len != self.document.len(){  //if length has changed after cut
-                    self.ui.document_viewport.document_widget.doc_length = self.document.len();
-                }
+                //if length has changed after cut
+                if len != self.document.len(){self.ui.document_viewport.document_widget.doc_length = self.document.len();}
             }
             Err(e) => {
                 let this_file = std::panic::Location::caller().file();
@@ -399,9 +387,8 @@ impl Application{
         match self.document.paste(CURSOR_SEMANTICS){
             Ok(_) => {
                 self.scroll_and_update(&self.document.selections().primary().clone());
-                if len != self.document.len(){  //if length has changed after paste
-                    self.ui.document_viewport.document_widget.doc_length = self.document.len();
-                }
+                //if length has changed after paste
+                if len != self.document.len(){self.ui.document_viewport.document_widget.doc_length = self.document.len();}
             }
             Err(e) => {
                 let this_file = std::panic::Location::caller().file();
@@ -420,9 +407,8 @@ impl Application{
         match self.document.undo(CURSOR_SEMANTICS){
             Ok(_) => {
                 self.scroll_and_update(&self.document.selections().primary().clone());
-                if len != self.document.len(){  //if length has changed after paste
-                    self.ui.document_viewport.document_widget.doc_length = self.document.len();
-                }
+                //if length has changed after paste
+                if len != self.document.len(){self.ui.document_viewport.document_widget.doc_length = self.document.len();}
             }
             Err(e) => {
                 let this_file = std::panic::Location::caller().file();
@@ -440,9 +426,8 @@ impl Application{
         match self.document.redo(CURSOR_SEMANTICS){
             Ok(_) => {
                 self.scroll_and_update(&self.document.selections().primary().clone());
-                if len != self.document.len(){  //if length has changed after paste
-                    self.ui.document_viewport.document_widget.doc_length = self.document.len();
-                }
+                //if length has changed after paste
+                if len != self.document.len(){self.ui.document_viewport.document_widget.doc_length = self.document.len();}
             }
             Err(e) => {
                 let this_file = std::panic::Location::caller().file();
@@ -723,7 +708,7 @@ impl Application{
         match self.document.selections().increment_primary_selection(){
             Ok(new_selections) => {
                 *self.document.selections_mut() = new_selections;
-                self.scroll_and_update(&self.document.selections().primary().clone());
+                self.scroll_and_update(&self.document.selections().primary().clone());  //should this be checked scroll and update?
                 if self.mode == Mode::Space{
                     self.mode = Mode::Insert;
                 }
@@ -743,7 +728,7 @@ impl Application{
         match self.document.selections().decrement_primary_selection(){
             Ok(new_selections) => {
                 *self.document.selections_mut() = new_selections;
-                self.scroll_and_update(&self.document.selections().primary().clone());
+                self.scroll_and_update(&self.document.selections().primary().clone());  //should this be checked scroll and update?
                 if self.mode == Mode::Space{
                     self.mode = Mode::Insert;
                 }
@@ -960,140 +945,72 @@ impl Application{
     }
     pub fn find_mode_backspace(&mut self){
         assert!(self.mode == Mode::Find);
-        //if self.ui.util_bar.alternate_focused{
-        //    self.ui.util_bar.alternate_utility_widget.text_box.backspace();
-        //    self.update_alternate_util_bar_ui();
-        //}else{
-            self.ui.util_bar.utility_widget.text_box.backspace();
-            self.update_util_bar_ui();
-        //}
+        self.ui.util_bar.utility_widget.text_box.backspace();
+        self.update_util_bar_ui();
 
         self.find_mode_text_validity_check();
     }
     pub fn find_mode_delete(&mut self){
         assert!(self.mode == Mode::Find);
-        //if self.ui.util_bar.alternate_focused{
-        //    self.ui.util_bar.alternate_utility_widget.text_box.delete();
-        //    self.update_alternate_util_bar_ui();
-        //}else{
-            self.ui.util_bar.utility_widget.text_box.delete();
-            self.update_util_bar_ui();
-        //}
+        self.ui.util_bar.utility_widget.text_box.delete();
+        self.update_util_bar_ui();
 
         self.find_mode_text_validity_check();
     }
     pub fn find_mode_exit(&mut self){
         assert!(self.mode == Mode::Find);
         self.ui.util_bar.utility_widget.text_box.clear();
-        //self.ui.util_bar.alternate_utility_widget.text_box.clear();
-        //self.ui.util_bar.alternate_focused = false;
         self.mode = Mode::Insert;
     }
     pub fn find_mode_extend_selection_end(&mut self){
         assert!(self.mode == Mode::Find);
-        //if self.ui.util_bar.alternate_focused{
-        //    self.ui.util_bar.alternate_utility_widget.text_box.extend_selection_end();
-        //    self.update_alternate_util_bar_ui();
-        //}else{
-            self.ui.util_bar.utility_widget.text_box.extend_selection_end();
-            self.update_util_bar_ui();
-        //}
+        self.ui.util_bar.utility_widget.text_box.extend_selection_end();
+        self.update_util_bar_ui();
     }
     pub fn find_mode_extend_selection_home(&mut self){
         assert!(self.mode == Mode::Find);
-        //if self.ui.util_bar.alternate_focused{
-        //    self.ui.util_bar.alternate_utility_widget.text_box.extend_selection_home();
-        //    self.update_alternate_util_bar_ui();
-        //}else{
-            self.ui.util_bar.utility_widget.text_box.extend_selection_home();
-            self.update_util_bar_ui();
-        //}
+        self.ui.util_bar.utility_widget.text_box.extend_selection_home();
+        self.update_util_bar_ui();
     }
     pub fn find_mode_extend_selection_left(&mut self){
         assert!(self.mode == Mode::Find);
-        //if self.ui.util_bar.alternate_focused{
-        //    self.ui.util_bar.alternate_utility_widget.text_box.extend_selection_left();
-        //    self.update_alternate_util_bar_ui();
-        //}else{
-            self.ui.util_bar.utility_widget.text_box.extend_selection_left();
-            self.update_util_bar_ui();
-        //}
+        self.ui.util_bar.utility_widget.text_box.extend_selection_left();
+        self.update_util_bar_ui();
     }
     pub fn find_mode_extend_selection_right(&mut self){
         assert!(self.mode == Mode::Find);
-        //if self.ui.util_bar.alternate_focused{
-        //    self.ui.util_bar.alternate_utility_widget.text_box.extend_selection_right();
-        //    self.update_alternate_util_bar_ui();
-        //}else{
-            self.ui.util_bar.utility_widget.text_box.extend_selection_right();
-            self.update_util_bar_ui();
-        //}
+        self.ui.util_bar.utility_widget.text_box.extend_selection_right();
+        self.update_util_bar_ui();
     }
     pub fn find_mode_insert_char(&mut self, c: char){
         assert!(self.mode == Mode::Find);
-        //if self.ui.util_bar.alternate_focused{
-        //    self.ui.util_bar.alternate_utility_widget.text_box.insert_char(c);
-        //    self.update_alternate_util_bar_ui();
-        //}else{
-            self.ui.util_bar.utility_widget.text_box.insert_char(c);
-            self.update_util_bar_ui();
-        //}
+        self.ui.util_bar.utility_widget.text_box.insert_char(c);
+        self.update_util_bar_ui();
         
         self.find_mode_text_validity_check();
     }
     pub fn find_mode_move_cursor_left(&mut self){
         assert!(self.mode == Mode::Find);
-        //if self.ui.util_bar.alternate_focused{
-        //    self.ui.util_bar.alternate_utility_widget.text_box.move_cursor_left();
-        //    self.update_alternate_util_bar_ui();
-        //}else{
-            self.ui.util_bar.utility_widget.text_box.move_cursor_left();
-            self.update_util_bar_ui();
-        //}
+        self.ui.util_bar.utility_widget.text_box.move_cursor_left();
+        self.update_util_bar_ui();
     }
     pub fn find_mode_move_cursor_line_end(&mut self){
         assert!(self.mode == Mode::Find);
-        //if self.ui.util_bar.alternate_focused{
-        //    self.ui.util_bar.alternate_utility_widget.text_box.move_cursor_line_end();
-        //    self.update_alternate_util_bar_ui();
-        //}else{
-            self.ui.util_bar.utility_widget.text_box.move_cursor_line_end();
-            self.update_util_bar_ui();
-        //}
+        self.ui.util_bar.utility_widget.text_box.move_cursor_line_end();
+        self.update_util_bar_ui();
     }
     pub fn find_mode_move_cursor_line_start(&mut self){
         assert!(self.mode == Mode::Find);
-        //if self.ui.util_bar.alternate_focused{
-        //    self.ui.util_bar.alternate_utility_widget.text_box.move_cursor_line_start();
-        //    self.update_alternate_util_bar_ui();
-        //}else{
-            self.ui.util_bar.utility_widget.text_box.move_cursor_line_start();
-            self.update_util_bar_ui();
-        //}
+        self.ui.util_bar.utility_widget.text_box.move_cursor_line_start();
+        self.update_util_bar_ui();
     }
     pub fn find_mode_move_cursor_right(&mut self){
         assert!(self.mode == Mode::Find);
-        //if self.ui.util_bar.alternate_focused{
-        //    self.ui.util_bar.alternate_utility_widget.text_box.move_cursor_right();
-        //    self.update_alternate_util_bar_ui();
-        //}else{
-            self.ui.util_bar.utility_widget.text_box.move_cursor_right();
-            self.update_util_bar_ui();
-        //}
+        self.ui.util_bar.utility_widget.text_box.move_cursor_right();
+        self.update_util_bar_ui();
     }
-    //pub fn find_replace_mode_next_instance(&mut self){
-    //    assert!(self.mode == Mode::Find);
-    //}
-    //pub fn find_replace_mode_previous_instance(&mut self){
-    //    assert!(self.mode == Mode::Find);
-    //}
-    //pub fn find_replace_mode_switch_util_bar_focus(&mut self){
-    //    assert!(self.mode == Mode::FindReplace);
-    //    self.ui.util_bar.alternate_focused = !self.ui.util_bar.alternate_focused;
-    //}
     pub fn find_mode_text_validity_check(&mut self){
         assert!(self.mode == Mode::Find);
-        //run text validity check
         if !self.document.text().clone().to_string().contains(&self.ui.util_bar.utility_widget.text_box.text.to_string()){
             self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
         }else{
