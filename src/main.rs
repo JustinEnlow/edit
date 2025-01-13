@@ -1,3 +1,8 @@
+// prevent linter warnings for these scenarios  //this should prob be set up in its own clippy.toml config file in the crate root
+#![allow(clippy::collapsible_else_if)]
+#![allow(clippy::len_without_is_empty)]
+#![allow(clippy::assign_op_pattern)]    //allow x = x + y, instead of x += y
+#![allow(clippy::if_same_then_else)]
 //#![warn(unused_results)]
 
 use crate::application::Application;
@@ -40,13 +45,13 @@ fn main() -> Result<(), Box<dyn Error>>{
             if let Err(e) = app.run(&mut terminal){
                 restore_terminal(&mut terminal)?;
                 eprintln!("Encountered an error while running the application: {e}");
-                return Err(e.into());
+                return Err(e);
             }
         }
         Err(e) => {
             restore_terminal(&mut terminal)?;
             eprintln!("Encountered an error while setting up the application: {e}");
-            return Err(e.into());
+            return Err(e);
         }
     }
 

@@ -929,11 +929,12 @@ impl Application{
             }
             Err(_) => false
         };
-        if !is_numeric || exceeds_doc_length{
-            self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
-        }else{
-            self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
-        }
+        //if !is_numeric || exceeds_doc_length{
+        //    self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
+        //}else{
+        //    self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
+        //}
+        self.ui.util_bar.utility_widget.text_box.text_is_valid = is_numeric && !exceeds_doc_length;
     }
 
 //Find
@@ -1011,11 +1012,12 @@ impl Application{
     }
     pub fn find_mode_text_validity_check(&mut self){
         assert!(self.mode == Mode::Find);
-        if !self.document.text().clone().to_string().contains(&self.ui.util_bar.utility_widget.text_box.text.to_string()){
-            self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
-        }else{
-            self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
-        }
+        //if self.document.text().clone().to_string().contains(&self.ui.util_bar.utility_widget.text_box.text.to_string()){
+        //    self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
+        //}else{
+        //    self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
+        //}
+        self.ui.util_bar.utility_widget.text_box.text_is_valid = self.document.text().clone().to_string().contains(&self.ui.util_bar.utility_widget.text_box.text.to_string());
     }
 
 //Command

@@ -61,6 +61,7 @@ To meet reqs as simple text editor:
                 [x] case sensitive
                 [ ] case insensitive
                 [ ] regex
+                [ ] incremental search  (would have to store selections prior to search, in case search is aborted)
                 [x] within whole document
                 [ ] within already selected text(single or multi)
             [ ] split selection(s?) at specified character(single or multi)
@@ -128,6 +129,12 @@ To meet reqs as code editor:
     [ ] debug adapter protocol
     [ ] display completion suggestions from lsp
     [ ] move/extend/delete to code textobject boundaries from lsp
+
+
+
+
+future goals:
+    client/server, so single backend instance can process multiple frontend applications
 
 
 
