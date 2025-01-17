@@ -119,6 +119,7 @@ impl Application{
         self.ui.document_viewport.document_widget.text_in_view = self.document.view().text(text);
         self.ui.document_viewport.line_number_widget.line_numbers_in_view = self.document.view().line_numbers(text);
         self.ui.highlighter.set_primary_cursor_position(self.document.view().primary_cursor_position(text, selections, CURSOR_SEMANTICS));
+        self.ui.highlighter.set_client_cursor_positions(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));
         self.ui.highlighter.selections = self.document.view().selections(selections, text);
         self.ui.status_bar.selections_widget.primary_selection_index = selections.primary_selection_index();
         self.ui.status_bar.selections_widget.num_selections = selections.count();
@@ -129,6 +130,7 @@ impl Application{
         let text = self.document.text();
         let selections = self.document.selections();
         self.ui.highlighter.set_primary_cursor_position(self.document.view().primary_cursor_position(text, selections, CURSOR_SEMANTICS));
+        self.ui.highlighter.set_client_cursor_positions(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));
         self.ui.highlighter.selections = self.document.view().selections(selections, text);
         self.ui.status_bar.selections_widget.primary_selection_index = selections.primary_selection_index();
         self.ui.status_bar.selections_widget.num_selections = selections.count();

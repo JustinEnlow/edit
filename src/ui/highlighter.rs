@@ -4,7 +4,7 @@ use edit_core::{
 };
 use ratatui::layout::Rect;
 use ratatui::style::Style;
-use crate::config::{SELECTION_BACKGROUND_COLOR, SELECTION_FOREGROUND_COLOR, CURSOR_BACKGROUND_COLOR, CURSOR_FOREGROUND_COLOR};
+use crate::config::{SELECTION_BACKGROUND_COLOR, SELECTION_FOREGROUND_COLOR, PRIMARY_CURSOR_BACKGROUND_COLOR, PRIMARY_CURSOR_FOREGROUND_COLOR, CURSOR_BACKGROUND_COLOR, CURSOR_FOREGROUND_COLOR};
 
 
 /*TODO: separate Highlighter struct members into their own widget components, so they can be rendered separately in ui.rs       //or maybe each ui component should have its own highlighting sub component...
@@ -32,20 +32,20 @@ pub struct Highlighter{
     // debug highlights //bg color
     // lsp highlights   //fg color
     pub selections: Option<Vec<Selection2d>>,   //bg color
-    pub cursors: Option<Position>,//Option<Vec<Position>>, //bg color + fg color?
+    pub primary_cursor: Option<Position>, //bg color + fg color?
+    pub cursors: Option<Vec<Position>>, //should this really be option? i feel like we could accomplish the same with an empty vec...
     // others idk
 }
 impl Highlighter{
-    // TODO: can this be done by caller?
-    //pub fn set_client_cursor_position(&mut self, positions: Vec<Position>){
-    //    if !positions.is_empty(){
-    //        self.cursors = Some(*positions.last().unwrap());
-    //    }else{
-    //        self.cursors = None;
-    //    }
-    //}
+    pub fn set_client_cursor_positions(&mut self, positions: Vec<Position>){
+        if !positions.is_empty(){
+            self.cursors = Some(positions);
+        }else{
+            self.cursors = None;
+        }
+    }
     pub fn set_primary_cursor_position(&mut self, position: Option<Position>){
-        self.cursors = position;
+        self.primary_cursor = position;
     }
 }
 impl ratatui::widgets::Widget for Highlighter{
@@ -67,11 +67,24 @@ impl ratatui::widgets::Widget for Highlighter{
             }
         }
 
-        if let Some(cursor) = self.cursors{
+        //TODO: render cursors for all selections
+        if let Some(cursors) = self.cursors{
+            for cursor in cursors{
+                if let Some(cell) = buf.cell_mut((area.left() + (cursor.x() as u16), area.top() + (cursor.y() as u16))){
+                    cell.set_style(Style::default()
+                        .bg(CURSOR_BACKGROUND_COLOR)
+                        .fg(CURSOR_FOREGROUND_COLOR)
+                    );
+                }
+            }
+        }
+
+        // render primary cursor
+        if let Some(cursor) = self.primary_cursor{
             if let Some(cell) = buf.cell_mut((area.left() + (cursor.x() as u16), area.top() + (cursor.y() as u16))){
                 cell.set_style(Style::default()
-                    .bg(CURSOR_BACKGROUND_COLOR)
-                    .fg(CURSOR_FOREGROUND_COLOR)
+                    .bg(PRIMARY_CURSOR_BACKGROUND_COLOR)
+                    .fg(PRIMARY_CURSOR_FOREGROUND_COLOR)
                 );
             }
         }
