@@ -141,3 +141,16 @@ future goals:
 always ensure:
     any input from the user should result in some visual response being displayed. never should a user action result in no change...
     user should be able to negate this by removing code that triggers warning mode in each action fn called, or a config flag
+    (there are some instances where visual feedback may not be possible/reasonable)
+        like when multiple cursors are moved, but the movement happens outside view. idk what would be a reasonable visual cue that the editor has properly responded to input here
+
+
+
+bug fix:
+    open src/application.rs
+    search "pub"
+    move selections up
+    (bug 1: holding up for a while then releasing, cursors still move for quite a long time)(performance issue)
+    once all cursors at top of doc
+    (bug 2: some have not merged when overlapped. figure out where merge_overlapping isn't being called or where it is failing)(logical issue)
+    (do the same issues apply elsewhere?)

@@ -1,5 +1,5 @@
 use edit_core::{
-    selection::Selection2d, 
+    selection2d::Selection2d, 
     Position
 };
 use ratatui::layout::Rect;
@@ -52,10 +52,10 @@ impl ratatui::widgets::Widget for Highlighter{
     fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer){
         if let Some(selections) = self.selections{  //selection not rendering properly on last empty line following previous newline, when cursor rendering below is not drawn there. maybe this is correct, because there is technically no content there...
             for selection in selections.iter(){
-                if selection.head().x() - selection.anchor().x() == 0{continue;}    //should this use start and end instead?
-                for col in selection.anchor().x()../*=*/selection.head().x(){
+                if selection.head().x - selection.anchor().x == 0{continue;}    //should this use start and end instead?
+                for col in selection.anchor().x../*=*/selection.head().x{
                     let x_pos = area.left() + (col as u16);
-                    let y_pos = selection.head().y() as u16;
+                    let y_pos = selection.head().y as u16;
         
                     if let Some(cell) = buf.cell_mut((x_pos, y_pos)){
                         cell.set_style(Style::default()
@@ -70,7 +70,7 @@ impl ratatui::widgets::Widget for Highlighter{
         //TODO: render cursors for all selections
         if let Some(cursors) = self.cursors{
             for cursor in cursors{
-                if let Some(cell) = buf.cell_mut((area.left() + (cursor.x() as u16), area.top() + (cursor.y() as u16))){
+                if let Some(cell) = buf.cell_mut((area.left() + (cursor.x as u16), area.top() + (cursor.y as u16))){
                     cell.set_style(Style::default()
                         .bg(CURSOR_BACKGROUND_COLOR)
                         .fg(CURSOR_FOREGROUND_COLOR)
@@ -81,7 +81,7 @@ impl ratatui::widgets::Widget for Highlighter{
 
         // render primary cursor
         if let Some(cursor) = self.primary_cursor{
-            if let Some(cell) = buf.cell_mut((area.left() + (cursor.x() as u16), area.top() + (cursor.y() as u16))){
+            if let Some(cell) = buf.cell_mut((area.left() + (cursor.x as u16), area.top() + (cursor.y as u16))){
                 cell.set_style(Style::default()
                     .bg(PRIMARY_CURSOR_BACKGROUND_COLOR)
                     .fg(PRIMARY_CURSOR_FOREGROUND_COLOR)

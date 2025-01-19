@@ -33,9 +33,9 @@ pub const VIEW_SCROLL_AMOUNT: usize = 1;    //should this have separate vertical
 
     pub const SELECTION_BACKGROUND_COLOR: Color = Color::Blue;
     pub const SELECTION_FOREGROUND_COLOR: Color = Color::Black;
-    pub const PRIMARY_CURSOR_BACKGROUND_COLOR: Color = Color::Yellow;//Rgb(0, 255, 0);
+    pub const PRIMARY_CURSOR_BACKGROUND_COLOR: Color = Color::White;//Rgb(0, 255, 0);
     pub const PRIMARY_CURSOR_FOREGROUND_COLOR: Color = Color::Black;
-    pub const CURSOR_BACKGROUND_COLOR: Color = Color::White;
+    pub const CURSOR_BACKGROUND_COLOR: Color = Color::Rgb(150, 150, 150);
     pub const CURSOR_FOREGROUND_COLOR: Color = Color::Black;
 
 // By default, this editor shows a warning when a requested action would result in the same state.

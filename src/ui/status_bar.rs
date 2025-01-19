@@ -38,7 +38,7 @@ pub struct DocumentCursorPositionWidget{
 }
 impl DocumentCursorPositionWidget{
     pub fn widget(&self) -> Paragraph<'static>{
-        let position = format!("cursor: {}:{}", self.document_cursor_position.y() + 1, self.document_cursor_position.x() + 1);
+        let position = format!("cursor: {}:{}", self.document_cursor_position.y + 1, self.document_cursor_position.x + 1);
         Paragraph::new(position)
             .alignment(Alignment::Right)
             .style(
@@ -152,7 +152,7 @@ impl StatusBar{
                     //Constraint::Min(0),
                     // cursor position indicator width
                     //Constraint::Min(0)
-                    Constraint::Max(format!("cursor: {}:{}", self.document_cursor_position_widget.document_cursor_position.y() + 1, self.document_cursor_position_widget.document_cursor_position.x() + 1).len() as u16)
+                    Constraint::Max(format!("cursor: {}:{}", self.document_cursor_position_widget.document_cursor_position.y + 1, self.document_cursor_position_widget.document_cursor_position.x + 1).len() as u16)
                 ]
             )
             .split(rect)
