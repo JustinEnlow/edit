@@ -816,7 +816,7 @@ impl Application{
         self.mode = Mode::Insert;
     }
 
-//Goto
+//      //TODO: if num entered, then directional key pressed, move that direction that number of times
     pub fn goto_mode_accept(&mut self){
         assert!(self.mode == Mode::Goto);
         if let Ok(line_number) = self.ui.util_bar.utility_widget.text_box.text.to_string().parse::<usize>(){

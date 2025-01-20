@@ -31,7 +31,7 @@ pub struct Highlighter{
     //cursor_column: Option<u16>, //bg color
     // debug highlights //bg color
     // lsp highlights   //fg color
-    pub selections: Option<Vec<Selection2d>>,   //bg color
+    pub selections: Vec<Selection2d>,   //bg color
     pub primary_cursor: Option<Position>, //bg color + fg color?
     pub cursors: Option<Vec<Position>>, //should this really be option? i feel like we could accomplish the same with an empty vec...
     // others idk
@@ -50,8 +50,9 @@ impl Highlighter{
 }
 impl ratatui::widgets::Widget for Highlighter{
     fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer){
-        if let Some(selections) = self.selections{  //selection not rendering properly on last empty line following previous newline, when cursor rendering below is not drawn there. maybe this is correct, because there is technically no content there...
-            for selection in selections.iter(){
+        //if let Some(selections) = self.selections{  //selection not rendering properly on last empty line following previous newline, when cursor rendering below is not drawn there. maybe this is correct, because there is technically no content there...
+        if !self.selections.is_empty(){
+            for selection in self.selections.iter(){
                 if selection.head().x - selection.anchor().x == 0{continue;}    //should this use start and end instead?
                 for col in selection.anchor().x../*=*/selection.head().x{
                     let x_pos = area.left() + (col as u16);
