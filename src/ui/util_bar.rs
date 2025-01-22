@@ -5,6 +5,7 @@ use ratatui::widgets::Paragraph;
 use ratatui::style::{Style, Stylize};
 use ratatui::layout::{Direction, Layout, Constraint};
 use crate::config::{UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR, UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR, WARNING_BACKGROUND_COLOR, WARNING_FOREGROUND_COLOR, COPIED_INDICATOR_BACKGROUND_COLOR, COPIED_INDICATOR_FOREGROUND_COLOR};
+use edit_core::selections::Selections;
 
 
 
@@ -20,6 +21,7 @@ pub struct UtilityWidget{
     pub text_box: InteractiveTextBox,
     pub display_copied_indicator: bool,
     pub clear_copied_indicator: bool,   // clear_copied_indicator exists because copied_indicator widget rendering needs to persist for an entire loop cycle(until next keypress)
+    pub selections_before_search: Option<Selections>,
 }
 impl UtilityWidget{
     pub fn widget(&self, mode: Mode) -> Paragraph<'static>{

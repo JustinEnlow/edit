@@ -217,6 +217,7 @@ impl Application{
     pub fn set_mode_find_replace(&mut self){    //TODO: should be set_mode_find
         assert!(self.mode == Mode::Insert);
         self.mode = Mode::Find;
+        self.ui.util_bar.utility_widget.selections_before_search = Some(self.document.selections().clone());
     }
     pub fn set_mode_goto(&mut self){
         assert!(self.mode == Mode::Insert);
@@ -941,10 +942,38 @@ impl Application{
     }
 
 //Find
+    fn incremental_search(&mut self){
+        match self.ui.util_bar.utility_widget.selections_before_search.clone(){
+            Some(selections) => {
+                match selections.search(&self.ui.util_bar.utility_widget.text_box.text.to_string(), self.document.text()){
+                    Ok(selections) => {
+                        self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
+                        *self.document.selections_mut() = selections;
+                    }
+                    Err(_) => {
+                        self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
+                    }
+                }
+            }
+            None => {}  //TODO: maybe set mode to warning?
+        }
+    }
+    fn restore_selections_check(&mut self){
+        if self.ui.util_bar.utility_widget.text_box.text.to_string().is_empty(){
+            match self.ui.util_bar.utility_widget.selections_before_search.clone(){
+                Some(selections) => {
+                    *self.document.selections_mut() = selections;
+                    self.ui.util_bar.utility_widget.selections_before_search = None;
+                }
+                None => {}  //idk
+            }
+        }
+    }
     pub fn find_mode_accept(&mut self){
         assert!(self.mode == Mode::Find);
-        self.document.search(&self.ui.util_bar.utility_widget.text_box.text.to_string());
-        self.scroll_and_update(&self.document.selections().primary().clone());
+        //self.incremental_search();
+        //self.restore_selections_check();
+        //self.scroll_and_update(&self.document.selections().primary().clone());
         self.find_mode_exit();
     }
     pub fn find_mode_backspace(&mut self){
@@ -952,17 +981,23 @@ impl Application{
         self.ui.util_bar.utility_widget.text_box.backspace();
         self.update_util_bar_ui();
 
-        self.find_mode_text_validity_check();
+        //self.find_mode_text_validity_check();
+        self.incremental_search();
+        self.scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn find_mode_delete(&mut self){
         assert!(self.mode == Mode::Find);
         self.ui.util_bar.utility_widget.text_box.delete();
         self.update_util_bar_ui();
 
-        self.find_mode_text_validity_check();
+        //self.find_mode_text_validity_check();
+        self.incremental_search();
+        self.scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn find_mode_exit(&mut self){
         assert!(self.mode == Mode::Find);
+        self.restore_selections_check();
+        self.scroll_and_update(&self.document.selections().primary().clone());
         self.ui.util_bar.utility_widget.text_box.clear();
         self.mode = Mode::Insert;
     }
@@ -991,7 +1026,9 @@ impl Application{
         self.ui.util_bar.utility_widget.text_box.insert_char(c);
         self.update_util_bar_ui();
         
-        self.find_mode_text_validity_check();
+        //self.find_mode_text_validity_check();
+        self.incremental_search();
+        self.scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn find_mode_move_cursor_left(&mut self){
         assert!(self.mode == Mode::Find);
@@ -1013,15 +1050,15 @@ impl Application{
         self.ui.util_bar.utility_widget.text_box.move_cursor_right();
         self.update_util_bar_ui();
     }
-    pub fn find_mode_text_validity_check(&mut self){
-        assert!(self.mode == Mode::Find);
-        //if self.document.text().clone().to_string().contains(&self.ui.util_bar.utility_widget.text_box.text.to_string()){
-        //    self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
-        //}else{
-        //    self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
-        //}
-        self.ui.util_bar.utility_widget.text_box.text_is_valid = self.document.text().clone().to_string().contains(&self.ui.util_bar.utility_widget.text_box.text.to_string());
-    }
+    //pub fn find_mode_text_validity_check(&mut self){
+    //    assert!(self.mode == Mode::Find);
+    //    //if self.document.text().clone().to_string().contains(&self.ui.util_bar.utility_widget.text_box.text.to_string()){
+    //    //    self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
+    //    //}else{
+    //    //    self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
+    //    //}
+    //    self.ui.util_bar.utility_widget.text_box.text_is_valid = self.document.text().clone().to_string().contains(&self.ui.util_bar.utility_widget.text_box.text.to_string());
+    //}
 
 //Command
     pub fn open_new_terminal_window(&self){
