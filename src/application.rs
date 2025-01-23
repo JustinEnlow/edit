@@ -629,6 +629,9 @@ impl Application{
     pub fn extend_selection_page_down(&mut self){   //TODO: this should prob move all cursors instead of clearing them
         self.move_cursor_page(Selection::extend_page_down);
     }
+    pub fn select_line(&mut self){
+        self.move_cursor_non_overlapping(Selection::select_line);
+    }
     pub fn select_all(&mut self){
         self.move_cursor_clearing_non_primary(Selection::select_all);
     }
