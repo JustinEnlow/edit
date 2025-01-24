@@ -241,10 +241,10 @@ pub fn handle_find_replace_mode_keypress(app: &mut Application, keycode: KeyCode
             if modifiers == KeyModifiers::NONE{app.find_mode_delete();}
             else{app.no_op();}
         }
-        (KeyCode::Enter, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.find_mode_accept();}
-            else{app.no_op();}
-        }
+        //(KeyCode::Enter, modifiers) => {
+        //    if modifiers == KeyModifiers::NONE{app.find_mode_accept();}
+        //    else{app.no_op();}
+        //}
         _ => {app.no_op();}
     }
 }

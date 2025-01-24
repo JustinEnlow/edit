@@ -33,6 +33,8 @@ impl SpaceModeWidget{
     }
 }
 
+// TODO: suggestions widget
+
 /// Container type for popup style widgets.
 pub struct Popups{
     pub space_mode_widget: SpaceModeWidget,

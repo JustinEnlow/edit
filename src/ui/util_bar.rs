@@ -6,6 +6,8 @@ use ratatui::style::{Style, Stylize};
 use ratatui::layout::{Direction, Layout, Constraint};
 use crate::config::{UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR, UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR, WARNING_BACKGROUND_COLOR, WARNING_FOREGROUND_COLOR, COPIED_INDICATOR_BACKGROUND_COLOR, COPIED_INDICATOR_FOREGROUND_COLOR};
 use edit_core::selections::Selections;
+use edit_core::selection::Selection;
+use crate::config::{SELECTION_BACKGROUND_COLOR, SELECTION_FOREGROUND_COLOR, PRIMARY_CURSOR_BACKGROUND_COLOR, PRIMARY_CURSOR_FOREGROUND_COLOR};
 
 
 
@@ -117,11 +119,46 @@ impl UtilityPromptWidget{
     }
 }
 
+#[derive(Default, Clone)]
+pub struct Highlighter{
+    pub selection: Option<Selection>, //util bar text should be guaranteed to be one line...    //Option used here only to satisfy Default derive...
+    pub cursor: u16,
+}
+impl ratatui::widgets::Widget for Highlighter{
+    fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer){
+        //render selection
+        if let Some(selection) = self.selection{
+            if selection.range.end - selection.range.start > 0{
+                for col in selection.range.start..selection.range.end{
+                    let x_pos = area.left() + (col as u16);
+                    let y_pos = area.top();
+        
+                    if let Some(cell) = buf.cell_mut((x_pos, y_pos)){
+                        cell.set_style(Style::default()
+                            .bg(SELECTION_BACKGROUND_COLOR)
+                            .fg(SELECTION_FOREGROUND_COLOR)
+                        );
+                    }
+                }
+            }
+        }
+
+        // render cursor
+        if let Some(cell) = buf.cell_mut((area.left() + self.cursor, area.top())){
+            cell.set_style(Style::default()
+                .bg(PRIMARY_CURSOR_BACKGROUND_COLOR)
+                .fg(PRIMARY_CURSOR_FOREGROUND_COLOR)
+            );
+        }
+    }
+}
+
 /// Container type for widgets on the util bar.
 #[derive(Default)]
 pub struct UtilBar{
     pub prompt: UtilityPromptWidget,
     pub utility_widget: UtilityWidget,
+    pub highlighter: Highlighter,
 }
 impl UtilBar{
     pub fn update_width(&mut self, mode: Mode){

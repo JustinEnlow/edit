@@ -3,7 +3,6 @@ use document_viewport::DocumentViewport;
 use popups::Popups;
 use util_bar::UtilBar;
 use status_bar::StatusBar;
-use highlighter::Highlighter;
 use std::error::Error;
 use ratatui::Terminal;
 use ratatui::layout::Rect;
@@ -17,7 +16,6 @@ mod status_bar;
 mod util_bar;
 mod interactive_text_box;
 mod popups;
-mod highlighter;
 
 
 
@@ -27,7 +25,6 @@ pub struct UserInterface{
     pub status_bar: StatusBar,
     pub util_bar: UtilBar,
     pub popups: Popups,
-    pub highlighter: Highlighter,
 }
 impl UserInterface{
     pub fn new(terminal_size: Rect) -> Self{
@@ -37,7 +34,6 @@ impl UserInterface{
             status_bar: StatusBar::default(),
             util_bar: UtilBar::default(),
             popups: Popups::new(),
-            highlighter: Highlighter::default(),
         }
     }
     pub fn set_terminal_size(&mut self, width: u16, height: u16){
@@ -76,7 +72,6 @@ impl UserInterface{
         self.document_viewport.line_number_widget.rect = document_viewport_rect[0];
         // dont have to set line num right padding(document_and_line_num_rect[1])
         self.document_viewport.document_widget.rect = document_viewport_rect[2];
-        self.highlighter.rect = document_viewport_rect[2];
         self.status_bar.file_name_widget.rect = status_bar_rect[0];
         self.status_bar.modified_indicator_widget.rect = status_bar_rect[1];
         //selections padding(status_bar_rect[2])
@@ -95,7 +90,7 @@ impl UserInterface{
             |frame| {
                 // always render
                 frame.render_widget(self.document_viewport.document_widget.widget(), self.document_viewport.document_widget.rect);
-                frame.render_widget(self.highlighter.clone(), self.highlighter.rect);
+                frame.render_widget(self.document_viewport.highlighter.clone(), self.document_viewport.document_widget.rect);
                 
                 // conditionally render
                 if self.document_viewport.display_line_numbers{
@@ -111,12 +106,11 @@ impl UserInterface{
                 // render according to mode
                 match mode{
                     Mode::Insert => {
-                        //if let Some(pos) = self.highlighter.cursors{
-                        //    frame.set_cursor_position((
-                        //        self.document_viewport.document_widget.rect.x + pos.x() as u16,
-                        //        self.document_viewport.document_widget.rect.y + pos.y() as u16
-                        //    ))
-                        //}
+                        // built in cursor handling. now handling cursor rendering ourselves
+                        // frame.set_cursor_position((
+                        //     self.document_viewport.document_widget.rect.x + pos.x() as u16,
+                        //     self.document_viewport.document_widget.rect.y + pos.y() as u16
+                        // ))
                         
                         // clear_copied_indicator exists because copied_indicator widget rendering needs to persist for an entire loop cycle(until next keypress)
                         if self.util_bar.utility_widget.clear_copied_indicator{
@@ -131,18 +125,18 @@ impl UserInterface{
                     Mode::Goto | Mode::Command => {
                         frame.render_widget(self.util_bar.prompt.widget(mode.clone()), self.util_bar.prompt.rect);
                         frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
-                        frame.set_cursor_position((
-                            self.util_bar.utility_widget.rect.x + self.util_bar.utility_widget.text_box.cursor_position().saturating_sub(self.util_bar.utility_widget.text_box.view.horizontal_start() as u16),
-                            self.terminal_size.height
-                        ));
+                        
+                        self.util_bar.highlighter.selection = Some(self.util_bar.utility_widget.text_box.selection.clone());
+                        self.util_bar.highlighter.cursor = self.util_bar.utility_widget.text_box.cursor_position();
+                        frame.render_widget(self.util_bar.highlighter.clone(), self.util_bar.utility_widget.rect);
                     }
                     Mode::Find => {
                         frame.render_widget(self.util_bar.prompt.widget(mode.clone()), self.util_bar.prompt.rect);
                         frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
-                        frame.set_cursor_position((
-                            self.util_bar.utility_widget.rect.x + self.util_bar.utility_widget.text_box.cursor_position().saturating_sub(self.util_bar.utility_widget.text_box.view.horizontal_start() as u16),
-                            self.terminal_size.height
-                        ));
+
+                        self.util_bar.highlighter.selection = Some(self.util_bar.utility_widget.text_box.selection.clone());
+                        self.util_bar.highlighter.cursor = self.util_bar.utility_widget.text_box.cursor_position();
+                        frame.render_widget(self.util_bar.highlighter.clone(), self.util_bar.utility_widget.rect);
                     }
                     Mode::Warning(_) => {
                         frame.render_widget(self.util_bar.prompt.widget(mode.clone()), self.util_bar.prompt.rect);
@@ -151,7 +145,6 @@ impl UserInterface{
                     Mode::Space => {
                         frame.render_widget(ratatui::widgets::Clear, self.popups.space_mode_widget.rect);
                         frame.render_widget(self.popups.space_mode_widget.widget(), self.popups.space_mode_widget.rect);
-                        // if cursor not within self.popups.space_mode.rect, render cursor
                     }
                 }
             }

@@ -10,10 +10,7 @@ use crate::config::CURSOR_STYLE;
 use std::error::Error;
 use std::panic;
 use crossterm::{
-    event,
-    terminal,
-    execute,
-    ExecutableCommand
+    event::{self, DisableMouseCapture, EnableMouseCapture}, execute, terminal, ExecutableCommand
 };
 use ratatui::{backend::CrosstermBackend, Terminal};
 
@@ -73,6 +70,9 @@ fn setup_terminal() -> Result<Terminal<CrosstermBackend<std::io::Stdout>>, Box<d
     terminal::enable_raw_mode()?;
     stdout.execute(crossterm::terminal::EnterAlternateScreen)?;
     stdout.execute(CURSOR_STYLE)?;
+    //
+    //stdout.execute(EnableMouseCapture)?;    //without this, mouse scroll seems to call whatever method is assigned at keypress up/down, and multiple times...
+    //
     
     let supports_keyboard_enhancement = terminal::supports_keyboard_enhancement().unwrap_or(false);
 
@@ -113,6 +113,9 @@ pub fn restore_terminal(
     terminal::disable_raw_mode()?;
     terminal.backend_mut().execute(crossterm::terminal::LeaveAlternateScreen)?;
     terminal.backend_mut().execute(crossterm::cursor::SetCursorStyle::DefaultUserShape)?;
+    //
+    //terminal.backend_mut().execute(DisableMouseCapture)?;   //restore default terminal mouse behavior
+    //
     terminal.show_cursor()?;
     
     Ok(())

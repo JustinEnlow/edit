@@ -25,10 +25,11 @@ enum ScrollDirection{
 pub enum Mode{
     Insert,
     Space,
-    Warning(WarningKind),
+    Warning(WarningKind),   //blocks key input until mode exited
     Command,
     Find,
     Goto,
+    //Notify  //like Warning Mode, but non blocking  //could be used for text copied indicator, etc..
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -119,9 +120,9 @@ impl Application{
         let selections = self.document.selections();
         self.ui.document_viewport.document_widget.text_in_view = self.document.view().text(text);
         self.ui.document_viewport.line_number_widget.line_numbers_in_view = self.document.view().line_numbers(text);
-        self.ui.highlighter.set_primary_cursor_position(self.document.view().primary_cursor_position(text, selections, CURSOR_SEMANTICS));
-        self.ui.highlighter.set_client_cursor_positions(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));
-        self.ui.highlighter.selections = self.document.view().selections(selections, text);
+        self.ui.document_viewport.highlighter.set_primary_cursor_position(self.document.view().primary_cursor_position(text, selections, CURSOR_SEMANTICS));
+        self.ui.document_viewport.highlighter.set_client_cursor_positions(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));
+        self.ui.document_viewport.highlighter.selections = self.document.view().selections(selections, text);
         self.ui.status_bar.selections_widget.primary_selection_index = selections.primary_selection_index();
         self.ui.status_bar.selections_widget.num_selections = selections.count();
         self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone();
@@ -130,9 +131,9 @@ impl Application{
     pub fn update_cursor_positions(&mut self){
         let text = self.document.text();
         let selections = self.document.selections();
-        self.ui.highlighter.set_primary_cursor_position(self.document.view().primary_cursor_position(text, selections, CURSOR_SEMANTICS));
-        self.ui.highlighter.set_client_cursor_positions(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));
-        self.ui.highlighter.selections = self.document.view().selections(selections, text);
+        self.ui.document_viewport.highlighter.set_primary_cursor_position(self.document.view().primary_cursor_position(text, selections, CURSOR_SEMANTICS));
+        self.ui.document_viewport.highlighter.set_client_cursor_positions(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));
+        self.ui.document_viewport.highlighter.selections = self.document.view().selections(selections, text);
         self.ui.status_bar.selections_widget.primary_selection_index = selections.primary_selection_index();
         self.ui.status_bar.selections_widget.num_selections = selections.count();
         self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone()
@@ -213,15 +214,39 @@ impl Application{
     pub fn set_mode_command(&mut self){
         assert!(self.mode == Mode::Insert);
         self.mode = Mode::Command;
+        //
+        self.ui.update_layouts(self.mode.clone());
+        self.document.view_mut().set_size(
+            self.ui.document_viewport.document_widget.rect.width as usize,
+            self.ui.document_viewport.document_widget.rect.height as usize
+        );
+        self.update_ui();
+        //
     }
     pub fn set_mode_find_replace(&mut self){    //TODO: should be set_mode_find
         assert!(self.mode == Mode::Insert);
         self.mode = Mode::Find;
+        //
+        self.ui.update_layouts(self.mode.clone());
+        self.document.view_mut().set_size(
+            self.ui.document_viewport.document_widget.rect.width as usize,
+            self.ui.document_viewport.document_widget.rect.height as usize
+        );
+        self.update_ui();
+        //
         self.ui.util_bar.utility_widget.selections_before_search = Some(self.document.selections().clone());
     }
     pub fn set_mode_goto(&mut self){
         assert!(self.mode == Mode::Insert);
         self.mode = Mode::Goto;
+        //
+        self.ui.update_layouts(self.mode.clone());
+        self.document.view_mut().set_size(
+            self.ui.document_viewport.document_widget.rect.width as usize,
+            self.ui.document_viewport.document_widget.rect.height as usize
+        );
+        self.update_ui();
+        //
     }
     pub fn set_mode_space(&mut self){
         assert!(self.mode == Mode::Insert);
@@ -820,7 +845,7 @@ impl Application{
         self.mode = Mode::Insert;
     }
 
-//      //TODO: if num entered, then directional key pressed, move that direction that number of times
+//Goto  //TODO: if num entered, then directional key pressed, move that direction that number of times
     pub fn goto_mode_accept(&mut self){
         assert!(self.mode == Mode::Goto);
         if let Ok(line_number) = self.ui.util_bar.utility_widget.text_box.text.to_string().parse::<usize>(){
@@ -872,6 +897,14 @@ impl Application{
         assert!(self.mode == Mode::Goto);
         self.ui.util_bar.utility_widget.text_box.clear();
         self.mode = Mode::Insert;
+        //
+        self.ui.update_layouts(self.mode.clone());
+        self.document.view_mut().set_size(
+            self.ui.document_viewport.document_widget.rect.width as usize,
+            self.ui.document_viewport.document_widget.rect.height as usize
+        );
+        self.update_ui();
+        //
     }
     pub fn goto_mode_extend_selection_end(&mut self){
         assert!(self.mode == Mode::Goto);
@@ -953,38 +986,22 @@ impl Application{
                         self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
                         *self.document.selections_mut() = selections;
                     }
-                    Err(_) => {
+                    Err(_) => { //TODO: may want to match on error to make sure we are handling this correctly
                         self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
+                        // make sure this is the desired behavior...
+                        *self.document.selections_mut() = self.ui.util_bar.utility_widget.selections_before_search.clone().unwrap();
+                        //
                     }
                 }
             }
             None => {}  //TODO: maybe set mode to warning?
         }
     }
-    fn restore_selections_check(&mut self){
-        if self.ui.util_bar.utility_widget.text_box.text.to_string().is_empty(){
-            match self.ui.util_bar.utility_widget.selections_before_search.clone(){
-                Some(selections) => {
-                    *self.document.selections_mut() = selections;
-                    self.ui.util_bar.utility_widget.selections_before_search = None;
-                }
-                None => {}  //idk
-            }
-        }
-    }
-    pub fn find_mode_accept(&mut self){
-        assert!(self.mode == Mode::Find);
-        //self.incremental_search();
-        //self.restore_selections_check();
-        //self.scroll_and_update(&self.document.selections().primary().clone());
-        self.find_mode_exit();
-    }
     pub fn find_mode_backspace(&mut self){
         assert!(self.mode == Mode::Find);
         self.ui.util_bar.utility_widget.text_box.backspace();
         self.update_util_bar_ui();
 
-        //self.find_mode_text_validity_check();
         self.incremental_search();
         self.scroll_and_update(&self.document.selections().primary().clone());
     }
@@ -993,16 +1010,21 @@ impl Application{
         self.ui.util_bar.utility_widget.text_box.delete();
         self.update_util_bar_ui();
 
-        //self.find_mode_text_validity_check();
         self.incremental_search();
         self.scroll_and_update(&self.document.selections().primary().clone());
     }
     pub fn find_mode_exit(&mut self){
         assert!(self.mode == Mode::Find);
-        self.restore_selections_check();
-        self.scroll_and_update(&self.document.selections().primary().clone());
         self.ui.util_bar.utility_widget.text_box.clear();
         self.mode = Mode::Insert;
+        //
+        self.ui.update_layouts(self.mode.clone());
+        self.document.view_mut().set_size(
+            self.ui.document_viewport.document_widget.rect.width as usize,
+            self.ui.document_viewport.document_widget.rect.height as usize
+        );
+        self.update_ui();
+        //
     }
     pub fn find_mode_extend_selection_end(&mut self){
         assert!(self.mode == Mode::Find);
@@ -1107,6 +1129,14 @@ impl Application{
         assert!(self.mode == Mode::Command);
         self.ui.util_bar.utility_widget.text_box.clear();
         self.mode = Mode::Insert;
+        //
+        self.ui.update_layouts(self.mode.clone());
+        self.document.view_mut().set_size(
+            self.ui.document_viewport.document_widget.rect.width as usize,
+            self.ui.document_viewport.document_widget.rect.height as usize
+        );
+        self.update_ui();
+        //
     }
     pub fn command_mode_extend_selection_end(&mut self){
         assert!(self.mode == Mode::Command);
