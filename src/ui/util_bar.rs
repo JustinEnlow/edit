@@ -125,7 +125,7 @@ pub struct Highlighter{
     pub cursor: u16,
 }
 impl ratatui::widgets::Widget for Highlighter{
-    fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer){
+    fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer){    //TODO: need to fix selection/cursor rendering when text is larger than util_bar rect
         //render selection
         if let Some(selection) = self.selection{
             if selection.range.end - selection.range.start > 0{

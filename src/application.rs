@@ -29,7 +29,8 @@ pub enum Mode{
     Command,
     Find,
     Goto,
-    //Notify  //like Warning Mode, but non blocking  //could be used for text copied indicator, etc..
+    //Notify  //like Warning Mode, but non blocking  //could be used for text copied indicator, etc.. could also do "action performed outside of view" for non-visible actions
+    //View  //adjust view with single input keybinds
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -103,6 +104,10 @@ impl Application{
                     Mode::Goto => {keybind::handle_goto_mode_keypress(self, key_event.code, key_event.modifiers);}
                     Mode::Find => {keybind::handle_find_replace_mode_keypress(self, key_event.code, key_event.modifiers);}
                     Mode::Command => {keybind::handle_command_mode_keypress(self, key_event.code, key_event.modifiers);}
+                    //Mode::Notify => {
+                    //    keybind::handle_insert_mode_keypress(self, key_event.code, key_event.modifiers);
+                    //    if self.mode == Mode::Notify{self.mode = Mode::Insert;} //ensure we return back to insert mode if we are still in notify after keypress(may be in other modes after keypress, which achieves the same)
+                    //}
                 }
             },
             event::Event::Resize(x, y) => self.resize(x, y),
@@ -187,8 +192,8 @@ impl Application{
     }
 
     //UI Controls
-    pub fn display_line_numbers(&mut self){
-        assert!(self.mode == Mode::Insert);
+    pub fn display_line_numbers(&mut self){     //TODO: This should really be toggle line numbers
+        assert!(self.mode == Mode::Insert || self.mode == Mode::Command);
         self.ui.document_viewport.toggle_line_numbers();
                 
         self.ui.update_layouts(self.mode.clone());
@@ -198,8 +203,8 @@ impl Application{
         );
         self.update_ui();
     }
-    pub fn display_status_bar(&mut self){
-        assert!(self.mode == Mode::Insert);
+    pub fn display_status_bar(&mut self){   //TODO: This should really be toggle status bar
+        assert!(self.mode == Mode::Insert || self.mode == Mode::Command);
         self.ui.status_bar.toggle_status_bar();
                 
         self.ui.update_layouts(self.mode.clone());
@@ -271,7 +276,7 @@ impl Application{
     pub fn insert_char(&mut self, c: char){
         assert!(self.mode == Mode::Insert);
         match self.document.insert_string(&c.to_string(), CURSOR_SEMANTICS){
-            Ok(_) => {self.scroll_and_update(&self.document.selections().primary().clone());}
+            Ok(_) => {self.scroll_and_update(&self.document.selections().primary().clone());}   //TODO: will this ever need to scroll?...verify
             Err(e) => {
                 let this_file = std::panic::Location::caller().file();
                 let line_number = std::panic::Location::caller().line();
@@ -287,7 +292,7 @@ impl Application{
         let len = self.document.len();
         match self.document.insert_string("\n", CURSOR_SEMANTICS){
             Ok(_) => {
-                self.scroll_and_update(&self.document.selections().primary().clone());
+                self.scroll_and_update(&self.document.selections().primary().clone());  //TODO: maybe checked scroll and update?...
                 //if length has changed after newline
                 if len != self.document.len(){self.ui.document_viewport.document_widget.doc_length = self.document.len();}
             }
@@ -304,7 +309,7 @@ impl Application{
     pub fn insert_tab(&mut self){
         assert!(self.mode == Mode::Insert);
         match self.document.insert_string("\t", CURSOR_SEMANTICS){
-            Ok(_) => {self.scroll_and_update(&self.document.selections().primary().clone());}
+            Ok(_) => {self.scroll_and_update(&self.document.selections().primary().clone());}   //TODO: will this ever need to scroll?...verify
             Err(e) => {
                 let this_file = std::panic::Location::caller().file();
                 let line_number = std::panic::Location::caller().line();
@@ -320,7 +325,7 @@ impl Application{
         let len = self.document.len();
         match self.document.delete(CURSOR_SEMANTICS){
             Ok(_) => {
-                self.scroll_and_update(&self.document.selections().primary().clone());
+                self.scroll_and_update(&self.document.selections().primary().clone());  //TODO: maybe checked scroll and update?...
                 //if length has changed after delete
                 if len != self.document.len(){self.ui.document_viewport.document_widget.doc_length = self.document.len();}
             }
@@ -349,7 +354,7 @@ impl Application{
         let len = self.document.len();
         match self.document.backspace(CURSOR_SEMANTICS){
             Ok(_) => {
-                self.scroll_and_update(&self.document.selections().primary().clone());
+                self.scroll_and_update(&self.document.selections().primary().clone());  //TODO: maybe checked scroll and update?...
                 //if length has changed after backspace
                 if len != self.document.len(){self.ui.document_viewport.document_widget.doc_length = self.document.len();}
             }
@@ -368,7 +373,7 @@ impl Application{
         let len = self.document.len();
         match self.document.cut(CURSOR_SEMANTICS){
             Ok(_) => {
-                self.scroll_and_update(&self.document.selections().primary().clone());
+                self.scroll_and_update(&self.document.selections().primary().clone());  //TODO: maybe checked scroll and update?...
                 //if length has changed after cut
                 if len != self.document.len(){self.ui.document_viewport.document_widget.doc_length = self.document.len();}
             }
@@ -415,7 +420,7 @@ impl Application{
         let len = self.document.len();
         match self.document.paste(CURSOR_SEMANTICS){
             Ok(_) => {
-                self.scroll_and_update(&self.document.selections().primary().clone());
+                self.scroll_and_update(&self.document.selections().primary().clone());  //TODO: maybe checked scroll and update?...
                 //if length has changed after paste
                 if len != self.document.len(){self.ui.document_viewport.document_widget.doc_length = self.document.len();}
             }
@@ -435,7 +440,7 @@ impl Application{
         let len = self.document.len();
         match self.document.undo(CURSOR_SEMANTICS){
             Ok(_) => {
-                self.scroll_and_update(&self.document.selections().primary().clone());
+                self.scroll_and_update(&self.document.selections().primary().clone());  //TODO: maybe checked scroll and update?...
                 //if length has changed after paste
                 if len != self.document.len(){self.ui.document_viewport.document_widget.doc_length = self.document.len();}
             }
@@ -454,7 +459,7 @@ impl Application{
         let len = self.document.len();
         match self.document.redo(CURSOR_SEMANTICS){
             Ok(_) => {
-                self.scroll_and_update(&self.document.selections().primary().clone());
+                self.scroll_and_update(&self.document.selections().primary().clone());  //TODO: maybe checked scroll and update?...
                 //if length has changed after paste
                 if len != self.document.len(){self.ui.document_viewport.document_widget.doc_length = self.document.len();}
             }
@@ -528,6 +533,7 @@ impl Application{
         self.checked_scroll_and_update(&self.document.selections().primary().clone());
     }
     //TODO: is this truly the desired behavior?...vs code seems to move grouped multicursors down by a page instead
+    //TODO: maybe the behavior should be more like move_cursor_potentially_overlapping?...
     fn move_cursor_page(&mut self, movement_fn: fn(&Selection, &Rope, &View, CursorSemantics) -> Result<Selection, SelectionError>){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
@@ -616,22 +622,19 @@ impl Application{
         self.move_cursor_page(Selection::move_page_down);
     }
     pub fn extend_selection_up(&mut self){
-        //self.extend_selection(Selection::extend_up);    //when multi cursor and first at doc start, non first selections move correctly and dont trigger same state warning, but selections arent merging when overlapping
         self.move_cursor_potentially_overlapping(Selection::extend_up);
     }
     pub fn extend_selection_down(&mut self){
         self.move_cursor_potentially_overlapping(Selection::extend_down);
     }
     pub fn extend_selection_left(&mut self){
-        //self.extend_selection(Selection::extend_left);  //if multi cursor and first selection at doc start, we get a same state warning, when other selections should extend while first remains in place...
-        self.move_cursor_potentially_overlapping(Selection::extend_left);   //this doesn't work either, but for slightly different reasons. selections extend without showing same state warning, but for some reason, they aren't merging when overlapping...only when first selection at doc start...
+        self.move_cursor_potentially_overlapping(Selection::extend_left);
     }
     pub fn extend_selection_right(&mut self){
         self.move_cursor_potentially_overlapping(Selection::extend_right);
     }
     pub fn extend_selection_word_boundary_backward(&mut self){
-        //self.extend_selection(Selection::extend_left_word_boundary);    //when multi cursor and first at doc start, non first selections move correctly and dont trigger same state warning, but selections arent merging when overlapping
-        self.move_cursor_potentially_overlapping(Selection::extend_left_word_boundary); //same problem
+        self.move_cursor_potentially_overlapping(Selection::extend_left_word_boundary);
     }
     pub fn extend_selection_word_boundary_forward(&mut self){
         self.move_cursor_potentially_overlapping(Selection::extend_right_word_boundary);
@@ -680,7 +683,7 @@ impl Application{
             }
         }
     }
-    pub fn add_selection_above(&mut self){  //still not working quite correctly in some positions(near line endings)
+    pub fn add_selection_above(&mut self){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
         match self.document.selections().add_selection_above(&text, CURSOR_SEMANTICS){
@@ -699,7 +702,7 @@ impl Application{
             }
         }
     }
-    pub fn add_selection_below(&mut self){  //still not working quite correctly in some positions(near line endings)
+    pub fn add_selection_below(&mut self){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
         match self.document.selections().add_selection_below(&text, CURSOR_SEMANTICS){
@@ -1094,13 +1097,15 @@ impl Application{
             .spawn()
             .expect("failed to spawn new terminal at current directory");
     }
-    pub fn parse_command(&self, args: &str) -> Result<(), ()>{
+    pub fn parse_command(&mut self, args: &str) -> Result<(), ()>{
         assert!(self.mode == Mode::Command);
         let mut args = args.split_whitespace();
         
         let command = args.next().unwrap();
         match command{
             "term" => {self.open_new_terminal_window();}
+            "display_line_numbers" => {self.display_line_numbers();}
+            "display_status_bar" => {self.display_status_bar();}
             _ => {return Err(())}
         }
     

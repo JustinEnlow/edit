@@ -51,19 +51,19 @@ To meet reqs as simple text editor:
                 extensions should never go past document boundaries
                 other...
         [ ] selection management
-            [ ] add selection
-                [ ] above
-                [ ] below
+            [x] add selection
+                [x] above
+                [x] below
             [x] remove primary selection    - this allows for removing matched instances of search text that you don't want to be edited, or removing selection added above/below where they don't need to be edited
             [x] increment primary selection index
             [x] decrement primary selection index
             [ ] match search text
                 [x] case sensitive
                 [ ] case insensitive
-                [ ] regex
-                [ ] incremental search  (would have to store selections prior to search, in case search is aborted)
-                [x] within whole document
-                [ ] within already selected text(single or multi)
+                [x] regex
+                [x] incremental search  (would have to store selections prior to search, in case search is aborted)
+                [ ] within whole document
+                [x] within already selected text(single or multi)
             [ ] split selection(s?) at specified character(single or multi)
                 //example "fn something(input1: usize, input2: usize)"
                     select inside parens    "fn something([input1: usize, input2: usize])"
@@ -105,7 +105,13 @@ To meet reqs as simple text editor:
                 [x] right
         [ ] set up UI elements
             [ ] document viewport
-            [ ] line numbers
+                [x] document text
+                [x] toggleable line numbers
+                [ ] highlighter
+                    [x] selections
+                    [x] cursors
+                    [ ] cursor line(highlight the line that the cursor is on)
+                    [ ] cursor column(highlight the column that the cursor is on)
             [ ] status bar
                 [x] add status bar widget for number of selections(1/1 = primary cursor is the only one, 3/125 = primary cursor is the 3rd selection of 125)
                 [ ] loading indicator on save/open/big edits like undoing a deletion of the whole text
@@ -115,9 +121,8 @@ To meet reqs as simple text editor:
                 [ ] warning mode
                 [x] selection copied indicator
             [ ] popups
+                [ ] available editor actions(space mode)
                 [ ] completion suggestions from words already in doc
-            [ ] highlighter(may be better to have a highlighter for each individual ui element)
-                [ ] cursor line/cursor column highlighting(with user defined colors in config.rs)
 
 
 
@@ -135,6 +140,7 @@ To meet reqs as code editor:
 
 future goals:
     client/server, so single backend instance can process multiple frontend applications
+    selection history(undo/redo but for selection movement instead of text edited)
 
 
 
