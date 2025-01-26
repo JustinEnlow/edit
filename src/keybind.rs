@@ -10,7 +10,7 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
             if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){
                 if c == 'p'{app.decrement_primary_selection();}
                 if c == 'z'{app.redo();}
-                if c == 'l'{app.display_line_numbers();}
+                //if c == 'l'{app.toggle_line_numbers();}
             }
             else if modifiers == KeyModifiers::CONTROL{
                 if c == ' '{app.set_mode_space();}
@@ -19,7 +19,7 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
                 if c == 'g'{app.set_mode_goto();}
                 if c == 'f'{app.set_mode_find_replace();}
                 if c == 'l'{app.select_line();} //conflicts with display_line_numbers
-                if c == 'k'{app.display_status_bar();}
+                //if c == 'k'{app.toggle_status_bar();}
                 if c == 'o'{app.set_mode_command();}
                 if c == 't'{app.open_new_terminal_window();}
                 if c == 'a'{app.select_all();}

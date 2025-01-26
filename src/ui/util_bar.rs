@@ -21,8 +21,8 @@ const COMMAND_PROMPT: &str = " Command: ";
 pub struct UtilityWidget{
     pub rect: Rect,
     pub text_box: InteractiveTextBox,
-    pub display_copied_indicator: bool,
-    pub clear_copied_indicator: bool,   // clear_copied_indicator exists because copied_indicator widget rendering needs to persist for an entire loop cycle(until next keypress)
+    //pub display_copied_indicator: bool,
+    //pub clear_copied_indicator: bool,   // clear_copied_indicator exists because copied_indicator widget rendering needs to persist for an entire loop cycle(until next keypress)
     pub selections_before_search: Option<Selections>,
 }
 impl UtilityWidget{
@@ -49,45 +49,45 @@ impl UtilityWidget{
                 let text = self.text_box.text.clone();
                 Paragraph::new(self.text_box.view.text(&text))
             }
-            Mode::Warning(kind) => Paragraph::new(
+            Mode::Warning(kind) => {
+                Paragraph::new(
                 match kind{
-                    WarningKind::FileIsModified => {
-                        "WARNING! File has unsaved changes. Press close again to ignore and close.".to_string()
+                        WarningKind::FileIsModified => {
+                            "WARNING! File has unsaved changes. Press close again to ignore and close.".to_string()
+                        }
+                        WarningKind::FileSaveFailed => {
+                            "WARNING! File could not be saved.".to_string()
+                        }
+                        WarningKind::CommandParseFailed => {
+                            "WARNING! Failed to parse command. Command may be undefined.".to_string()
+                        }
+                        WarningKind::SingleSelection => {
+                            "WARNING! Requested action cannot be performed on single selection.".to_string()
+                        }
+                        WarningKind::MultipleSelections => {
+                            "WARNING! Requested action cannot be performed on multiple selections.".to_string()
+                        }
+                        WarningKind::InvalidInput => {
+                            "WARNING! Invalid input.".to_string()
+                        }
+                        WarningKind::SameState => {
+                            "WARNING! Requested action results in the same state.".to_string()
+                        }
+                        WarningKind::UnhandledError(e) => {
+                            e
+                        }
                     }
-                    WarningKind::FileSaveFailed => {
-                        "WARNING! File could not be saved.".to_string()
-                    }
-                    WarningKind::CommandParseFailed => {
-                        "WARNING! Failed to parse command. Command may be undefined.".to_string()
-                    }
-                    WarningKind::SingleSelection => {
-                        "WARNING! Requested action cannot be performed on single selection.".to_string()
-                    }
-                    WarningKind::MultipleSelections => {
-                        "WARNING! Requested action cannot be performed on multiple selections.".to_string()
-                    }
-                    WarningKind::InvalidInput => {
-                        "WARNING! Invalid input.".to_string()
-                    }
-                    WarningKind::SameState => {
-                        "WARNING! Requested action results in the same state.".to_string()
-                    }
-                    WarningKind::UnhandledError(e) => {
-                        e
-                    }
-                }
-            )
-                .alignment(ratatui::prelude::Alignment::Center)
-                .style(
-                    Style::default()
-                        .bg(WARNING_BACKGROUND_COLOR)
-                        .fg(WARNING_FOREGROUND_COLOR)
-                        .bold()
                 )
-            ,
-            Mode::Insert => {
-                if self.display_copied_indicator{
-                    Paragraph::new("Text copied to clipboard.")
+                    .alignment(ratatui::prelude::Alignment::Center)
+                    .style(
+                        Style::default()
+                            .bg(WARNING_BACKGROUND_COLOR)
+                            .fg(WARNING_FOREGROUND_COLOR)
+                            .bold()
+                    )
+            },
+            Mode::Notify => {
+                Paragraph::new("Text copied to clipboard.")
                         .alignment(ratatui::prelude::Alignment::Center)
                         .style(
                             Style::default()
@@ -95,9 +95,20 @@ impl UtilityWidget{
                                 .fg(COPIED_INDICATOR_FOREGROUND_COLOR)
                                 .bold()
                         )
-                }else{
+            },
+            Mode::Insert => {
+                //if self.display_copied_indicator{
+                //    Paragraph::new("Text copied to clipboard.")
+                //        .alignment(ratatui::prelude::Alignment::Center)
+                //        .style(
+                //            Style::default()
+                //                .bg(COPIED_INDICATOR_BACKGROUND_COLOR)
+                //                .fg(COPIED_INDICATOR_FOREGROUND_COLOR)
+                //                .bold()
+                //        )
+                //}else{
                     Paragraph::new("".to_string())
-                }
+                //}
             }
             _ => Paragraph::new("".to_string())
         }
@@ -187,6 +198,7 @@ impl UtilBar{
                             Mode::Find => FIND_PROMPT.len() as u16,
                             Mode::Command => COMMAND_PROMPT.len() as u16,
                             Mode::Warning(_)
+                            | Mode::Notify
                             | Mode::Insert
                             | Mode::Space => 0
                         }
@@ -196,6 +208,7 @@ impl UtilBar{
                         match mode{
                             Mode::Insert
                             | Mode::Space
+                            | Mode::Notify
                             | Mode::Warning(_) => rect.width,
                             Mode::Goto => rect.width - GOTO_PROMPT.len() as u16,
                             Mode::Command => rect.width - COMMAND_PROMPT.len() as u16,

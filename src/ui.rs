@@ -41,7 +41,7 @@ impl UserInterface{
         self.terminal_size.height = height;
     }
 
-    fn layout_terminal(&self, mode: Mode) -> std::rc::Rc<[Rect]>{
+    fn layout_terminal(&self, mode: Mode) -> std::rc::Rc<[Rect]>{       //TODO: maybe rename layout_terminal_vertical_ui_components
         // layout of the whole terminal screen
         Layout::default()
             .direction(Direction::Vertical)
@@ -54,8 +54,8 @@ impl UserInterface{
                     // util(goto/find/command) bar rect height
                     Constraint::Length(
                         match mode{
-                            Mode::Warning(_) | Mode::Command | Mode::Find | Mode::Goto => 1,
-                            Mode::Insert => if self.util_bar.utility_widget.display_copied_indicator || self.status_bar.display{1}else{0}
+                            Mode::Warning(_) | Mode::Command | Mode::Find | Mode::Goto | Mode::Notify => 1,
+                            Mode::Insert => if /*self.util_bar.utility_widget.display_copied_indicator || */self.status_bar.display{1}else{0}
                             Mode::Space => if self.status_bar.display{1}else{0}
                         }
                     )
@@ -113,33 +113,37 @@ impl UserInterface{
                         // ))
                         
                         // clear_copied_indicator exists because copied_indicator widget rendering needs to persist for an entire loop cycle(until next keypress)
-                        if self.util_bar.utility_widget.clear_copied_indicator{
-                            self.util_bar.utility_widget.display_copied_indicator = false;
-                            self.util_bar.utility_widget.clear_copied_indicator = false;
-                        }
-                        if self.util_bar.utility_widget.display_copied_indicator{
-                            frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
-                            self.util_bar.utility_widget.clear_copied_indicator = true;
-                        }
+                        //if self.util_bar.utility_widget.clear_copied_indicator{
+                        //    self.util_bar.utility_widget.display_copied_indicator = false;
+                        //    self.util_bar.utility_widget.clear_copied_indicator = false;
+                        //}
+                        //if self.util_bar.utility_widget.display_copied_indicator{
+                        //    frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
+                        //    self.util_bar.utility_widget.clear_copied_indicator = true;
+                        //}
                     }
                     Mode::Goto | Mode::Command => {
                         frame.render_widget(self.util_bar.prompt.widget(mode.clone()), self.util_bar.prompt.rect);
                         frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
                         
-                        self.util_bar.highlighter.selection = Some(self.util_bar.utility_widget.text_box.selection.clone());
-                        self.util_bar.highlighter.cursor = self.util_bar.utility_widget.text_box.cursor_position();
+                        self.util_bar.highlighter.selection = Some(self.util_bar.utility_widget.text_box.selection.clone());    //TODO: maybe these should be moved into Application::update_ui_data_util_bar
+                        self.util_bar.highlighter.cursor = self.util_bar.utility_widget.text_box.cursor_position();             //TODO: maybe these should be moved into Application::update_ui_data_util_bar
                         frame.render_widget(self.util_bar.highlighter.clone(), self.util_bar.utility_widget.rect);
                     }
                     Mode::Find => {
                         frame.render_widget(self.util_bar.prompt.widget(mode.clone()), self.util_bar.prompt.rect);
                         frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
 
-                        self.util_bar.highlighter.selection = Some(self.util_bar.utility_widget.text_box.selection.clone());
-                        self.util_bar.highlighter.cursor = self.util_bar.utility_widget.text_box.cursor_position();
+                        self.util_bar.highlighter.selection = Some(self.util_bar.utility_widget.text_box.selection.clone());    //TODO: maybe these should be moved into Application::update_ui_data_util_bar
+                        self.util_bar.highlighter.cursor = self.util_bar.utility_widget.text_box.cursor_position();             //TODO: maybe these should be moved into Application::update_ui_data_util_bar
                         frame.render_widget(self.util_bar.highlighter.clone(), self.util_bar.utility_widget.rect);
                     }
                     Mode::Warning(_) => {
-                        frame.render_widget(self.util_bar.prompt.widget(mode.clone()), self.util_bar.prompt.rect);
+                        //frame.render_widget(self.util_bar.prompt.widget(mode.clone()), self.util_bar.prompt.rect);
+                        frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
+                    }
+                    Mode::Notify => {
+                        //frame.render_widget(self.util_bar.prompt.widget(mode.clone()), self.util_bar.prompt.rect);
                         frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
                     }
                     Mode::Space => {
