@@ -41,7 +41,7 @@ impl UserInterface{
         self.terminal_size.height = height;
     }
 
-    fn layout_terminal(&self, mode: Mode) -> std::rc::Rc<[Rect]>{       //TODO: maybe rename layout_terminal_vertical_ui_components
+    fn layout_terminal(&self, mode: &Mode) -> std::rc::Rc<[Rect]>{       //TODO: maybe rename layout_terminal_vertical_ui_components
         // layout of the whole terminal screen
         Layout::default()
             .direction(Direction::Vertical)
@@ -63,11 +63,11 @@ impl UserInterface{
             )
             .split(self.terminal_size)
     }
-    pub fn update_layouts(&mut self, mode: Mode){
-        let terminal_rect = self.layout_terminal(mode.clone());
+    pub fn update_layouts(&mut self, mode: &Mode){
+        let terminal_rect = self.layout_terminal(mode);
         let document_viewport_rect = self.document_viewport.layout(terminal_rect[0]);
         let status_bar_rect = self.status_bar.layout(terminal_rect[1]);
-        let util_rect = self.util_bar.layout(mode.clone(), terminal_rect[2]);
+        let util_rect = self.util_bar.layout(mode, terminal_rect[2]);
 
         self.document_viewport.line_number_widget.rect = document_viewport_rect[0];
         // dont have to set line num right padding(document_and_line_num_rect[1])
@@ -85,7 +85,7 @@ impl UserInterface{
         self.util_bar.update_width(mode);
     }
 
-    pub fn render(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>, mode: Mode) -> Result<(), Box<dyn Error>>{        
+    pub fn render(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>, mode: &Mode) -> Result<(), Box<dyn Error>>{
         let _ = terminal.draw(  // Intentionally discarding `CompletedFrame`
             |frame| {
                 // always render
@@ -123,7 +123,7 @@ impl UserInterface{
                         //}
                     }
                     Mode::Goto | Mode::Command => {
-                        frame.render_widget(self.util_bar.prompt.widget(mode.clone()), self.util_bar.prompt.rect);
+                        frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);
                         frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
                         
                         self.util_bar.highlighter.selection = Some(self.util_bar.utility_widget.text_box.selection.clone());    //TODO: maybe these should be moved into Application::update_ui_data_util_bar
@@ -131,7 +131,7 @@ impl UserInterface{
                         frame.render_widget(self.util_bar.highlighter.clone(), self.util_bar.utility_widget.rect);
                     }
                     Mode::Find => {
-                        frame.render_widget(self.util_bar.prompt.widget(mode.clone()), self.util_bar.prompt.rect);
+                        frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);
                         frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
 
                         self.util_bar.highlighter.selection = Some(self.util_bar.utility_widget.text_box.selection.clone());    //TODO: maybe these should be moved into Application::update_ui_data_util_bar

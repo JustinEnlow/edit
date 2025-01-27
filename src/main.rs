@@ -3,6 +3,8 @@
 #![allow(clippy::len_without_is_empty)]
 #![allow(clippy::assign_op_pattern)]    //allow x = x + y, instead of x += y
 #![allow(clippy::if_same_then_else)]
+#![allow(clippy::match_same_arms)]  //idk,double check if we want this one...
+#![allow(clippy::bool_to_int_with_if)]  //idk, double check if we want this one...
 //#![warn(unused_results)]
 
 use crate::application::Application;
@@ -30,7 +32,7 @@ fn main() -> Result<(), Box<dyn Error>>{
             CrosstermBackend::new(std::io::stdout())
         ).unwrap();
         restore_terminal(&mut terminal).unwrap();
-        println!("Application panicked: {:?}", info);
+        println!("Application panicked: {info:?}");
     }));
 
     let file_path = get_file_path()?;
@@ -71,7 +73,7 @@ fn setup_terminal() -> Result<Terminal<CrosstermBackend<std::io::Stdout>>, Box<d
     stdout.execute(crossterm::terminal::EnterAlternateScreen)?;
     stdout.execute(CURSOR_STYLE)?;
     //
-    //stdout.execute(EnableMouseCapture)?;    //without this, mouse scroll seems to call whatever method is assigned at keypress up/down, and multiple times...
+    stdout.execute(EnableMouseCapture)?;    //without this, mouse scroll seems to call whatever method is assigned at keypress up/down, and multiple times...
     //
     
     let supports_keyboard_enhancement = terminal::supports_keyboard_enhancement().unwrap_or(false);
@@ -114,7 +116,7 @@ pub fn restore_terminal(
     terminal.backend_mut().execute(crossterm::terminal::LeaveAlternateScreen)?;
     terminal.backend_mut().execute(crossterm::cursor::SetCursorStyle::DefaultUserShape)?;
     //
-    //terminal.backend_mut().execute(DisableMouseCapture)?;   //restore default terminal mouse behavior
+    terminal.backend_mut().execute(DisableMouseCapture)?;   //restore default terminal mouse behavior
     //
     terminal.show_cursor()?;
     

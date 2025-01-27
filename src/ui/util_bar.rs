@@ -76,6 +76,12 @@ impl UtilityWidget{
                         WarningKind::UnhandledError(e) => {
                             e
                         }
+                        WarningKind::UnhandledKeypress => {
+                            "WARNING! Unbound key pressed.".to_string()
+                        }
+                        WarningKind::UnhandledEvent => {
+                            "WARNING! Unhandled event occurred.".to_string()
+                        }
                     }
                 )
                     .alignment(ratatui::prelude::Alignment::Center)
@@ -107,10 +113,10 @@ impl UtilityWidget{
                 //                .bold()
                 //        )
                 //}else{
-                    Paragraph::new("".to_string())
+                    Paragraph::new(String::new())
                 //}
             }
-            _ => Paragraph::new("".to_string())
+            Mode::Space => Paragraph::new(String::new())
         }
     }
 }
@@ -120,7 +126,7 @@ pub struct UtilityPromptWidget{
     pub rect: Rect
 }
 impl UtilityPromptWidget{
-    pub fn widget(&self, mode: Mode) -> Paragraph<'static>{
+    pub fn widget(&self, mode: &Mode) -> Paragraph<'static>{
         match mode{
             Mode::Goto => Paragraph::new(GOTO_PROMPT),
             Mode::Find => Paragraph::new(FIND_PROMPT),
@@ -172,7 +178,7 @@ pub struct UtilBar{
     pub highlighter: Highlighter,
 }
 impl UtilBar{
-    pub fn update_width(&mut self, mode: Mode){
+    pub fn update_width(&mut self, mode: &Mode){
         match mode{ //TODO: can these be set from relevant fns in application.rs? display_line_numbers, display_status_bar, resize, any mode change, etc
             Mode::Command 
             | Mode::Goto 
@@ -185,7 +191,7 @@ impl UtilBar{
             }
         }
     }
-    pub fn layout(&self, mode: Mode, rect: Rect) -> std::rc::Rc<[Rect]>{
+    pub fn layout(&self, mode: &Mode, rect: Rect) -> std::rc::Rc<[Rect]>{
         // layout of util rect (goto/find/command/save as)
         Layout::default()
             .direction(Direction::Horizontal)

@@ -42,7 +42,9 @@ pub enum WarningKind{
     MultipleSelections,
     InvalidInput,
     SameState,
-    UnhandledError(String)    //prob should still panic if results in an invalid state...
+    UnhandledError(String),    //prob should still panic if results in an invalid state...
+    UnhandledKeypress,
+    UnhandledEvent
 }
 
 
@@ -71,7 +73,7 @@ impl Application{
         instance.ui.status_bar.file_name_widget.file_name = instance.document.file_name();
         instance.ui.document_viewport.document_widget.doc_length = instance.document.len();
         
-        instance.ui.update_layouts(instance.mode.clone());
+        instance.ui.update_layouts(&instance.mode);
         //init backend doc view size
         instance.document.view_mut().set_size(
             instance.ui.document_viewport.document_widget.rect.width as usize,
@@ -86,8 +88,8 @@ impl Application{
 
     pub fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<(), Box<dyn Error>>{
         loop{
-            self.ui.update_layouts(self.mode.clone());
-            self.ui.render(terminal, self.mode.clone())?;
+            self.ui.update_layouts(&self.mode);
+            self.ui.render(terminal, &self.mode)?;
             self.handle_event()?;
             if self.should_quit{
                 return Ok(());
@@ -113,7 +115,7 @@ impl Application{
                 }
             },
             event::Event::Resize(x, y) => self.resize(x, y),
-            _ => self.no_op(),  //TODO: this no_op should be disambiguated from a keypress no_op, so that they can impl different behavior...
+            _ => self.no_op_event(),
         }
 
         Ok(())
@@ -148,7 +150,7 @@ impl Application{
         self.ui.document_viewport.highlighter.selections = self.document.view().selections(selections, text);
         self.ui.status_bar.selections_widget.primary_selection_index = selections.primary_selection_index();
         self.ui.status_bar.selections_widget.num_selections = selections.count();
-        self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone()
+        self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone();
     }
     // prefer this over checked_scroll_and_update only when the view should ALWAYS scroll.      //TODO: comment out this fn, and verify all callers actually need this fn and not checked_scroll_and_update
     //pub fn scroll_and_update(&mut self, selection: &Selection){ //TODO: maybe scrolling should be separate from scrolling?...
@@ -176,11 +178,15 @@ impl Application{
     /////////////////////////////////////////////////////////////////////////// Reuse ////////////////////////////////////////////////////////////////////////////////
 
     /////////////////////////////////////////////////////////////////////////// Built in ////////////////////////////////////////////////////////////////////////////////
-    pub fn no_op(&mut self){/* TODO: warn unbound keypress */}      //TODO: rename no_op_keypress
-    pub fn no_op_event(&mut self){/*TODO: warn unhandled event */}
+    pub fn no_op_keypress(&mut self){
+        self.mode = Mode::Warning(WarningKind::UnhandledKeypress);  //Why isn't this triggering?
+    }
+    pub fn no_op_event(&mut self){
+        self.mode = Mode::Warning(WarningKind::UnhandledEvent);
+    }
     pub fn resize(&mut self, x: u16, y: u16){
         self.ui.set_terminal_size(x, y);
-        self.ui.update_layouts(self.mode.clone());
+        self.ui.update_layouts(&self.mode);
         self.update_ui_data_util_bar(); //TODO: can this be called later in fn impl?
         // ui layouts need to be updated before doc size set, so doc size can be calculated correctly
         self.document.view_mut().set_size(self.ui.document_viewport.document_widget.rect.width as usize, self.ui.document_viewport.document_widget.rect.height as usize);
@@ -210,7 +216,7 @@ impl Application{
         assert!(self.mode == Mode::Insert || self.mode == Mode::Command);
         self.ui.document_viewport.toggle_line_numbers();
                 
-        self.ui.update_layouts(self.mode.clone());
+        self.ui.update_layouts(&self.mode);
         self.document.view_mut().set_size(
             self.ui.document_viewport.document_widget.rect.width as usize,
             self.ui.document_viewport.document_widget.rect.height as usize
@@ -221,7 +227,7 @@ impl Application{
         assert!(self.mode == Mode::Insert || self.mode == Mode::Command);
         self.ui.status_bar.toggle_status_bar();
                 
-        self.ui.update_layouts(self.mode.clone());
+        self.ui.update_layouts(&self.mode);
         self.document.view_mut().set_size(
             self.ui.document_viewport.document_widget.rect.width as usize,
             self.ui.document_viewport.document_widget.rect.height as usize
@@ -234,7 +240,7 @@ impl Application{
         assert!(self.mode == Mode::Insert);
         self.mode = Mode::Command;
         //
-        self.ui.update_layouts(self.mode.clone());
+        self.ui.update_layouts(&self.mode);
         self.document.view_mut().set_size(
             self.ui.document_viewport.document_widget.rect.width as usize,
             self.ui.document_viewport.document_widget.rect.height as usize
@@ -242,11 +248,11 @@ impl Application{
         self.update_ui_data_document();
         //
     }
-    pub fn set_mode_find_replace(&mut self){    //TODO: should be set_mode_find
+    pub fn set_mode_find(&mut self){
         assert!(self.mode == Mode::Insert);
         self.mode = Mode::Find;
         //
-        self.ui.update_layouts(self.mode.clone());
+        self.ui.update_layouts(&self.mode);
         self.document.view_mut().set_size(
             self.ui.document_viewport.document_widget.rect.width as usize,
             self.ui.document_viewport.document_widget.rect.height as usize
@@ -259,7 +265,7 @@ impl Application{
         assert!(self.mode == Mode::Insert);
         self.mode = Mode::Goto;
         //
-        self.ui.update_layouts(self.mode.clone());
+        self.ui.update_layouts(&self.mode);
         self.document.view_mut().set_size(
             self.ui.document_viewport.document_widget.rect.width as usize,
             self.ui.document_viewport.document_widget.rect.height as usize
@@ -274,7 +280,7 @@ impl Application{
     pub fn save(&mut self){
         assert!(self.mode == Mode::Insert);
         match self.document.save(){
-            Ok(_) => {self.update_ui_data_document();}
+            Ok(()) => {self.update_ui_data_document();}
             Err(_) => {self.mode = Mode::Warning(WarningKind::FileSaveFailed);}
         }
     }
@@ -290,7 +296,7 @@ impl Application{
     pub fn insert_char(&mut self, c: char){
         assert!(self.mode == Mode::Insert);
         match self.document.insert_string(&c.to_string(), CURSOR_SEMANTICS){
-            Ok(_) => {
+            Ok(()) => {
                 // calling same scroll response fn because all document ui elements need to be updated, whether this scrolls or not.
                 self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
             }
@@ -308,7 +314,7 @@ impl Application{
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
         match self.document.insert_string("\n", CURSOR_SEMANTICS){
-            Ok(_) => {
+            Ok(()) => {
                 // calling same scroll response fn because all document ui elements need to be updated, whether this scrolls or not.
                 self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
                 //if length has changed after newline
@@ -327,7 +333,7 @@ impl Application{
     pub fn insert_tab(&mut self){
         assert!(self.mode == Mode::Insert);
         match self.document.insert_string("\t", CURSOR_SEMANTICS){
-            Ok(_) => {
+            Ok(()) => {
                 // calling same scroll response fn because all document ui elements need to be updated, whether this scrolls or not.
                 self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
             }
@@ -345,7 +351,7 @@ impl Application{
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
         match self.document.delete(CURSOR_SEMANTICS){
-            Ok(_) => {
+            Ok(()) => {
                 //self.scroll_and_update(&self.document.selections().primary().clone());  //TODO: maybe checked scroll and update?...   //actually delete may never need to scroll. verify...
                 self.update_ui_data_document(); //testing for reasons stated in comment above
                 //if length has changed after delete
@@ -375,7 +381,7 @@ impl Application{
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
         match self.document.backspace(CURSOR_SEMANTICS){
-            Ok(_) => {
+            Ok(()) => {
                 // calling same scroll response fn because all document ui elements need to be updated, whether this scrolls or not.
                 self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
                 //if length has changed after backspace
@@ -395,7 +401,7 @@ impl Application{
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
         match self.document.cut(CURSOR_SEMANTICS){
-            Ok(_) => {
+            Ok(()) => {
                 // calling same scroll response fn because all document ui elements need to be updated, whether this scrolls or not.
                 self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
                 //if length has changed after cut
@@ -420,10 +426,10 @@ impl Application{
     pub fn copy(&mut self){
         assert!(self.mode == Mode::Insert);
         match self.document.copy(){
-            Ok(_) => {
+            Ok(()) => {
                 //self.ui.util_bar.utility_widget.display_copied_indicator = true;
                 self.mode = Mode::Notify;
-                self.update_ui_data_document();
+                self.update_ui_data_document(); //TODO: is this really needed for something?...
             }
             Err(e) => {
                 let this_file = std::panic::Location::caller().file();
@@ -444,7 +450,7 @@ impl Application{
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
         match self.document.paste(CURSOR_SEMANTICS){
-            Ok(_) => {
+            Ok(()) => {
                 // calling same scroll response fn because all document ui elements need to be updated, whether this scrolls or not.
                 self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
                 //if length has changed after paste
@@ -465,7 +471,7 @@ impl Application{
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
         match self.document.undo(CURSOR_SEMANTICS){
-            Ok(_) => {
+            Ok(()) => {
                 // calling same scroll response fn because all document ui elements need to be updated, whether this scrolls or not.
                 self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
                 //if length has changed after paste
@@ -485,7 +491,7 @@ impl Application{
         assert!(self.mode == Mode::Insert);
         let len = self.document.len();
         match self.document.redo(CURSOR_SEMANTICS){
-            Ok(_) => {
+            Ok(()) => {
                 // calling same scroll response fn because all document ui elements need to be updated, whether this scrolls or not.
                 self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
                 //if length has changed after paste
@@ -526,10 +532,7 @@ impl Application{
             }
         }
         if selection_count > 1{
-            *self.document.selections_mut() = match self.document.selections().merge_overlapping(&text, CURSOR_SEMANTICS){
-                Ok(val) => val,
-                Err(_) => panic!()
-            };
+            *self.document.selections_mut() = if let Ok(val) = self.document.selections().merge_overlapping(&text, CURSOR_SEMANTICS){val}else{panic!()};
         }
         self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
     }
@@ -808,7 +811,7 @@ impl Application{
     }
     
     //View Scroll Functions
-    fn scroll_view(&mut self, direction: ScrollDirection, amount: usize){
+    fn scroll_view(&mut self, direction: &ScrollDirection, amount: usize){
         assert!(self.mode == Mode::Insert);
         let text = self.document.text().clone();
 
@@ -833,16 +836,16 @@ impl Application{
         }
     }
     pub fn scroll_view_up(&mut self, amount: usize){
-        self.scroll_view(ScrollDirection::Up, amount);
+        self.scroll_view(&ScrollDirection::Up, amount);
     }
     pub fn scroll_view_down(&mut self, amount: usize){
-        self.scroll_view(ScrollDirection::Down, amount);
+        self.scroll_view(&ScrollDirection::Down, amount);
     }
     pub fn scroll_view_left(&mut self, amount: usize){
-        self.scroll_view(ScrollDirection::Left, amount);
+        self.scroll_view(&ScrollDirection::Left, amount);
     }
     pub fn scroll_view_right(&mut self, amount: usize){
-        self.scroll_view(ScrollDirection::Right, amount);
+        self.scroll_view(&ScrollDirection::Right, amount);
     }
     
 //Space(any fn that could be implemented in Insert mode, but are generally used from space mode)
@@ -859,7 +862,7 @@ impl Application{
                 let line_number = std::panic::Location::caller().line();
                 match e{
                     ViewError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
-                    _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
+                    ViewError::InvalidInput => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))
                 }
             }
         }
@@ -929,7 +932,7 @@ impl Application{
         self.ui.util_bar.utility_widget.text_box.clear();
         self.mode = Mode::Insert;
         //
-        self.ui.update_layouts(self.mode.clone());
+        self.ui.update_layouts(&self.mode);
         self.document.view_mut().set_size(
             self.ui.document_viewport.document_widget.rect.width as usize,
             self.ui.document_viewport.document_widget.rect.height as usize
@@ -1000,32 +1003,21 @@ impl Application{
             }
             Err(_) => false
         };
-        //if !is_numeric || exceeds_doc_length{
-        //    self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
-        //}else{
-        //    self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
-        //}
         self.ui.util_bar.utility_widget.text_box.text_is_valid = is_numeric && !exceeds_doc_length;
     }
 
 //Find
     fn incremental_search(&mut self){
-        match self.ui.util_bar.utility_widget.selections_before_search.clone(){
-            Some(selections) => {
-                match selections.search(&self.ui.util_bar.utility_widget.text_box.text.to_string(), self.document.text()){
-                    Ok(selections) => {
-                        self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
-                        *self.document.selections_mut() = selections;
-                    }
-                    Err(_) => { //TODO: may want to match on error to make sure we are handling this correctly
-                        self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
-                        // make sure this is the desired behavior...
-                        *self.document.selections_mut() = self.ui.util_bar.utility_widget.selections_before_search.clone().unwrap();
-                        //
-                    }
-                }
+        if let Some(selections) = self.ui.util_bar.utility_widget.selections_before_search.clone(){
+            if let Ok(selections) = selections.search(&self.ui.util_bar.utility_widget.text_box.text.to_string(), self.document.text()){
+                self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
+                *self.document.selections_mut() = selections;
+            }else{  //TODO: may want to match on error to make sure we are handling this correctly
+                self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
+                // make sure this is the desired behavior...
+                *self.document.selections_mut() = self.ui.util_bar.utility_widget.selections_before_search.clone().unwrap();
+                //
             }
-            None => {}  //TODO: maybe set mode to warning?
         }
     }
     pub fn find_mode_backspace(&mut self){
@@ -1049,7 +1041,7 @@ impl Application{
         self.ui.util_bar.utility_widget.text_box.clear();
         self.mode = Mode::Insert;
         //
-        self.ui.update_layouts(self.mode.clone());
+        self.ui.update_layouts(&self.mode);
         self.document.view_mut().set_size(
             self.ui.document_viewport.document_widget.rect.width as usize,
             self.ui.document_viewport.document_widget.rect.height as usize
@@ -1163,7 +1155,7 @@ impl Application{
         self.ui.util_bar.utility_widget.text_box.clear();
         self.mode = Mode::Insert;
         //
-        self.ui.update_layouts(self.mode.clone());
+        self.ui.update_layouts(&self.mode);
         self.document.view_mut().set_size(
             self.ui.document_viewport.document_widget.rect.width as usize,
             self.ui.document_viewport.document_widget.rect.height as usize

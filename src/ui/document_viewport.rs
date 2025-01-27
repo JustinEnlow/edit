@@ -57,11 +57,11 @@ pub struct Highlighter{
 }
 impl Highlighter{
     pub fn set_client_cursor_positions(&mut self, positions: Vec<Position>){
-        if !positions.is_empty(){
-            self.cursors = Some(positions);
-        }else{
+        if positions.is_empty(){
             self.cursors = None;
         }
+
+        self.cursors = Some(positions);
     }
     pub fn set_primary_cursor_position(&mut self, position: Option<Position>){
         self.primary_cursor = position;
@@ -71,7 +71,7 @@ impl ratatui::widgets::Widget for Highlighter{
     fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer){
         //if let Some(selections) = self.selections{  //selection not rendering properly on last empty line following previous newline, when cursor rendering below is not drawn there. maybe this is correct, because there is technically no content there...
         if !self.selections.is_empty(){
-            for selection in self.selections.iter(){
+            for selection in &self.selections{  //self.selections.iter(){   //change suggested by clippy lint
                 if selection.head().x - selection.anchor().x == 0{continue;}    //should this use start and end instead?
                 for col in selection.anchor().x../*=*/selection.head().x{
                     let x_pos = area.left() + (col as u16);
