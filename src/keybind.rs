@@ -9,28 +9,28 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
         (KeyCode::Char(c), modifiers) => {
             if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){
                 if c == 'p'{app.decrement_primary_selection();}
-                if c == 'z'{app.redo();}
+                else if c == 'z'{app.redo();}
                 //if c == 'l'{app.toggle_line_numbers();}
                 else{app.no_op_keypress();}
             }
             else if modifiers == KeyModifiers::CONTROL{
                 if c == ' '{app.set_mode_space();}
-                if c == 'q'{app.quit();}
-                if c == 's'{app.save();}
-                if c == 'g'{app.set_mode_goto();}
-                if c == 'f'{app.set_mode_find();}
-                if c == 'y'{app.set_mode_split();}
-                if c == 'l'{app.select_line();} //conflicts with display_line_numbers
+                else if c == 'q'{app.quit();}
+                else if c == 's'{app.save();}
+                else if c == 'g'{app.set_mode_goto();}
+                else if c == 'f'{app.set_mode_find();}
+                else if c == 'y'{app.set_mode_split();}
+                else if c == 'l'{app.select_line();} //conflicts with display_line_numbers
                 //if c == 'k'{app.toggle_status_bar();}
-                if c == 'o'{app.set_mode_command();}
-                if c == 't'{app.open_new_terminal_window();}
-                if c == 'a'{app.select_all();}
-                if c == 'x'{app.cut();}
-                if c == 'c'{app.copy();}
-                if c == 'v'{app.paste();}
-                if c == 'p'{app.increment_primary_selection();}
-                if c == 'z'{app.undo();}
-                if c == 'r'{app.remove_primary_selection();}
+                else if c == 'o'{app.set_mode_command();}
+                else if c == 't'{app.open_new_terminal_window();}
+                else if c == 'a'{app.select_all();}
+                else if c == 'x'{app.cut();}
+                else if c == 'c'{app.copy();}
+                else if c == 'v'{app.paste();}
+                else if c == 'p'{app.increment_primary_selection();}
+                else if c == 'z'{app.undo();}
+                else if c == 'r'{app.remove_primary_selection();}
                 else{app.no_op_keypress();}
             }
             else if modifiers == KeyModifiers::SHIFT{app.insert_char(c);}
