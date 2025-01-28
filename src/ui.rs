@@ -54,7 +54,7 @@ impl UserInterface{
                     // util(goto/find/command) bar rect height
                     Constraint::Length(
                         match mode{
-                            Mode::Warning(_) | Mode::Command | Mode::Find | Mode::Goto | Mode::Notify => 1,
+                            Mode::Warning(_) | Mode::Command | Mode::Find | Mode::Goto | Mode::Notify | Mode::Split => 1,
                             Mode::Insert => if /*self.util_bar.utility_widget.display_copied_indicator || */self.status_bar.display{1}else{0}
                             Mode::Space => if self.status_bar.display{1}else{0}
                         }
@@ -131,6 +131,14 @@ impl UserInterface{
                         frame.render_widget(self.util_bar.highlighter.clone(), self.util_bar.utility_widget.rect);
                     }
                     Mode::Find => {
+                        frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);
+                        frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
+
+                        self.util_bar.highlighter.selection = Some(self.util_bar.utility_widget.text_box.selection.clone());    //TODO: maybe these should be moved into Application::update_ui_data_util_bar
+                        self.util_bar.highlighter.cursor = self.util_bar.utility_widget.text_box.cursor_position();             //TODO: maybe these should be moved into Application::update_ui_data_util_bar
+                        frame.render_widget(self.util_bar.highlighter.clone(), self.util_bar.utility_widget.rect);
+                    }
+                    Mode::Split => {
                         frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);
                         frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
 

@@ -13,6 +13,7 @@ use crate::config::{SELECTION_BACKGROUND_COLOR, SELECTION_FOREGROUND_COLOR, PRIM
 
 const GOTO_PROMPT: &str = " Go to: ";
 const FIND_PROMPT: &str = " Find: ";
+const SPLIT_PROMPT: &str = " Split: ";
 const COMMAND_PROMPT: &str = " Command: ";
 
 
@@ -28,7 +29,7 @@ pub struct UtilityWidget{
 impl UtilityWidget{
     pub fn widget(&self, mode: Mode) -> Paragraph<'static>{
         match mode{
-            Mode::Goto | Mode::Find => {
+            Mode::Goto | Mode::Find | Mode::Split => {
                 let text = self.text_box.text.clone();
                 if self.text_box.text_is_valid{
                     Paragraph::new(self.text_box.view.text(&text))
@@ -130,8 +131,12 @@ impl UtilityPromptWidget{
         match mode{
             Mode::Goto => Paragraph::new(GOTO_PROMPT),
             Mode::Find => Paragraph::new(FIND_PROMPT),
+            Mode::Split => Paragraph::new(SPLIT_PROMPT),
             Mode::Command => Paragraph::new(COMMAND_PROMPT),
-            _ => Paragraph::new("")
+            Mode::Insert |
+            Mode::Space |
+            Mode::Notify |
+            Mode::Warning(_) => Paragraph::new("")
         }
     }
 }
@@ -182,11 +187,15 @@ impl UtilBar{
         match mode{ //TODO: can these be set from relevant fns in application.rs? display_line_numbers, display_status_bar, resize, any mode change, etc
             Mode::Command 
             | Mode::Goto 
-            | Mode::Find => {
+            | Mode::Find 
+            | Mode::Split => {
                 let width = self.utility_widget.rect.width as usize;
                 self.utility_widget.text_box.view.set_size(width, 1);
             }
-            _ => {
+            Mode::Insert |
+            Mode::Space |
+            Mode::Notify |
+            Mode::Warning(_) => {
                 self.utility_widget.text_box.view.set_size(0, 1);
             }
         }
@@ -202,6 +211,7 @@ impl UtilBar{
                         match mode{
                             Mode::Goto => GOTO_PROMPT.len() as u16,
                             Mode::Find => FIND_PROMPT.len() as u16,
+                            Mode::Split => SPLIT_PROMPT.len() as u16,
                             Mode::Command => COMMAND_PROMPT.len() as u16,
                             Mode::Warning(_)
                             | Mode::Notify
@@ -219,6 +229,7 @@ impl UtilBar{
                             Mode::Goto => rect.width - GOTO_PROMPT.len() as u16,
                             Mode::Command => rect.width - COMMAND_PROMPT.len() as u16,
                             Mode::Find => rect.width - FIND_PROMPT.len() as u16,
+                            Mode::Split => rect.width - SPLIT_PROMPT.len() as u16,
                         }
                     ),
                     // used to fill in space when other two are 0 length

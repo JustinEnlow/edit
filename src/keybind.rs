@@ -18,6 +18,7 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
                 if c == 's'{app.save();}
                 if c == 'g'{app.set_mode_goto();}
                 if c == 'f'{app.set_mode_find();}
+                if c == 'y'{app.set_mode_split();}
                 if c == 'l'{app.select_line();} //conflicts with display_line_numbers
                 //if c == 'k'{app.toggle_status_bar();}
                 if c == 'o'{app.set_mode_command();}
@@ -245,6 +246,49 @@ pub fn handle_find_replace_mode_keypress(app: &mut Application, keycode: KeyCode
         //    if modifiers == KeyModifiers::NONE{app.find_mode_accept();}
         //    else{app.no_op();}
         //}
+        _ => {app.no_op_keypress();}
+    }
+}
+
+pub fn handle_split_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
+    match (keycode, modifiers){
+        (KeyCode::Right, modifiers) => {
+            if modifiers == KeyModifiers::SHIFT{app.split_mode_extend_selection_right();}
+            else if modifiers == KeyModifiers::NONE{app.split_mode_move_cursor_right();}
+            else{app.no_op_keypress();}
+        }
+        (KeyCode::Left, modifiers) => {
+            if modifiers == KeyModifiers::SHIFT{app.split_mode_extend_selection_left();}
+            else if modifiers == KeyModifiers::NONE{app.split_mode_move_cursor_left();}
+            else{app.no_op_keypress();}
+        }
+        (KeyCode::Home, modifiers) => {
+            if modifiers == KeyModifiers::SHIFT{app.split_mode_extend_selection_home();}
+            else if modifiers == KeyModifiers::NONE{app.split_mode_move_cursor_line_start();}
+            else{app.no_op_keypress();}
+        }
+        (KeyCode::End, modifiers) => {
+            if modifiers == KeyModifiers::SHIFT{app.split_mode_extend_selection_end();}
+            else if modifiers == KeyModifiers::NONE{app.split_mode_move_cursor_line_end();}
+            else{app.no_op_keypress();}
+        }
+        (KeyCode::Char(c), modifiers) => {
+            if modifiers == KeyModifiers::SHIFT{app.split_mode_insert_char(c);}
+            else if modifiers == KeyModifiers::NONE{app.split_mode_insert_char(c);}
+            else{app.no_op_keypress();}
+        }
+        (KeyCode::Esc, modifiers) => {
+            if modifiers == KeyModifiers::NONE{app.split_mode_exit();}
+            else{app.no_op_keypress();}
+        }
+        (KeyCode::Backspace, modifiers) => {
+            if modifiers == KeyModifiers::NONE{app.split_mode_backspace();}
+            else{app.no_op_keypress();}
+        }
+        (KeyCode::Delete, modifiers) => {
+            if modifiers == KeyModifiers::NONE{app.split_mode_delete();}
+            else{app.no_op_keypress();}
+        }
         _ => {app.no_op_keypress();}
     }
 }

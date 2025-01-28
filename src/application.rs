@@ -29,8 +29,9 @@ pub enum Mode{
     Command,
     Find,
     Goto,
-    Notify  //like Warning Mode, but non blocking  //could be used for text copied indicator, etc.. could also do "action performed outside of view" for non-visible actions
-    //View  //adjust view with single input keybinds
+    Notify,  //like Warning Mode, but non blocking  //could be used for text copied indicator, etc.. could also do "action performed outside of view" for non-visible actions
+    //View,  //adjust view with single input keybinds
+    Split,
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -112,6 +113,7 @@ impl Application{
                         if self.mode == Mode::Notify{self.mode = Mode::Insert;} //ensure we return back to insert mode
                         keybind::handle_insert_mode_keypress(self, key_event.code, key_event.modifiers);
                     }
+                    Mode::Split => {keybind::handle_split_mode_keypress(self, key_event.code, key_event.modifiers);}
                 }
             },
             event::Event::Resize(x, y) => self.resize(x, y),
@@ -180,9 +182,13 @@ impl Application{
     /////////////////////////////////////////////////////////////////////////// Built in ////////////////////////////////////////////////////////////////////////////////
     pub fn no_op_keypress(&mut self){
         self.mode = Mode::Warning(WarningKind::UnhandledKeypress);  //Why isn't this triggering?
+        // needed to handle warning mode set when text in util_bar
+        self.ui.util_bar.utility_widget.text_box.clear();
     }
     pub fn no_op_event(&mut self){
         self.mode = Mode::Warning(WarningKind::UnhandledEvent);
+        // needed to handle warning mode set when text in util_bar
+        self.ui.util_bar.utility_widget.text_box.clear();
     }
     pub fn resize(&mut self, x: u16, y: u16){
         self.ui.set_terminal_size(x, y);
@@ -251,6 +257,19 @@ impl Application{
     pub fn set_mode_find(&mut self){
         assert!(self.mode == Mode::Insert);
         self.mode = Mode::Find;
+        //
+        self.ui.update_layouts(&self.mode);
+        self.document.view_mut().set_size(
+            self.ui.document_viewport.document_widget.rect.width as usize,
+            self.ui.document_viewport.document_widget.rect.height as usize
+        );
+        self.update_ui_data_document();
+        //
+        self.ui.util_bar.utility_widget.selections_before_search = Some(self.document.selections().clone());
+    }
+    pub fn set_mode_split(&mut self){
+        assert!(self.mode == Mode::Insert);
+        self.mode = Mode::Split;
         //
         self.ui.update_layouts(&self.mode);
         self.document.view_mut().set_size(
@@ -1107,6 +1126,99 @@ impl Application{
     //    //}
     //    self.ui.util_bar.utility_widget.text_box.text_is_valid = self.document.text().clone().to_string().contains(&self.ui.util_bar.utility_widget.text_box.text.to_string());
     //}
+
+//Split
+    fn incremental_split(&mut self){
+        if let Some(selections) = self.ui.util_bar.utility_widget.selections_before_search.clone(){
+            //if let Ok(selections) = selections.search(&self.ui.util_bar.utility_widget.text_box.text.to_string(), self.document.text()){
+            if let Ok(selections) = selections.split(&self.ui.util_bar.utility_widget.text_box.text.to_string(), self.document.text()){
+                self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
+                *self.document.selections_mut() = selections;
+            }else{  //TODO: may want to match on error to make sure we are handling this correctly
+                self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
+                // make sure this is the desired behavior...
+                *self.document.selections_mut() = self.ui.util_bar.utility_widget.selections_before_search.clone().unwrap();
+                //
+            }
+        }
+    }
+    pub fn split_mode_backspace(&mut self){
+        assert!(self.mode == Mode::Split);
+        self.ui.util_bar.utility_widget.text_box.backspace();
+        self.update_ui_data_util_bar();
+
+        self.incremental_split();
+        self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
+    }
+    pub fn split_mode_delete(&mut self){
+        assert!(self.mode == Mode::Split);
+        self.ui.util_bar.utility_widget.text_box.delete();
+        self.update_ui_data_util_bar();
+
+        self.incremental_split();
+        self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
+    }
+    pub fn split_mode_exit(&mut self){
+        assert!(self.mode == Mode::Split);
+        self.ui.util_bar.utility_widget.text_box.clear();
+        self.mode = Mode::Insert;
+        //
+        self.ui.update_layouts(&self.mode);
+        self.document.view_mut().set_size(
+            self.ui.document_viewport.document_widget.rect.width as usize,
+            self.ui.document_viewport.document_widget.rect.height as usize
+        );
+        self.update_ui_data_document();
+        //
+    }
+    pub fn split_mode_extend_selection_end(&mut self){
+        assert!(self.mode == Mode::Split);
+        self.ui.util_bar.utility_widget.text_box.extend_selection_end();
+        self.update_ui_data_util_bar();
+    }
+    pub fn split_mode_extend_selection_home(&mut self){
+        assert!(self.mode == Mode::Split);
+        self.ui.util_bar.utility_widget.text_box.extend_selection_home();
+        self.update_ui_data_util_bar();
+    }
+    pub fn split_mode_extend_selection_left(&mut self){
+        assert!(self.mode == Mode::Split);
+        self.ui.util_bar.utility_widget.text_box.extend_selection_left();
+        self.update_ui_data_util_bar();
+    }
+    pub fn split_mode_extend_selection_right(&mut self){
+        assert!(self.mode == Mode::Split);
+        self.ui.util_bar.utility_widget.text_box.extend_selection_right();
+        self.update_ui_data_util_bar();
+    }
+    pub fn split_mode_insert_char(&mut self, c: char){
+        assert!(self.mode == Mode::Split);
+        self.ui.util_bar.utility_widget.text_box.insert_char(c);
+        self.update_ui_data_util_bar();
+
+        self.incremental_split();
+        self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
+    }
+    pub fn split_mode_move_cursor_left(&mut self){
+        assert!(self.mode == Mode::Split);
+        self.ui.util_bar.utility_widget.text_box.move_cursor_left();
+        self.update_ui_data_util_bar();
+    }
+    pub fn split_mode_move_cursor_line_end(&mut self){
+        assert!(self.mode == Mode::Split);
+        self.ui.util_bar.utility_widget.text_box.move_cursor_line_end();
+        self.update_ui_data_util_bar();
+    }
+    pub fn split_mode_move_cursor_line_start(&mut self){
+        assert!(self.mode == Mode::Split);
+        self.ui.util_bar.utility_widget.text_box.move_cursor_line_start();
+        self.update_ui_data_util_bar();
+    }
+    pub fn split_mode_move_cursor_right(&mut self){
+        assert!(self.mode == Mode::Split);
+        self.ui.util_bar.utility_widget.text_box.move_cursor_right();
+        self.update_ui_data_util_bar();
+    }
 
 //Command
     pub fn open_new_terminal_window(&self){
