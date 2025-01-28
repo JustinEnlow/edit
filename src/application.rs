@@ -181,7 +181,7 @@ impl Application{
 
     /////////////////////////////////////////////////////////////////////////// Built in ////////////////////////////////////////////////////////////////////////////////
     pub fn no_op_keypress(&mut self){
-        self.mode = Mode::Warning(WarningKind::UnhandledKeypress);  //Why isn't this triggering?
+        self.mode = Mode::Warning(WarningKind::UnhandledKeypress);
         // needed to handle warning mode set when text in util_bar
         self.ui.util_bar.utility_widget.text_box.clear();
     }
