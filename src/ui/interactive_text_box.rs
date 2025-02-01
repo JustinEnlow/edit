@@ -1,5 +1,6 @@
 use edit_core::{
-    selection::{CursorSemantics, Movement, Selection}, 
+    range::Range,
+    selection::{CursorSemantics, Movement, Selection, Direction}, 
     view::View, 
 };
 use ropey::Rope;
@@ -18,7 +19,8 @@ impl Default for InteractiveTextBox{
         Self{
             text: Rope::from(""),
             text_is_valid: false,
-            selection: Selection::new(0, 1),
+            //selection: Selection::new(0, 1),
+            selection: Selection::new(Range::new(0, 1), Direction::Forward),
             view: View::new(0, 0, 0, 1)
         }
     }
