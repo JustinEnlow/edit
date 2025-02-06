@@ -1,5 +1,7 @@
 edit: simple terminal text editor for linux
 
+This is a reference frontend implementation using the edit_core backend.
+
 Features:
     Text Editing:
         [ ] multi-cursor/multi-selection editing    (cursor is the mobile part of an extended selection, or a non extended selection)

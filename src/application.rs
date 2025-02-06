@@ -4,11 +4,10 @@ use crossterm::event;
 use ratatui::layout::Rect;
 use ratatui::{backend::CrosstermBackend, Terminal};
 use crate::ui::UserInterface;
-use edit_core::selection::{CursorSemantics, Movement, Selection, SelectionError};
+use edit_core::selection::{CursorSemantics, Movement, Selection};
 use edit_core::selections::{Selections, SelectionsError};
-use edit_core::view::{View, ViewError};
+use edit_core::view::ViewError;
 use edit_core::document::{Document, DocumentError};
-use ropey::Rope;
 use crate::keybind;
 use crate::config::{CURSOR_SEMANTICS, SHOW_SAME_STATE_WARNINGS, VIEW_SCROLL_AMOUNT};
 
@@ -362,307 +361,89 @@ impl Application{
     }
 
     //Selection Functions
-    /// Moves/Extends single/multi cursor, and handles overlapping resultant selections
-    fn move_cursor_potentially_overlapping<F>(&mut self, move_fn: F)
-    where
-        F: Fn(&Selection, &Rope, CursorSemantics) -> Result<Selection, SelectionError>
+    //
+    fn handle_movement_with_semantics<F>(&mut self, move_fn: F)
+        where F: Fn(&mut Document, CursorSemantics) -> Result<(), DocumentError>
     {
         assert!(self.mode == Mode::Insert);
-        let text = self.document.text().clone();
-
-        let selection_count = self.document.selections().count();
-        for selection in self.document.selections_mut().iter_mut(){
-            match move_fn(selection, &text, CURSOR_SEMANTICS){
-                Ok(new_selection) => {*selection = new_selection;}
-                Err(e) => {
-                    let this_file = std::panic::Location::caller().file();
-                    let line_number = std::panic::Location::caller().line();
-                    match e{
-                        SelectionError::ResultsInSameState => {if selection_count == 1 && SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}
-                        _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))    //TODO: figure out how to make this use new set_mode method...
-                    }
-                }
+        match move_fn(&mut self.document, CURSOR_SEMANTICS){
+            Ok(()) => {
+                self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
             }
-        }
-        if selection_count > 1{
-            *self.document.selections_mut() = if let Ok(val) = self.document.selections().merge_overlapping(&text, CURSOR_SEMANTICS){val}else{panic!()};
-        }
-        self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
-    }
-    /// Moves/Extends single/multi cursor, and handles non overlapping resultant selections
-    fn move_cursor_non_overlapping<F>(&mut self, move_fn: F)
-    where
-        F: Fn(&Selection, &Rope, CursorSemantics) -> Result<Selection, SelectionError>
-    {
-        assert!(self.mode == Mode::Insert);
-        let text = self.document.text().clone();
-        let mut movement_succeeded = false;
-        for selection in self.document.selections_mut().iter_mut(){
-            match move_fn(selection, &text, CURSOR_SEMANTICS){
-                Ok(new_selection) => {
-                    *selection = new_selection;
-                    movement_succeeded = true;
-                }
-                Err(e) => {
-                    let this_file = std::panic::Location::caller().file();
-                    let line_number = std::panic::Location::caller().line();
-                    match e{
-                        SelectionError::ResultsInSameState => {/*same state handled later in fn*/}
-                        _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))    //TODO: figure out how to make this use new set_mode method...
-                    }
-                }
-            }
-        }
-        //if !movement_succeeded && SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}
-        if !movement_succeeded && SHOW_SAME_STATE_WARNINGS{self.set_mode(Mode::Warning(WarningKind::SameState));}
-        self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
-    }
-    //TODO: is this truly the desired behavior?...vs code seems to move grouped multicursors down by a page instead
-    //TODO: maybe the behavior should be more like move_cursor_potentially_overlapping?...
-    fn move_cursor_page(&mut self, movement_fn: fn(&Selection, &Rope, &View, CursorSemantics) -> Result<Selection, SelectionError>){
-        assert!(self.mode == Mode::Insert);
-        let text = self.document.text().clone();
-        let view = self.document.view().clone();
-
-        if let Ok(new_selections) = self.document.selections().clear_non_primary_selections(){
-            *self.document.selections_mut() = new_selections;
-        }// intentionally ignoring any errors
-
-        for selection in self.document.selections_mut().iter_mut(){
-            match movement_fn(selection, &text, &view, CURSOR_SEMANTICS){
-                Ok(new_selection) => {*selection = new_selection;}
-                Err(e) => {
-                    let this_file = std::panic::Location::caller().file();
-                    let line_number = std::panic::Location::caller().line();
-                    match e{
-                        SelectionError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.mode = Mode::Warning(WarningKind::SameState);}}     //TODO: figure out how to make this use new set_mode method...
-                        _ => self.mode = Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))    //TODO: figure out how to make this use new set_mode method...
-                    }
-                }
-            }
-        }
-        self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
-    }
-    /// Moves/Extends single/multi cursor, and handles clearing non primary selections before move/extend
-    fn move_cursor_clearing_non_primary<F>(&mut self, move_fn: F)   //TODO: this may work for move_cursor_page fns too
-    where
-        F: Fn(&Selection, &Rope, CursorSemantics) -> Result<Selection, SelectionError>
-    {
-        assert!(self.mode == Mode::Insert);
-        let text = self.document.text().clone();
-
-        if let Ok(new_selections) = self.document.selections().clear_non_primary_selections(){
-            *self.document.selections_mut() = new_selections;
-            //should this do self.checked_scroll_and_update()?  
-        }//intentionally ignoring any errors
-
-        let selection = self.document.selections_mut().primary_mut();
-        match move_fn(selection, &text, CURSOR_SEMANTICS){
-            Ok(new_selection) => {*selection = new_selection;}
             Err(e) => {
                 let this_file = std::panic::Location::caller().file();
                 let line_number = std::panic::Location::caller().line();
                 match e{
-                    SelectionError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.set_mode(Mode::Warning(WarningKind::SameState));}}
+                    DocumentError::SelectionsError(sel) => {
+                        match sel{
+                            SelectionsError::CannotAddSelectionAbove => {if SHOW_SAME_STATE_WARNINGS{self.set_mode(Mode::Warning(WarningKind::SameState));}}
+                            _ => self.set_mode(Mode::Warning(WarningKind::UnhandledError(format!("{sel:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))),
+                        }
+                    }
                     _ => self.set_mode(Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))),
                 }
             }
         }
-        self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
     }
-    pub fn move_cursor_up(&mut self){
-        self.move_cursor_potentially_overlapping(Selection::move_up);
+    fn handle_movement<F>(&mut self, move_fn: F)
+        where F: Fn(&mut Document) -> Result<(), DocumentError>
+    {
+        assert!(self.mode == Mode::Insert);
+        match move_fn(&mut self.document){
+            Ok(()) => {
+                self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
+            }
+            Err(e) => {
+                let this_file = std::panic::Location::caller().file();
+                let line_number = std::panic::Location::caller().line();
+                match e{
+                    DocumentError::SelectionsError(sel) => {
+                        match sel{
+                            SelectionsError::SingleSelection => {self.set_mode(Mode::Warning(WarningKind::SingleSelection));}
+                            _ => self.set_mode(Mode::Warning(WarningKind::UnhandledError(format!("{sel:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))),
+                        }
+                    }
+                    _ => self.set_mode(Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))),
+                }
+            }
+        }
     }
-    pub fn move_cursor_down(&mut self){
-        self.move_cursor_potentially_overlapping(Selection::move_down);
-    }
-    pub fn move_cursor_left(&mut self){
-        self.move_cursor_potentially_overlapping(Selection::move_left);
-    }
-    pub fn move_cursor_right(&mut self){
-        self.move_cursor_potentially_overlapping(Selection::move_right);
-    }
-    pub fn move_cursor_word_boundary_forward(&mut self){
-        self.move_cursor_potentially_overlapping(Selection::move_right_word_boundary);
-    }
-    pub fn move_cursor_word_boundary_backward(&mut self){
-        self.move_cursor_potentially_overlapping(Selection::move_left_word_boundary);
-    }
-    pub fn move_cursor_line_end(&mut self){
-        self.move_cursor_non_overlapping(Selection::move_line_text_end);
-    }
+    //
+    pub fn move_cursor_up(&mut self){self.handle_movement_with_semantics(Document::move_cursor_up);}
+    pub fn move_cursor_down(&mut self){self.handle_movement_with_semantics(Document::move_cursor_down);}
+    pub fn move_cursor_left(&mut self){self.handle_movement_with_semantics(Document::move_cursor_left);}
+    pub fn move_cursor_right(&mut self){self.handle_movement_with_semantics(Document::move_cursor_right);}
+    pub fn move_cursor_word_boundary_forward(&mut self){self.handle_movement_with_semantics(Document::move_cursor_word_boundary_forward);}
+    pub fn move_cursor_word_boundary_backward(&mut self){self.handle_movement_with_semantics(Document::move_cursor_word_boundary_backward);}
+    pub fn move_cursor_line_end(&mut self){self.handle_movement_with_semantics(Document::move_cursor_line_end);}
     pub fn move_cursor_line_start(&mut self){   //TODO: rename to move_cursor_home  //also, maybe impl move_cursor_text_start and move_cursor_line_start
-        self.move_cursor_non_overlapping(Selection::move_home);
+        self.handle_movement_with_semantics(Document::move_cursor_home);
     }
-    pub fn move_cursor_document_start(&mut self){
-        self.move_cursor_clearing_non_primary(Selection::move_doc_start);
-    }
-    pub fn move_cursor_document_end(&mut self){
-        self.move_cursor_clearing_non_primary(Selection::move_doc_end);
-    }
-    pub fn move_cursor_page_up(&mut self){
-        self.move_cursor_page(Selection::move_page_up);
-    }
-    pub fn move_cursor_page_down(&mut self){
-        self.move_cursor_page(Selection::move_page_down);
-    }
-    pub fn extend_selection_up(&mut self){
-        self.move_cursor_potentially_overlapping(Selection::extend_up);
-    }
-    pub fn extend_selection_down(&mut self){
-        self.move_cursor_potentially_overlapping(Selection::extend_down);
-    }
-    pub fn extend_selection_left(&mut self){
-        self.move_cursor_potentially_overlapping(Selection::extend_left);
-    }
-    pub fn extend_selection_right(&mut self){
-        self.move_cursor_potentially_overlapping(Selection::extend_right);
-    }
-    pub fn extend_selection_word_boundary_backward(&mut self){
-        self.move_cursor_potentially_overlapping(Selection::extend_left_word_boundary);
-    }
-    pub fn extend_selection_word_boundary_forward(&mut self){
-        self.move_cursor_potentially_overlapping(Selection::extend_right_word_boundary);
-    }
-    pub fn extend_selection_end(&mut self){
-        self.move_cursor_non_overlapping(Selection::extend_line_text_end);
-    }
-    pub fn extend_selection_home(&mut self){
-        self.move_cursor_non_overlapping(Selection::extend_home);
-    }
-    //pub fn extend_doc_start(&mut self){
-    //    self.move_cursor_clearing_non_primary(Selection::extend_doc_start);
-    //}
-    //pub fn extend_doc_end(&mut self){
-    //    self.move_cursor_clearing_non_primary(Selection::extend_doc_end);
-    //}
-    pub fn extend_selection_page_up(&mut self){ //TODO: this should prob move all cursors instead of clearing them
-        self.move_cursor_page(Selection::extend_page_up);
-    }
-    pub fn extend_selection_page_down(&mut self){   //TODO: this should prob move all cursors instead of clearing them
-        self.move_cursor_page(Selection::extend_page_down);
-    }
-    pub fn select_line(&mut self){
-        self.move_cursor_non_overlapping(Selection::select_line);
-    }
-    pub fn select_all(&mut self){
-        self.move_cursor_clearing_non_primary(Selection::select_all);
-    }
-    pub fn collapse_selections(&mut self){
-        self.move_cursor_non_overlapping(Selection::collapse);
-    }
-    pub fn clear_non_primary_selections(&mut self){
-        assert!(self.mode == Mode::Insert);
-        match self.document.selections().clear_non_primary_selections(){
-            Ok(new_selections) => {
-                *self.document.selections_mut() = new_selections;
-                self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
-            }
-            Err(e) => {
-                let this_file = std::panic::Location::caller().file();
-                let line_number = std::panic::Location::caller().line();
-                match e{
-                    SelectionsError::SingleSelection => {self.set_mode(Mode::Warning(WarningKind::SingleSelection));}   //this could be a SameState Warning
-                    _ => self.set_mode(Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here."))))
-                }
-            }
-        }
-    }
-    pub fn add_selection_above(&mut self){
-        assert!(self.mode == Mode::Insert);
-        let text = self.document.text().clone();
-        match self.document.selections().add_selection_above(&text, CURSOR_SEMANTICS){
-            Ok(selections) => {
-                *self.document.selections_mut() = selections;
-                self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
-            }
-            Err(e) => {
-                let this_file = std::panic::Location::caller().file();
-                let line_number = std::panic::Location::caller().line();
-                match e{
-                    SelectionsError::CannotAddSelectionAbove => {if SHOW_SAME_STATE_WARNINGS{self.set_mode(Mode::Warning(WarningKind::SameState));}}
-                    SelectionsError::SpansMultipleLines => {self.set_mode(Mode::Warning(WarningKind::InvalidInput));} //TODO: extend selection up instead?...
-                    _ => self.set_mode(Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here."))))
-                }
-            }
-        }
-    }
-    pub fn add_selection_below(&mut self){
-        assert!(self.mode == Mode::Insert);
-        let text = self.document.text().clone();
-        match self.document.selections().add_selection_below(&text, CURSOR_SEMANTICS){
-            Ok(selections) => {
-                *self.document.selections_mut() = selections;
-                self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
-            }
-            Err(e) => {
-                let this_file = std::panic::Location::caller().file();
-                let line_number = std::panic::Location::caller().line();
-                match e{
-                    SelectionsError::CannotAddSelectionBelow => {if SHOW_SAME_STATE_WARNINGS{self.set_mode(Mode::Warning(WarningKind::SameState));}}
-                    SelectionsError::SpansMultipleLines => {self.set_mode(Mode::Warning(WarningKind::InvalidInput));} //TODO: extend selection down instead?...
-                    _ => self.set_mode(Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here."))))
-                }
-            }
-        }
-    }
-    pub fn remove_primary_selection(&mut self){
-        assert!(self.mode == Mode::Insert);
-        match self.document.selections().remove_primary_selection(){
-            Ok(selections) => {
-                *self.document.selections_mut() = selections;
-                self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
-            }
-            Err(e) => {
-                let this_file = std::panic::Location::caller().file();
-                let line_number = std::panic::Location::caller().line();
-                match e{
-                    SelectionsError::SingleSelection => {self.set_mode(Mode::Warning(WarningKind::SingleSelection));}
-                    _ => self.set_mode(Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here."))))
-                }
-            }
-        }
-    }
-    pub fn increment_primary_selection(&mut self){
-        assert!(self.mode == Mode::Insert || self.mode == Mode::Space);
-        match self.document.selections().increment_primary_selection(){
-            Ok(new_selections) => {
-                *self.document.selections_mut() = new_selections;
-                self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
-                if self.mode == Mode::Space{
-                    self.set_mode(Mode::Insert);
-                }
-            }
-            Err(e) => {
-                let this_file = std::panic::Location::caller().file();
-                let line_number = std::panic::Location::caller().line();
-                match e{
-                    SelectionsError::SingleSelection => {self.set_mode(Mode::Warning(WarningKind::SingleSelection));}
-                    _ => self.set_mode(Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here."))))
-                }
-            }
-        }
-    }
-    pub fn decrement_primary_selection(&mut self){
-        assert!(self.mode == Mode::Insert || self.mode == Mode::Space);
-        match self.document.selections().decrement_primary_selection(){
-            Ok(new_selections) => {
-                *self.document.selections_mut() = new_selections;
-                self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
-                if self.mode == Mode::Space{
-                    self.set_mode(Mode::Insert);
-                }
-            }
-            Err(e) => {
-                let this_file = std::panic::Location::caller().file();
-                let line_number = std::panic::Location::caller().line();
-                match e{
-                    SelectionsError::SingleSelection => {self.set_mode(Mode::Warning(WarningKind::SingleSelection));}
-                    _ => self.set_mode(Mode::Warning(WarningKind::UnhandledError(format!("{e:#?} at {this_file}::{line_number}. This Error shouldn't be possible here."))))
-                }
-            }
-        }
-    }
+    pub fn move_cursor_document_start(&mut self){self.handle_movement_with_semantics(Document::move_cursor_document_start);}
+    pub fn move_cursor_document_end(&mut self){self.handle_movement_with_semantics(Document::move_cursor_document_end);}
+    pub fn move_cursor_page_up(&mut self){self.handle_movement_with_semantics(Document::move_cursor_page_up);}
+    pub fn move_cursor_page_down(&mut self){self.handle_movement_with_semantics(Document::move_cursor_page_down);}
+    pub fn extend_selection_up(&mut self){self.handle_movement_with_semantics(Document::extend_selection_up);}
+    pub fn extend_selection_down(&mut self){self.handle_movement_with_semantics(Document::extend_selection_down);}
+    pub fn extend_selection_left(&mut self){self.handle_movement_with_semantics(Document::extend_selection_left);}
+    pub fn extend_selection_right(&mut self){self.handle_movement_with_semantics(Document::extend_selection_right);}
+    pub fn extend_selection_word_boundary_backward(&mut self){self.handle_movement_with_semantics(Document::extend_selection_word_boundary_backward);}
+    pub fn extend_selection_word_boundary_forward(&mut self){self.handle_movement_with_semantics(Document::extend_selection_word_boundary_forward);}
+    pub fn extend_selection_end(&mut self){self.handle_movement_with_semantics(Document::extend_selection_line_end);}
+    pub fn extend_selection_home(&mut self){self.handle_movement_with_semantics(Document::extend_selection_home);}
+    //pub fn extend_doc_start(&mut self){self.handle_movement_with_semantics(Document::extend_selection_document_start);}
+    //pub fn extend_doc_end(&mut self){self.handle_movement_with_semantics(Document::extend_selection_document_end);}
+    pub fn extend_selection_page_up(&mut self){self.handle_movement_with_semantics(Document::extend_selection_page_up);}
+    pub fn extend_selection_page_down(&mut self){self.handle_movement_with_semantics(Document::extend_selection_page_down);}
+    pub fn select_line(&mut self){self.handle_movement_with_semantics(Document::select_line);}
+    pub fn select_all(&mut self){self.handle_movement_with_semantics(Document::select_all);}
+    pub fn collapse_selections(&mut self){self.handle_movement_with_semantics(Document::collapse_selections);}
+    pub fn clear_non_primary_selections(&mut self){self.handle_movement(Document::clear_non_primary_selections);}
+    pub fn add_selection_above(&mut self){self.handle_movement_with_semantics(Document::add_selection_above);}
+    pub fn add_selection_below(&mut self){self.handle_movement_with_semantics(Document::add_selection_below);}
+    pub fn remove_primary_selection(&mut self){self.handle_movement(Document::remove_primary_selection);}
+    pub fn increment_primary_selection(&mut self){self.handle_movement(Document::increment_primary_selection);}
+    pub fn decrement_primary_selection(&mut self){self.handle_movement(Document::decrement_primary_selection);}
     
 //View
     pub fn view_action(&mut self, action: ViewAction){      //TODO: make separate view mode, and call this from there
