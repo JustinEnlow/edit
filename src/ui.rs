@@ -56,7 +56,7 @@ impl UserInterface{
                         match mode{
                             Mode::Warning(_) | Mode::Command | Mode::Find | Mode::Goto | Mode::Notify | Mode::Split => 1,
                             Mode::Insert => if /*self.util_bar.utility_widget.display_copied_indicator || */self.status_bar.display{1}else{0}
-                            Mode::Space => if self.status_bar.display{1}else{0}
+                            Mode::View => if self.status_bar.display{1}else{0}
                         }
                     )
                 ]
@@ -80,7 +80,7 @@ impl UserInterface{
         self.status_bar.document_cursor_position_widget.rect = status_bar_rect[3];  //[5] with selections padding enabled
         self.util_bar.prompt.rect = util_rect[0];
         self.util_bar.utility_widget.rect = util_rect[1];
-        self.popups.space_mode_widget.rect = sized_centered_rect(self.popups.space_mode_widget.widest_element_len, self.popups.space_mode_widget.num_elements, self.terminal_size);
+        self.popups.view_mode_widget.rect = sized_centered_rect(self.popups.view_mode_widget.widest_element_len, self.popups.view_mode_widget.num_elements, self.terminal_size);
 
         self.util_bar.update_width(mode);
     }
@@ -154,9 +154,9 @@ impl UserInterface{
                         //frame.render_widget(self.util_bar.prompt.widget(mode.clone()), self.util_bar.prompt.rect);
                         frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
                     }
-                    Mode::Space => {
-                        frame.render_widget(ratatui::widgets::Clear, self.popups.space_mode_widget.rect);
-                        frame.render_widget(self.popups.space_mode_widget.widget(), self.popups.space_mode_widget.rect);
+                    Mode::View => {
+                        frame.render_widget(ratatui::widgets::Clear, self.popups.view_mode_widget.rect);
+                        frame.render_widget(self.popups.view_mode_widget.widget(), self.popups.view_mode_widget.rect);
                     }
                 }
             }

@@ -13,7 +13,7 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
                 else{app.no_op_keypress();}
             }
             else if modifiers == KeyModifiers::CONTROL{
-                if c == ' '{app.set_mode(Mode::Space);}//{app.set_mode_space();}
+                if c == ' '{app.set_mode(Mode::View);}//{app.set_mode_space();}
                 else if c == 'q'{app.quit();}
                 else if c == 's'{app.save();}
                 else if c == 'g'{app.set_mode(Mode::Goto);}//{app.set_mode_goto();}
@@ -49,14 +49,14 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
         (KeyCode::Up, modifiers) => {
             if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){app.selection_action(SelectionAction::AddSelectionAbove);}//{app.add_selection_above();}
             else if modifiers == KeyModifiers::SHIFT{app.selection_action(SelectionAction::ExtendSelectionUp);}//{app.extend_selection_up();}
-            else if modifiers == KeyModifiers::ALT{app.view_action(ViewAction::ScrollUp);}//{app.scroll_view_up(VIEW_SCROLL_AMOUNT);}
+            //else if modifiers == KeyModifiers::ALT{app.view_action(ViewAction::ScrollUp);}//{app.scroll_view_up(VIEW_SCROLL_AMOUNT);}
             else if modifiers == KeyModifiers::NONE{app.selection_action(SelectionAction::MoveCursorUp);}//{app.move_cursor_up();}
             else{app.no_op_keypress();}
         }
         (KeyCode::Down, modifiers) => {
             if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){app.selection_action(SelectionAction::AddSelectionBelow);}//{app.add_selection_below();}
             else if modifiers == KeyModifiers::SHIFT{app.selection_action(SelectionAction::ExtendSelectionDown);}//{app.extend_selection_down();}
-            else if modifiers == KeyModifiers::ALT{app.view_action(ViewAction::ScrollDown);}//{app.scroll_view_down(VIEW_SCROLL_AMOUNT);}
+            //else if modifiers == KeyModifiers::ALT{app.view_action(ViewAction::ScrollDown);}//{app.scroll_view_down(VIEW_SCROLL_AMOUNT);}
             else if modifiers == KeyModifiers::NONE{app.selection_action(SelectionAction::MoveCursorDown);}//{app.move_cursor_down();}
             else{app.no_op_keypress();}
         }
@@ -76,7 +76,7 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
             if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){app.selection_action(SelectionAction::ExtendSelectionWordBoundaryForward);}//{app.extend_selection_word_boundary_forward();}
             else if modifiers == KeyModifiers::CONTROL{app.selection_action(SelectionAction::MoveCursorWordBoundaryForward);}//{app.move_cursor_word_boundary_forward();}
             else if modifiers == KeyModifiers::SHIFT{app.selection_action(SelectionAction::ExtendSelectionRight);}//{app.extend_selection_right();}
-            else if modifiers == KeyModifiers::ALT{app.view_action(ViewAction::ScrollRight);}//{app.scroll_view_right(VIEW_SCROLL_AMOUNT);}
+            //else if modifiers == KeyModifiers::ALT{app.view_action(ViewAction::ScrollRight);}//{app.scroll_view_right(VIEW_SCROLL_AMOUNT);}
             else if modifiers == KeyModifiers::NONE{app.selection_action(SelectionAction::MoveCursorRight);}//{app.move_cursor_right();}
             else{app.no_op_keypress();}
         }
@@ -84,7 +84,7 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
             if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){app.selection_action(SelectionAction::ExtendSelectionWordBoundaryBackward);}//{app.extend_selection_word_boundary_backward();}
             else if modifiers == KeyModifiers::CONTROL{app.selection_action(SelectionAction::MoveCursorWordBoundaryBackward);}//{app.move_cursor_word_boundary_backward();}
             else if modifiers == KeyModifiers::SHIFT{app.selection_action(SelectionAction::ExtendSelectionLeft);}//{app.extend_selection_left();}
-            else if modifiers == KeyModifiers::ALT{app.view_action(ViewAction::ScrollLeft);}//{app.scroll_view_left(VIEW_SCROLL_AMOUNT);}
+            //else if modifiers == KeyModifiers::ALT{app.view_action(ViewAction::ScrollLeft);}//{app.scroll_view_left(VIEW_SCROLL_AMOUNT);}
             else if modifiers == KeyModifiers::NONE{app.selection_action(SelectionAction::MoveCursorLeft);}//{app.move_cursor_left();}
             else{app.no_op_keypress();}
         }
@@ -114,20 +114,32 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
     }
 }
 
-pub fn handle_space_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
+pub fn handle_view_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
     match (keycode, modifiers){
         (KeyCode::Esc, modifiers) => {
             if modifiers == KeyModifiers::NONE{app.set_mode(Mode::Insert);}//{app.space_mode_exit();}
             else{app.no_op_keypress();}
         }
-        (KeyCode::Char('c'), modifiers) => {
+        (KeyCode::Char('v'), modifiers) => {
             if modifiers == KeyModifiers::NONE{app.view_action(ViewAction::CenterVerticallyAroundCursor);}//{app.center_view_vertically_around_cursor();}    //this still needs be made to exit space mode
             else{app.no_op_keypress();}
         }
-        //(KeyCode::Char('p'), modifiers) => {
-        //    if modifiers == KeyModifiers::NONE{app.increment_primary_selection();}
-        //    else{app.no_op_keypress();}
-        //}
+        (KeyCode::Up, modifiers) => {
+            if modifiers == KeyModifiers::NONE{app.view_action(ViewAction::ScrollUp);}
+            else{app.no_op_keypress();}
+        }
+        (KeyCode::Down, modifiers) => {
+            if modifiers == KeyModifiers::NONE{app.view_action(ViewAction::ScrollDown);}
+            else{app.no_op_keypress();}
+        }
+        (KeyCode::Left, modifiers) => {
+            if modifiers == KeyModifiers::NONE{app.view_action(ViewAction::ScrollLeft);}
+            else{app.no_op_keypress();}
+        }
+        (KeyCode::Right, modifiers) => {
+            if modifiers == KeyModifiers::NONE{app.view_action(ViewAction::ScrollRight);}
+            else{app.no_op_keypress();}
+        }
         _ => {app.no_op_keypress();}
     }
 }

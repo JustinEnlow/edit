@@ -169,7 +169,7 @@ dependencies = [
 [[package]]
 name = "edit_core"
 version = "0.1.0"
-source = "git+https://github.com/JustinEnlow/edit_core#468fe084c92523447211b2e2574837e3cddfe732"
+source = "git+https://github.com/JustinEnlow/edit_core#25110be739fcff2909e8fe4b0f84d89c93d26948"
 dependencies = [
  "regex",
  "ropey",

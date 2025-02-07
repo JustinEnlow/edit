@@ -117,7 +117,7 @@ impl UtilityWidget{
                     Paragraph::new(String::new())
                 //}
             }
-            Mode::Space => Paragraph::new(String::new())
+            Mode::View => Paragraph::new(String::new())
         }
     }
 }
@@ -134,7 +134,7 @@ impl UtilityPromptWidget{
             Mode::Split => Paragraph::new(SPLIT_PROMPT),
             Mode::Command => Paragraph::new(COMMAND_PROMPT),
             Mode::Insert |
-            Mode::Space |
+            Mode::View |
             Mode::Notify |
             Mode::Warning(_) => Paragraph::new("")
         }
@@ -193,7 +193,7 @@ impl UtilBar{
                 self.utility_widget.text_box.view.set_size(width, 1);
             }
             Mode::Insert |
-            Mode::Space |
+            Mode::View |
             Mode::Notify |
             Mode::Warning(_) => {
                 self.utility_widget.text_box.view.set_size(0, 1);
@@ -216,14 +216,14 @@ impl UtilBar{
                             Mode::Warning(_)
                             | Mode::Notify
                             | Mode::Insert
-                            | Mode::Space => 0
+                            | Mode::View => 0
                         }
                     ),
                     // util bar rect width
                     Constraint::Length(
                         match mode{
                             Mode::Insert
-                            | Mode::Space
+                            | Mode::View
                             | Mode::Notify
                             | Mode::Warning(_) => rect.width,
                             Mode::Goto => rect.width - GOTO_PROMPT.len() as u16,

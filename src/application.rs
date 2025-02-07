@@ -70,8 +70,8 @@ pub enum SelectionAction{
     ExtendSelectionWordBoundaryForward,
     ExtendSelectionLineEnd,
     ExtendSelectionHome,
-    ExtendSelectionDocumentStart,
-    ExtendSelectionDocumentEnd,
+    //ExtendSelectionDocumentStart,
+    //ExtendSelectionDocumentEnd,
     ExtendSelectionPageUp,
     ExtendSelectionPageDown,
     SelectLine,
@@ -93,8 +93,8 @@ pub enum Mode{
     Warning(WarningKind),   //maybe same state warnings should be in notify, so they don't block
     /// for display of notifications. does not block input.
     Notify,  //could be used for text copied indicator, etc.. could also do "action performed outside of view" for non-visible actions
-    Space,  //honestly, View mode could prob just replace this for now...
-    //View,  //adjust view with single input keybinds   (directional scrolling wouldn't exit mode, but center view and other fns might)     //i think view should be a pop-up style mode
+    /// for adjusting the visible area of text
+    View,
     /// for jumping to specified line number    //potentially more in the future...
     Goto,
     /// for issuing editor commands
@@ -187,7 +187,7 @@ impl Application{
             event::Event::Key(key_event) => {
                 match self.mode{
                     Mode::Insert => {keybind::handle_insert_mode_keypress(self, key_event.code, key_event.modifiers);}
-                    Mode::Space => {keybind::handle_space_mode_keypress(self, key_event.code, key_event.modifiers);}
+                    Mode::View => {keybind::handle_view_mode_keypress(self, key_event.code, key_event.modifiers);}
                     Mode::Warning(_) => {keybind::handle_warning_mode_keypress(self, key_event.code, key_event.modifiers);}
                     Mode::Goto => {keybind::handle_goto_mode_keypress(self, key_event.code, key_event.modifiers);}
                     Mode::Find => {keybind::handle_find_replace_mode_keypress(self, key_event.code, key_event.modifiers);}
@@ -208,7 +208,6 @@ impl Application{
         Ok(())
     }
 
-    /////////////////////////////////////////////////////////////////////////// Reuse ////////////////////////////////////////////////////////////////////////////////
     /// Set all data related to document viewport UI.
     pub fn update_ui_data_document(&mut self){
         let text = self.document.text();
@@ -253,9 +252,8 @@ impl Application{
         let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection.clone()], 0, &text);
         self.ui.util_bar.utility_widget.text_box.view = self.ui.util_bar.utility_widget.text_box.view.scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
-    /////////////////////////////////////////////////////////////////////////// Reuse ////////////////////////////////////////////////////////////////////////////////
 
-    /////////////////////////////////////////////////////////////////////////// Built in ////////////////////////////////////////////////////////////////////////////////
+
     pub fn no_op_keypress(&mut self){
         self.mode = Mode::Warning(WarningKind::UnhandledKeypress);
         // needed to handle warning mode set when text in util_bar
@@ -276,8 +274,6 @@ impl Application{
         self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
     }
 
-//Insert
-    //Custom Functions
     pub fn esc_handle(&mut self){
         assert!(self.mode == Mode::Insert);
         //if self.ui.util_bar.utility_widget.display_copied_indicator{self.ui.util_bar.utility_widget.display_copied_indicator = false;}
@@ -295,7 +291,6 @@ impl Application{
         }
     }
 
-    //Editor Controls
     pub fn set_mode(&mut self, to_mode: Mode){
         let mut to_mode_uses_util_text = false;
         let mut update_layouts_and_document = false;
@@ -307,11 +302,9 @@ impl Application{
                 || self.mode == Mode::Split 
                 || self.mode == Mode::Command{
                     update_layouts_and_document = true;
-                }else{
-                    //do nothing
-                }
+                }else{/*do nothing*/}
             }
-            Mode::Space /*| Mode::Insert */| Mode::Notify | Mode::Warning(_)=> {/*do nothing*/}     //note: it seems setting to insert mode doesn't always do nothing. util_modes make it do other things
+            Mode::View | Mode::Notify | Mode::Warning(_)=> {/*do nothing*/}
             Mode::Goto | Mode::Command => {
                 to_mode_uses_util_text = true;
                 update_layouts_and_document = true;
@@ -345,7 +338,6 @@ impl Application{
     }
     pub fn quit_ignoring_changes(&mut self){self.should_quit = true;}
 
-    //Document related functions
     pub fn save(&mut self){
         assert!(self.mode == Mode::Insert);
         match self.document.save(){
@@ -405,7 +397,6 @@ impl Application{
         }
     }
 
-    //Selection Functions
     pub fn selection_action(&mut self, action: SelectionAction){
         assert!(self.mode == Mode::Insert);
         let result = match action{
@@ -429,8 +420,8 @@ impl Application{
             SelectionAction::ExtendSelectionWordBoundaryForward => {self.document.extend_selection_word_boundary_forward(CURSOR_SEMANTICS)}
             SelectionAction::ExtendSelectionLineEnd => {self.document.extend_selection_line_end(CURSOR_SEMANTICS)}
             SelectionAction::ExtendSelectionHome => {self.document.extend_selection_home(CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionDocumentStart => {self.document.extend_selection_document_start(CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionDocumentEnd => {self.document.extend_selection_document_end(CURSOR_SEMANTICS)}
+            //SelectionAction::ExtendSelectionDocumentStart => {self.document.extend_selection_document_start(CURSOR_SEMANTICS)}
+            //SelectionAction::ExtendSelectionDocumentEnd => {self.document.extend_selection_document_end(CURSOR_SEMANTICS)}
             SelectionAction::ExtendSelectionPageUp => {self.document.extend_selection_page_up(CURSOR_SEMANTICS)}
             SelectionAction::ExtendSelectionPageDown => {self.document.extend_selection_page_down(CURSOR_SEMANTICS)}
             SelectionAction::SelectLine => {self.document.select_line(CURSOR_SEMANTICS)}
@@ -451,14 +442,17 @@ impl Application{
             Err(e) => {self.handle_document_error(e);}
         }
     }
-    
-//View
-    pub fn view_action(&mut self, action: ViewAction){      //TODO: make separate view mode, and call this from there
-        assert!(self.mode == Mode::Insert || self.mode == Mode::Space); //TODO: assert!(self.mode == Mode::View);
+
+    pub fn view_action(&mut self, action: ViewAction){      //TODO: make separate view mode, and call this from there   //TODO: make sure this can still be called from insert, so users can assign a direct keybind if desired
+        assert!(/*self.mode == Mode::Insert || */self.mode == Mode::View); //TODO: assert!(self.mode == Mode::View);
         let view = self.document.view();
 
+        let mut should_exit = false;
         let result = match action{
-            ViewAction::CenterVerticallyAroundCursor => {view.center_vertically_around_cursor(self.document.selections().primary(), self.document.text(), CURSOR_SEMANTICS)}
+            ViewAction::CenterVerticallyAroundCursor => {
+                should_exit = true;
+                view.center_vertically_around_cursor(self.document.selections().primary(), self.document.text(), CURSOR_SEMANTICS)
+            }
             ViewAction::ScrollUp => {view.scroll_up(VIEW_SCROLL_AMOUNT)}
             ViewAction::ScrollDown => {view.scroll_down(VIEW_SCROLL_AMOUNT, self.document.text())}
             ViewAction::ScrollLeft => {view.scroll_left(VIEW_SCROLL_AMOUNT)}
@@ -468,6 +462,7 @@ impl Application{
             Ok(new_view) => {
                 *self.document.view_mut() = new_view;
                 self.update_ui_data_document();
+                if should_exit{self.set_mode(Mode::Insert);}
             }
             Err(e) => {
                 match e{
@@ -476,40 +471,63 @@ impl Application{
                 }
             }
         }
-        if self.mode == Mode::Space{    //TODO: will have to change how this works when Mode::View implemented
-            self.set_mode(Mode::Insert);
+    }
+
+    //TODO: split into util_edit_action and util_selection_action
+    pub fn generic_util_action(&mut self, action: UtilAction){
+        let text_box = &mut self.ui.util_bar.utility_widget.text_box;
+        match action{
+            UtilAction::Backspace => text_box.backspace(),
+            UtilAction::Delete => text_box.delete(),
+            UtilAction::InsertChar(c) => text_box.insert_char(c),
+            UtilAction::ExtendEnd => text_box.extend_selection_end(),
+            UtilAction::ExtendHome => text_box.extend_selection_home(),
+            UtilAction::ExtendLeft => text_box.extend_selection_left(),
+            UtilAction::ExtendRight => text_box.extend_selection_right(),
+            UtilAction::MoveEnd => text_box.move_cursor_line_end(),
+            UtilAction::MoveHome => text_box.move_cursor_line_start(),
+            UtilAction::MoveLeft => text_box.move_cursor_left(),
+            UtilAction::MoveRight => text_box.move_cursor_right(),
+        }
+        self.update_ui_data_util_bar();
+
+        //perform any mode specific follow up actions
+        match self.mode{
+            Mode::Insert |
+            Mode::View |
+            Mode::Notify |
+            Mode::Warning(_) => {/*do nothing*/}
+            Mode::Goto => {
+                self.goto_mode_text_validity_check();
+            }
+            Mode::Find => {
+                self.incremental_search();
+                self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
+            }
+            Mode::Split => {
+                self.incremental_split();
+                self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
+            }
+            Mode::Command => {/*do nothing*/}
         }
     }
-    
-//Space(any fn that could be implemented in Insert mode, but are generally used from space mode)
-    
-//Warning
 
-//Goto  //TODO: if num entered, then directional key pressed, move that direction that number of times
     pub fn goto_mode_accept(&mut self){
         assert!(self.mode == Mode::Goto);
-        
         let mut show_warning = false;
         if let Ok(line_number) = self.ui.util_bar.utility_widget.text_box.text.to_string().parse::<usize>(){
             if line_number == 0{show_warning = true;}   //we have no line number 0, so this is invalid
             else{
-                // make line number 0 based for interfacing correctly with backend impl
-                let line_number = line_number.saturating_sub(1);
-                
-                // clears non primary, if more than one selection. otherwise, does nothing.
-                //if let Ok(new_selections) = self.document.selections().clear_non_primary_selections(){*self.document.selections_mut() = new_selections;}
-                if let Ok(()) = self.document.clear_non_primary_selections(){};
-                
+                let line_number = line_number.saturating_sub(1);    // make line number 0 based for interfacing correctly with backend impl
+                if let Ok(()) = self.document.clear_non_primary_selections(){}; // clears non primary, if more than one selection. otherwise, does nothing.
                 // go to line number
-                //TODO: impl set_from_line_number in edit_core::document.rs, then call that here...
+                //TODO: impl set_from_line_number in edit_core::document.rs, then call that here...     can maybe use Selections::move_cursor_clearing_non_primary
                 if let Ok(new_selection) = self.document.selections().primary().set_from_line_number(line_number, self.document.text(), Movement::Move, CURSOR_SEMANTICS){
                     *self.document.selections_mut().primary_mut() = new_selection;
-                    self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_selections, Application::update_ui_data_selections);
-                    //TODO: pretty sure one of these should be update_ui_data_document
+                    self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_selections, Application::update_ui_data_selections);  //TODO: pretty sure one of these should be update_ui_data_document
                 }else{show_warning = true;}
             }
         }else{show_warning = true;}
-        
         if show_warning{self.set_mode(Mode::Warning(WarningKind::InvalidInput));}
         else{self.set_mode(Mode::Insert);}
     }
@@ -518,21 +536,15 @@ impl Application{
         // run text validity check
         let mut is_numeric = true;
         for grapheme in self.ui.util_bar.utility_widget.text_box.text.chars(){ // .graphemes(true)?
-            if !grapheme.is_ascii_digit(){
-                is_numeric = false;
-            }
+            if !grapheme.is_ascii_digit(){is_numeric = false;}
         }
         let exceeds_doc_length = match self.ui.util_bar.utility_widget.text_box.text.to_string().parse::<usize>(){
-            Ok(line_number) => {
-                //line_number > self.ui.document_length()
-                line_number > self.document.len()
-            }
+            Ok(line_number) => {line_number > self.document.len()}  //line_number > self.ui.document_length()
             Err(_) => false
         };
         self.ui.util_bar.utility_widget.text_box.text_is_valid = is_numeric && !exceeds_doc_length;
     }
 
-//Find
     fn incremental_search(&mut self){
         if let Some(selections) = self.ui.util_bar.utility_widget.selections_before_search.clone(){
             if let Ok(selections) = selections.search(&self.ui.util_bar.utility_widget.text_box.text.to_string(), self.document.text()){    //TODO: selection management should be done in edit_core::document.rs
@@ -547,7 +559,6 @@ impl Application{
         }
     }
 
-//Split
     fn incremental_split(&mut self){
         if let Some(selections) = self.ui.util_bar.utility_widget.selections_before_search.clone(){
             //if let Ok(selections) = selections.search(&self.ui.util_bar.utility_widget.text_box.text.to_string(), self.document.text()){
@@ -563,7 +574,6 @@ impl Application{
         }
     }
 
-//Command
     pub fn toggle_line_numbers(&mut self){
         assert!(self.mode == Mode::Insert || self.mode == Mode::Command);
         self.ui.document_viewport.toggle_line_numbers();
@@ -606,44 +616,4 @@ impl Application{
         if warn{self.mode = Mode::Warning(WarningKind::CommandParseFailed);}
         else{self.set_mode(Mode::Insert);}
     }
-
-//Generic Util Functionality        //TODO: split into util_edit_action and util_selection_action
-    pub fn generic_util_action(&mut self, action: UtilAction){
-        let text_box = &mut self.ui.util_bar.utility_widget.text_box;
-        match action{
-            UtilAction::Backspace => text_box.backspace(),
-            UtilAction::Delete => text_box.delete(),
-            UtilAction::InsertChar(c) => text_box.insert_char(c),
-            UtilAction::ExtendEnd => text_box.extend_selection_end(),
-            UtilAction::ExtendHome => text_box.extend_selection_home(),
-            UtilAction::ExtendLeft => text_box.extend_selection_left(),
-            UtilAction::ExtendRight => text_box.extend_selection_right(),
-            UtilAction::MoveEnd => text_box.move_cursor_line_end(),
-            UtilAction::MoveHome => text_box.move_cursor_line_start(),
-            UtilAction::MoveLeft => text_box.move_cursor_left(),
-            UtilAction::MoveRight => text_box.move_cursor_right(),
-        }
-        self.update_ui_data_util_bar();
-
-        //perform any mode specific follow up actions
-        match self.mode{
-            Mode::Insert |
-            Mode::Space |
-            Mode::Notify |
-            Mode::Warning(_) => {/*do nothing*/}
-            Mode::Goto => {
-                self.goto_mode_text_validity_check();
-            }
-            Mode::Find => {
-                self.incremental_search();
-                self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
-            }
-            Mode::Split => {
-                self.incremental_split();
-                self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
-            }
-            Mode::Command => {/*do nothing*/}
-        }
-    }
-    /////////////////////////////////////////////////////////////////////////// Built in ////////////////////////////////////////////////////////////////////////////////
 }
