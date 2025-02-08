@@ -37,6 +37,7 @@ pub enum ViewAction{
     ScrollRight,
 }
 pub enum EditAction{
+    //AlignSelectedTextVertically,
     InsertChar(char),
     InsertNewline,
     InsertTab,
@@ -47,7 +48,10 @@ pub enum EditAction{
     Cut,
     Paste,
     Undo,
-    Redo
+    Redo,
+    //SwapUp,   (if text selected, swap selected text with line above. if no selection, swap current line with line above)
+    //SwapDown, (if text selected, swap selected text with line below. if no selection, swap current line with line below)
+    //RotateTextInSelections
 }
 pub enum SelectionAction{
     MoveCursorUp,
@@ -346,18 +350,22 @@ impl Application{
         }
     }
     fn handle_document_error(&mut self, e: DocumentError){
-        let this_file = std::panic::Location::caller().file();
+        let this_file = std::panic::Location::caller().file();  //actually, these should prob be assigned in calling fn, and passed in, so that error location is the caller and not always here...
         let line_number = std::panic::Location::caller().line();
         match e{
-            DocumentError::InvalidInput => {if SHOW_SAME_STATE_WARNINGS{self.set_mode(Mode::Warning(WarningKind::SameState));}}
-            DocumentError::SelectionAtDocBounds => {if SHOW_SAME_STATE_WARNINGS{self.set_mode(Mode::Warning(WarningKind::SameState));}}
-            DocumentError::NoChangesToUndo => {if SHOW_SAME_STATE_WARNINGS{self.set_mode(Mode::Warning(WarningKind::SameState));}}
+            DocumentError::InvalidInput => {self.set_mode(Mode::Warning(WarningKind::InvalidInput));}
+            DocumentError::SelectionAtDocBounds |
+            DocumentError::NoChangesToUndo |
             DocumentError::NoChangesToRedo => {if SHOW_SAME_STATE_WARNINGS{self.set_mode(Mode::Warning(WarningKind::SameState));}}
             DocumentError::SelectionsError(s) => {
                 match s{
+                    SelectionsError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.set_mode(Mode::Warning(WarningKind::SameState));}}
                     SelectionsError::MultipleSelections => {self.set_mode(Mode::Warning(WarningKind::MultipleSelections));}
-                    SelectionsError::CannotAddSelectionAbove => {if SHOW_SAME_STATE_WARNINGS{self.set_mode(Mode::Warning(WarningKind::SameState));}}    //placeholder until selections impls a SameState error
-                    _ => self.set_mode(Mode::Warning(WarningKind::UnhandledError(format!("{s:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))),
+                    SelectionsError::CannotAddSelectionAbove |
+                    SelectionsError::CannotAddSelectionBelow |
+                    SelectionsError::NoSearchMatches |
+                    SelectionsError::SingleSelection |
+                    SelectionsError::SpansMultipleLines => self.set_mode(Mode::Warning(WarningKind::UnhandledError(format!("{s:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))),
                 }
             }
         }
