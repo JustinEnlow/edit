@@ -13,18 +13,13 @@ impl ViewModeWidget{
     fn new() -> Self{
         Self{
             rect: Rect::default(), 
-            widest_element_len: 47,//46, 
-            num_elements: 10//6
+            widest_element_len: 48, //+2 for border(actually did +3 for some padding as well)
+            num_elements: 10    //+2 for border
         }
     }
     pub fn widget(&self) -> Paragraph<'static>{
         Paragraph::new(
             concat!(    //TODO: generate keybind display string from keybind.rs
-                //" r  rename symbol(not implemented)\n",
-                //" b  insert debug breakpoint(not implemented)\n",   //widest element len 44
-                //" p  increment primary selection\n",
-                //" c  center cursor vertically in view"
-                //TODO when changed to ViewWidget:
                 " v  center vertically around primary cursor\n",
                 " h  center horizontally around primary cursor\n", //widest element len 45
                 " t  align with primary cursor at top\n",
@@ -34,7 +29,7 @@ impl ViewModeWidget{
                 " ←  scroll left\n",
                 " →  scroll right\n",
                 //  //num elements 8
-            )   //num elements 4
+            )
         )
             .block(ratatui::widgets::Block::default()
                 .borders(ratatui::widgets::Borders::all())
