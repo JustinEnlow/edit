@@ -359,12 +359,12 @@ impl Application{
             DocumentError::NoChangesToRedo => {if SHOW_SAME_STATE_WARNINGS{self.set_mode(Mode::Warning(WarningKind::SameState));}}
             DocumentError::SelectionsError(s) => {
                 match s{
-                    SelectionsError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{self.set_mode(Mode::Warning(WarningKind::SameState));}}
-                    SelectionsError::MultipleSelections => {self.set_mode(Mode::Warning(WarningKind::MultipleSelections));}
+                    SelectionsError::ResultsInSameState |
                     SelectionsError::CannotAddSelectionAbove |
-                    SelectionsError::CannotAddSelectionBelow |
+                    SelectionsError::CannotAddSelectionBelow => {if SHOW_SAME_STATE_WARNINGS{self.set_mode(Mode::Warning(WarningKind::SameState));}}
+                    SelectionsError::MultipleSelections => {self.set_mode(Mode::Warning(WarningKind::MultipleSelections));}
+                    SelectionsError::SingleSelection => {self.set_mode(Mode::Warning(WarningKind::SingleSelection));}
                     SelectionsError::NoSearchMatches |
-                    SelectionsError::SingleSelection |
                     SelectionsError::SpansMultipleLines => self.set_mode(Mode::Warning(WarningKind::UnhandledError(format!("{s:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))),
                 }
             }
