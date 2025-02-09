@@ -109,17 +109,17 @@ pub enum Mode{
     /// for retaining everything within selections that isn't a matching regex pattern
     Split,
     // select text within but excluding instances of a single search pattern, a char pair, or a text object
-    //SelectInside,
+    //SelectExcluding,  //ctrl+e
     //select text within and including instances of a single search pattern, a char pair, or a text object
-    //SelectIncluding,
+    //SelectIncluding,  //ctrl+i
     //select the next occurring instance of a search pattern
     //SearchNextAhead,
     //select the prev occurring instance of a search pattern
     //SearchPrevBehind
     //select until the next occuring instance of a search pattern
-    //SearchUntilAhead,
+    //SelectUntilNext,
     //select until the prev occuring instance of a search pattern
-    //SearchUntilBehind,
+    //SelectUntilPrev,
 }
 
 #[derive(Clone, PartialEq, Eq)]
