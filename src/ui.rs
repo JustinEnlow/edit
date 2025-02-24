@@ -129,6 +129,9 @@ impl UserInterface{
                         self.util_bar.highlighter.selection = Some(self.util_bar.utility_widget.text_box.selection.clone());    //TODO: maybe these should be moved into Application::update_ui_data_util_bar
                         self.util_bar.highlighter.cursor = self.util_bar.utility_widget.text_box.cursor_position();             //TODO: maybe these should be moved into Application::update_ui_data_util_bar
                         frame.render_widget(self.util_bar.highlighter.clone(), self.util_bar.utility_widget.rect);
+
+                        //TODO: render a pop up widget that displays the available keys to the user //do this for all util modes
+                        //config.rs should have a const that can enable/disable this behavior. SHOW_UTIL_KEY_POPUP
                     }
                     Mode::Find => {
                         frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);

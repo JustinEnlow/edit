@@ -160,3 +160,8 @@ bug fix:
     once all cursors at top of doc
     (bug 2: some have not merged when overlapped. figure out where merge_overlapping isn't being called or where it is failing)(logical issue)
     (do the same issues apply elsewhere?)
+
+
+other:
+    make <enter> the way to exit find mode with matched selections, instead of <esc>
+    make <enter> the way to exit split mode with split selections, instead of <esc>

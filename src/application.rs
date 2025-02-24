@@ -205,8 +205,22 @@ impl Application{
                     Mode::Split => {keybind::handle_split_mode_keypress(self, key_event.code, key_event.modifiers);}
                 }
             },
+            event::Event::Mouse(idk) => {
+                //TODO: maybe mode specific mouse handling...
+                match idk.kind{
+                    event::MouseEventKind::Down(something) => {}
+                    event::MouseEventKind::Up(something) => {}
+                    event::MouseEventKind::Drag(something) => {}
+                    event::MouseEventKind::Moved => {}
+                    event::MouseEventKind::ScrollDown => {}
+                    event::MouseEventKind::ScrollUp => {}
+                }
+            }
             event::Event::Resize(x, y) => self.resize(x, y),
-            _ => self.no_op_event(),
+            event::Event::FocusLost => {/*do nothing*/}
+            event::Event::FocusGained => {/*do nothing*/}
+            event::Event::Paste(idk) => {}
+            //_ => self.no_op_event(),
         }
 
         Ok(())
@@ -527,13 +541,18 @@ impl Application{
             if line_number == 0{show_warning = true;}   //we have no line number 0, so this is invalid
             else{
                 let line_number = line_number.saturating_sub(1);    // make line number 0 based for interfacing correctly with backend impl
-                if let Ok(()) = self.document.clear_non_primary_selections(){}; // clears non primary, if more than one selection. otherwise, does nothing.
-                // go to line number
-                //TODO: impl set_from_line_number in edit_core::document.rs, then call that here...     can maybe use Selections::move_cursor_clearing_non_primary
-                if let Ok(new_selection) = self.document.selections().primary().set_from_line_number(line_number, self.document.text(), Movement::Move, CURSOR_SEMANTICS){
-                    *self.document.selections_mut().primary_mut() = new_selection;
-                    self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_selections, Application::update_ui_data_selections);  //TODO: pretty sure one of these should be update_ui_data_document
-                }else{show_warning = true;}
+                //if let Ok(()) = self.document.clear_non_primary_selections(){}; // clears non primary, if more than one selection. otherwise, does nothing.
+                //// go to line number
+                ////TODO: impl set_from_line_number in edit_core::document.rs, then call that here...     can maybe use Selections::move_cursor_clearing_non_primary
+                //if let Ok(new_selection) = self.document.selections().primary().set_from_line_number(line_number, self.document.text(), Movement::Move, CURSOR_SEMANTICS){
+                //    *self.document.selections_mut().primary_mut() = new_selection;
+                //    self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_selections, Application::update_ui_data_selections);  //TODO: pretty sure one of these should be update_ui_data_document
+                //}else{show_warning = true;}
+                
+                match self.document.move_to_line_number(line_number, CURSOR_SEMANTICS){
+                    Ok(()) => {self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_selections, Application::update_ui_data_selections);}  //TODO: pretty sure one of these should be update_ui_data_document
+                    Err(_) => {show_warning = true;}
+                }
             }
         }else{show_warning = true;}
         if show_warning{self.set_mode(Mode::Warning(WarningKind::InvalidInput));}
@@ -553,7 +572,7 @@ impl Application{
         self.ui.util_bar.utility_widget.text_box.text_is_valid = is_numeric && !exceeds_doc_length;
     }
 
-    fn incremental_search(&mut self){
+    fn incremental_search(&mut self){   //this def doesn't work correctly with utf-8 yet
         if let Some(selections) = self.ui.util_bar.utility_widget.selections_before_search.clone(){
             if let Ok(selections) = selections.search(&self.ui.util_bar.utility_widget.text_box.text.to_string(), self.document.text()){    //TODO: selection management should be done in edit_core::document.rs
                 self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
