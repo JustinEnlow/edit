@@ -147,7 +147,7 @@ pub fn handle_view_mode_keypress(app: &mut Application, keycode: KeyCode, modifi
 pub fn handle_warning_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
     match (keycode, modifiers){
         (KeyCode::Char('q'), modifiers) => {
-            if modifiers == KeyModifiers::CONTROL{app.quit_ignoring_changes();}
+            if modifiers == KeyModifiers::CONTROL{app.quit_ignoring_changes();} //TODO: this should be made to only work if WarningKind == FileIsModified
             else{app.no_op_keypress();}
         }
         (KeyCode::Esc, modifiers) => {

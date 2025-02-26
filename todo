@@ -156,12 +156,16 @@ bug fix:
     open src/application.rs
     search "pub"
     move selections up
-    (bug 1: holding up for a while then releasing, cursors still move for quite a long time)(performance issue)
-    once all cursors at top of doc
-    (bug 2: some have not merged when overlapped. figure out where merge_overlapping isn't being called or where it is failing)(logical issue)
-    (do the same issues apply elsewhere?)
+    [ ] (bug 1: holding up for a while then releasing, cursors still move for quite a long time)(performance issue)
+        once all cursors at top of doc
+    [x] (bug 2: some have not merged when overlapped. figure out where merge_overlapping isn't being called or where it is failing)(logical issue)
+        (do the same issues apply elsewhere?)
 
 
 other:
     make <enter> the way to exit find mode with matched selections, instead of <esc>
     make <enter> the way to exit split mode with split selections, instead of <esc>
+
+    combine status bar and util bar
+
+    make undo/redo work with several subsequent grapheme insertions/deletions, not just single insertion/deletion. (undo/redo typed words)

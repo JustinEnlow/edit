@@ -3,7 +3,7 @@ edit: simple terminal text editor for linux
 This is a reference frontend implementation using the edit_core backend.
 
 Features:
-    Text Editing:
+    Text Editing: (implemented in edit_core)
         [ ] multi-cursor/multi-selection editing    (cursor is the mobile part of an extended selection, or a non extended selection)
             [ ] move cursor(UTF-8 is WIP)
                 [x] up, down, left, right
@@ -39,14 +39,17 @@ Features:
                 [ ] maybe add vim style registers
             [ ] externally using system wide tools
         [x] History/Undo/Redo
-        [ ] auto indentation
-        [ ] suggestions
+        [ ] auto indentation (is this really desired?...)
+        [ ] suggestions (from previously used words)
 
     User Interface(all elements themeable):
         [ ] Text Document
             [x] ascii text rendering
             [ ] utf-8 text rendering
             [x] cursor/selection rendering(done for document, still WIP in utilities)
+            [ ] cursor line (highlight the line the primary cursor is on)
+            [ ] cursor column (highlight the column the primary cursor is on)
+            [ ] suggestions/completion
         [ ] Scroll bar(shows relative location in document)
         [x] Toggleable Line Numbers
         [x] Toggleable Status Bar
@@ -54,23 +57,42 @@ Features:
             [x] File name
             [x] Selection Indicator(1/1 = primary cursor is the only one, 3/125 = primary cursor is the 3rd selection of 125)
             [x] primary cursor location indicator(line num:column num)
-        [ ] Utility Bar
-            [x] go to line
-            [x] command parser
+        [ ] Utility Bar (should utils have suggestions/completion?)
+            [x] go to utility
+                [x] use input as line number
+                [ ] use input as amount for following relative motion command (up, down, left, right, etc.)
+            [x] command parser utility
                 [x] built in and custom commands
-            [ ] search or find/replace
-                [x] match search text
-                [ ] match case insensitive search text
-                [ ] match regex pattern
-                [ ] incremental search
-            [x] Warning (display useful warnings and visual responses to redundant/unhandled input)
-            [x] Text copied indicator
-        [ ] Space mode/popup widget
-            - allows for calling of functions without a modified(ctrl, shift, alt, etc) keybind. (like vim normal mode, i guess)
-        [ ] highlighter(color various ui elements)
-            [ ] cursor/selections
-            [ ] cursor line(highlight the line the primary cursor is on)
-            [ ] cursor column(highlight the column the primary cursor is on)
+            [ ] find/search utility
+                [x] search inside extended selections
+                [ ] search whole document if no selection extended
+                [x] match regex pattern
+                [x] incremental search
+            [ ] split utility
+                [x] match regex pattern
+                [x] incremental split
+        [x] Warning (blocking display useful warnings and visual responses to redundant/unhandled input)
+            [x] File modified
+            [x] Save failed
+            [x] Command parse failed
+            [x] Single selection
+            [x] Multiple selections
+            [x] Invalid input
+            [x] Same state
+            [x] Unhandled error
+            [x] Unhandled keypress
+            [x] Unhandled event
+        [x] Notify (non-blocking display useful notifications and visual responses to input)
+            [x] Text copied
+        [ ] View
+            [x] scroll up, down, left, right
+            [x] center view vertically around primary cursor
+            [ ] center view horizontally around primary cursor
+            [ ] align view with primary cursor at top
+            [ ] align view with primary cursor at bottom
+        [ ] Shell
+            [ ] insert/replace selection with shell output
+            [ ] save shell output to clipboard/register
 
     
     File Operations(Open/Close/Save)
