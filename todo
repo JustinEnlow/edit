@@ -169,3 +169,5 @@ other:
     combine status bar and util bar
 
     make undo/redo work with several subsequent grapheme insertions/deletions, not just single insertion/deletion. (undo/redo typed words)
+
+    if file is read only, don't allow edit actions to modify the buffer. selection actions and others should still work...

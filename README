@@ -18,6 +18,8 @@ Features:
                 [x] doc start/end
                 [x] word boundaries
                 [x] merge overlapping
+                [x] collapse selection to cursor
+                [ ] collapse selection to anchor
             [ ] add selection
                 [x] above(and make view follow top selection)
                 [x] below(and make view follow bottom selection)
@@ -58,7 +60,7 @@ Features:
             [x] Selection Indicator(1/1 = primary cursor is the only one, 3/125 = primary cursor is the 3rd selection of 125)
             [x] primary cursor location indicator(line num:column num)
         [ ] Utility Bar (should utils have suggestions/completion?)
-            [x] go to utility
+            [x] go to utility   (should have popup with available commands?...)
                 [x] use input as line number
                 [ ] use input as amount for following relative motion command (up, down, left, right, etc.)
             [x] command parser utility

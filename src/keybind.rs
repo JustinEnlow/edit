@@ -160,6 +160,14 @@ pub fn handle_warning_mode_keypress(app: &mut Application, keycode: KeyCode, mod
 
 pub fn handle_goto_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
     match (keycode, modifiers){
+        (KeyCode::Up, modifiers) => {
+            if modifiers == KeyModifiers::NONE{app.goto_mode_selection_action(SelectionAction::MoveCursorUp);}
+            else{app.no_op_keypress();}
+        }
+        (KeyCode::Down, modifiers) => {
+            if modifiers == KeyModifiers::NONE{app.goto_mode_selection_action(SelectionAction::MoveCursorDown);}
+            else{app.no_op_keypress();}
+        }
         (KeyCode::Right, modifiers) => {
             if modifiers == KeyModifiers::SHIFT{app.generic_util_action(UtilAction::ExtendRight);}
             else if modifiers == KeyModifiers::NONE{app.generic_util_action(UtilAction::MoveRight);}
@@ -233,7 +241,8 @@ pub fn handle_find_replace_mode_keypress(app: &mut Application, keycode: KeyCode
             else{app.no_op_keypress();}
         }
         (KeyCode::Esc, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.set_mode(Mode::Insert);}//{app.find_mode_exit();}
+            //if modifiers == KeyModifiers::NONE{app.set_mode(Mode::Insert);}//{app.find_mode_exit();}
+            if modifiers == KeyModifiers::NONE{app.restore_selections_and_exit();}
             else{app.no_op_keypress();}
         }
         //(KeyCode::Tab, _modifiers) => {
@@ -256,10 +265,10 @@ pub fn handle_find_replace_mode_keypress(app: &mut Application, keycode: KeyCode
             if modifiers == KeyModifiers::NONE{app.generic_util_action(UtilAction::Delete);}//{app.find_mode_delete();}
             else{app.no_op_keypress();}
         }
-        //(KeyCode::Enter, modifiers) => {
-        //    if modifiers == KeyModifiers::NONE{app.find_mode_accept();}
-        //    else{app.no_op();}
-        //}
+        (KeyCode::Enter, modifiers) => {
+            if modifiers == KeyModifiers::NONE{app.set_mode(Mode::Insert);}
+            else{app.no_op_keypress();}
+        }
         _ => {app.no_op_keypress();}
     }
 }
@@ -292,7 +301,12 @@ pub fn handle_split_mode_keypress(app: &mut Application, keycode: KeyCode, modif
             else{app.no_op_keypress();}
         }
         (KeyCode::Esc, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.set_mode(Mode::Insert);}//{app.split_mode_exit();}
+            //if modifiers == KeyModifiers::NONE{app.set_mode(Mode::Insert);}//{app.split_mode_exit();}
+            if modifiers == KeyModifiers::NONE{app.restore_selections_and_exit();}
+            else{app.no_op_keypress();}
+        }
+        (KeyCode::Enter, modifiers) => {
+            if modifiers == KeyModifiers::NONE{app.set_mode(Mode::Insert);}
             else{app.no_op_keypress();}
         }
         (KeyCode::Backspace, modifiers) => {

@@ -4,7 +4,7 @@ use crossterm::event;
 use ratatui::layout::Rect;
 use ratatui::{backend::CrosstermBackend, Terminal};
 use crate::ui::UserInterface;
-use edit_core::selection::{Movement, Selection};
+use edit_core::selection::Selection;
 use edit_core::selections::{Selections, SelectionsError};
 use edit_core::view::ViewError;
 use edit_core::document::{Document, DocumentError};
@@ -53,6 +53,7 @@ pub enum EditAction{
     //SwapDown, (if text selected, swap selected text with line below. if no selection, swap current line with line below)
     //RotateTextInSelections
 }
+#[derive(Clone)]
 pub enum SelectionAction{
     MoveCursorUp,
     MoveCursorDown,
@@ -109,9 +110,11 @@ pub enum Mode{
     /// for retaining everything within selections that isn't a matching regex pattern
     Split,
     // select text within but excluding instances of a single search pattern, a char pair, or a text object
-    //SelectExcluding,  //ctrl+e
+    //SelectInsideExclusive,  //ctrl+e
     //select text within and including instances of a single search pattern, a char pair, or a text object
-    //SelectIncluding,  //ctrl+i
+    //SelectInsideInclusive,  //ctrl+i
+    // select surrounding instances of single search pattern, a char pair, or a text object
+    //SelectSurrounding
     //select the next occurring instance of a search pattern
     //SearchNextAhead,
     //select the prev occurring instance of a search pattern
@@ -284,9 +287,9 @@ impl Application{
     }
     pub fn resize(&mut self, x: u16, y: u16){
         self.ui.set_terminal_size(x, y);
+        // ui layouts need to be updated before doc size set, so doc size can be calculated correctly
         self.ui.update_layouts(&self.mode);
         self.update_ui_data_util_bar(); //TODO: can this be called later in fn impl?
-        // ui layouts need to be updated before doc size set, so doc size can be calculated correctly
         self.document.view_mut().set_size(self.ui.document_viewport.document_widget.rect.width as usize, self.ui.document_viewport.document_widget.rect.height as usize);
         // scrolling so cursor is in a reasonable place, and updating so any ui changes render correctly
         self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
@@ -541,22 +544,28 @@ impl Application{
             if line_number == 0{show_warning = true;}   //we have no line number 0, so this is invalid
             else{
                 let line_number = line_number.saturating_sub(1);    // make line number 0 based for interfacing correctly with backend impl
-                //if let Ok(()) = self.document.clear_non_primary_selections(){}; // clears non primary, if more than one selection. otherwise, does nothing.
-                //// go to line number
-                ////TODO: impl set_from_line_number in edit_core::document.rs, then call that here...     can maybe use Selections::move_cursor_clearing_non_primary
-                //if let Ok(new_selection) = self.document.selections().primary().set_from_line_number(line_number, self.document.text(), Movement::Move, CURSOR_SEMANTICS){
-                //    *self.document.selections_mut().primary_mut() = new_selection;
-                //    self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_selections, Application::update_ui_data_selections);  //TODO: pretty sure one of these should be update_ui_data_document
-                //}else{show_warning = true;}
-                
                 match self.document.move_to_line_number(line_number, CURSOR_SEMANTICS){
                     Ok(()) => {self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_selections, Application::update_ui_data_selections);}  //TODO: pretty sure one of these should be update_ui_data_document
-                    Err(_) => {show_warning = true;}
+                    Err(_) => {show_warning = true;}    //TODO: match error and handle
                 }
             }
         }else{show_warning = true;}
         if show_warning{self.set_mode(Mode::Warning(WarningKind::InvalidInput));}
         else{self.set_mode(Mode::Insert);}
+    }
+    // Not entirely sure I want this behavior...
+    pub fn goto_mode_selection_action(&mut self, action: SelectionAction){  //TODO: this is pretty slow when user enters a large number into util text box
+        assert!(self.mode == Mode::Goto);
+        if let Ok(amount) = self.ui.util_bar.utility_widget.text_box.text.to_string().parse::<usize>(){
+            self.set_mode(Mode::Insert);    //or else the selection action will panic
+            for _ in 0..amount{
+                if matches!(self.mode, Mode::Warning(_)){break;}    //trying to speed this up by preventing this from running `amount` times, if there has already been an error
+                self.selection_action(action.clone());  //TODO: if this reaches doc boundaries, this will display same state warning. which it technically may not be the same state as when this fn was called...
+            }
+        }else{
+            self.set_mode(Mode::Warning(WarningKind::InvalidInput));
+        }
+        //also, this doesn't work with goto_mode_text_validity_check
     }
     pub fn goto_mode_text_validity_check(&mut self){
         assert!(self.mode == Mode::Goto);
@@ -579,24 +588,25 @@ impl Application{
                 *self.document.selections_mut() = selections;
             }else{  //TODO: may want to match on error to make sure we are handling this correctly
                 self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
-                // make sure this is the desired behavior...
                 *self.document.selections_mut() = self.ui.util_bar.utility_widget.selections_before_search.clone().unwrap();
-                //
             }
+            //TODO: if no selection extended, search whole document
         }
+    }
+    pub fn restore_selections_and_exit(&mut self){
+        self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
+        *self.document.selections_mut() = self.ui.util_bar.utility_widget.selections_before_search.clone().unwrap();
+        self.set_mode(Mode::Insert);
     }
 
     fn incremental_split(&mut self){
         if let Some(selections) = self.ui.util_bar.utility_widget.selections_before_search.clone(){
-            //if let Ok(selections) = selections.search(&self.ui.util_bar.utility_widget.text_box.text.to_string(), self.document.text()){
             if let Ok(selections) = selections.split(&self.ui.util_bar.utility_widget.text_box.text.to_string(), self.document.text()){ //TODO: selection management should be done in edit_core::document.rs
                 self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
                 *self.document.selections_mut() = selections;
             }else{  //TODO: may want to match on error to make sure we are handling this correctly
                 self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
-                // make sure this is the desired behavior...
                 *self.document.selections_mut() = self.ui.util_bar.utility_widget.selections_before_search.clone().unwrap();
-                //
             }
         }
     }
