@@ -158,8 +158,10 @@ impl UserInterface{
                         frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
                     }
                     Mode::View => {
+                        // if SHOW_CONTEXTUAL_KEYBINDS{     //should displaying the popup be optional?...
                         frame.render_widget(ratatui::widgets::Clear, self.popups.view_mode_widget.rect);
                         frame.render_widget(self.popups.view_mode_widget.widget(), self.popups.view_mode_widget.rect);
+                        // }
                     }
                 }
             }

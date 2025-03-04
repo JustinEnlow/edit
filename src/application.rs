@@ -211,18 +211,18 @@ impl Application{
             event::Event::Mouse(idk) => {
                 //TODO: maybe mode specific mouse handling...
                 match idk.kind{
-                    event::MouseEventKind::Down(something) => {}
-                    event::MouseEventKind::Up(something) => {}
-                    event::MouseEventKind::Drag(something) => {}
-                    event::MouseEventKind::Moved => {}
-                    event::MouseEventKind::ScrollDown => {}
-                    event::MouseEventKind::ScrollUp => {}
+                    event::MouseEventKind::Down(something) => {self.no_op_event();}
+                    event::MouseEventKind::Up(something) => {self.no_op_event();}
+                    event::MouseEventKind::Drag(something) => {self.no_op_event();}
+                    event::MouseEventKind::Moved => {self.no_op_event();}
+                    event::MouseEventKind::ScrollDown => {self.no_op_event();}
+                    event::MouseEventKind::ScrollUp => {self.no_op_event();}
                 }
             }
             event::Event::Resize(x, y) => self.resize(x, y),
-            event::Event::FocusLost => {/*do nothing*/}
-            event::Event::FocusGained => {/*do nothing*/}
-            event::Event::Paste(idk) => {}
+            event::Event::FocusLost => {/*do nothing*/} //maybe quit displaying cursor(s)/selection(s)?...
+            event::Event::FocusGained => {/*do nothing*/}   //display cursor(s)/selection(s)?...
+            event::Event::Paste(idk) => {self.no_op_event();}
             //_ => self.no_op_event(),
         }
 
@@ -278,12 +278,12 @@ impl Application{
     pub fn no_op_keypress(&mut self){
         self.mode = Mode::Warning(WarningKind::UnhandledKeypress);
         // needed to handle warning mode set when text in util_bar
-        self.ui.util_bar.utility_widget.text_box.clear();
+        self.ui.util_bar.utility_widget.text_box.clear();   //maybe only do this if self.mode uses the utility text box
     }
     pub fn no_op_event(&mut self){
         self.mode = Mode::Warning(WarningKind::UnhandledEvent);
         // needed to handle warning mode set when text in util_bar
-        self.ui.util_bar.utility_widget.text_box.clear();
+        self.ui.util_bar.utility_widget.text_box.clear();   //maybe only do this if self.mode uses the utility text box
     }
     pub fn resize(&mut self, x: u16, y: u16){
         self.ui.set_terminal_size(x, y);
@@ -312,6 +312,9 @@ impl Application{
         }
     }
 
+    //TODO: should modes be handled as a stack? pop current mode and set mode to next on stack.     //this could help with triggering warning mode in find/split/goto/etc. and having to re-enter that mode manually
+    // if stack empty, mode == Insert or if stack.count == 1, mode == Insert(would need to ensure we can't pop from stack with single element)    //idk which would be better
+    // popping mode from stack would also let us handle anything that needs to be handled on mode exit, instead of handling that when entering the next mode
     pub fn set_mode(&mut self, to_mode: Mode){
         let mut to_mode_uses_util_text = false;
         let mut update_layouts_and_document = false;
@@ -357,7 +360,10 @@ impl Application{
         if self.document.is_modified(){self.set_mode(Mode::Warning(WarningKind::FileIsModified));}
         else{self.should_quit = true;}
     }
-    pub fn quit_ignoring_changes(&mut self){self.should_quit = true;}
+    pub fn quit_ignoring_changes(&mut self){
+        assert!(self.mode == Mode::Warning(WarningKind::FileIsModified));
+        self.should_quit = true;
+    }
 
     pub fn save(&mut self){
         assert!(self.mode == Mode::Insert);
@@ -468,8 +474,8 @@ impl Application{
         }
     }
 
-    pub fn view_action(&mut self, action: ViewAction){      //TODO: make separate view mode, and call this from there   //TODO: make sure this can still be called from insert, so users can assign a direct keybind if desired
-        assert!(/*self.mode == Mode::Insert || */self.mode == Mode::View); //TODO: assert!(self.mode == Mode::View);
+    pub fn view_action(&mut self, action: ViewAction){      //TODO: make sure this can still be called from insert, so users can assign a direct keybind if desired
+        assert!(/*self.mode == Mode::Insert || */self.mode == Mode::View);
         let view = self.document.view();
 
         let mut should_exit = false;
@@ -487,7 +493,7 @@ impl Application{
             Ok(new_view) => {
                 *self.document.view_mut() = new_view;
                 self.update_ui_data_document();
-                if should_exit{self.set_mode(Mode::Insert);}
+                if should_exit{self.set_mode(Mode::Insert);}    //only call if in View Mode
             }
             Err(e) => {
                 match e{
@@ -498,8 +504,9 @@ impl Application{
         }
     }
 
-    //TODO: split into util_edit_action and util_selection_action
-    pub fn generic_util_action(&mut self, action: UtilAction){
+    //TODO: util_action maybe should be a sub-action of EditorAction(which itself still needs to be implemented...)
+    //TODO: split into util_edit_action and util_selection_action?...
+    pub fn util_action(&mut self, action: UtilAction){
         let text_box = &mut self.ui.util_bar.utility_widget.text_box;
         match action{
             UtilAction::Backspace => text_box.backspace(),
@@ -516,7 +523,7 @@ impl Application{
         }
         self.update_ui_data_util_bar();
 
-        //perform any mode specific follow up actions
+        //perform any mode specific follow up actions   //shouldn't need to call these if action was a selection action instead of an edit action
         match self.mode{
             Mode::Insert |
             Mode::View |
@@ -581,6 +588,7 @@ impl Application{
         self.ui.util_bar.utility_widget.text_box.text_is_valid = is_numeric && !exceeds_doc_length;
     }
 
+    //TODO: maybe this should be implemented in edit_core?...
     fn incremental_search(&mut self){   //this def doesn't work correctly with utf-8 yet
         if let Some(selections) = self.ui.util_bar.utility_widget.selections_before_search.clone(){
             if let Ok(selections) = selections.search(&self.ui.util_bar.utility_widget.text_box.text.to_string(), self.document.text()){    //TODO: selection management should be done in edit_core::document.rs
@@ -593,12 +601,14 @@ impl Application{
             //TODO: if no selection extended, search whole document
         }
     }
+    //TODO: maybe this should be implemented in edit_core?...
     pub fn restore_selections_and_exit(&mut self){
         self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
         *self.document.selections_mut() = self.ui.util_bar.utility_widget.selections_before_search.clone().unwrap();
         self.set_mode(Mode::Insert);
     }
 
+    //TODO: maybe this should be implemented in edit_core?...
     fn incremental_split(&mut self){
         if let Some(selections) = self.ui.util_bar.utility_widget.selections_before_search.clone(){
             if let Ok(selections) = selections.split(&self.ui.util_bar.utility_widget.text_box.text.to_string(), self.document.text()){ //TODO: selection management should be done in edit_core::document.rs
