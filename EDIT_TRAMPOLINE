@@ -1,0 +1,237 @@
++=---------------------------------------------------------------------------=+
+|                          ____       _   _     _                             |
+|                         |  __|     | | |_|   | |                            |
+|                         | |__   ___| |  _   _| |_                           |
+|                         |  __| /  _  | | | |_   _|                          |
+|                         | |__  | |_| | | |   | |_                           |
+|                         |____| \_____| |_|   |___|                          |
+|                                                                             |
+|                   A simple terminal text editor for linux                   |
++=---------------------------------------------------------------------------=+
+
+
+
+Use the arrow keys to navigate.
+
+
+
+This walk-through is an introduction to Edit's basic capabilities.
+
+This document is structured with the following sections:
+    1. Cursor/Selection Manipulation
+    2. View Manipulation
+    3. Text Manipulation
+    4. Editor Manipulation
+
+//TODO: explain notation that will be used throughout this walk-through
+    //section headers using +=--=+ Section Name +=--=+
+    //key bindings
+    //notes
+    //others?
+
+As bound keys are introduced, experiment using them inside this document.
+
+note: this walkthrough uses the default keybindings. this may not reflect
+your current keybindings, if you have modified them.
+
+
+
++=--------------------=+ Cursor/Selection Manipulation: +=--------------------=+
+Edit requires that document content is selected before an edit action can be 
+performed. This makes it explicit on which content you are operating.
+
+Edit utilizes several core primitives that allow for the manipulation of 
+selections.
+
+1.1: Cursor Movement:
+    A selection over a single grapheme may be referred to as a "cursor". It is
+    the mobile block that can hover over document content, to indicate that the
+    underlying content is selected.
+        
+    Edit allows for multiple simultaneous cursors/selections, but we will begin by 
+    manipulating a single cursor. This is referred to as the primary cursor.
+    
+            +-----------------------------NOTE---------------------------------+
+            | Sometimes, the cursor can be difficult to find in a large        |
+            | document.                                                        |
+            |                                                                  |
+            | Cursor color can be modified in config.rs, and can be made even  |
+            | more apparent using CURSOR_LINE and CURSOR_COLUMN, where the     |
+            | line or column that the primary cursor is on are highlighted.    |
+            |                                                                  |
+            | Primary cursor location is also indicated on the far right of    |
+            | the status bar, labeled: cursor: line_number:column_number       |
+            +------------------------------------------------------------------+
+
+                ,------,     
+                |  up  |
+         ,------:------:-------,
+         | left | down | right |
+         `------`------`-------`
+        The arrow keys move the cursor one column/row in a given direction.
+
+    Edit is a modal editor. This means it can be coerced into various modes, where
+    triggering a bound key will result in a mode specific editor action.
+    The default mode is `Insert`, where the user can edit text and manipulate
+    cursors/selections.
+
+    By default, actions that result in the editor being in the same state
+    switch the editor into `Warning` mode, and display a relevant warning message.
+
+            +-----------------------------NOTE--------------------------------+
+            | This default behavior can be changed in config.rs by changing   |
+            | the SHOW_SAME_STATE_WARNINGS constant from true to false.       |
+            +-----------------------------------------------------------------+
+
+    Try triggering the same state warning by placing the cursor at the start of
+    this document, and pressing <up> or <left>.
+    You can return to `Insert` mode by pressing the <esc> key.
+
+         ,------,
+         | home |
+         `------`
+        Moves the cursor between either the start of a line or the start of a line's text.
+
+         ,-----,
+         | end |
+         `-----`
+        Moves the cursor to the end of a line's text.
+
+    //TODO: Alternate keybind explanation
+    //TODO: explain what a word boundary is
+         ,------,   ,-------,
+         | ctrl | + | right |
+         `------`   `-------`
+        Moves the cursor forward to the next word boundary.
+
+         ,------,   ,------,
+         | ctrl | + | left |
+         `------`   `------`
+        Moves the cursor backward to the previous word boundary.
+
+        //TODO: page up
+        //TODO: page down
+
+         ,------,   ,------,
+         | ctrl | + | home |
+         `------`   `------`
+        Moves the cursor to the start of the document.
+
+         ,------,   ,-----,
+         | ctrl | + | end |
+         `------`   `-----`
+        Moves the cursor to the end of the document.
+
+    Another way of moving the cursor is the "goto" utility.
+    This is the first explicit(user triggered) mode change we will use.
+         ,------,   ,---,
+         | ctrl | + | g |
+         `------`   `---`
+        Upon <alt+g> being triggered, Edit will enter Goto Mode. An interactive 
+        text box will be enabled in the util bar, in which the user can enter a 
+        line number that the cursor should be moved to.
+
+1.2: Selection Extension:
+    Selections can be extended to encompass more than a single grapheme. This
+    allows edit's core primitives to operate on larger portions of text.
+
+        up/down/left/right                                      <shift+up/down/left/right>
+        line start/end                                          <shift+home/end>
+        word boundary forward/backward                          <shift+ctrl+left/right>
+        page up/down                                            <shift+pgup/pgdn>
+        doc start/end                                           <shift+ctrl+home/end>
+        select line         //or is this an editor control?     <ctrl+l>
+        select all          //or is this an editor control?     <ctrl+a>
+        collapse to cursor  //or is this an editor control?     <ctrl+esc>
+        collapse to anchor  //or is this an editor control?     <ctrl+shift+esc>
+        flip direction      //or is this an editor control?     
+1.3: Additional Cursors/Selections:
+    While any editing goal can be accomplished using a single selection, more
+    efficient editing can be achieved by operating on multiple selections.
+    When multiple selections are in use, any edit operation is applied to every
+    selection simultaneously.
+
+        add selection above/below                               <ctrl+shift+up/down>
+        remove primary cursor                                   <ctrl+r>
+        increment/decrement primary                             <ctrl+p> or <ctrl+shift+p>
+        clear non primary                                       <alt+esc>?
+1.4: Search:
+    inside selection    //select regex match in selection
+         ,------,   ,---,
+         | ctrl | + | / |    //TODO: maybe this should be <alt+/>
+         `------`   `---`
+        Search for matching regex inside selection(s)
+            key enter to accept
+            key esc to go back to selections before search
+
+    // these don't seem like they are needed. can find all matches, 
+    // increment primary to desired match, then clear non primary instead...
+    //next/previous instance
+    //     ,-----,   ,---,
+    //     | alt | + | / |
+    //     `-----`   `---`
+    //    Search next instance of regex match
+    //        key right to continue search to next instance
+    //        key enter to accept
+    //        key esc to go back to selection before search
+    //
+    //     ,-----,   ,-------,   ,---,
+    //     | alt | + | shift | + | / |
+    //     `-----`   `-------`   `---`
+    //    Search previous instance of regex match
+    //        key left to continue search to previous instance
+    //        key enter to accept
+    //        key esc to go back to selection before search
+1.5: Split:                      <ctrl+,>    //select non regex match in selection
+1.6: Select Inside Exclusive:    <ctrl+i>
+1.7: Select Inside Inclusive:    <ctrl+shift+i>
+1.8: Select Outside:             <ctrl+o>    //put cursors around a regex match, word, line, paragraph, etc. makes it easier to add quotes, braces, etc.
+1.9: Select Pair: put cursors over nearest pair
+    //Select Until: not going to implement for now...
+
++=--------------------------=+ View Manipulation +=---------------------------=+
+up/down/left/right
+top/bottom/center vertical/center horizontal
+     ,------,   ,-------,
+     | ctrl | + | space |-----------------------------------------------
+     `------`   `-------`     \     \     \     \     \     \     \     \
+                             ,---, ,---, ,---, ,---, ,---, ,---, ,---, ,---,
+                             | t | | b | | v | | h | |   | |   | |   | |   |    //TODO: insert up, down, left, right arrow
+                             `---` `---` `---` `---` `---` `---` `---` `---`
+    Displacing the cursor can sometimes move the view into an
+    inconvenient configuration, leaving some necessary context
+    off-screen, or simply feel uncomfortable to type into.
+    Edit provides a menu that allows users to move the current
+    view in relation to the position of the cursor. Upon hitting
+    <ctrl + space>, a menu appears which allows us to hit a second
+    key according to how the view should be moved.
+
++=--------------------------=+ Text Manipulation +=---------------------------=+
+        insertion
+        deletion
+        replacement
+        cut/copy/paste                  //or is this an editor control?     //for internal clipboard use <ctrl+x/c/v> for external clipboard use <alt+x/c/v>
+        undo/redo                       //or is this an editor control?
+        swap text up/down               //or is this an editor control?
+        alignment                       //or is this an editor control?     //align selections with primary
+        rotate text within selections   //or is this an editor control?
+        Shell Interaction:
+            pipe selected text to shell command and pipe output to buffer
+            pipe selected text to shell command and pipe output to clipboard
+            shell command ignoring selections and pipe output to buffer
+            shell command ignoring selections and pipe output to clipboard
+        Saving                          //or is this an editor control?
+
++=-------------------------=+ Editor Manipulation +=--------------------------=+
+Whilst technically everything we have done so far is manipulation of the editor, 
+there are a few more commands to learn that do not effect selections, view, or
+text.
+
+quit                                    <ctrl+q>
+Command Mode                            <ctrl+;>
+Notify Mode
+Warning Mode
+
+Customization
+
+End

@@ -81,6 +81,7 @@ impl UserInterface{
         self.util_bar.prompt.rect = util_rect[0];
         self.util_bar.utility_widget.rect = util_rect[1];
         self.popups.view_mode_widget.rect = sized_centered_rect(self.popups.view_mode_widget.widest_element_len, self.popups.view_mode_widget.num_elements, self.terminal_size);
+        self.popups.goto_mode_widget.rect = sized_centered_rect(self.popups.goto_mode_widget.widest_element_len, self.popups.goto_mode_widget.num_elements, self.terminal_size);
 
         self.util_bar.update_width(mode);
     }
@@ -122,7 +123,23 @@ impl UserInterface{
                         //    self.util_bar.utility_widget.clear_copied_indicator = true;
                         //}
                     }
-                    Mode::Goto | Mode::Command => {
+                    Mode::Goto => {
+                        frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);
+                        frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
+                        
+                        self.util_bar.highlighter.selection = Some(self.util_bar.utility_widget.text_box.selection.clone());    //TODO: maybe these should be moved into Application::update_ui_data_util_bar
+                        self.util_bar.highlighter.cursor = self.util_bar.utility_widget.text_box.cursor_position();             //TODO: maybe these should be moved into Application::update_ui_data_util_bar
+                        frame.render_widget(self.util_bar.highlighter.clone(), self.util_bar.utility_widget.rect);
+
+                        //TODO: render a pop up widget that displays the available keys to the user //do this for all util modes
+                        //config.rs should have a const that can enable/disable this behavior. SHOW_UTIL_KEY_POPUP
+
+                        // if SHOW_CONTEXTUAL_KEYBINDS{     //should displaying the popup be optional?...
+                        frame.render_widget(ratatui::widgets::Clear, self.popups.goto_mode_widget.rect);
+                        frame.render_widget(self.popups.goto_mode_widget.widget(), self.popups.goto_mode_widget.rect);
+                        // }
+                    }
+                    /*Mode::Goto | */Mode::Command => {
                         frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);
                         frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
                         

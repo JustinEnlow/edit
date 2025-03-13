@@ -161,6 +161,20 @@ bug fix:
     [x] (bug 2: some have not merged when overlapped. figure out where merge_overlapping isn't being called or where it is failing)(logical issue)
         (do the same issues apply elsewhere?)
 
+    [ ] problem:
+            doc cursor displaying over util bar when status bar hidden
+        category:
+            bugfix
+        setup:
+            open src/application.rs
+            switch to command mode
+                toggle status bar with "sb" <enter>
+            should now be back in insert mode
+            move cursor to bottom of screen(with page down?)
+            switch to any mode that uses the util bar for text input
+            document cursor is visible over util bar and shouldn't be...
+        solution:
+
 
 other:
     make <enter> the way to exit find mode with matched selections, instead of <esc>

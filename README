@@ -41,6 +41,7 @@ Features:
                 [ ] maybe add vim style registers
             [ ] externally using system wide tools
         [x] History/Undo/Redo
+        [ ] Text alignment
         [ ] auto indentation (is this really desired?...)
         [ ] suggestions (from previously used words)
 
