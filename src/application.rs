@@ -88,6 +88,8 @@ pub enum SelectionAction{
     RemovePrimarySelection,
     IncrementPrimarySelection,
     DecrementPrimarySelection,
+    Surround,
+    SurroundingPair,
 }
 
 #[derive(Clone, PartialEq)]
@@ -109,12 +111,10 @@ pub enum Mode{
     Find,
     /// for retaining everything within selections that isn't a matching regex pattern
     Split,
-    // select text within but excluding instances of a single search pattern, a char pair, or a text object
-    //SelectInsideExclusive,  //ctrl+e
-    //select text within and including instances of a single search pattern, a char pair, or a text object
-    //SelectInsideInclusive,  //ctrl+i
-    // select surrounding instances of single search pattern, a char pair, or a text object
-    //SelectSurrounding
+    /// for selecting text objects
+    Object,
+
+    // NOTE: may not ever implement the following, but good to think about...
     //select the next occurring instance of a search pattern
     //SearchNextAhead,
     //select the prev occurring instance of a search pattern
@@ -206,7 +206,7 @@ impl Application{
                         keybind::handle_notify_mode_keypress(self, key_event.code, key_event.modifiers);
                     }
                     Mode::Split => {keybind::handle_split_mode_keypress(self, key_event.code, key_event.modifiers);}
-                    //Mode::SelectInsideExclusive => {keybind::handle_select_inside_mode_keypress(self, key_event.code, key_event.modifiers);}
+                    Mode::Object => {keybind::handle_object_mode_keypress(self, key_event.code, key_event.modifiers);}
                 }
             },
             event::Event::Mouse(idk) => {
@@ -248,7 +248,7 @@ impl Application{
                 clear_util_bar_text = true;
                 clear_saved_selections = true;
             }
-            Mode::Notify | Mode::View | Mode::Warning(_) => {}
+            Mode::Object | Mode::Notify | Mode::View | Mode::Warning(_) => {}
             Mode::Insert => {/*should not call pop in Insert mode. maybe set warning?...*/self.mode_push(Mode::Warning(WarningKind::InvalidInput));}
         }
 
@@ -289,7 +289,7 @@ impl Application{
                         update_layouts_and_document = true;
                     }
                 }
-                Mode::Insert | Mode::Notify | Mode::View | Mode::Warning(_) => {/* do nothing */}
+                Mode::Object | Mode::Insert | Mode::Notify | Mode::View | Mode::Warning(_) => {/* do nothing */}
             }
 
             //add mode to top of stack
@@ -473,7 +473,7 @@ impl Application{
     }
 
     pub fn selection_action(&mut self, action: SelectionAction){
-        assert!(/*self.mode*/self.mode() == Mode::Insert);
+        assert!(/*self.mode*/self.mode() == Mode::Insert || self.mode() == Mode::Object);
         let result = match action{
             SelectionAction::MoveCursorUp => {self.document.move_cursor_up(CURSOR_SEMANTICS)}
             SelectionAction::MoveCursorDown => {self.document.move_cursor_down(CURSOR_SEMANTICS)}
@@ -508,7 +508,23 @@ impl Application{
             SelectionAction::RemovePrimarySelection => {self.document.remove_primary_selection()}
             SelectionAction::IncrementPrimarySelection => {self.document.increment_primary_selection()}
             SelectionAction::DecrementPrimarySelection => {self.document.decrement_primary_selection()}
+            SelectionAction::Surround => {self.document.surround()} //this works for quotes, but this isn't the solution for bracket pairs...   maybe surround should be a separate mode with a menu of surround options ', ", (, {, [, <, etc.
+
+            //These may technically be distinct from the other selection actions, because they could be called from object mode, and would need to pop the mode stack after calling...
+            //TODO: SelectionAction::Word => {self.document.word()}
+            //TODO: SelectionAction::Sentence => {self.document.sentence()}
+            //TODO: SelectionAction::Paragraph => {self.document.paragraph()}
+            SelectionAction::SurroundingPair => {self.document.nearest_surrounding_pair(CURSOR_SEMANTICS)}  //TODO: rename SurroundingBracketPair
+            //TODO: SelectionAction::QuotePair => {self.document.nearest_quote_pair()}                      //TODO: rename SurroundingQuotePair
+            //TODO: SelectionAction::ExclusiveSurroundingPair => {self.document.exclusive_surrounding_pair()}
+            //TODO: SelectionAction::InclusiveSurroundingPair => {self.document.inclusive_surrounding_pair()}
         };
+
+        //maybe.    so far, only needed for selection actions called from object mode
+        if self.mode() != Mode::Insert{ //if self.mode() == Mode::Object
+            self.mode_pop();
+        }
+        //
 
         match result{
             Ok(()) => {
@@ -569,6 +585,7 @@ impl Application{
 
         //perform any mode specific follow up actions   //shouldn't need to call these if action was a selection action instead of an edit action
         match /*self.mode*/self.mode(){
+            Mode::Object |
             Mode::Insert |
             Mode::View |
             Mode::Notify |

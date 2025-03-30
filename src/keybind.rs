@@ -15,9 +15,11 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
             else if modifiers == KeyModifiers::CONTROL{
                 if c == ' '{/*app.set_mode(Mode::View);*/app.mode_push(Mode::View);}
                 else if c == 'a'{app.selection_action(SelectionAction::SelectAll);}
+                else if c == 'b'{app.selection_action(SelectionAction::Surround);}
                 else if c == 'c'{app.copy();}
                 else if c == 'g'{/*app.set_mode(Mode::Goto);*/app.mode_push(Mode::Goto);}
                 else if c == 'l'{app.selection_action(SelectionAction::SelectLine);}
+                else if c == 'o'{app.mode_push(Mode::Object);}
                 else if c == 'p'{app.selection_action(SelectionAction::IncrementPrimarySelection);}
                 else if c == 'q'{app.quit();}
                 else if c == 'r'{app.selection_action(SelectionAction::RemovePrimarySelection);}
@@ -388,15 +390,24 @@ pub fn handle_notify_mode_keypress(app: &mut Application, keycode: KeyCode, modi
     }
 }
 
-pub fn handle_select_inside_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
+pub fn handle_object_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
     match (keycode, modifiers){
         (KeyCode::Char(c), modifiers) => {
             if modifiers == KeyModifiers::NONE{
-                if c == '{'{/*select inside pair('{', '}')*/} //forwards          {idk}
-                if c == '}'{/*select inside pair('}', '{')*/} //but backwards     }idk{
-                if c == 'w'{/*select inside word*/} //maybe <shift+w> for long word?
-                if c == 'p'{/*select inside paragraph*/}    //although, this would prevent us from selecting inside instances of 'p'...
-                else{/*select inside instances of single char*/}
+                if c == 'w'{/*app.selection_action(SelectionAction::Word);*/}
+                else if c == 's'{/*app.selection_action(SelectionAction::Sentence*/}
+                else if c == 'p'{/*app.selection_action(SelectionAction::Paragraph*/}
+                else if c == 'b'{app.selection_action(SelectionAction::SurroundingPair)}
+                else if c == 'q'{/*app.selection_action(SelectionAction::QuotePair)*/}
+                else if c == 'e'{/*app.selection_action(SelectionAction::ExclusiveSurroundingPair*/}
+                else if c == 'i'{/*app.selection_action(SelectionAction::InclusiveSurroundingPair*/}
+                else{app.no_op_keypress();}
+            }
+            else{app.no_op_keypress();}
+        }
+        (KeyCode::Esc, modifiers) => {
+            if modifiers == KeyModifiers::NONE{
+                app.mode_pop();
             }
             else{app.no_op_keypress();}
         }

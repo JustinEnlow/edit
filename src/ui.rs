@@ -55,6 +55,7 @@ impl UserInterface{
                     Constraint::Length(
                         match mode{
                             Mode::Warning(_) | Mode::Command | Mode::Find | Mode::Goto | Mode::Notify | Mode::Split => 1,
+                            Mode::Object |
                             Mode::Insert => if /*self.util_bar.utility_widget.display_copied_indicator || */self.status_bar.display{1}else{0}
                             Mode::View => if self.status_bar.display{1}else{0}
                         }
@@ -82,6 +83,7 @@ impl UserInterface{
         self.util_bar.utility_widget.rect = util_rect[1];
         self.popups.view_mode_widget.rect = sized_centered_rect(self.popups.view_mode_widget.widest_element_len, self.popups.view_mode_widget.num_elements, self.terminal_size);
         self.popups.goto_mode_widget.rect = sized_centered_rect(self.popups.goto_mode_widget.widest_element_len, self.popups.goto_mode_widget.num_elements, self.terminal_size);
+        self.popups.object_mode_widget.rect = sized_centered_rect(self.popups.object_mode_widget.widest_element_len, self.popups.object_mode_widget.num_elements, self.terminal_size);
 
         self.util_bar.update_width(mode);
     }
@@ -178,6 +180,12 @@ impl UserInterface{
                         // if SHOW_CONTEXTUAL_KEYBINDS{     //should displaying the popup be optional?...
                         frame.render_widget(ratatui::widgets::Clear, self.popups.view_mode_widget.rect);
                         frame.render_widget(self.popups.view_mode_widget.widget(), self.popups.view_mode_widget.rect);
+                        // }
+                    }
+                    Mode::Object => {
+                        // if SHOW_CONTEXTUAL_KEYBINDS{     //should displaying the popup be optional?...
+                        frame.render_widget(ratatui::widgets::Clear, self.popups.object_mode_widget.rect);
+                        frame.render_widget(self.popups.object_mode_widget.widget(), self.popups.object_mode_widget.rect);
                         // }
                     }
                 }

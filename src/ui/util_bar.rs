@@ -117,7 +117,8 @@ impl UtilityWidget{
                     Paragraph::new(String::new())
                 //}
             }
-            Mode::View => Paragraph::new(String::new())
+            Mode::View => Paragraph::new(String::new()),
+            Mode::Object => Paragraph::new(String::new()),
         }
     }
 }
@@ -136,6 +137,7 @@ impl UtilityPromptWidget{
             Mode::Insert |
             Mode::View |
             Mode::Notify |
+            Mode::Object |
             Mode::Warning(_) => Paragraph::new("")
         }
     }
@@ -192,6 +194,7 @@ impl UtilBar{
                 let width = self.utility_widget.rect.width as usize;
                 self.utility_widget.text_box.view.set_size(width, 1);
             }
+            Mode::Object |
             Mode::Insert |
             Mode::View |
             Mode::Notify |
@@ -216,6 +219,7 @@ impl UtilBar{
                             Mode::Warning(_)
                             | Mode::Notify
                             | Mode::Insert
+                            | Mode::Object
                             | Mode::View => 0
                         }
                     ),
@@ -223,6 +227,7 @@ impl UtilBar{
                     Constraint::Length(
                         match mode{
                             Mode::Insert
+                            | Mode::Object
                             | Mode::View
                             | Mode::Notify
                             | Mode::Warning(_) => rect.width,
