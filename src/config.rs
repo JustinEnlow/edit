@@ -42,3 +42,6 @@ pub const VIEW_SCROLL_AMOUNT: usize = 1;    //should this have separate vertical
 // This is to make every action have a visible response.
 // To disable, change to false...
 pub const SHOW_SAME_STATE_WARNINGS: bool = true;
+
+//
+pub const SHOW_COMMAND_SOURCES_IN_POPUP_MENUS: bool = true;

@@ -153,6 +153,7 @@ selections.
     selection simultaneously.
 
         add selection above/below                               <ctrl+shift+up/down>
+        surround selection                                      <ctrl+b>    //not sure this behavior will be kept. although, may be useful if user want to add surrounding text, instead of a surrounding text object
         remove primary cursor                                   <ctrl+r>
         increment/decrement primary                             <ctrl+p> or <ctrl+shift+p>
         clear non primary                                       <alt+esc>?
@@ -185,7 +186,7 @@ selections.
     //        key enter to accept
     //        key esc to go back to selection before search
 1.5: Split:                      <ctrl+,>    //select non regex match in selection
-1.6: Select Text Object:
+1.6: Select Text Object:    //must be inside desired text object. may need to add select next/previous text object
         ,------,   ,---,
         | ctrl | + | o |-----------------------------------
         `------`   `---`     \     \     \     \     \     \
@@ -201,7 +202,8 @@ selections.
             i   inclusive surrounding pair
             todo: surrounding whitespace?
 
-1.7: Surround Text Object:  //really, this is surround selection...
+//ran into problems with this(works for quotation, but not for brackets). may need to become Add Surrounding Text Object
+1.7: Surround Text Object:  //really, this is surround selection...     //added in Additional Cursors/Selections section above...
         ,------,   ,---,
         | ctrl | + | b?|        //maybe b for brackets, since that is the most likely use case?...
         `------`   `---`
