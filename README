@@ -3,48 +3,8 @@ edit: simple terminal text editor for linux
 This is a reference frontend implementation using the edit_core backend.
 
 Features:
-    Text Editing: (implemented in edit_core)
-        [ ] multi-cursor/multi-selection editing    (cursor is the mobile part of an extended selection, or a non extended selection)
-            [ ] move cursor(UTF-8 is WIP)
-                [x] up, down, left, right
-                [x] line start/end
-                [x] page up/down
-                [x] doc start/end
-                [x] word boundaries
-            [ ] extend selection(UTF-8 is WIP)
-                [x] up, down, left, right
-                [x] line start/end
-                [x] page up/down
-                [x] doc start/end
-                [x] word boundaries
-                [x] merge overlapping
-                [x] collapse selection to cursor
-                [ ] collapse selection to anchor
-            [ ] add selection
-                [x] above(and make view follow top selection)
-                [x] below(and make view follow bottom selection)
-                [ ] at mouse cursor?
-            [x] remove selection
-        [ ] Text Insertion
-            [ ] Single grapheme
-                [x] ascii
-                [ ] UTF-8
-            [ ] Multi grapheme
-                [x] ascii
-                [ ] UTF-8
-        [ ] Text Deletion
-            [x] Directionally(ascii, UTF-8 WIP)
-            [x] Whole Selection(ascii, UTF-8 WIP)
-            [ ] Word Boundaries(ascii, UTF-8 WIP)
-        [ ] Cut/Copy/Paste
-            [x] internally
-                [ ] maybe add vim style registers
-            [ ] externally using system wide tools
-        [x] History/Undo/Redo
-        [ ] Text alignment
-        [ ] auto indentation (is this really desired?...)
-        [ ] suggestions (from previously used words)
-
+    Editing and movement features implemented in edit_core
+        [x]
     User Interface(all elements themeable):
         [ ] Text Document
             [x] ascii text rendering
@@ -52,56 +12,66 @@ Features:
             [x] cursor/selection rendering(done for document, still WIP in utilities)
             [ ] cursor line (highlight the line the primary cursor is on)
             [ ] cursor column (highlight the column the primary cursor is on)
-            [ ] suggestions/completion
-        [ ] Scroll bar(shows relative location in document)
+            [ ] suggestions/completion(from previously used words)
+        [ ] Scroll bar(shows relative location in document)(handle should be proportional to view size and backdrop should be proportional to doc len)
         [x] Toggleable Line Numbers
+            [x] absolute(works with raw text. annotations/collapsing/other display decorations is WIP)
+            [ ] relative
         [x] Toggleable Status Bar
             [x] Modified Indicator
             [x] File name
             [x] Selection Indicator(1/1 = primary cursor is the only one, 3/125 = primary cursor is the 3rd selection of 125)
             [x] primary cursor location indicator(line num:column num)
-        [ ] Utility Bar (should utils have suggestions/completion?)
-            [x] go to utility   (should have popup with available commands?...)
+        [ ] Utility Bar(mode specific) (should utils have suggestions/completion?)
+            [x] Go to Mode  (should have popup with available commands?...)
                 [x] use input as line number
                 [ ] use input as amount for following relative motion command (up, down, left, right, etc.)
-            [x] command parser utility
+                [ ] to matching surround
+            [x] Command mode
                 [x] built in and custom commands
-            [ ] find/search utility
+            [ ] Search Mode
                 [x] search inside extended selections
                 [ ] search whole document if no selection extended
                 [x] match regex pattern
                 [x] incremental search
-            [ ] split utility
+            [ ] Split Mode
                 [x] match regex pattern
                 [x] incremental split
-        [x] Warning (blocking display useful warnings and visual responses to redundant/unhandled input)
-            [x] File modified
-            [x] Save failed
-            [x] Command parse failed
-            [x] Single selection
-            [x] Multiple selections
-            [x] Invalid input
-            [x] Same state
-            [x] Unhandled error
-            [x] Unhandled keypress
-            [x] Unhandled event
-        [x] Notify (non-blocking display useful notifications and visual responses to input)
-            [x] Text copied
-        [ ] View
-            [x] scroll up, down, left, right
-            [x] center view vertically around primary cursor
-            [ ] center view horizontally around primary cursor
-            [ ] align view with primary cursor at top
-            [ ] align view with primary cursor at bottom
-        [ ] Shell
-            [ ] insert/replace selection with shell output
-            [ ] save shell output to clipboard/register
+            [x] Warning Mode(blocking display useful warnings and visual responses to redundant/unhandled input)
+                [x] File modified
+                [x] Save failed
+                [x] Command parse failed
+                [x] Single selection
+                [x] Multiple selections
+                [x] Invalid input
+                [x] Same state
+                [x] Unhandled error
+                [x] Unhandled keypress
+                [x] Unhandled event
+            [x] Notify Mode(non-blocking display useful notifications and visual responses to input)
+                [x] Text copied
+            [ ] Shell Mode
+                [ ] pipe selection(s) to external utility and replace selection(s) with utility output
+                [ ] call external utility and insert at/replace selection(s) with utility output
+        [ ] Popups(mode specific)(should be hideable from config)
+            [ ] View Mode
+                [x] scroll up, down, left, right
+                [x] center view vertically around primary cursor
+                [ ] center view horizontally around primary cursor
+                [ ] align view with primary cursor at top
+                [ ] align view with primary cursor at bottom
+            [ ] Object Mode (for text object selection)
+                [ ] word
+                [ ] sentence
+                [ ] paragraph
+                [ ] surrounding pair
+                [ ] exclusive surrounding pair
+                [ ] inclusive surrounding pair
+            [ ] Goto Mode
 
     
     File Operations(Open/Close/Save)
         [x] yes
-    Editing Tools
-        [ ]
     Performance
         [ ] make performant (trying, but i honestly have no clue what i am doing...)
 
@@ -110,6 +80,7 @@ Features:
         [ ] custom keybinds
 
 Future Features:
+    edit_server/daemon mode?
     Code Editing:
         [ ] LSP
         [ ] TreeSitter

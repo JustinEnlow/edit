@@ -1,4 +1,4 @@
-use edit_core::Position;
+use edit_core::position::Position;
 use ratatui::layout::Rect;
 use ratatui::widgets::Paragraph;
 use ratatui::style::{Style, Stylize};

@@ -622,6 +622,7 @@ impl Application{
         else{/*self.set_mode(Mode::Insert);*/self.mode_pop()}
     }
     //TODO: can this be accomplished in edit_core instead?...
+    //TODO: add go to matching surrounding char(curly, square, paren, single quote, double quote, etc)
     // Not entirely sure I want this behavior...
     pub fn goto_mode_selection_action(&mut self, action: SelectionAction){  //TODO: this is pretty slow when user enters a large number into util text box
         assert!(/*self.mode*/self.mode() == Mode::Goto);
