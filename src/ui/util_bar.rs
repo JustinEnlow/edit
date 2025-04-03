@@ -22,8 +22,6 @@ const COMMAND_PROMPT: &str = " Command: ";
 pub struct UtilityWidget{
     pub rect: Rect,
     pub text_box: InteractiveTextBox,
-    //pub display_copied_indicator: bool,
-    //pub clear_copied_indicator: bool,   // clear_copied_indicator exists because copied_indicator widget rendering needs to persist for an entire loop cycle(until next keypress)
     pub selections_before_search: Option<Selections>,
 }
 impl UtilityWidget{
@@ -104,18 +102,7 @@ impl UtilityWidget{
                         )
             },
             Mode::Insert => {
-                //if self.display_copied_indicator{
-                //    Paragraph::new("Text copied to clipboard.")
-                //        .alignment(ratatui::prelude::Alignment::Center)
-                //        .style(
-                //            Style::default()
-                //                .bg(COPIED_INDICATOR_BACKGROUND_COLOR)
-                //                .fg(COPIED_INDICATOR_FOREGROUND_COLOR)
-                //                .bold()
-                //        )
-                //}else{
-                    Paragraph::new(String::new())
-                //}
+                Paragraph::new(String::new())
             }
             Mode::View => Paragraph::new(String::new()),
             Mode::Object => Paragraph::new(String::new()),

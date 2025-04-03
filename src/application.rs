@@ -143,7 +143,6 @@ pub enum WarningKind{
 
 pub struct Application{
     should_quit: bool,
-    //mode: Mode,
     mode_stack: Vec<Mode>,
     document: Document,
     ui: UserInterface,
@@ -155,7 +154,6 @@ impl Application{
 
         let mut instance = Self{
             should_quit: false,
-            //mode: Mode::Insert,
             mode_stack: vec![Mode::Insert],
             document: Document::new(CURSOR_SEMANTICS),
             ui: UserInterface::new(terminal_rect)
@@ -167,7 +165,7 @@ impl Application{
         instance.ui.status_bar.file_name_widget.file_name = instance.document.file_name();
         instance.ui.document_viewport.document_widget.doc_length = instance.document.len();
         
-        instance.ui.update_layouts(/*&instance.mode*/&instance.mode());
+        instance.ui.update_layouts(&instance.mode());
         //init backend doc view size
         instance.document.view_mut().set_size(
             instance.ui.document_viewport.document_widget.rect.width as usize,
@@ -182,8 +180,8 @@ impl Application{
 
     pub fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<(), Box<dyn Error>>{
         loop{
-            self.ui.update_layouts(/*&self.mode*/&self.mode());
-            self.ui.render(terminal, /*&self.mode*/&self.mode())?;
+            self.ui.update_layouts(&self.mode());
+            self.ui.render(terminal, &self.mode())?;
             self.handle_event()?;
             if self.should_quit{
                 return Ok(());
@@ -194,7 +192,7 @@ impl Application{
     fn handle_event(&mut self) -> Result<(), Box<dyn Error>>{
         match event::read()?{
             event::Event::Key(key_event) => {
-                match /*self.mode*/self.mode(){
+                match self.mode(){
                     Mode::Insert => {keybind::handle_insert_mode_keypress(self, key_event.code, key_event.modifiers);}
                     Mode::View => {keybind::handle_view_mode_keypress(self, key_event.code, key_event.modifiers);}
                     Mode::Warning(_) => {keybind::handle_warning_mode_keypress(self, key_event.code, key_event.modifiers);}
@@ -224,7 +222,6 @@ impl Application{
             event::Event::FocusLost => {/*do nothing*/} //maybe quit displaying cursor(s)/selection(s)?...
             event::Event::FocusGained => {/*do nothing*/}   //display cursor(s)/selection(s)?...
             event::Event::Paste(idk) => {self.no_op_event();}
-            //_ => self.no_op_event(),
         }
 
         Ok(())
@@ -358,21 +355,15 @@ impl Application{
 
 
     pub fn no_op_keypress(&mut self){
-        //self.mode = Mode::Warning(WarningKind::UnhandledKeypress);
         self.mode_push(Mode::Warning(WarningKind::UnhandledKeypress));
-        // needed to handle warning mode set when text in util_bar
-        //self.ui.util_bar.utility_widget.text_box.clear();   //maybe only do this if self.mode uses the utility text box
     }
     pub fn no_op_event(&mut self){
-        //self.mode = Mode::Warning(WarningKind::UnhandledEvent);
         self.mode_push(Mode::Warning(WarningKind::UnhandledEvent));
-        // needed to handle warning mode set when text in util_bar
-        //self.ui.util_bar.utility_widget.text_box.clear();   //maybe only do this if self.mode uses the utility text box
     }
     pub fn resize(&mut self, x: u16, y: u16){
         self.ui.set_terminal_size(x, y);
         // ui layouts need to be updated before doc size set, so doc size can be calculated correctly
-        self.ui.update_layouts(/*&self.mode*/&self.mode());
+        self.ui.update_layouts(&self.mode());
         self.update_ui_data_util_bar(); //TODO: can this be called later in fn impl?
         self.document.view_mut().set_size(self.ui.document_viewport.document_widget.rect.width as usize, self.ui.document_viewport.document_widget.rect.height as usize);
         // scrolling so cursor is in a reasonable place, and updating so any ui changes render correctly
@@ -380,7 +371,7 @@ impl Application{
     }
 
     pub fn esc_handle(&mut self){
-        assert!(/*self.mode*/self.mode() == Mode::Insert);
+        assert!(self.mode() == Mode::Insert);
         //if self.ui.util_bar.utility_widget.display_copied_indicator{self.ui.util_bar.utility_widget.display_copied_indicator = false;}
         //TODO: if lsp suggestions displaying(currently unimplemented), exit that display
         /*else */if self.document.selections().count() > 1{
@@ -388,59 +379,56 @@ impl Application{
             self.selection_action(SelectionAction::ClearNonPrimarySelections);
         }
         else if self.document.selections().primary().is_extended(CURSOR_SEMANTICS){
-            //self.collapse_selections();
             self.selection_action(SelectionAction::CollapseSelections);
         }
         else{
-            if SHOW_SAME_STATE_WARNINGS{/*self.set_mode(Mode::Warning(WarningKind::SameState));*/self.mode_push(Mode::Warning(WarningKind::SameState));}
+            if SHOW_SAME_STATE_WARNINGS{self.mode_push(Mode::Warning(WarningKind::SameState));}
         }
     }
 
     pub fn quit(&mut self){
-        assert!(/*self.mode*/self.mode() == Mode::Insert);
+        assert!(self.mode() == Mode::Insert);
         //if self.ui.document_modified(){   //this is the old impl when editor was set up for client/server and state needed to be stored in ui
-        if self.document.is_modified(){/*self.set_mode(Mode::Warning(WarningKind::FileIsModified));*/self.mode_push(Mode::Warning(WarningKind::FileIsModified));}
+        if self.document.is_modified(){self.mode_push(Mode::Warning(WarningKind::FileIsModified));}
         else{self.should_quit = true;}
     }
     pub fn quit_ignoring_changes(&mut self){
-        assert!(/*self.mode*/self.mode() == Mode::Warning(WarningKind::FileIsModified));
+        assert!(self.mode() == Mode::Warning(WarningKind::FileIsModified));
         self.should_quit = true;
     }
 
     pub fn save(&mut self){
-        assert!(/*self.mode*/self.mode() == Mode::Insert);
+        assert!(self.mode() == Mode::Insert);
         match self.document.save(){
             Ok(()) => {self.update_ui_data_document();}
-            Err(_) => {/*self.set_mode(Mode::Warning(WarningKind::FileSaveFailed));*/self.mode_push(Mode::Warning(WarningKind::FileSaveFailed));}
+            Err(_) => {self.mode_push(Mode::Warning(WarningKind::FileSaveFailed));}
         }
     }
     fn handle_document_error(&mut self, e: DocumentError){
         let this_file = std::panic::Location::caller().file();  //actually, these should prob be assigned in calling fn, and passed in, so that error location is the caller and not always here...
         let line_number = std::panic::Location::caller().line();
         match e{
-            DocumentError::InvalidInput => {/*self.set_mode(Mode::Warning(WarningKind::InvalidInput));*/self.mode_push(Mode::Warning(WarningKind::InvalidInput));}
+            DocumentError::InvalidInput => {self.mode_push(Mode::Warning(WarningKind::InvalidInput));}
             DocumentError::SelectionAtDocBounds |
             DocumentError::NoChangesToUndo |
-            DocumentError::NoChangesToRedo => {if SHOW_SAME_STATE_WARNINGS{/*self.set_mode(Mode::Warning(WarningKind::SameState));*/self.mode_push(Mode::Warning(WarningKind::SameState));}}
+            DocumentError::NoChangesToRedo => {if SHOW_SAME_STATE_WARNINGS{self.mode_push(Mode::Warning(WarningKind::SameState));}}
             DocumentError::SelectionsError(s) => {
                 match s{
                     SelectionsError::ResultsInSameState |
                     SelectionsError::CannotAddSelectionAbove |
-                    SelectionsError::CannotAddSelectionBelow => {if SHOW_SAME_STATE_WARNINGS{/*self.set_mode(Mode::Warning(WarningKind::SameState));*/self.mode_push(Mode::Warning(WarningKind::SameState));}}
-                    SelectionsError::MultipleSelections => {/*self.set_mode(Mode::Warning(WarningKind::MultipleSelections));*/self.mode_push(Mode::Warning(WarningKind::MultipleSelections));}
-                    SelectionsError::SingleSelection => {/*self.set_mode(Mode::Warning(WarningKind::SingleSelection));*/self.mode_push(Mode::Warning(WarningKind::SingleSelection));}
+                    SelectionsError::CannotAddSelectionBelow => {if SHOW_SAME_STATE_WARNINGS{self.mode_push(Mode::Warning(WarningKind::SameState));}}
+                    SelectionsError::MultipleSelections => {self.mode_push(Mode::Warning(WarningKind::MultipleSelections));}
+                    SelectionsError::SingleSelection => {self.mode_push(Mode::Warning(WarningKind::SingleSelection));}
                     SelectionsError::NoSearchMatches |
-                    //SelectionsError::SpansMultipleLines => self.set_mode(Mode::Warning(WarningKind::UnhandledError(format!("{s:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))),
                     SelectionsError::SpansMultipleLines => self.mode_push(Mode::Warning(WarningKind::UnhandledError(format!("{s:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))),
                 }
             }
         }
     }
     pub fn copy(&mut self){
-        assert!(/*self.mode*/self.mode() == Mode::Insert);
+        assert!(self.mode() == Mode::Insert);
         match self.document.copy(){
             Ok(()) => {
-                //self.set_mode(Mode::Notify);
                 self.mode_push(Mode::Notify);
                 self.update_ui_data_document(); //TODO: is this really needed for something?...
             }
@@ -448,7 +436,7 @@ impl Application{
         }
     }
     pub fn edit_action(&mut self, action: EditAction){
-        assert!(/*self.mode*/self.mode() == Mode::Insert);
+        assert!(self.mode() == Mode::Insert);
         let len = self.document.len();
         
         let result = match action{
@@ -473,7 +461,7 @@ impl Application{
     }
 
     pub fn selection_action(&mut self, action: SelectionAction){
-        assert!(/*self.mode*/self.mode() == Mode::Insert || self.mode() == Mode::Object);
+        assert!(self.mode() == Mode::Insert || self.mode() == Mode::Object);
         let result = match action{
             SelectionAction::MoveCursorUp => {self.document.move_cursor_up(CURSOR_SEMANTICS)}
             SelectionAction::MoveCursorDown => {self.document.move_cursor_down(CURSOR_SEMANTICS)}
@@ -584,7 +572,7 @@ impl Application{
         self.update_ui_data_util_bar();
 
         //perform any mode specific follow up actions   //shouldn't need to call these if action was a selection action instead of an edit action
-        match /*self.mode*/self.mode(){
+        match self.mode(){
             Mode::Object |
             Mode::Insert |
             Mode::View |
@@ -606,7 +594,7 @@ impl Application{
     }
 
     pub fn goto_mode_accept(&mut self){
-        assert!(/*self.mode*/self.mode() == Mode::Goto);
+        assert!(self.mode() == Mode::Goto);
         let mut show_warning = false;
         if let Ok(line_number) = self.ui.util_bar.utility_widget.text_box.text.to_string().parse::<usize>(){
             if line_number == 0{show_warning = true;}   //we have no line number 0, so this is invalid
@@ -618,29 +606,27 @@ impl Application{
                 }
             }
         }else{show_warning = true;}
-        if show_warning{/*self.set_mode(Mode::Warning(WarningKind::InvalidInput));*/self.mode_push(Mode::Warning(WarningKind::InvalidInput));}
-        else{/*self.set_mode(Mode::Insert);*/self.mode_pop()}
+        if show_warning{self.mode_push(Mode::Warning(WarningKind::InvalidInput));}
+        else{self.mode_pop()}
     }
     //TODO: can this be accomplished in edit_core instead?...
     //TODO: add go to matching surrounding char(curly, square, paren, single quote, double quote, etc)
     // Not entirely sure I want this behavior...
     pub fn goto_mode_selection_action(&mut self, action: SelectionAction){  //TODO: this is pretty slow when user enters a large number into util text box
-        assert!(/*self.mode*/self.mode() == Mode::Goto);
+        assert!(self.mode() == Mode::Goto);
         if let Ok(amount) = self.ui.util_bar.utility_widget.text_box.text.to_string().parse::<usize>(){
-            //self.set_mode(Mode::Insert);    //or else the selection action will panic
             self.mode_pop();
             for _ in 0..amount{
-                if matches!(/*self.mode*/self.mode(), Mode::Warning(_)){break;}    //trying to speed this up by preventing this from running `amount` times, if there has already been an error
+                if matches!(self.mode(), Mode::Warning(_)){break;}    //trying to speed this up by preventing this from running `amount` times, if there has already been an error
                 self.selection_action(action.clone());  //TODO: if this reaches doc boundaries, this will display same state warning. which it technically may not be the same state as when this fn was called...
             }
         }else{
-            //self.set_mode(Mode::Warning(WarningKind::InvalidInput));
             self.mode_push(Mode::Warning(WarningKind::InvalidInput));
         }
         //also, this doesn't work with goto_mode_text_validity_check
     }
     pub fn goto_mode_text_validity_check(&mut self){
-        assert!(/*self.mode*/self.mode() == Mode::Goto);
+        assert!(self.mode() == Mode::Goto);
         // run text validity check
         let mut is_numeric = true;
         for grapheme in self.ui.util_bar.utility_widget.text_box.text.chars(){ // .graphemes(true)?
@@ -671,7 +657,6 @@ impl Application{
     pub fn restore_selections_and_exit(&mut self){
         self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
         *self.document.selections_mut() = self.ui.util_bar.utility_widget.selections_before_search.clone().unwrap();
-        //self.set_mode(Mode::Insert);
         self.mode_pop()
     }
 
@@ -704,10 +689,10 @@ impl Application{
     //pub fn select_inside_instances_of_single_char(){}
 
     pub fn toggle_line_numbers(&mut self){
-        assert!(/*self.mode*/self.mode() == Mode::Insert || /*self.mode*/self.mode() == Mode::Command);
+        assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
         self.ui.document_viewport.toggle_line_numbers();
                 
-        self.ui.update_layouts(/*&self.mode*/&self.mode());
+        self.ui.update_layouts(&self.mode());
         self.document.view_mut().set_size(
             self.ui.document_viewport.document_widget.rect.width as usize,
             self.ui.document_viewport.document_widget.rect.height as usize
@@ -715,10 +700,10 @@ impl Application{
         self.update_ui_data_document();
     }
     pub fn toggle_status_bar(&mut self){
-        assert!(/*self.mode*/self.mode() == Mode::Insert || /*self.mode*/self.mode() == Mode::Command);
+        assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
         self.ui.status_bar.toggle_status_bar();
                 
-        self.ui.update_layouts(/*&self.mode*/&self.mode());
+        self.ui.update_layouts(&self.mode());
         self.document.view_mut().set_size(
             self.ui.document_viewport.document_widget.rect.width as usize,
             self.ui.document_viewport.document_widget.rect.height as usize
@@ -734,7 +719,7 @@ impl Application{
             .expect("failed to spawn new terminal at current directory");
     }
     pub fn command_mode_accept(&mut self){
-        assert!(/*self.mode*/self.mode() == Mode::Command);
+        assert!(self.mode() == Mode::Command);
         let mut warn = false;
         match self.ui.util_bar.utility_widget.text_box.text.to_string().as_str(){
             "term" | "t" => {self.open_new_terminal_window();}
@@ -742,7 +727,7 @@ impl Application{
             "toggle_status_bar" | "sb" => {self.toggle_status_bar();}
             _ => {warn = true;}
         }
-        if warn{/*self.mode = Mode::Warning(WarningKind::CommandParseFailed);*/self.mode_push(Mode::Warning(WarningKind::CommandParseFailed));}
-        else{/*self.set_mode(Mode::Insert);*/self.mode_pop()}
+        if warn{self.mode_push(Mode::Warning(WarningKind::CommandParseFailed));}
+        else{self.mode_pop()}
     }
 }

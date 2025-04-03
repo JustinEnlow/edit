@@ -13,11 +13,11 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
                 else{app.no_op_keypress();}
             }
             else if modifiers == KeyModifiers::CONTROL{
-                if c == ' '{/*app.set_mode(Mode::View);*/app.mode_push(Mode::View);}
+                if c == ' '{app.mode_push(Mode::View);}
                 else if c == 'a'{app.selection_action(SelectionAction::SelectAll);}
                 else if c == 'b'{app.selection_action(SelectionAction::Surround);}
                 else if c == 'c'{app.copy();}
-                else if c == 'g'{/*app.set_mode(Mode::Goto);*/app.mode_push(Mode::Goto);}
+                else if c == 'g'{app.mode_push(Mode::Goto);}
                 else if c == 'l'{app.selection_action(SelectionAction::SelectLine);}
                 else if c == 'o'{app.mode_push(Mode::Object);}
                 else if c == 'p'{app.selection_action(SelectionAction::IncrementPrimarySelection);}
@@ -28,9 +28,9 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
                 else if c == 'v'{app.edit_action(EditAction::Paste);}
                 else if c == 'x'{app.edit_action(EditAction::Cut);}
                 else if c == 'z'{app.edit_action(EditAction::Undo);}
-                else if c == '/'{/*app.set_mode(Mode::Find);*/app.mode_push(Mode::Find);}
-                else if c == ','{/*app.set_mode(Mode::Split);*/app.mode_push(Mode::Split);}
-                else if c == ';'{/*app.set_mode(Mode::Command);*/app.mode_push(Mode::Command);}
+                else if c == '/'{app.mode_push(Mode::Find);}
+                else if c == ','{app.mode_push(Mode::Split);}
+                else if c == ';'{app.mode_push(Mode::Command);}
                 else{app.no_op_keypress();}
             }
             else if modifiers == KeyModifiers::SHIFT{app.edit_action(EditAction::InsertChar(c));}
@@ -118,7 +118,7 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
 pub fn handle_view_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
     match (keycode, modifiers){
         (KeyCode::Esc, modifiers) => {
-            if modifiers == KeyModifiers::NONE{/*app.set_mode(Mode::Insert);*/app.mode_pop();}
+            if modifiers == KeyModifiers::NONE{app.mode_pop();}
             else{app.no_op_keypress();}
         }
         (KeyCode::Char('v'), modifiers) => {
@@ -158,7 +158,7 @@ pub fn handle_warning_mode_keypress(app: &mut Application, keycode: KeyCode, mod
             else{app.no_op_keypress();}
         }
         (KeyCode::Esc, modifiers) => {
-            if modifiers == KeyModifiers::NONE{/*app.set_mode(Mode::Insert);*/app.mode_pop();}
+            if modifiers == KeyModifiers::NONE{app.mode_pop();}
             else{app.no_op_keypress();}
         }
         _ => {app.no_op_keypress();}
@@ -196,7 +196,7 @@ pub fn handle_goto_mode_keypress(app: &mut Application, keycode: KeyCode, modifi
             else{app.no_op_keypress();}
         }
         (KeyCode::Esc, modifiers) => {
-            if modifiers == KeyModifiers::NONE{/*app.set_mode(Mode::Insert);*/app.mode_pop();}
+            if modifiers == KeyModifiers::NONE{app.mode_pop();}
             else{app.no_op_keypress();}
         }
         (KeyCode::Enter, modifiers) => {
@@ -269,7 +269,7 @@ pub fn handle_find_replace_mode_keypress(app: &mut Application, keycode: KeyCode
             else{app.no_op_keypress();}
         }
         (KeyCode::Enter, modifiers) => {
-            if modifiers == KeyModifiers::NONE{/*app.set_mode(Mode::Insert);*/app.mode_pop();}  //TODO: set warning if util text invalid
+            if modifiers == KeyModifiers::NONE{app.mode_pop();}  //TODO: set warning if util text invalid
             else{app.no_op_keypress();}
         }
         _ => {app.no_op_keypress();}
@@ -309,7 +309,7 @@ pub fn handle_split_mode_keypress(app: &mut Application, keycode: KeyCode, modif
             else{app.no_op_keypress();}
         }
         (KeyCode::Enter, modifiers) => {
-            if modifiers == KeyModifiers::NONE{/*app.set_mode(Mode::Insert);*/app.mode_pop();}  //TODO: set warning if util text invalid
+            if modifiers == KeyModifiers::NONE{app.mode_pop();}  //TODO: set warning if util text invalid
             else{app.no_op_keypress();}
         }
         (KeyCode::Backspace, modifiers) => {
@@ -352,7 +352,7 @@ pub fn handle_command_mode_keypress(app: &mut Application, keycode: KeyCode, mod
             else{app.no_op_keypress();}
         }
         (KeyCode::Esc, modifiers) => {
-            if modifiers == KeyModifiers::NONE{/*app.set_mode(Mode::Insert);*/app.mode_pop();}
+            if modifiers == KeyModifiers::NONE{app.mode_pop();}
             else{app.no_op_keypress();}
         }
         (KeyCode::Enter, modifiers) => {

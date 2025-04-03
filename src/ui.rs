@@ -56,7 +56,7 @@ impl UserInterface{
                         match mode{
                             Mode::Warning(_) | Mode::Command | Mode::Find | Mode::Goto | Mode::Notify | Mode::Split => 1,
                             Mode::Object |
-                            Mode::Insert => if /*self.util_bar.utility_widget.display_copied_indicator || */self.status_bar.display{1}else{0}
+                            Mode::Insert => if self.status_bar.display{1}else{0}
                             Mode::View => if self.status_bar.display{1}else{0}
                         }
                     )
@@ -114,16 +114,6 @@ impl UserInterface{
                         //     self.document_viewport.document_widget.rect.x + pos.x() as u16,
                         //     self.document_viewport.document_widget.rect.y + pos.y() as u16
                         // ))
-                        
-                        // clear_copied_indicator exists because copied_indicator widget rendering needs to persist for an entire loop cycle(until next keypress)
-                        //if self.util_bar.utility_widget.clear_copied_indicator{
-                        //    self.util_bar.utility_widget.display_copied_indicator = false;
-                        //    self.util_bar.utility_widget.clear_copied_indicator = false;
-                        //}
-                        //if self.util_bar.utility_widget.display_copied_indicator{
-                        //    frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
-                        //    self.util_bar.utility_widget.clear_copied_indicator = true;
-                        //}
                     }
                     Mode::Goto => {
                         frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);
@@ -135,13 +125,12 @@ impl UserInterface{
 
                         //TODO: render a pop up widget that displays the available keys to the user //do this for all util modes
                         //config.rs should have a const that can enable/disable this behavior. SHOW_UTIL_KEY_POPUP
-
                         // if SHOW_CONTEXTUAL_KEYBINDS{     //should displaying the popup be optional?...
                         frame.render_widget(ratatui::widgets::Clear, self.popups.goto_mode_widget.rect);
                         frame.render_widget(self.popups.goto_mode_widget.widget(), self.popups.goto_mode_widget.rect);
                         // }
                     }
-                    /*Mode::Goto | */Mode::Command => {
+                    Mode::Command => {
                         frame.render_widget(self.util_bar.prompt.widget(mode), self.util_bar.prompt.rect);
                         frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
                         
