@@ -1,6 +1,8 @@
 edit: simple terminal text editor for linux
 
 This is a reference frontend implementation using the edit_core backend.
+Edit is intended to be used inside a terminal that supports keyboard enhancement(tested with alacritty).
+if using a terminal without keyboard enhancement, you may have to rebind the default keybindings...
 
 Features:
     Editing and movement features implemented in edit_core
@@ -86,6 +88,7 @@ Future Features:
         [ ] TreeSitter
         [ ] DAP
         [ ] ...more
+    interactive keybind/command re-binding?
 
 Non-Features:
     cross platform usability

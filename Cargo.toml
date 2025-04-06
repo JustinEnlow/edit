@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+unicode-segmentation = "1"
 crossterm = {version = "0.26", features = ["event-stream"]}
 ratatui = {version = "0.28.0", features = ["all-widgets"]}
 ropey = "1.6.1"

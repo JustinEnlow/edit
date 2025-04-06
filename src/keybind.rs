@@ -9,6 +9,7 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
             if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){
                 if c == 'p'{app.selection_action(SelectionAction::DecrementPrimarySelection);}
                 else if c == 'z'{app.edit_action(EditAction::Redo);}
+                //else if c == 'b'{app.mode_push(Mode::AddSurround);}  //this seems to be triggering some mode in maybe my alacritty settings?...  yeah, doesn't seem to be a thing in GNOME terminal...
                 //else if c == '\\'{app.set_mode(Mode::Pipe);}   //'|' is <shift+\>
                 else{app.no_op_keypress();}
             }
@@ -17,6 +18,7 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
                 else if c == 'a'{app.selection_action(SelectionAction::SelectAll);}
                 else if c == 'b'{app.selection_action(SelectionAction::Surround);}
                 else if c == 'c'{app.copy();}
+                else if c == 'd'{app.mode_push(Mode::AddSurround);}
                 else if c == 'g'{app.mode_push(Mode::Goto);}
                 else if c == 'l'{app.selection_action(SelectionAction::SelectLine);}
                 else if c == 'o'{app.mode_push(Mode::Object);}
@@ -398,7 +400,7 @@ pub fn handle_object_mode_keypress(app: &mut Application, keycode: KeyCode, modi
                 else if c == 's'{/*app.selection_action(SelectionAction::Sentence*/}
                 else if c == 'p'{/*app.selection_action(SelectionAction::Paragraph*/}
                 else if c == 'b'{app.selection_action(SelectionAction::SurroundingPair)}
-                else if c == 'q'{/*app.selection_action(SelectionAction::QuotePair)*/}
+                //else if c == 'q'{/*app.selection_action(SelectionAction::QuotePair)*/}
                 else if c == 'e'{/*app.selection_action(SelectionAction::ExclusiveSurroundingPair*/}
                 else if c == 'i'{/*app.selection_action(SelectionAction::InclusiveSurroundingPair*/}
                 else{app.no_op_keypress();}
@@ -412,5 +414,59 @@ pub fn handle_object_mode_keypress(app: &mut Application, keycode: KeyCode, modi
             else{app.no_op_keypress();}
         }
         _ => {app.no_op_keypress();}
+    }
+}
+
+pub fn handle_add_surround_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
+    match (keycode, modifiers){
+        (KeyCode::Char(c), modifiers) => {
+            //if modifiers == KeyModifiers::SHIFT{
+            //    if c == ','{app.edit_action(EditAction::AddSurround('<', '>'));}   //<  //TODO: why is this not working?... says unbound keypress
+            //    else{app.no_op_keypress();}
+            //}
+            /*else */if modifiers == KeyModifiers::NONE{
+                if c == '['{app.edit_action(EditAction::AddSurround('[', ']'));}
+                else if c == '{'{app.edit_action(EditAction::AddSurround('{', '}'));}
+                else if c == '('{app.edit_action(EditAction::AddSurround('(', ')'));}
+                else if c == '<'{app.edit_action(EditAction::AddSurround('<', '>'));}
+                else{app.no_op_keypress();}
+            }
+            else{app.no_op_keypress();}
+        }
+        (KeyCode::Esc, modifiers) => {
+            if modifiers == KeyModifiers::NONE{
+                app.mode_pop();
+            }
+            else{app.no_op_keypress();}
+        }
+        _ => {app.no_op_keypress();}
+    }
+}
+
+pub fn handle_suggestion_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
+    match (keycode, modifiers){
+        //handle suggestion specific key presses, if any
+        (KeyCode::Esc, modifiers) => {
+            if modifiers == KeyModifiers::NONE{app.mode_pop();}
+            //else, have key presses fall through to insert mode
+            else{
+                app.mode_pop();
+                handle_insert_mode_keypress(app, keycode, modifiers);
+            }
+        }
+        (KeyCode::Tab, modifiers) => {
+            if modifiers == KeyModifiers::SHIFT{/* move backwards through suggestions list */}
+            else if modifiers == KeyModifiers::NONE{/* move forwards through suggestions list */}
+            //else, have key presses fall through to insert mode
+            else{
+                app.mode_pop();
+                handle_insert_mode_keypress(app, keycode, modifiers);
+            }
+        }
+        //else, have key presses fall through to insert mode
+        _ => {
+            app.mode_pop();
+            handle_insert_mode_keypress(app, keycode, modifiers);
+        }
     }
 }

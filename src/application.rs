@@ -51,7 +51,8 @@ pub enum EditAction{
     Redo,
     //SwapUp,   (if text selected, swap selected text with line above. if no selection, swap current line with line above)
     //SwapDown, (if text selected, swap selected text with line below. if no selection, swap current line with line below)
-    //RotateTextInSelections
+    //RotateTextInSelections,
+    AddSurround(char, char),
 }
 #[derive(Clone)]
 pub enum SelectionAction{
@@ -113,6 +114,8 @@ pub enum Mode{
     Split,
     /// for selecting text objects
     Object,
+    // for inserting bracket pairs around selection(s) contents
+    AddSurround,
 
     // NOTE: may not ever implement the following, but good to think about...
     //select the next occurring instance of a search pattern
@@ -205,6 +208,7 @@ impl Application{
                     }
                     Mode::Split => {keybind::handle_split_mode_keypress(self, key_event.code, key_event.modifiers);}
                     Mode::Object => {keybind::handle_object_mode_keypress(self, key_event.code, key_event.modifiers);}
+                    Mode::AddSurround => {keybind::handle_add_surround_mode_keypress(self, key_event.code, key_event.modifiers);}
                 }
             },
             event::Event::Mouse(idk) => {
@@ -245,7 +249,7 @@ impl Application{
                 clear_util_bar_text = true;
                 clear_saved_selections = true;
             }
-            Mode::Object | Mode::Notify | Mode::View | Mode::Warning(_) => {}
+            Mode::Object | Mode::Notify | Mode::View | Mode::Warning(_) | Mode::AddSurround => {}
             Mode::Insert => {/*should not call pop in Insert mode. maybe set warning?...*/self.mode_push(Mode::Warning(WarningKind::InvalidInput));}
         }
 
@@ -286,7 +290,7 @@ impl Application{
                         update_layouts_and_document = true;
                     }
                 }
-                Mode::Object | Mode::Insert | Mode::Notify | Mode::View | Mode::Warning(_) => {/* do nothing */}
+                Mode::Object | Mode::Insert | Mode::Notify | Mode::View | Mode::Warning(_) | Mode::AddSurround => {/* do nothing */}
             }
 
             //add mode to top of stack
@@ -372,8 +376,7 @@ impl Application{
 
     pub fn esc_handle(&mut self){
         assert!(self.mode() == Mode::Insert);
-        //if self.ui.util_bar.utility_widget.display_copied_indicator{self.ui.util_bar.utility_widget.display_copied_indicator = false;}
-        //TODO: if lsp suggestions displaying(currently unimplemented), exit that display
+        //TODO: if lsp suggestions displaying(currently unimplemented), exit that display   //lsp suggestions could be a separate mode with keybind fallthrough to insert...
         /*else */if self.document.selections().count() > 1{
             //self.clear_non_primary_selections();
             self.selection_action(SelectionAction::ClearNonPrimarySelections);
@@ -436,7 +439,7 @@ impl Application{
         }
     }
     pub fn edit_action(&mut self, action: EditAction){
-        assert!(self.mode() == Mode::Insert);
+        assert!(self.mode() == Mode::Insert || self.mode() == Mode::AddSurround);
         let len = self.document.len();
         
         let result = match action{
@@ -448,8 +451,15 @@ impl Application{
             EditAction::Cut => self.document.cut(CURSOR_SEMANTICS),
             EditAction::Paste => self.document.paste(CURSOR_SEMANTICS),
             EditAction::Undo => self.document.undo(CURSOR_SEMANTICS),   // TODO: undo takes a long time to undo when whole text deleted. see if this can be improved
-            EditAction::Redo => self.document.redo(CURSOR_SEMANTICS)
+            EditAction::Redo => self.document.redo(CURSOR_SEMANTICS),
+            EditAction::AddSurround(l, t) => self.document.add_surrounding_pair(l, t),
         };
+
+        //
+        if self.mode() != Mode::Insert{
+            self.mode_pop();
+        }
+        //
 
         match result{
             Ok(()) => {
@@ -577,7 +587,8 @@ impl Application{
             Mode::Insert |
             Mode::View |
             Mode::Notify |
-            Mode::Warning(_) => {/*do nothing*/}
+            Mode::Warning(_) |
+            Mode::AddSurround => {/*do nothing*/}
             Mode::Goto => {
                 self.goto_mode_text_validity_check();
             }

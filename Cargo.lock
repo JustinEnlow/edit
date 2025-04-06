@@ -164,12 +164,13 @@ dependencies = [
  "edit_core",
  "ratatui",
  "ropey",
+ "unicode-segmentation",
 ]
 
 [[package]]
 name = "edit_core"
 version = "0.1.0"
-source = "git+https://github.com/JustinEnlow/edit_core#13a17547ce8809957d15c3158f260c218fba5f46"
+source = "git+https://github.com/JustinEnlow/edit_core#454456a745a2f8837f0507bc66aae3d9329d766b"
 dependencies = [
  "regex",
  "ropey",

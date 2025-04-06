@@ -106,6 +106,7 @@ impl UtilityWidget{
             }
             Mode::View => Paragraph::new(String::new()),
             Mode::Object => Paragraph::new(String::new()),
+            Mode::AddSurround => Paragraph::new(String::new())
         }
     }
 }
@@ -125,7 +126,8 @@ impl UtilityPromptWidget{
             Mode::View |
             Mode::Notify |
             Mode::Object |
-            Mode::Warning(_) => Paragraph::new("")
+            Mode::Warning(_) |
+            Mode::AddSurround => Paragraph::new("")
         }
     }
 }
@@ -185,7 +187,8 @@ impl UtilBar{
             Mode::Insert |
             Mode::View |
             Mode::Notify |
-            Mode::Warning(_) => {
+            Mode::Warning(_) |
+            Mode::AddSurround => {
                 self.utility_widget.text_box.view.set_size(0, 1);
             }
         }
@@ -207,7 +210,8 @@ impl UtilBar{
                             | Mode::Notify
                             | Mode::Insert
                             | Mode::Object
-                            | Mode::View => 0
+                            | Mode::View 
+                            | Mode::AddSurround => 0
                         }
                     ),
                     // util bar rect width
@@ -217,7 +221,8 @@ impl UtilBar{
                             | Mode::Object
                             | Mode::View
                             | Mode::Notify
-                            | Mode::Warning(_) => rect.width,
+                            | Mode::Warning(_) 
+                            | Mode::AddSurround => rect.width,
                             Mode::Goto => rect.width - GOTO_PROMPT.len() as u16,
                             Mode::Command => rect.width - COMMAND_PROMPT.len() as u16,
                             Mode::Find => rect.width - FIND_PROMPT.len() as u16,

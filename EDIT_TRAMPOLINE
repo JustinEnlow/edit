@@ -242,6 +242,11 @@ top/bottom/center vertical/center horizontal
         swap text up/down               //or is this an editor control?
         alignment                       //or is this an editor control?     //align selections with primary
         rotate text within selections   //or is this an editor control?
+        add surround:   trigger separate mode for this...       <ctrl+d> for now, will be <ctrl+shift+b> in future
+            {   add { and } around selection(s)
+            (   add ( and ) around selection(s)
+            [   add [ and ] around selection(s)
+            <   add < and > around selection(s)
         Shell Interaction:
             pipe selected text to shell command and pipe output to buffer
             pipe selected text to shell command and pipe output to clipboard    //is this needed?
