@@ -194,6 +194,8 @@ impl Application{
 
     fn handle_event(&mut self) -> Result<(), Box<dyn Error>>{
         match event::read()?{
+            //TODO: handle_keypress fns could take a mode as context, then mode specific functionality wouldn't need to be in separate fns...
+            //that context could also be used to fill available commands in mode specific popup menus
             event::Event::Key(key_event) => {
                 match self.mode(){
                     Mode::Insert => {keybind::handle_insert_mode_keypress(self, key_event.code, key_event.modifiers);}

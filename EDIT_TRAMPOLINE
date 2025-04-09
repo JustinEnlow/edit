@@ -9,7 +9,7 @@
 |                   A simple terminal text editor for linux                   |
 +=---------------------------------------------------------------------------=+
 
-
+//TODO?: would it be better to define commands instead, then programatically fill the associated keybind from users config?
 
 Use the arrow keys to navigate. use <esc> to remove any warnings that may 
 display.
@@ -21,7 +21,8 @@ This document is structured with the following sections:
     1. Cursor/Selection Manipulation
     2. View Manipulation
     3. Text Manipulation
-    4. Editor Manipulation
+    4. Advanced Selection Manipulation
+    5. Editor Manipulation
 
 As bound keys are introduced, experiment using them inside this document.
 
@@ -33,7 +34,20 @@ As bound keys are introduced, experiment using them inside this document.
 
                                        1.0
 +=--------------------=+ Cursor/Selection Manipulation: +=--------------------=+
-Edit requires that document content is selected before an edit action can be 
+//TODO: requisite knowledge     //maybe have requisite knowledge for each section
+    //buffers: a representation of the underlying file, that can be modified without changing the associated file, until expressly commanded to.
+    //grapheme
+    //cursor
+    //selection: a logical construct to indicate which buffer content is being operated on, or is in scope to be operated on
+    //selection action: changes the state of selection(s)
+req know for view manip
+    //view action: changes the state of the view
+req know for text manip
+    //edit action: changes the buffer contents
+req know for editor manip
+    //maybe brief explanation of edit, edit_core, edit_server, + extension architecture?...
+
+Edit requires that buffer content is selected before an edit action can be 
 performed. This makes explicit on which content you are operating.
 
 Edit utilizes several core primitives that allow for the manipulation of 
@@ -41,7 +55,7 @@ selections.
 
 1.1: Cursor Movement:
     A selection over a single grapheme may be referred to as a "cursor". It is
-    the mobile block that can hover over document content, to indicate that the
+    the mobile block that can hover over buffer content, to indicate that the
     underlying content is selected.
         
     Edit allows for multiple simultaneous cursors/selections, but we will begin by 
@@ -59,12 +73,61 @@ selections.
             | the status bar, labeled: cursor: line_number:column_number       |
             +------------------------------------------------------------------+
 
-                ,------,     
-                |  up  |
-         ,------:------:-------,
-         | left | down | right |
-         `------`------`-------`
-        The arrow keys move the cursor one column/row in a given direction.
+         ,----,
+         | up |
+         `----`
+        associated command name: "move cursor up"
+        common use:
+            Moves the cursor one row up.
+        alternate behavior:
+            If the previous line is shorter than the current line, the cursor will be placed
+            at the end of that line.
+
+            If this occurs, the current line offset will be preserved and, if only vertical
+            movement are made, restored when the cursor is on a longer line again.
+        possible errors:
+            If cursor is already on the first line, a same state error will be emitted.
+
+         ,------,
+         | down |
+         `------`
+        associated command name: "move cursor down"
+        common use:
+            Moves the cursor one row down.
+        alternate behavior:
+            If the next line is shorter than the current line, the cursor will be placed
+            at the end of that line.
+
+            If this occurs, the current line offset will be preserved and, if only vertical
+            movement are made, restored when the cursor is on a longer line again.
+        possible errors:
+            If cursor is already on the last line, a same state error will be emitted.
+
+         ,------,
+         | left |
+         `------`
+        associated command name: "move cursor left"
+        common use:
+            Moves the cursor one grapheme left.
+        alternate behavior:
+            If cursor at absolute start of line, it will be moved to the end of the 
+            previous line.
+        possible errors:
+            If the cursor is already at the start of the buffer, a same state
+            error will be emitted.
+
+         ,-------,
+         | right |
+         `-------`
+        associated command name: "move cursor right"
+        common use:
+            Moves the cursor one grapheme right.
+        alternate behavior:
+            If cursor at end of line, it will be moved to the absolute start of the
+            next line.
+        possible errors:
+            If the cursor is one past the end of the buffer content, a same state
+            error will be emitted.
 
     Edit is a modal editor. This means it can be coerced into various modes, where
     triggering a bound key will result in a mode specific editor action.
@@ -86,47 +149,113 @@ selections.
          ,------,
          | home |
          `------`
-        //Moves the cursor between either the start of a line or the start of a line's text.
-        Moves the cursor to the start of the current line's text. however, if
-        the cursor is already at the start of the line's text, it will move to
-        the absolute start of the line.
+        associated command name: "move cursor home"
+        common use:
+            If the cursor is anywhere within a line except at the start of the line's text, 
+            the cursor will be moved to the start of the line's text.
+        alternate behavior:
+            If the cursor is already at the start of the line's text, the cursor will be moved
+            to the absolute start of the line.
+        possible errors:
+            If the start of the line's text and the absolute start of the line are the same,
+            and the cursor is already located there, a same state error will be emitted.
 
          ,-----,
          | end |
          `-----`
-        Moves the cursor to the end of a line's text.
+        associated command name: "move cursor line end"
+        common use:
+            Moves the cursor to the position following the end of a line's text, to allow for further text insertion.
+        alternate behavior:
+            N/A
+        possible errors:
+            If the cursor is already at the end of a line's text, a same state error will be emitted.
 
-    //TODO: Alternate keybind explanation
     //TODO: explain what a word boundary is
          ,------,   ,-------,
          | ctrl | + | right |
          `------`   `-------`
-        Moves the cursor forward to the next word boundary.
+        associated command name: "move cursor word boundary forward"
+        common use:
+            Moves the cursor forward to the nearest ending word boundary.
+        alternate behavior:
+            When there are no more ending word boundaries, the cursor will move to the end
+            of the document.
+        possible errors:
+            If cursor is at the end of the document, a same state error will be emitted.
 
          ,------,   ,------,
          | ctrl | + | left |
          `------`   `------`
-        Moves the cursor backward to the previous word boundary.
+        associated command name: "move cursor word boundary backward"
+        common use:
+            Moves the cursor backward to the nearest starting word boundary.
+        alternate behavior:
+            When there are no more starting word boundaries, the cursor will move to the start
+            of the document.
+        possible errors:
+            If the cursor is already at the start of the document, a same state error will be emitted.
 
-        //TODO: page up
-        //TODO: page down
+         ,---------,
+         | page up |
+         `---------`
+        associated command name: "move cursor page up"
+        common use:
+            Moves the cursor up by the height of the visible area of the buffer.
+        alternate behavior:
+            If the cursor cannot be moved by the full height of the visible area,
+            it will be moved to the nearest buffer boundary.
+        possible errors:
+            If the cursor is already on the first line, a same state error will be emitted.
+         ,-----------,
+         | page down |
+         `-----------`
+        associated command name: "move cursor page down"
+        common use:
+            Moves the cursor down by the height of the visible area of the buffer.
+        alternate behavior:
+            If the cursor cannot be moved by the full height of the visible area,
+            it will be moved to the nearest buffer boundary.
+        possible errors:
+            If the cursor is already on the last line, a same state error will be emitted.
 
          ,------,   ,------,
          | ctrl | + | home |
          `------`   `------`
-        Moves the cursor to the start of the document.
+        associated command name: "move cursor document start"
+        common use:
+            Moves the cursor to the start of the document.
+        alternate behavior:
+            N/A
+        possible errors:
+            If the cursor is already at the start of the document, a same state error will be emitted.
 
          ,------,   ,-----,
          | ctrl | + | end |
          `------`   `-----`
-        Moves the cursor to the end of the document.
+        associated command name: "move cursor document end"
+        common use:
+            Moves the cursor to the position following the end of the document's text, to allow for further text insertion.
+        alternate behavior:
+            N/A
+        possible errors:
+            If the cursor is already at the position following the end of the document's text, 
+            a same state error will be emitted.
 
-//TODO: this needs to be updated to reflect the current goto utility, which also includes relative line movement.
     Another way of moving the cursor is the "goto" utility.
     This is the first explicit(user triggered) mode change we will use.
          ,------,   ,---,
          | ctrl | + | g |
-         `------`   `---`
+         `------` | `---`
+                  |    ,-------,
+                  |----| enter |    accept entered value as absolute line number
+                  |    `-------`
+                  |    ,----,
+                  |----| up |   accept entered value as relative line number upwards
+                  |    `----`
+                  |    ,------,
+                   ----| down | accept entered value as relative line number downwards
+                       `------`
         Upon <alt+g> being triggered, Edit will enter Goto Mode. An interactive 
         text box will be enabled in the util bar, in which the user can enter a 
         line number that the cursor should be moved to.
@@ -135,41 +264,374 @@ selections.
     Selections can be extended to encompass more than a single grapheme. This
     allows edit's core primitives to operate on larger portions of text.
 
-        up/down/left/right                                      <shift+up/down/left/right>
-        line start/end                                          <shift+home/end>
-        word boundary forward/backward                          <shift+ctrl+left/right>
-        page up/down                                            <shift+pgup/pgdn>
-        doc start/end                                           <shift+ctrl+home/end>
-        select line         //or is this an editor control?     <ctrl+l>
-        select all          //or is this an editor control?     <ctrl+a>
-        collapse to cursor  //or is this an editor control?     <ctrl+esc>
-        collapse to anchor  //or is this an editor control?     <ctrl+shift+esc>
-        flip direction      //or is this an editor control?     
+         ,-------,   ,----,
+         | shift | + | up |
+         `-------`   `----`
+        associated command name: "extend selection up"
+        common use:
+            Extends the selection up one line.
+        alternate behavior:
+            If the previous line is shorter than the current line, the cursor will be placed
+            at the end of that line.
 
-1.3: Additional Cursors/Selections:
+            If this occurs, the current line offset will be preserved and, if only vertical
+            movement are made, restored when the cursor is on a longer line again.
+        possible errors:
+            If the cursor is already on the first line, a same state error will be emitted.
+
+         ,-------,   ,------,
+         | shift | + | down |
+         `-------`   `------`
+        associated command name: "extend selection down"
+        common use:
+            Extends the selection down one line.
+        alternate behavior:
+            If the next line is shorter than the current line, the cursor will be placed
+            at the end of that line.
+
+            If this occurs, the current line offset will be preserved and, if only vertical
+            movements are made, restored when the cursor is on a longer line again.
+        possible errors:
+            If the cursor is already on the last line, a same state error will be emitted.
+
+         ,-------,   ,------,
+         | shift | + | left |
+         `-------`   `------`
+        associated command name: "extend selection left"
+        common use:
+            Extends the selection left one column.
+        alternate behavior:
+            If cursor at absolute start of line, it will be moved to the end of the 
+            previous line.
+        possible errors:
+            If the cursor is already at the start of the buffer, a same state
+            error will be emitted.
+
+         ,-------,   ,-------,
+         | shift | + | right |
+         `-------`   `-------`
+        associated command name: "extend selection right"
+        common use:
+            Extends the selection right one column.
+        alternate behavior:
+            If cursor at end of line, it will be moved to the start of the next
+            line.
+        possible errors:
+            If the cursor is already at the end of the buffer, a same state
+            error will be emitted.
+        
+         ,-------,   ,------,
+         | shift | + | home |
+         `-------`   `------`
+        associated command name: "extend selection home"
+        common use:
+            If the cursor is anywhere within a line except at the start of the line's text, 
+            the selection will be extended to the start of the line's text.
+        alternate behavior:
+            If the cursor is already at the start of the line's text, the selection will be 
+            extended to the absolute start of the line.
+        possible errors:
+            If the start of the line's text and the absolute start of the line are the same,
+            and the cursor is already located there, a same state error will be emitted.
+         ,-------,   ,-----,
+         | shift | + | end |
+         `-------`   `-----`
+        associated command name: "extend selection line end"
+        common use:
+            Extends the selection to the end of a line's text.
+        alternate behavior:
+            N/A
+        possible errors:
+            If the cursor is already at the end of a line's text, a same state error will be emitted.
+
+         ,------,   ,-------,   ,-------,
+         | ctrl | + | shift | + | right |
+         `------`   `-------`   `-------`
+        associated command name: "extend selection word boundary forward"
+        common use:
+            Extends the selection forward to the nearest ending word boundary.
+        alternate behavior:
+            When there are no more ending word boundaries, the cursor will move to the end
+            of the document.
+        possible errors:
+            If cursor is at the end of the document, a same state error will be emitted.
+         ,------,   ,-------,   ,------,
+         | ctrl | + | shift | + | left |
+         `------`   `-------`   `------`
+        associated command name: "extend selection word boundary backward"
+        common use:
+            Extends the selection backward to the nearest starting word boundary.
+        alternate behavior:
+            When there are no more starting word boundaries, the cursor will move to the start
+            of the buffer.
+        possible errors:
+            If the cursor is already at the start of the buffer, a same state error will be emitted.
+
+        page up         (not implemented)
+        page down       (not implemented)                   <shift+pgup/pgdn>
+
+        doc start       (not implemented)
+        doc end         (not implemented)                   <shift+ctrl+home/end>
+
+         ,------,   ,---,
+         | ctrl | + | l |
+         `------`   `---`
+        associated command name: "select line"
+        common use:
+            Selects the entire line that the cursor is on.
+        alternate behavior:
+            N/A
+        possible errors:
+            If the line is already selected, a same state error will be emitted.
+         ,------,   ,---,
+         | ctrl | + | a |
+         `------`   `---`
+        select all
+        associated command name: "select all"
+        common use:
+            Selects the entire buffer's contents.
+        alternate behavior:
+            N/A
+        possible errors:
+            If the buffer's contents are already selected, a same state error
+            will be emitted.
+
+         ,---,   ,-----,
+         | ? | + | esc |    <ctrl+esc>?
+         `---`   `-----`
+        collapse to cursor
+        collapse to anchor  (not implemented)     <ctrl+shift+esc>
+
+         ,------,   ,---,
+         | ctrl | + | f |
+         `------`   `---`
+        flip direction  (not implemented)
+
+//TODO: selection history   (not implemented)
+    //impl undo/redo, but for selection actions
+
+                                      2.0
++=--------------------------=+ View Manipulation +=---------------------------=+
+Displacing the cursor can sometimes move the view into an inconvenient 
+configuration, leaving some necessary context off-screen, or simply feel 
+uncomfortable to type into. Edit provides a menu that allows users to move the 
+current view in relation to the position of the cursor. Upon hitting
+<ctrl + space>, a menu appears which allows us to hit a second key according to 
+how the view should be moved.
+
+         ,------,   ,-------,
+         | ctrl | + | space |
+         `------` | `-------`
+                  |    ,---,
+                  |----| t | align view with cursor at top
+                  |    `---`
+                  |    ,---,
+                  |----| b | align view with cursor at bottom
+                  |    `---`
+                  |    ,---,
+                  |----| v | center view vertically around cursor
+                  |    `---`
+                  |    ,---,
+                  |----| h | center view horizontally around cursor
+                  |    `---`
+                  |    ,----,
+                  |----| up | scroll view up
+                  |    `----`
+                  |    ,------,
+                  |----| down | scroll view down
+                  |    `------`
+                  |    ,------,
+                  |----| left | scroll view left
+                  |    `------`
+                  |    ,-------,
+                   ----| right | scroll view right
+                       `-------`        
+
+                                      3.0
++=--------------------------=+ Text Manipulation +=---------------------------=+
+        insertion
+        deletion
+        replacement
+        cut                 //for internal clipboard use <ctrl+x/c/v> for external clipboard use <alt+x/c/v>
+        copy                //technically, this is not a text manipulation, but people will expect it here...
+        paste
+
+         ,------,   ,---,
+         | ctrl | + | z |
+         `------`   `---`
+        associated command name: "undo"
+        common use:
+            Undoes the most recent edit action, restoring previous buffer state.
+        alternate behavior:
+            N/A
+        possible errors:
+            If there are no changes on the undo stack, a same state error will be emitted.
+
+         ,------,   ,-------,   ,---,
+         | ctrl | + | shift | + | z |
+         `------`   `-------`   `---`
+        associated command name: "redo"
+        common use:
+            Re-applies the most recently undone edit action.
+        alternate behavior:
+            N/A
+        possible errors:
+            If there are not changes on the redo stack, a same state error will be emitted.
+
+        swap text up    (not implemented)
+        swap text down  (not implemented)
+        alignment (not implemented)         //align selections with primary
+        rotate text within selections (not implemented)
+        
+         ,------,   ,---,
+         | ctrl | + | d |   add surrounding pair around selection(s)        //maybe <ctrl+shift+b> instead?...
+         `------` | `---`
+                  |    ,---,
+                  |----| [ |    square brackets
+                  |    `---`
+                  |    ,---,
+                  |----| { |    curly brackets
+                  |    `---`
+                  |    ,---,
+                  |----| ( |    parens
+                  |    `---`
+                  |    ,---,
+                   ----| < |    angle brackets
+                       `---`
+        Shell Interaction:  (not implemented)
+            pipe selected text to shell command and pipe output to buffer
+            pipe selected text to shell command and pipe output to clipboard    //is this needed?
+            shell command ignoring selections and pipe output to buffer
+            shell command ignoring selections and pipe output to clipboard      //is this needed?
+
+         ,------,   ,---,
+         | ctrl | + | s |
+         `------`   `---`
+        associated command name: "save"
+        common use:
+            Saves the modified buffer to disk, overwriting previous content.
+        alternate behavior:
+            N/A
+        possible errors:
+            idk...
+
+                                     4.0
++=--------------------=+ Advanced Selection Manipulation +=--------------------=+
+4.1: Additional Cursors/Selections:
     While any editing goal can be accomplished using a single selection, more
     efficient editing can be achieved by operating on multiple selections.
     When multiple selections are in use, any edit operation is applied to every
     selection simultaneously.
 
-        add selection above/below                               <ctrl+shift+up/down>
-        surround selection                                      <ctrl+b>    //not sure this behavior will be kept. although, may be useful if user want to add surrounding text, instead of a surrounding text object
-        remove primary cursor                                   <ctrl+r>
-        increment/decrement primary                             <ctrl+p> or <ctrl+shift+p>
-        clear non primary                                       <alt+esc>?
+         ,------,   ,-------,   ,----,
+         | ctrl | + | shift | + | up |          //currently only works on primary selection, not on all selections on same line as primary
+         `------`   `-------`   `----`
+        associated command name: "add selection above"
+        common use:
+            For each selection on the same line as the primary, edit will attempt to add a selection
+            on the line above the top-most selection, with the same line offsets.
 
-1.4: Search:
+            In some cases, such as adding a selection to a line that is shorter than the line that
+            the primary selection is on, added cursors may have their line offsets adjusted to fit,
+            and any overlapping selections will be merged.
+        alternate behavior:
+            N/A
+        possible errors:
+            If there is no line above the top-most selection, an error will be emitted.
+
+         ,------,   ,-------,   ,------,
+         | ctrl | + | shift | + | down |        //currently only works on primary selection, not on all selections on same line as primary
+         `------`   `-------`   `------`
+        associated command name: "add selection below"
+        common use:
+            For each selection on the same line as the primary, edit will attempt to add a selection
+            on the line below the bottom-most selection, with the same line offsets.
+
+            In some cases, such as adding a selection to a line that is shorter than the line that
+            the primary selection is on, added cursors may have their line offsets adjusted to fit,
+            and any overlapping selections will be merged.
+        alternate behavior:
+            N/A
+        possible errors:
+            If there is no line below the bottom-most selection, an error will be emitted.
+
+         ,------,   ,---,
+         | ctrl | + | b |
+         `------`   `---`
+        associated command name: "surround"
+        common use:
+            Replaces current selection(s) with a pair of cursors, one at current selection
+            start and one after current selection end.
+        alternate behavior:
+            N/A
+        possible errors:
+            If it is impossible to create surrounding cursors(such as at the end of the document), 
+            a same state error will be emitted.
+
+         ,------,   ,---,
+         | ctrl | + | r |
+         `------`   `---`
+        associated command name: "remove primary selection"
+        common use:
+            Removes the primary selection, and sets another selection as primary.
+
+            If the first selection is the primary, the next selection will be the new primary.
+            If any selection other than the first is primary, the previous selection will be the new primary.
+        alternate behavior:
+            N/A
+        possible errors:
+            If only a single selection is in use, an error will be emitted. Edit must always have
+            at least one selection.
+
+         ,------,   ,---,
+         | ctrl | + | p |
+         `------`   `---`
+        associated command name: "increment primary selection"
+        common use:
+            Sets the primary selection in a set of selections to the next selection
+            forward of the current primary selection.
+        alternate behavior:
+            N/A
+        possible errors:
+            If only a single selection is in use, an error will be emitted.
+
+         ,------,   ,-------,   ,---,
+         | ctrl | + | shift | + | p |
+         `------`   `-------`   `---`
+        //Explain decrement primary
+        associated command name: "decrement primary selection"
+        common use:
+            Sets the primary selection in a set of selections to the previous selection
+            backward from the current primary selection.
+        alternate behavior:
+            N/A
+        possible errors:
+            If only a single selection is in use, an error will be emitted.
+
+         ,-----,   ,-----,
+         |  ?  | + | esc |
+         `-----`   `-----`
+        //Explain clear non primary
+
+4.2: Search:
+//TODO: explain regular expressions
+//for ease of understanding, user can just think of this as case sensitive search, for simple cases
     inside selection    //select regex match in selection
          ,------,   ,---,
-         | ctrl | + | / |    //TODO: maybe this should be <alt+/>
-         `------`   `---`
-        Search for matching regex inside selection(s)
-            key enter to accept
-            key esc to go back to selections before search
+         | ctrl | + | / | Search for matching regex inside selection(s)
+         `------` | `---`
+                  |
+                  |    ,-------,
+                  |----| enter |  key enter to accept
+                  |    `-------`
+                  |
+                  |    ,-----,
+                   ----| esc |  key esc to go back to selections before search
+                       `-----`
 
-    in whole file
+    in whole file   (not implemented)
         ,------,   ,-------,   ,---,
-        | ctrl | + | shift | + | / |
+        | ctrl | + | shift | + | / |    //TODO: maybe instead of the first selection always being primary, the closest resultant selection to the previous primary should be primary
         `------`   `-------`   `---`
         Search for matching regex in whole file.
 
@@ -185,75 +647,46 @@ selections.
     //        key left to continue search to previous instance
     //        key enter to accept
     //        key esc to go back to selection before search
-1.5: Split:                      <ctrl+,>    //select non regex match in selection
-1.6: Select Text Object:    //must be inside desired text object. may need to add select next/previous text object
+4.3: Split:                      <ctrl+,>    //select non regex match in selection
+         ,------,   ,---,
+         | ctrl | + | , |   Split on matching regex inside selection(s)
+         `------` | `---`
+                  |
+                  |    ,-------,
+                  |----| enter |    key enter to accept
+                  |    `-------`
+                  |
+                  |    ,-----,
+                   ----| esc |  key esc to go back to selections before split
+                       `-----`
+
+4.4: Select Text Object:    //must be inside desired text object. may need to add select next/previous text object
         ,------,   ,---,
-        | ctrl | + | o |-----------------------------------
-        `------`   `---`     \     \     \     \     \     \
-                            ,---, ,---, ,---, ,---, ,---, ,---,
-                            | w | | s | | p | | b | | e | | i |
-                            `---` `---` `---` `---` `---` `---`
-        Opens the Object selection mode, then you can select a text object to target for selection
-            w   word
-            s   sentence
-            p   paragraph
-            b   surrounding pair
-            e   exclusive surrounding pair
-            i   inclusive surrounding pair
+        | ctrl | + | o |    Opens the Object selection mode, then you can select a text object to target for selection
+        `------` | `---`
+                 |    ,---,
+                 |----| w | word    (not implemented)
+                 |    `---`
+                 |    ,---,
+                 |----| s | sentence    (not implemented)
+                 |    `---`
+                 |    ,---,
+                 |----| p | paragraph   (not implemented)
+                 |    `---`
+                 |    ,---,
+                 |----| b | surrounding pair
+                 |    `---`
+                 |    ,---,
+                 |----| e | exclusive surrounding pair  (not implemented)
+                 |    `---`
+                 |    ,---,
+                  ----| i | inclusive surrounding pair  (not implemented)
+                      `---`
             todo: surrounding whitespace?
 
-//ran into problems with this(works for quotation, but not for brackets). may need to become Add Surrounding Text Object
-1.7: Surround Text Object:  //really, this is surround selection...     //added in Additional Cursors/Selections section above...
-        ,------,   ,---,
-        | ctrl | + | b?|        //maybe b for brackets, since that is the most likely use case?...
-        `------`   `---`
-        replaces current selection(s) with a pair of cursors, one at current selection start and one at current selection end
+//Select Until: not going to implement for now...
 
-    // these are made redundant by text object selection and surround
-    //Select Inside Exclusive:    <ctrl+i>
-    //Select Inside Inclusive:    <ctrl+shift+i>
-    //Select Outside:             <ctrl+o>    //put cursors around a regex match, word, line, paragraph, etc. makes it easier to add quotes, braces, etc.
-    //Select Pair: put cursors over nearest pair
-    //Select Until: not going to implement for now...
-
-+=--------------------------=+ View Manipulation +=---------------------------=+
-up/down/left/right
-top/bottom/center vertical/center horizontal
-        ,------,   ,-------,
-        | ctrl | + | space |-----------------------------------------------
-        `------`   `-------`     \     \     \     \     \     \     \     \
-                                ,---, ,---, ,---, ,---, ,---, ,---, ,---, ,---,
-                                | t | | b | | v | | h | |   | |   | |   | |   |    //TODO: insert up, down, left, right arrow
-                                `---` `---` `---` `---` `---` `---` `---` `---`
-        Displacing the cursor can sometimes move the view into an
-        inconvenient configuration, leaving some necessary context
-        off-screen, or simply feel uncomfortable to type into.
-        Edit provides a menu that allows users to move the current
-        view in relation to the position of the cursor. Upon hitting
-        <ctrl + space>, a menu appears which allows us to hit a second
-        key according to how the view should be moved.
-
-+=--------------------------=+ Text Manipulation +=---------------------------=+
-        insertion
-        deletion
-        replacement
-        cut/copy/paste                  //or is this an editor control?     //for internal clipboard use <ctrl+x/c/v> for external clipboard use <alt+x/c/v>
-        undo/redo                       //or is this an editor control?
-        swap text up/down               //or is this an editor control?
-        alignment                       //or is this an editor control?     //align selections with primary
-        rotate text within selections   //or is this an editor control?
-        add surround:   trigger separate mode for this...       <ctrl+d> for now, will be <ctrl+shift+b> in future
-            {   add { and } around selection(s)
-            (   add ( and ) around selection(s)
-            [   add [ and ] around selection(s)
-            <   add < and > around selection(s)
-        Shell Interaction:
-            pipe selected text to shell command and pipe output to buffer
-            pipe selected text to shell command and pipe output to clipboard    //is this needed?
-            shell command ignoring selections and pipe output to buffer
-            shell command ignoring selections and pipe output to clipboard      //is this needed?
-        Saving                          //or is this an editor control?
-
+                                      5.0
 +=-------------------------=+ Editor Manipulation +=--------------------------=+
 Whilst technically everything we have done so far is manipulation of the editor, 
 there are a few more commands to learn that do not effect selections, view, or
@@ -265,5 +698,7 @@ Notify Mode
 Warning Mode
 
 Customization
+    builtin config
+    extension
 
 End

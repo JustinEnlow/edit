@@ -22,6 +22,7 @@ Features:
         [x] Toggleable Status Bar
             [x] Modified Indicator
             [x] File name
+            [ ] Read Only Indicator
             [x] Selection Indicator(1/1 = primary cursor is the only one, 3/125 = primary cursor is the 3rd selection of 125)
             [x] primary cursor location indicator(line num:column num)
         [ ] Utility Bar(mode specific) (should utils have suggestions/completion?)
@@ -29,7 +30,7 @@ Features:
                 [x] use input as line number
                 [ ] use input as amount for following relative motion command (up, down, left, right, etc.)
                 [ ] to matching surround
-            [x] Command mode
+            [x] Command mode    (should provide list of available commands)
                 [x] built in and custom commands
             [ ] Search Mode
                 [x] search inside extended selections

@@ -59,7 +59,7 @@ fn main() -> Result<(), Box<dyn Error>>{
     Ok(())
 }
 
-fn get_file_path() -> Result<String, Box<dyn Error>>{
+fn get_file_path() -> Result<String, Box<dyn Error>>{       //TODO: allow empty arg list to open scratch buffer, allow scratch buffer with contents from stdin
     let args: Vec<String> = std::env::args().collect();
     match args.len(){
         2 => Ok(args[1].clone()),
