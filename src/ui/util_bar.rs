@@ -22,7 +22,7 @@ const COMMAND_PROMPT: &str = " Command: ";
 pub struct UtilityWidget{
     pub rect: Rect,
     pub text_box: InteractiveTextBox,
-    pub selections_before_search: Option<Selections>,
+    pub preserved_selections: Option<Selections>,
 }
 impl UtilityWidget{
     pub fn widget(&self, mode: Mode) -> Paragraph<'static>{

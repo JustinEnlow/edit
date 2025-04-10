@@ -83,16 +83,16 @@ impl UserInterface{
         self.status_bar.document_cursor_position_widget.rect = status_bar_rect[3];  //[5] with selections padding enabled
         self.util_bar.prompt.rect = util_rect[0];
         self.util_bar.utility_widget.rect = util_rect[1];
-        self.popups.goto_mode_widget.rect = sized_centered_rect(self.popups.goto_mode_widget.widest_element_len, self.popups.goto_mode_widget.num_elements, self.terminal_size);
-        self.popups.command_mode_widget.rect = sized_centered_rect(self.popups.command_mode_widget.widest_element_len, self.popups.command_mode_widget.num_elements, self.terminal_size);
-        self.popups.find_mode_widget.rect = sized_centered_rect(self.popups.find_mode_widget.widest_element_len, self.popups.find_mode_widget.num_elements, self.terminal_size);
-        self.popups.split_mode_widget.rect = sized_centered_rect(self.popups.split_mode_widget.widest_element_len, self.popups.split_mode_widget.num_elements, self.terminal_size);
-        self.popups.warning_mode_widget.rect = sized_centered_rect(self.popups.warning_mode_widget.widest_element_len, self.popups.warning_mode_widget.num_elements, self.terminal_size);
-        self.popups.modified_warning_mode_widget.rect = sized_centered_rect(self.popups.modified_warning_mode_widget.widest_element_len, self.popups.modified_warning_mode_widget.num_elements, self.terminal_size);
-        self.popups.notify_mode_widget.rect = sized_centered_rect(self.popups.notify_mode_widget.widest_element_len, self.popups.notify_mode_widget.num_elements, self.terminal_size);
-        self.popups.view_mode_widget.rect = sized_centered_rect(self.popups.view_mode_widget.widest_element_len, self.popups.view_mode_widget.num_elements, self.terminal_size);
-        self.popups.object_mode_widget.rect = sized_centered_rect(self.popups.object_mode_widget.widest_element_len, self.popups.object_mode_widget.num_elements, self.terminal_size);
-        self.popups.add_surround_mode_widget.rect = sized_centered_rect(self.popups.add_surround_mode_widget.widest_element_len, self.popups.add_surround_mode_widget.num_elements, self.terminal_size);
+        self.popups.goto.rect = sized_centered_rect(self.popups.goto.widest_element_len, self.popups.goto.num_elements, self.terminal_size);
+        self.popups.command.rect = sized_centered_rect(self.popups.command.widest_element_len, self.popups.command.num_elements, self.terminal_size);
+        self.popups.find.rect = sized_centered_rect(self.popups.find.widest_element_len, self.popups.find.num_elements, self.terminal_size);
+        self.popups.split.rect = sized_centered_rect(self.popups.split.widest_element_len, self.popups.split.num_elements, self.terminal_size);
+        self.popups.warning.rect = sized_centered_rect(self.popups.warning.widest_element_len, self.popups.warning.num_elements, self.terminal_size);
+        self.popups.modified_warning.rect = sized_centered_rect(self.popups.modified_warning.widest_element_len, self.popups.modified_warning.num_elements, self.terminal_size);
+        self.popups.notify.rect = sized_centered_rect(self.popups.notify.widest_element_len, self.popups.notify.num_elements, self.terminal_size);
+        self.popups.view.rect = sized_centered_rect(self.popups.view.widest_element_len, self.popups.view.num_elements, self.terminal_size);
+        self.popups.object.rect = sized_centered_rect(self.popups.object.widest_element_len, self.popups.object.num_elements, self.terminal_size);
+        self.popups.add_surround.rect = sized_centered_rect(self.popups.add_surround.widest_element_len, self.popups.add_surround.num_elements, self.terminal_size);
 
         self.util_bar.update_width(mode);
     }
@@ -134,8 +134,8 @@ impl UserInterface{
 
                         //TODO: status bar should have a mode indicator, for when this is hidden
                         if config::SHOW_CONTEXTUAL_KEYBINDS{
-                            frame.render_widget(ratatui::widgets::Clear, self.popups.goto_mode_widget.rect);
-                            frame.render_widget(self.popups.goto_mode_widget.widget(), self.popups.goto_mode_widget.rect);
+                            frame.render_widget(ratatui::widgets::Clear, self.popups.goto.rect);
+                            frame.render_widget(self.popups.goto.widget(), self.popups.goto.rect);
                         }
                     }
                     Mode::Command => {
@@ -151,8 +151,8 @@ impl UserInterface{
 
                         //TODO: status bar should have a mode indicator, for when this is hidden
                         if config::SHOW_CONTEXTUAL_KEYBINDS{
-                            frame.render_widget(ratatui::widgets::Clear, self.popups.command_mode_widget.rect);
-                            frame.render_widget(self.popups.command_mode_widget.widget(), self.popups.command_mode_widget.rect);
+                            frame.render_widget(ratatui::widgets::Clear, self.popups.command.rect);
+                            frame.render_widget(self.popups.command.widget(), self.popups.command.rect);
                         }
                     }
                     Mode::Find => {
@@ -165,8 +165,8 @@ impl UserInterface{
 
                         //TODO: status bar should have a mode indicator, for when this is hidden
                         if config::SHOW_CONTEXTUAL_KEYBINDS{
-                            frame.render_widget(ratatui::widgets::Clear, self.popups.find_mode_widget.rect);
-                            frame.render_widget(self.popups.find_mode_widget.widget(), self.popups.find_mode_widget.rect);
+                            frame.render_widget(ratatui::widgets::Clear, self.popups.find.rect);
+                            frame.render_widget(self.popups.find.widget(), self.popups.find.rect);
                         }
                     }
                     Mode::Split => {
@@ -179,8 +179,8 @@ impl UserInterface{
 
                         //TODO: status bar should have a mode indicator, for when this is hidden
                         if config::SHOW_CONTEXTUAL_KEYBINDS{
-                            frame.render_widget(ratatui::widgets::Clear, self.popups.split_mode_widget.rect);
-                            frame.render_widget(self.popups.split_mode_widget.widget(), self.popups.split_mode_widget.rect);
+                            frame.render_widget(ratatui::widgets::Clear, self.popups.split.rect);
+                            frame.render_widget(self.popups.split.widget(), self.popups.split.rect);
                         }
                     }
                     Mode::Warning(kind) => {
@@ -190,15 +190,15 @@ impl UserInterface{
                         if kind == &WarningKind::FileIsModified{
                             //TODO: status bar should have a mode indicator, for when this is hidden
                             if config::SHOW_CONTEXTUAL_KEYBINDS{
-                                frame.render_widget(ratatui::widgets::Clear, self.popups.modified_warning_mode_widget.rect);
-                                frame.render_widget(self.popups.modified_warning_mode_widget.widget(), self.popups.modified_warning_mode_widget.rect);
+                                frame.render_widget(ratatui::widgets::Clear, self.popups.modified_warning.rect);
+                                frame.render_widget(self.popups.modified_warning.widget(), self.popups.modified_warning.rect);
                             }
                         }
                         else{
                             //TODO: status bar should have a mode indicator, for when this is hidden
                             if config::SHOW_CONTEXTUAL_KEYBINDS{
-                                frame.render_widget(ratatui::widgets::Clear, self.popups.warning_mode_widget.rect);
-                                frame.render_widget(self.popups.warning_mode_widget.widget(), self.popups.warning_mode_widget.rect);
+                                frame.render_widget(ratatui::widgets::Clear, self.popups.warning.rect);
+                                frame.render_widget(self.popups.warning.widget(), self.popups.warning.rect);
                             }
                         }
                     }
@@ -208,29 +208,29 @@ impl UserInterface{
 
                         //TODO: status bar should have a mode indicator, for when this is hidden
                         if config::SHOW_CONTEXTUAL_KEYBINDS{
-                            frame.render_widget(ratatui::widgets::Clear, self.popups.notify_mode_widget.rect);
-                            frame.render_widget(self.popups.notify_mode_widget.widget(), self.popups.notify_mode_widget.rect);
+                            frame.render_widget(ratatui::widgets::Clear, self.popups.notify.rect);
+                            frame.render_widget(self.popups.notify.widget(), self.popups.notify.rect);
                         }
                     }
                     Mode::View => {
                         //TODO: status bar should have a mode indicator, for when this is hidden
                         if config::SHOW_CONTEXTUAL_KEYBINDS{
-                            frame.render_widget(ratatui::widgets::Clear, self.popups.view_mode_widget.rect);
-                            frame.render_widget(self.popups.view_mode_widget.widget(), self.popups.view_mode_widget.rect);
+                            frame.render_widget(ratatui::widgets::Clear, self.popups.view.rect);
+                            frame.render_widget(self.popups.view.widget(), self.popups.view.rect);
                         }
                     }
                     Mode::Object => {
                         //TODO: status bar should have a mode indicator, for when this is hidden
                         if config::SHOW_CONTEXTUAL_KEYBINDS{
-                            frame.render_widget(ratatui::widgets::Clear, self.popups.object_mode_widget.rect);
-                            frame.render_widget(self.popups.object_mode_widget.widget(), self.popups.object_mode_widget.rect);
+                            frame.render_widget(ratatui::widgets::Clear, self.popups.object.rect);
+                            frame.render_widget(self.popups.object.widget(), self.popups.object.rect);
                         }
                     }
                     Mode::AddSurround => {
                         //TODO: status bar should have a mode indicator, for when this is hidden
                         if config::SHOW_CONTEXTUAL_KEYBINDS{
-                            frame.render_widget(ratatui::widgets::Clear, self.popups.add_surround_mode_widget.rect);
-                            frame.render_widget(self.popups.add_surround_mode_widget.widget(), self.popups.add_surround_mode_widget.rect);
+                            frame.render_widget(ratatui::widgets::Clear, self.popups.add_surround.rect);
+                            frame.render_widget(self.popups.add_surround.widget(), self.popups.add_surround.rect);
                         }
                     }
                 }

@@ -54,7 +54,6 @@ pub enum EditAction{
     //RotateTextInSelections,
     AddSurround(char, char),
 }
-#[derive(Clone)]
 pub enum SelectionAction{
     MoveCursorUp,
     MoveCursorDown,
@@ -216,9 +215,9 @@ impl Application{
             event::Event::Mouse(idk) => {
                 //TODO: maybe mode specific mouse handling...
                 match idk.kind{
-                    event::MouseEventKind::Down(something) => {self.no_op_event();}
-                    event::MouseEventKind::Up(something) => {self.no_op_event();}
-                    event::MouseEventKind::Drag(something) => {self.no_op_event();}
+                    event::MouseEventKind::Down(_) => {self.no_op_event();}
+                    event::MouseEventKind::Up(_) => {self.no_op_event();}
+                    event::MouseEventKind::Drag(_) => {self.no_op_event();}
                     event::MouseEventKind::Moved => {self.no_op_event();}
                     event::MouseEventKind::ScrollDown => {self.no_op_event();}
                     event::MouseEventKind::ScrollUp => {self.no_op_event();}
@@ -227,7 +226,7 @@ impl Application{
             event::Event::Resize(x, y) => self.resize(x, y),
             event::Event::FocusLost => {/*do nothing*/} //maybe quit displaying cursor(s)/selection(s)?...
             event::Event::FocusGained => {/*do nothing*/}   //display cursor(s)/selection(s)?...
-            event::Event::Paste(idk) => {self.no_op_event();}
+            event::Event::Paste(_) => {self.no_op_event();}
         }
 
         Ok(())
@@ -271,7 +270,7 @@ impl Application{
             self.ui.util_bar.utility_widget.text_box.clear();
         }
         if clear_saved_selections{
-            self.ui.util_bar.utility_widget.selections_before_search = None;
+            self.ui.util_bar.utility_widget.preserved_selections = None;
         }
     }
     pub fn mode_push(&mut self, to_mode: Mode){
@@ -300,7 +299,7 @@ impl Application{
 
             //handle entry behavior
             if save_selections{
-                self.ui.util_bar.utility_widget.selections_before_search = Some(self.document.selections().clone());
+                self.ui.util_bar.utility_widget.preserved_selections = Some(self.document.selections().clone());
             }
             if update_layouts_and_document{
                 self.ui.update_layouts(&self.mode());
@@ -381,10 +380,10 @@ impl Application{
         //TODO: if lsp suggestions displaying(currently unimplemented), exit that display   //lsp suggestions could be a separate mode with keybind fallthrough to insert...
         /*else */if self.document.selections().count() > 1{
             //self.clear_non_primary_selections();
-            self.selection_action(SelectionAction::ClearNonPrimarySelections);
+            self.selection_action(&SelectionAction::ClearNonPrimarySelections);
         }
         else if self.document.selections().primary().is_extended(CURSOR_SEMANTICS){
-            self.selection_action(SelectionAction::CollapseSelections);
+            self.selection_action(&SelectionAction::CollapseSelections);
         }
         else{
             if SHOW_SAME_STATE_WARNINGS{self.mode_push(Mode::Warning(WarningKind::SameState));}
@@ -440,7 +439,7 @@ impl Application{
             Err(e) => {self.handle_document_error(e);}
         }
     }
-    pub fn edit_action(&mut self, action: EditAction){
+    pub fn edit_action(&mut self, action: &EditAction){
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::AddSurround);
         let len = self.document.len();
         
@@ -454,7 +453,7 @@ impl Application{
             EditAction::Paste => self.document.paste(CURSOR_SEMANTICS),
             EditAction::Undo => self.document.undo(CURSOR_SEMANTICS),   // TODO: undo takes a long time to undo when whole text deleted. see if this can be improved
             EditAction::Redo => self.document.redo(CURSOR_SEMANTICS),
-            EditAction::AddSurround(l, t) => self.document.add_surrounding_pair(l, t),
+            EditAction::AddSurround(l, t) => self.document.add_surrounding_pair(*l, *t),
         };
 
         //
@@ -472,7 +471,7 @@ impl Application{
         }
     }
 
-    pub fn selection_action(&mut self, action: SelectionAction){
+    pub fn selection_action(&mut self, action: &SelectionAction){
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::Object);
         let result = match action{
             SelectionAction::MoveCursorUp => {self.document.move_cursor_up(CURSOR_SEMANTICS)}
@@ -534,7 +533,7 @@ impl Application{
         }
     }
 
-    pub fn view_action(&mut self, action: ViewAction){      //TODO: make sure this can still be called from insert, so users can assign a direct keybind if desired
+    pub fn view_action(&mut self, action: &ViewAction){      //TODO: make sure this can still be called from insert, so users can assign a direct keybind if desired
         assert!(/*self.mode == Mode::Insert || */ /*self.mode*/self.mode() == Mode::View);
         let view = self.document.view();
 
@@ -566,12 +565,12 @@ impl Application{
 
     //TODO: util_action maybe should be a sub-action of EditorAction(which itself still needs to be implemented...)
     //TODO: split into util_edit_action and util_selection_action?...
-    pub fn util_action(&mut self, action: UtilAction){
+    pub fn util_action(&mut self, action: &UtilAction){
         let text_box = &mut self.ui.util_bar.utility_widget.text_box;
         match action{
             UtilAction::Backspace => text_box.backspace(),
             UtilAction::Delete => text_box.delete(),
-            UtilAction::InsertChar(c) => text_box.insert_char(c),
+            UtilAction::InsertChar(c) => text_box.insert_char(*c),
             UtilAction::ExtendEnd => text_box.extend_selection_end(),
             UtilAction::ExtendHome => text_box.extend_selection_home(),
             UtilAction::ExtendLeft => text_box.extend_selection_left(),
@@ -622,16 +621,17 @@ impl Application{
         if show_warning{self.mode_push(Mode::Warning(WarningKind::InvalidInput));}
         else{self.mode_pop()}
     }
-    //TODO: can this be accomplished in edit_core instead?...
     //TODO: add go to matching surrounding char(curly, square, paren, single quote, double quote, etc)
+    //TODO: this could prob use move_vertically/move_horizontally from edit_core...
+    //TODO: can this be accomplished in edit_core instead?...
     // Not entirely sure I want this behavior...
-    pub fn goto_mode_selection_action(&mut self, action: SelectionAction){  //TODO: this is pretty slow when user enters a large number into util text box
+    pub fn goto_mode_selection_action(&mut self, action: &SelectionAction){  //TODO: this is pretty slow when user enters a large number into util text box
         assert!(self.mode() == Mode::Goto);
         if let Ok(amount) = self.ui.util_bar.utility_widget.text_box.text.to_string().parse::<usize>(){
             self.mode_pop();
             for _ in 0..amount{
                 if matches!(self.mode(), Mode::Warning(_)){break;}    //trying to speed this up by preventing this from running `amount` times, if there has already been an error
-                self.selection_action(action.clone());  //TODO: if this reaches doc boundaries, this will display same state warning. which it technically may not be the same state as when this fn was called...
+                self.selection_action(action);  //TODO: if this reaches doc boundaries, this will display same state warning. which it technically may not be the same state as when this fn was called...
             }
         }else{
             self.mode_push(Mode::Warning(WarningKind::InvalidInput));
@@ -652,54 +652,34 @@ impl Application{
         self.ui.util_bar.utility_widget.text_box.text_is_valid = is_numeric && !exceeds_doc_length;
     }
 
-    //TODO: maybe this should be implemented in edit_core?...
-    fn incremental_search(&mut self){   //this def doesn't work correctly with utf-8 yet
-        if let Some(selections) = self.ui.util_bar.utility_widget.selections_before_search.clone(){
-            if let Ok(selections) = selections.search(&self.ui.util_bar.utility_widget.text_box.text.to_string(), self.document.text()){    //TODO: selection management should be done in edit_core::document.rs
-                self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
-                *self.document.selections_mut() = selections;
-                //TODO: should this run checked_scroll_and_update()?
-            }else{  //TODO: may want to match on error to make sure we are handling this correctly
-                self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
-                *self.document.selections_mut() = self.ui.util_bar.utility_widget.selections_before_search.clone().unwrap();
-            }
-            //TODO: if no selection extended, search whole document
-        }
-    }
-    //TODO: maybe this should be implemented in edit_core?...
     pub fn restore_selections_and_exit(&mut self){
         self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
-        *self.document.selections_mut() = self.ui.util_bar.utility_widget.selections_before_search.clone().unwrap();
-        self.mode_pop()
+        *self.document.selections_mut() = self.ui.util_bar.utility_widget.preserved_selections.clone().unwrap();    //shouldn't be called unless this value is Some()
+        self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
+        self.mode_pop();
     }
-
-    //TODO: maybe this should be implemented in edit_core?...
-    fn incremental_split(&mut self){
-        if let Some(selections) = self.ui.util_bar.utility_widget.selections_before_search.clone(){
-            if let Ok(selections) = selections.split(&self.ui.util_bar.utility_widget.text_box.text.to_string(), self.document.text()){ //TODO: selection management should be done in edit_core::document.rs
-                self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
-                *self.document.selections_mut() = selections;
-                //TODO: should this run checked_scroll_and_update()?
-            }else{  //TODO: may want to match on error to make sure we are handling this correctly
-                self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
-                *self.document.selections_mut() = self.ui.util_bar.utility_widget.selections_before_search.clone().unwrap();
+    fn incremental_search(&mut self){   //this def doesn't work correctly with utf-8 yet
+        match &self.ui.util_bar.utility_widget.preserved_selections{
+            Some(preserved_selections) => {
+                match self.document.incremental_search_in_selection(&self.ui.util_bar.utility_widget.text_box.text.to_string(), preserved_selections){
+                    Ok(()) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = true;}
+                    Err(_) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = false;}
+                }
             }
+            None => {/* maybe error?... */unreachable!()}
         }
     }
-
-    //pub fn select_inside_pair(&mut self, leading_char: char, trailing_char: char, inclusive: bool)
-    //or
-    //pub enum PairStyle{InsideInclusive, InsideExclusive, PairOnly}
-    //pub fn select_pair(&mut self, leading_char: char, trailing_char: char, pair_style: PairStyle)
-    pub fn select_inside_pair(&mut self, leading_char: char, trailing_char: char){
-        //match self.document.select_inside_pair(leading_char, trailing_char){
-        //    Ok(()) => {/*checked scroll and update*/}
-        //    Err(_) => {}
-        //}
-        todo!();
+    fn incremental_split(&mut self){
+        match &self.ui.util_bar.utility_widget.preserved_selections{
+            Some(preserved_selections) => {
+                match self.document.incremental_split_in_selection(&self.ui.util_bar.utility_widget.text_box.text.to_string(), preserved_selections){
+                    Ok(()) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = true;}
+                    Err(_) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = false;}
+                }
+            }
+            None => {/* maybe error?... */unreachable!()}
+        }
     }
-    //pub fn select_inside_text_object(&mut self){}
-    //pub fn select_inside_instances_of_single_char(){}
 
     pub fn toggle_line_numbers(&mut self){
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
@@ -723,7 +703,7 @@ impl Application{
         );
         self.update_ui_data_document();
     }
-    pub fn open_new_terminal_window(&self){
+    pub fn open_new_terminal_window(){
         let _ = std::process::Command::new("alacritty")     //TODO: have user define TERMINAL const in config.rs   //or check env vars for $TERM?
             //.arg("msg")     // these extra commands just make new instances use the same backend(daemon?)
             //.arg("create-window")
@@ -735,7 +715,7 @@ impl Application{
         assert!(self.mode() == Mode::Command);
         let mut warn = false;
         match self.ui.util_bar.utility_widget.text_box.text.to_string().as_str(){
-            "term" | "t" => {self.open_new_terminal_window();}
+            "term" | "t" => {Application::open_new_terminal_window();}
             "toggle_line_numbers" | "ln" => {self.toggle_line_numbers();}
             "toggle_status_bar" | "sb" => {self.toggle_status_bar();}
             _ => {warn = true;}

@@ -6,6 +6,7 @@
 #![allow(clippy::match_same_arms)]  //idk,double check if we want this one...
 #![allow(clippy::bool_to_int_with_if)]  //idk, double check if we want this one...
 //#![warn(unused_results)]
+#![allow(clippy::cast_possible_truncation)]
 
 use crate::application::Application;
 use crate::config::CURSOR_STYLE;

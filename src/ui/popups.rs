@@ -137,7 +137,7 @@ impl PopupMenu{
         if config::SHOW_POPUP_MENU_COLUMN_HEADERS{
             let key_padding = " ".repeat(longest_key.saturating_sub(key_grapheme_count));
             let command_padding = if config::SHOW_COMMAND_SOURCES_IN_POPUP_MENUS{" ".repeat(longest_command.saturating_sub(command_grapheme_count))}
-            else{"".to_string()};
+            else{String::new()};
             let source = if config::SHOW_COMMAND_SOURCES_IN_POPUP_MENUS{source}
             else{""};
             content.push_str(&format!(
@@ -150,9 +150,9 @@ impl PopupMenu{
             let key_padding = " ".repeat(longest_key.saturating_sub(UnicodeSegmentation::graphemes(menu_item.key, true).count()));
             let command = menu_item.command;
             let command_padding = if config::SHOW_COMMAND_SOURCES_IN_POPUP_MENUS{" ".repeat(longest_command.saturating_sub(UnicodeSegmentation::graphemes(menu_item.command, true).count()))}
-            else{"".to_string()};
+            else{String::new()};
             let source = if config::SHOW_COMMAND_SOURCES_IN_POPUP_MENUS{menu_item.source.to_string()}
-            else{"".to_string()};
+            else{String::new()};
             content.push_str(&format!(
                 "{leading_padding}{key}{key_padding}{key_command_inner_padding}{command}{command_padding}{command_source_inner_padding}{source}{trailing_padding}\n"
             ));
@@ -171,30 +171,30 @@ impl PopupMenu{
 
 /// Container type for popup style widgets.
 pub struct Popups{
-    pub goto_mode_widget: PopupMenu,
-    pub command_mode_widget: PopupMenu,
-    pub find_mode_widget: PopupMenu,
-    pub split_mode_widget: PopupMenu,
-    pub warning_mode_widget: PopupMenu,
-    pub modified_warning_mode_widget: PopupMenu,
-    pub notify_mode_widget: PopupMenu,
-    pub view_mode_widget: PopupMenu,
-    pub object_mode_widget: PopupMenu,
-    pub add_surround_mode_widget: PopupMenu,
+    pub goto: PopupMenu,
+    pub command: PopupMenu,
+    pub find: PopupMenu,
+    pub split: PopupMenu,
+    pub warning: PopupMenu,
+    pub modified_warning: PopupMenu,
+    pub notify: PopupMenu,
+    pub view: PopupMenu,
+    pub object: PopupMenu,
+    pub add_surround: PopupMenu,
 }
 impl Popups{
     pub fn new() -> Self{
         Self{
-            goto_mode_widget: PopupMenu::new_from_mode_menu(&GOTO_MODE_MENU_ITEMS, "Goto"),
-            command_mode_widget: PopupMenu::new_from_mode_menu(&COMMAND_MODE_MENU_ITEMS, "Command"),
-            find_mode_widget: PopupMenu::new_from_mode_menu(&FIND_MODE_MENU_ITEMS, "Find"),
-            split_mode_widget: PopupMenu::new_from_mode_menu(&SPLIT_MODE_MENU_ITEMS, "Split"),
-            warning_mode_widget: PopupMenu::new_from_mode_menu(&WARNING_MODE_MENU_ITEMS, "Warning"),
-            modified_warning_mode_widget: PopupMenu::new_from_mode_menu(&MODIFIED_WARNING_MODE_MENU_ITEMS, "Warning"),
-            notify_mode_widget: PopupMenu::new_from_mode_menu(&NOTIFY_MODE_MENU_ITEMS, "Notify"),
-            view_mode_widget: PopupMenu::new_from_mode_menu(&VIEW_MODE_MENU_ITEMS, "View"),
-            object_mode_widget: PopupMenu::new_from_mode_menu(&OBJECT_MODE_MENU_ITEMS, "Object"),
-            add_surround_mode_widget: PopupMenu::new_from_mode_menu(&ADD_SURROUND_MODE_MENU_ITEMS, "Surround")
+            goto: PopupMenu::new_from_mode_menu(&GOTO_MODE_MENU_ITEMS, "Goto"),
+            command: PopupMenu::new_from_mode_menu(&COMMAND_MODE_MENU_ITEMS, "Command"),
+            find: PopupMenu::new_from_mode_menu(&FIND_MODE_MENU_ITEMS, "Find"),
+            split: PopupMenu::new_from_mode_menu(&SPLIT_MODE_MENU_ITEMS, "Split"),
+            warning: PopupMenu::new_from_mode_menu(&WARNING_MODE_MENU_ITEMS, "Warning"),
+            modified_warning: PopupMenu::new_from_mode_menu(&MODIFIED_WARNING_MODE_MENU_ITEMS, "Warning"),
+            notify: PopupMenu::new_from_mode_menu(&NOTIFY_MODE_MENU_ITEMS, "Notify"),
+            view: PopupMenu::new_from_mode_menu(&VIEW_MODE_MENU_ITEMS, "View"),
+            object: PopupMenu::new_from_mode_menu(&OBJECT_MODE_MENU_ITEMS, "Object"),
+            add_surround: PopupMenu::new_from_mode_menu(&ADD_SURROUND_MODE_MENU_ITEMS, "Surround")
         }
     }
 }

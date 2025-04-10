@@ -56,7 +56,7 @@ selections.
 1.1: Cursor Movement:
     A selection over a single grapheme may be referred to as a "cursor". It is
     the mobile block that can hover over buffer content, to indicate that the
-    underlying content is selected.
+    underlying content is in scope to be operated on.
         
     Edit allows for multiple simultaneous cursors/selections, but we will begin by 
     manipulating a single cursor. This is referred to as the primary cursor.
@@ -345,7 +345,7 @@ selections.
             If the cursor is already at the end of a line's text, a same state error will be emitted.
 
          ,------,   ,-------,   ,-------,
-         | ctrl | + | shift | + | right |
+         | ctrl | + | shift | + | right |   //TODO: this is having issues when already extended left over a char that could be a starting or ending word boundary
          `------`   `-------`   `-------`
         associated command name: "extend selection word boundary forward"
         common use:
