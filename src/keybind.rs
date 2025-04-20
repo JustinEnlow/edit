@@ -19,6 +19,7 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
                 else if c == 'b'{app.selection_action(&SelectionAction::Surround);}
                 else if c == 'c'{app.copy();}
                 else if c == 'd'{app.mode_push(Mode::AddSurround);}
+                else if c == 'f'{app.selection_action(&SelectionAction::FlipDirection);}
                 else if c == 'g'{app.mode_push(Mode::Goto);}
                 else if c == 'l'{app.selection_action(&SelectionAction::SelectLine);}
                 else if c == 'o'{app.mode_push(Mode::Object);}
@@ -40,13 +41,13 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
             else{app.no_op_keypress();}
         }
         (KeyCode::PageDown, modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.selection_action(&SelectionAction::ExtendSelectionPageDown);}
-            else if modifiers == KeyModifiers::NONE{app.selection_action(&SelectionAction::MoveCursorPageDown);}
+            //if modifiers == KeyModifiers::SHIFT{app.selection_action(&SelectionAction::ExtendSelectionPageDown);}
+            /*else */if modifiers == KeyModifiers::NONE{app.selection_action(&SelectionAction::MoveCursorPageDown);}
             else{app.no_op_keypress();}
         }
         (KeyCode::PageUp, modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.selection_action(&SelectionAction::ExtendSelectionPageUp);}
-            else if modifiers == KeyModifiers::NONE{app.selection_action(&SelectionAction::MoveCursorPageUp);}
+            //if modifiers == KeyModifiers::SHIFT{app.selection_action(&SelectionAction::ExtendSelectionPageUp);}
+            /*else */if modifiers == KeyModifiers::NONE{app.selection_action(&SelectionAction::MoveCursorPageUp);}
             else{app.no_op_keypress();}
         }
         (KeyCode::Up, modifiers) => {

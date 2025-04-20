@@ -11,6 +11,14 @@ pub const CURSOR_SEMANTICS: CursorSemantics = match CURSOR_STYLE{
     _ => CursorSemantics::Block
 };
 
+/// Indicates whether to use hard tabs (e.g., `\t`) or spaces for indentation.
+///     - If `USE_HARD_TAB` is `true`, a literal tab character (`\t`) is inserted.
+///     - If `USE_HARD_TAB` is `false`, spaces are inserted, with the number of spaces determined by the `TAB_WIDTH` setting.
+pub const USE_HARD_TAB: bool = false;   //maybe do enum TabStyle{Hard, Soft, Smart}
+/// Specifies the display width of a tab character. 
+/// This value could be adjusted based on user preferences or configuration, though there are currently no per-language settings.
+pub const TAB_WIDTH: usize = 4; //should this be language dependant? on-the-fly configurable?   //TODO: consider what to do with files where the tab width already in use is different than this setting
+
 pub const VIEW_SCROLL_AMOUNT: usize = 1;    //should this have separate vertical and horizontal definitions?
 
 // should TAB_WIDTH be defined here instead of in edit_core?

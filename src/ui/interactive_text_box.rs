@@ -41,7 +41,8 @@ impl InteractiveTextBox{
         new_text.insert_char(self.selection.cursor(&text, CursorSemantics::Block), char);
         self.text = new_text;
         //self.selection = self.selection.move_right(&self.text.clone(), CursorSemantics::Block);
-        if let Ok(new_selection) = self.selection.move_right(&self.text.clone(), CursorSemantics::Block){
+        //if let Ok(new_selection) = self.selection.move_right(&self.text.clone(), CursorSemantics::Block){
+        if let Ok(new_selection) = edit_core::utilities::move_cursor_right::selection_impl(&self.selection, &self.text, CursorSemantics::Block){
             self.selection = new_selection;
         }
     }
@@ -91,7 +92,8 @@ impl InteractiveTextBox{
         }else{
             if self.selection.cursor(&self.text, semantics) > 0{
                 //self.selection = self.selection.move_left(&self.text, semantics);
-                if let Ok(new_selection) = self.selection.move_left(&self.text, semantics){
+                //if let Ok(new_selection) = self.selection.move_left(&self.text, semantics){
+                if let Ok(new_selection) = edit_core::utilities::move_cursor_left::selection_impl(&self.selection, &self.text, CursorSemantics::Block){
                     self.selection = new_selection;
                 }
                 self.delete();
@@ -103,49 +105,57 @@ impl InteractiveTextBox{
 
     pub fn extend_selection_end(&mut self){
         //self.selection = self.selection.extend_line_text_end(&self.text, CursorSemantics::Block);
-        if let Ok(new_selection) = self.selection.extend_line_text_end(&self.text, CursorSemantics::Block){
+        //if let Ok(new_selection) = self.selection.extend_line_text_end(&self.text, CursorSemantics::Block){
+        if let Ok(new_selection) = edit_core::utilities::extend_selection_line_end::selection_impl(&self.selection, &self.text, CursorSemantics::Block){
             self.selection = new_selection;
         }
     }
     pub fn extend_selection_home(&mut self){
         //self.selection = self.selection.extend_home(&self.text, CursorSemantics::Block);
-        if let Ok(new_selection) = self.selection.extend_home(&self.text, CursorSemantics::Block){
+        //if let Ok(new_selection) = self.selection.extend_home(&self.text, CursorSemantics::Block){
+        if let Ok(new_selection) = edit_core::utilities::extend_selection_home::selection_impl(&self.selection, &self.text, CursorSemantics::Block){
             self.selection = new_selection;
         }
     }
     pub fn extend_selection_left(&mut self){
         //self.selection = self.selection.extend_left(&self.text, CursorSemantics::Block);
-        if let Ok(new_selection) = self.selection.extend_left(&self.text, CursorSemantics::Block){
+        //if let Ok(new_selection) = self.selection.extend_left(&self.text, CursorSemantics::Block){
+        if let Ok(new_selection) = edit_core::utilities::extend_selection_left::selection_impl(&self.selection, &self.text, CursorSemantics::Block){
             self.selection = new_selection;
         }
     }
     pub fn extend_selection_right(&mut self){
         //self.selection = self.selection.extend_right(&self.text, CursorSemantics::Block);
-        if let Ok(new_selection) = self.selection.extend_right(&self.text, CursorSemantics::Block){
+        //if let Ok(new_selection) = self.selection.extend_right(&self.text, CursorSemantics::Block){
+        if let Ok(new_selection) = edit_core::utilities::extend_selection_right::selection_impl(&self.selection, &self.text, CursorSemantics::Block){
             self.selection = new_selection;
         }
     }
     pub fn move_cursor_left(&mut self){
         //self.selection = self.selection.move_left(&self.text, CursorSemantics::Block);
-        if let Ok(new_selection) = self.selection.move_left(&self.text, CursorSemantics::Block){
+        //if let Ok(new_selection) = self.selection.move_left(&self.text, CursorSemantics::Block){
+        if let Ok(new_selection) = edit_core::utilities::move_cursor_left::selection_impl(&self.selection, &self.text, CursorSemantics::Block){
             self.selection = new_selection;
         }
     }
     pub fn move_cursor_line_end(&mut self){
         //self.selection = self.selection.move_line_text_end(&self.text, CursorSemantics::Block);
-        if let Ok(new_selection) = self.selection.move_line_text_end(&self.text, CursorSemantics::Block){
+        //if let Ok(new_selection) = self.selection.move_line_text_end(&self.text, CursorSemantics::Block){
+        if let Ok(new_selection) = edit_core::utilities::move_cursor_line_end::selection_impl(&self.selection, &self.text, CursorSemantics::Block){
             self.selection = new_selection;
         }
     }
     pub fn move_cursor_line_start(&mut self){
         //self.selection = self.selection.move_home(&self.text, CursorSemantics::Block);
-        if let Ok(new_selection) = self.selection.move_home(&self.text, CursorSemantics::Block){
+        //if let Ok(new_selection) = self.selection.move_home(&self.text, CursorSemantics::Block){
+        if let Ok(new_selection) = edit_core::utilities::move_cursor_home::selection_impl(&self.selection, &self.text, CursorSemantics::Block){
             self.selection = new_selection;
         }
     }
     pub fn move_cursor_right(&mut self){
         //self.selection = self.selection.move_right(&self.text, CursorSemantics::Block);
-        if let Ok(new_selection) = self.selection.move_right(&self.text, CursorSemantics::Block){
+        //if let Ok(new_selection) = self.selection.move_right(&self.text, CursorSemantics::Block){
+        if let Ok(new_selection) = edit_core::utilities::move_cursor_right::selection_impl(&self.selection, &self.text, CursorSemantics::Block){
             self.selection = new_selection;
         }
     }

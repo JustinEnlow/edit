@@ -81,7 +81,7 @@ selections.
             Moves the cursor one row up.
         alternate behavior:
             If the previous line is shorter than the current line, the cursor will be placed
-            at the end of that line.
+            at the end of that line. (if cursor at position in current line > previous line len)
 
             If this occurs, the current line offset will be preserved and, if only vertical
             movement are made, restored when the cursor is on a longer line again.
@@ -405,7 +405,7 @@ selections.
          ,------,   ,---,
          | ctrl | + | f |
          `------`   `---`
-        flip direction  (not implemented)
+        flip direction
 
 //TODO: selection history   (not implemented)
     //impl undo/redo, but for selection actions

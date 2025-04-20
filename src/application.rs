@@ -6,10 +6,9 @@ use ratatui::{backend::CrosstermBackend, Terminal};
 use crate::ui::UserInterface;
 use edit_core::selection::Selection;
 use edit_core::selections::{Selections, SelectionsError};
-use edit_core::view::ViewError;
 use edit_core::document::{Document, DocumentError};
 use crate::keybind;
-use crate::config::{CURSOR_SEMANTICS, SHOW_SAME_STATE_WARNINGS, VIEW_SCROLL_AMOUNT};
+use crate::config::{CURSOR_SEMANTICS, SHOW_SAME_STATE_WARNINGS, VIEW_SCROLL_AMOUNT, USE_HARD_TAB, TAB_WIDTH};
 
 
 
@@ -77,8 +76,8 @@ pub enum SelectionAction{
     ExtendSelectionHome,
     //ExtendSelectionDocumentStart,
     //ExtendSelectionDocumentEnd,
-    ExtendSelectionPageUp,
-    ExtendSelectionPageDown,
+    //ExtendSelectionPageUp,
+    //ExtendSelectionPageDown,
     SelectLine,
     SelectAll,
     CollapseSelections,
@@ -90,6 +89,7 @@ pub enum SelectionAction{
     DecrementPrimarySelection,
     Surround,
     SurroundingPair,
+    FlipDirection
 }
 
 #[derive(Clone, PartialEq)]
@@ -106,15 +106,14 @@ pub enum Mode{
     Goto,
     /// for issuing editor commands
     Command,
-    // all selection manipulation with regex matching can be sub modes of a mode called Match. this would be a popup mode, that then triggers the interactive text box when sub mode entered
     /// for selecting any matching regex from inside selections
     Find,
     /// for retaining everything within selections that isn't a matching regex pattern
     Split,
     /// for selecting text objects
     Object,
-    // for inserting bracket pairs around selection(s) contents
-    AddSurround,
+    /// for inserting bracket pairs around selection(s) contents
+    AddSurround,    //maybe change to AddSurroundingPair or AddBracketPair
 
     // NOTE: may not ever implement the following, but good to think about...
     //select the next occurring instance of a search pattern
@@ -251,7 +250,7 @@ impl Application{
                 clear_saved_selections = true;
             }
             Mode::Object | Mode::Notify | Mode::View | Mode::Warning(_) | Mode::AddSurround => {}
-            Mode::Insert => {/*should not call pop in Insert mode. maybe set warning?...*/self.mode_push(Mode::Warning(WarningKind::InvalidInput));}
+            Mode::Insert => {self.mode_push(Mode::Warning(WarningKind::InvalidInput));}
         }
 
         //remove current mode from stack
@@ -403,7 +402,7 @@ impl Application{
 
     pub fn save(&mut self){
         assert!(self.mode() == Mode::Insert);
-        match self.document.save(){
+        match edit_core::utilities::save::document_impl(&mut self.document){
             Ok(()) => {self.update_ui_data_document();}
             Err(_) => {self.mode_push(Mode::Warning(WarningKind::FileSaveFailed));}
         }
@@ -424,6 +423,7 @@ impl Application{
                     SelectionsError::MultipleSelections => {self.mode_push(Mode::Warning(WarningKind::MultipleSelections));}
                     SelectionsError::SingleSelection => {self.mode_push(Mode::Warning(WarningKind::SingleSelection));}
                     SelectionsError::NoSearchMatches |
+                    //TODO: this error can now happen. figure out how to handle it...
                     SelectionsError::SpansMultipleLines => self.mode_push(Mode::Warning(WarningKind::UnhandledError(format!("{s:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))),
                 }
             }
@@ -431,7 +431,7 @@ impl Application{
     }
     pub fn copy(&mut self){
         assert!(self.mode() == Mode::Insert);
-        match self.document.copy(){
+        match edit_core::utilities::copy::document_impl(&mut self.document){
             Ok(()) => {
                 self.mode_push(Mode::Notify);
                 self.update_ui_data_document(); //TODO: is this really needed for something?...
@@ -442,26 +442,20 @@ impl Application{
     pub fn edit_action(&mut self, action: &EditAction){
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::AddSurround);
         let len = self.document.len();
-        
+        use edit_core::utilities::{insert_string, delete, backspace, cut, paste, undo, redo, add_surrounding_pair};
         let result = match action{
-            EditAction::InsertChar(c) => self.document.insert_string(&c.to_string(), CURSOR_SEMANTICS),
-            EditAction::InsertNewline => self.document.insert_string("\n", CURSOR_SEMANTICS),
-            EditAction::InsertTab => self.document.insert_string("\t", CURSOR_SEMANTICS),
-            EditAction::Delete => self.document.delete(CURSOR_SEMANTICS),
-            EditAction::Backspace => self.document.backspace(CURSOR_SEMANTICS),
-            EditAction::Cut => self.document.cut(CURSOR_SEMANTICS),
-            EditAction::Paste => self.document.paste(CURSOR_SEMANTICS),
-            EditAction::Undo => self.document.undo(CURSOR_SEMANTICS),   // TODO: undo takes a long time to undo when whole text deleted. see if this can be improved
-            EditAction::Redo => self.document.redo(CURSOR_SEMANTICS),
-            EditAction::AddSurround(l, t) => self.document.add_surrounding_pair(*l, *t),
+            EditAction::InsertChar(c) => insert_string::document_impl(&mut self.document, &c.to_string(), USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
+            EditAction::InsertNewline => insert_string::document_impl(&mut self.document, "\n", USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
+            EditAction::InsertTab => insert_string::document_impl(&mut self.document, "\t", USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
+            EditAction::Delete => delete::document_impl(&mut self.document, CURSOR_SEMANTICS),
+            EditAction::Backspace => backspace::document_impl(&mut self.document, USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
+            EditAction::Cut => cut::document_impl(&mut self.document, CURSOR_SEMANTICS),
+            EditAction::Paste => paste::document_impl(&mut self.document, USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
+            EditAction::Undo => undo::document_impl(&mut self.document, CURSOR_SEMANTICS),   // TODO: undo takes a long time to undo when whole text deleted. see if this can be improved
+            EditAction::Redo => redo::document_impl(&mut self.document, CURSOR_SEMANTICS),
+            EditAction::AddSurround(l, t) => add_surrounding_pair::document_impl(&mut self.document, *l, *t, CURSOR_SEMANTICS),
         };
-
-        //
-        if self.mode() != Mode::Insert{
-            self.mode_pop();
-        }
-        //
-
+        if self.mode() != Mode::Insert{self.mode_pop();}
         match result{
             Ok(()) => {
                 self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
@@ -474,49 +468,51 @@ impl Application{
     pub fn selection_action(&mut self, action: &SelectionAction){
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::Object);
         let result = match action{
-            SelectionAction::MoveCursorUp => {self.document.move_cursor_up(CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorDown => {self.document.move_cursor_down(CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorLeft => {self.document.move_cursor_left(CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorRight => {self.document.move_cursor_right(CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorWordBoundaryForward => {self.document.move_cursor_word_boundary_forward(CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorWordBoundaryBackward => {self.document.move_cursor_word_boundary_backward(CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorLineEnd => {self.document.move_cursor_line_end(CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorHome => {self.document.move_cursor_home(CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorDocumentStart => {self.document.move_cursor_document_start(CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorDocumentEnd => {self.document.move_cursor_document_end(CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorPageUp => {self.document.move_cursor_page_up(CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorPageDown => {self.document.move_cursor_page_down(CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionUp => {self.document.extend_selection_up(CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionDown => {self.document.extend_selection_down(CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionLeft => {self.document.extend_selection_left(CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionRight => {self.document.extend_selection_right(CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionWordBoundaryBackward => {self.document.extend_selection_word_boundary_backward(CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionWordBoundaryForward => {self.document.extend_selection_word_boundary_forward(CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionLineEnd => {self.document.extend_selection_line_end(CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionHome => {self.document.extend_selection_home(CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorUp => {edit_core::utilities::move_cursor_up::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorDown => {edit_core::utilities::move_cursor_down::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorLeft => {edit_core::utilities::move_cursor_left::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorRight => {edit_core::utilities::move_cursor_right::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorWordBoundaryForward => {edit_core::utilities::move_cursor_word_boundary_forward::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorWordBoundaryBackward => {edit_core::utilities::move_cursor_word_boundary_backward::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorLineEnd => {edit_core::utilities::move_cursor_line_end::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorHome => {edit_core::utilities::move_cursor_home::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorDocumentStart => {edit_core::utilities::move_cursor_document_start::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorDocumentEnd => {edit_core::utilities::move_cursor_document_end::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorPageUp => {edit_core::utilities::move_cursor_page_up::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorPageDown => {edit_core::utilities::move_cursor_page_down::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::ExtendSelectionUp => {edit_core::utilities::extend_selection_up::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::ExtendSelectionDown => {edit_core::utilities::extend_selection_down::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::ExtendSelectionLeft => {edit_core::utilities::extend_selection_left::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::ExtendSelectionRight => {edit_core::utilities::extend_selection_right::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::ExtendSelectionWordBoundaryBackward => {edit_core::utilities::extend_selection_word_boundary_backward::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::ExtendSelectionWordBoundaryForward => {edit_core::utilities::extend_selection_word_boundary_forward::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::ExtendSelectionLineEnd => {edit_core::utilities::extend_selection_line_end::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::ExtendSelectionHome => {edit_core::utilities::extend_selection_home::document_impl(&mut self.document, CURSOR_SEMANTICS)}
             //SelectionAction::ExtendSelectionDocumentStart => {self.document.extend_selection_document_start(CURSOR_SEMANTICS)}
             //SelectionAction::ExtendSelectionDocumentEnd => {self.document.extend_selection_document_end(CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionPageUp => {self.document.extend_selection_page_up(CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionPageDown => {self.document.extend_selection_page_down(CURSOR_SEMANTICS)}
-            SelectionAction::SelectLine => {self.document.select_line(CURSOR_SEMANTICS)}
-            SelectionAction::SelectAll => {self.document.select_all(CURSOR_SEMANTICS)}
-            SelectionAction::CollapseSelections => {self.document.collapse_selections(CURSOR_SEMANTICS)}
-            SelectionAction::ClearNonPrimarySelections => {self.document.clear_non_primary_selections()}
-            SelectionAction::AddSelectionAbove => {self.document.add_selection_above(CURSOR_SEMANTICS)}
-            SelectionAction::AddSelectionBelow => {self.document.add_selection_below(CURSOR_SEMANTICS)}
-            SelectionAction::RemovePrimarySelection => {self.document.remove_primary_selection()}
-            SelectionAction::IncrementPrimarySelection => {self.document.increment_primary_selection()}
-            SelectionAction::DecrementPrimarySelection => {self.document.decrement_primary_selection()}
-            SelectionAction::Surround => {self.document.surround()} //this works for quotes, but this isn't the solution for bracket pairs...   maybe surround should be a separate mode with a menu of surround options ', ", (, {, [, <, etc.
+            //SelectionAction::ExtendSelectionPageUp => {self.document.extend_selection_page_up(CURSOR_SEMANTICS)}
+            //SelectionAction::ExtendSelectionPageDown => {self.document.extend_selection_page_down(CURSOR_SEMANTICS)}
+            SelectionAction::SelectLine => {edit_core::utilities::select_line::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::SelectAll => {edit_core::utilities::select_all::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::CollapseSelections => {edit_core::utilities::collapse_selections_to_cursor::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::ClearNonPrimarySelections => {edit_core::utilities::clear_non_primary_selections::document_impl(&mut self.document)}
+            SelectionAction::AddSelectionAbove => {edit_core::utilities::add_selection_above::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::AddSelectionBelow => {edit_core::utilities::add_selection_below::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::RemovePrimarySelection => {edit_core::utilities::remove_primary_selection::document_impl(&mut self.document)}
+            SelectionAction::IncrementPrimarySelection => {edit_core::utilities::increment_primary_selection::document_impl(&mut self.document)}
+            SelectionAction::DecrementPrimarySelection => {edit_core::utilities::decrement_primary_selection::document_impl(&mut self.document)}
+            SelectionAction::Surround => {edit_core::utilities::surround::document_impl(&mut self.document)}
 
             //These may technically be distinct from the other selection actions, because they could be called from object mode, and would need to pop the mode stack after calling...
             //TODO: SelectionAction::Word => {self.document.word()}
             //TODO: SelectionAction::Sentence => {self.document.sentence()}
             //TODO: SelectionAction::Paragraph => {self.document.paragraph()}
-            SelectionAction::SurroundingPair => {self.document.nearest_surrounding_pair(CURSOR_SEMANTICS)}  //TODO: rename SurroundingBracketPair
+            SelectionAction::SurroundingPair => {edit_core::utilities::nearest_surrounding_pair::document_impl(&mut self.document, CURSOR_SEMANTICS)}  //TODO: rename SurroundingBracketPair
             //TODO: SelectionAction::QuotePair => {self.document.nearest_quote_pair()}                      //TODO: rename SurroundingQuotePair
             //TODO: SelectionAction::ExclusiveSurroundingPair => {self.document.exclusive_surrounding_pair()}
             //TODO: SelectionAction::InclusiveSurroundingPair => {self.document.inclusive_surrounding_pair()}
+
+            SelectionAction::FlipDirection => {edit_core::utilities::flip_direction::document_impl(&mut self.document, CURSOR_SEMANTICS)}
         };
 
         //maybe.    so far, only needed for selection actions called from object mode
@@ -534,32 +530,25 @@ impl Application{
     }
 
     pub fn view_action(&mut self, action: &ViewAction){      //TODO: make sure this can still be called from insert, so users can assign a direct keybind if desired
-        assert!(/*self.mode == Mode::Insert || */ /*self.mode*/self.mode() == Mode::View);
-        let view = self.document.view();
+        assert!(self.mode() == Mode::Insert || self.mode() == Mode::View);
 
         let mut should_exit = false;
         let result = match action{
             ViewAction::CenterVerticallyAroundCursor => {
                 should_exit = true;
-                view.center_vertically_around_cursor(self.document.selections().primary(), self.document.text(), CURSOR_SEMANTICS)
+                edit_core::utilities::center_view_vertically_around_cursor::document_impl(&mut self.document, CURSOR_SEMANTICS)
             }
-            ViewAction::ScrollUp => {view.scroll_up(VIEW_SCROLL_AMOUNT)}
-            ViewAction::ScrollDown => {view.scroll_down(VIEW_SCROLL_AMOUNT, self.document.text())}
-            ViewAction::ScrollLeft => {view.scroll_left(VIEW_SCROLL_AMOUNT)}
-            ViewAction::ScrollRight => {view.scroll_right(VIEW_SCROLL_AMOUNT, self.document.text())}
+            ViewAction::ScrollUp => edit_core::utilities::scroll_view_up::document_impl(&mut self.document, VIEW_SCROLL_AMOUNT),
+            ViewAction::ScrollDown => edit_core::utilities::scroll_view_down::document_impl(&mut self.document, VIEW_SCROLL_AMOUNT),
+            ViewAction::ScrollLeft => edit_core::utilities::scroll_view_left::document_impl(&mut self.document, VIEW_SCROLL_AMOUNT),
+            ViewAction::ScrollRight => edit_core::utilities::scroll_view_right::document_impl(&mut self.document, VIEW_SCROLL_AMOUNT)
         };
         match result{
-            Ok(new_view) => {
-                *self.document.view_mut() = new_view;
+            Ok(()) => {
                 self.update_ui_data_document();
-                if should_exit{/*self.set_mode(Mode::Insert);*/self.mode_pop()}    //only call if in View Mode
+                if self.mode() != Mode::Insert && should_exit{self.mode_pop();}
             }
-            Err(e) => {
-                match e{
-                    ViewError::InvalidInput => {/*self.set_mode(Mode::Warning(WarningKind::InvalidInput));*/self.mode_push(Mode::Warning(WarningKind::InvalidInput));}
-                    ViewError::ResultsInSameState => {if SHOW_SAME_STATE_WARNINGS{/*self.set_mode(Mode::Warning(WarningKind::SameState));*/self.mode_push(Mode::Warning(WarningKind::SameState));}}
-                }
-            }
+            Err(e) => self.handle_document_error(e),
         }
     }
 
@@ -612,7 +601,7 @@ impl Application{
             if line_number == 0{show_warning = true;}   //we have no line number 0, so this is invalid
             else{
                 let line_number = line_number.saturating_sub(1);    // make line number 0 based for interfacing correctly with backend impl
-                match self.document.move_to_line_number(line_number, CURSOR_SEMANTICS){
+                match edit_core::utilities::move_to_line_number::document_impl(&mut self.document, line_number, CURSOR_SEMANTICS){
                     Ok(()) => {self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_selections, Application::update_ui_data_selections);}  //TODO: pretty sure one of these should be update_ui_data_document
                     Err(_) => {show_warning = true;}    //TODO: match error and handle
                 }
@@ -661,7 +650,7 @@ impl Application{
     fn incremental_search(&mut self){   //this def doesn't work correctly with utf-8 yet
         match &self.ui.util_bar.utility_widget.preserved_selections{
             Some(preserved_selections) => {
-                match self.document.incremental_search_in_selection(&self.ui.util_bar.utility_widget.text_box.text.to_string(), preserved_selections){
+                match edit_core::utilities::incremental_search_in_selection::document_impl(&mut self.document, &self.ui.util_bar.utility_widget.text_box.text.to_string(), preserved_selections){
                     Ok(()) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = true;}
                     Err(_) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = false;}
                 }
@@ -672,7 +661,7 @@ impl Application{
     fn incremental_split(&mut self){
         match &self.ui.util_bar.utility_widget.preserved_selections{
             Some(preserved_selections) => {
-                match self.document.incremental_split_in_selection(&self.ui.util_bar.utility_widget.text_box.text.to_string(), preserved_selections){
+                match edit_core::utilities::incremental_split_in_selection::document_impl(&mut self.document, &self.ui.util_bar.utility_widget.text_box.text.to_string(), preserved_selections){
                     Ok(()) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = true;}
                     Err(_) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = false;}
                 }
