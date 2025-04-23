@@ -8,7 +8,7 @@ use edit_core::selection::Selection;
 use edit_core::selections::{Selections, SelectionsError};
 use edit_core::document::{Document, DocumentError};
 use crate::keybind;
-use crate::config::{CURSOR_SEMANTICS, SHOW_SAME_STATE_WARNINGS, VIEW_SCROLL_AMOUNT, USE_HARD_TAB, TAB_WIDTH};
+use crate::config::{CURSOR_SEMANTICS, SHOW_SAME_STATE_WARNINGS, VIEW_SCROLL_AMOUNT, USE_HARD_TAB, TAB_WIDTH, USE_FULL_FILE_PATH};
 
 
 
@@ -163,18 +163,18 @@ impl Application{
         let path = PathBuf::from(file_path).canonicalize()?;
 
         instance.document = Document::open(&path, CURSOR_SEMANTICS)?;
-        instance.ui.status_bar.file_name_widget.file_name = instance.document.file_name();
+        instance.ui.status_bar.file_name_widget.file_name = instance.document.file_name(USE_FULL_FILE_PATH);
         instance.ui.document_viewport.document_widget.doc_length = instance.document.len();
         
         instance.ui.update_layouts(&instance.mode());
         //init backend doc view size
-        instance.document.view_mut().set_size(
+        instance.document.client_view.set_size(
             instance.ui.document_viewport.document_widget.rect.width as usize,
             instance.ui.document_viewport.document_widget.rect.height as usize
         );
 
         // prefer this over scroll_and_update, even when response fns are the same, because it saves us from unnecessarily reassigning the view
-        instance.checked_scroll_and_update(&instance.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
+        instance.checked_scroll_and_update(&instance.document.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
 
         Ok(instance)
     }
@@ -259,7 +259,7 @@ impl Application{
         //handle exit behavior
         if update_layouts_and_document{
             self.ui.update_layouts(&self.mode());
-            self.document.view_mut().set_size(
+            self.document.client_view.set_size(
                 self.ui.document_viewport.document_widget.rect.width as usize,
                 self.ui.document_viewport.document_widget.rect.height as usize
             );
@@ -298,11 +298,11 @@ impl Application{
 
             //handle entry behavior
             if save_selections{
-                self.ui.util_bar.utility_widget.preserved_selections = Some(self.document.selections().clone());
+                self.ui.util_bar.utility_widget.preserved_selections = Some(self.document.selections.clone());
             }
             if update_layouts_and_document{
                 self.ui.update_layouts(&self.mode());
-                self.document.view_mut().set_size(
+                self.document.client_view.set_size(
                     self.ui.document_viewport.document_widget.rect.width as usize,
                     self.ui.document_viewport.document_widget.rect.height as usize
                 );
@@ -313,22 +313,22 @@ impl Application{
 
     /// Set all data related to document viewport UI.
     pub fn update_ui_data_document(&mut self){
-        let text = self.document.text();
+        let text = &self.document.text;
         
-        self.ui.document_viewport.document_widget.text_in_view = self.document.view().text(text);
-        self.ui.document_viewport.line_number_widget.line_numbers_in_view = self.document.view().line_numbers(text);
+        self.ui.document_viewport.document_widget.text_in_view = self.document.client_view.text(text);
+        self.ui.document_viewport.line_number_widget.line_numbers_in_view = self.document.client_view.line_numbers(text);
         self.update_ui_data_selections();
         self.ui.status_bar.modified_indicator_widget.document_modified_status = self.document.is_modified();
     }
     /// Set only data related to selections in document viewport UI.
     pub fn update_ui_data_selections(&mut self){
-        let text = self.document.text();
-        let selections = self.document.selections();
+        let text = &self.document.text;
+        let selections = &self.document.selections;
         
-        self.ui.document_viewport.highlighter.set_primary_cursor_position(self.document.view().primary_cursor_position(text, selections, CURSOR_SEMANTICS));
-        self.ui.document_viewport.highlighter.set_client_cursor_positions(self.document.view().cursor_positions(text, selections, CURSOR_SEMANTICS));
-        self.ui.document_viewport.highlighter.selections = self.document.view().selections(selections, text);
-        self.ui.status_bar.selections_widget.primary_selection_index = selections.primary_selection_index();
+        self.ui.document_viewport.highlighter.set_primary_cursor_position(self.document.client_view.primary_cursor_position(text, selections, CURSOR_SEMANTICS));
+        self.ui.document_viewport.highlighter.set_client_cursor_positions(self.document.client_view.cursor_positions(text, selections, CURSOR_SEMANTICS));
+        self.ui.document_viewport.highlighter.selections = self.document.client_view.selections(selections, text);
+        self.ui.status_bar.selections_widget.primary_selection_index = selections.primary_selection_index;
         self.ui.status_bar.selections_widget.num_selections = selections.count();
         self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone();
     }
@@ -343,9 +343,9 @@ impl Application{
     pub fn checked_scroll_and_update<F, A>(&mut self, cursor_to_follow: &Selection, scroll_response_fn: F, non_scroll_response_fn: A)
         where F: Fn(&mut Application), A: Fn(&mut Application)
     {
-        let text = self.document.text().clone();
-        if self.document.view().should_scroll(cursor_to_follow, &text, CURSOR_SEMANTICS){
-            *self.document.view_mut() = self.document.view().scroll_following_cursor(cursor_to_follow, &text, CURSOR_SEMANTICS);
+        let text = self.document.text.clone();
+        if self.document.client_view.should_scroll(cursor_to_follow, &text, CURSOR_SEMANTICS){
+            self.document.client_view = self.document.client_view.scroll_following_cursor(cursor_to_follow, &text, CURSOR_SEMANTICS);
             scroll_response_fn(self);
         }else{
             non_scroll_response_fn(self);
@@ -369,19 +369,19 @@ impl Application{
         // ui layouts need to be updated before doc size set, so doc size can be calculated correctly
         self.ui.update_layouts(&self.mode());
         self.update_ui_data_util_bar(); //TODO: can this be called later in fn impl?
-        self.document.view_mut().set_size(self.ui.document_viewport.document_widget.rect.width as usize, self.ui.document_viewport.document_widget.rect.height as usize);
+        self.document.client_view.set_size(self.ui.document_viewport.document_widget.rect.width as usize, self.ui.document_viewport.document_widget.rect.height as usize);
         // scrolling so cursor is in a reasonable place, and updating so any ui changes render correctly
-        self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
+        self.checked_scroll_and_update(&self.document.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
     }
 
     pub fn esc_handle(&mut self){
         assert!(self.mode() == Mode::Insert);
         //TODO: if lsp suggestions displaying(currently unimplemented), exit that display   //lsp suggestions could be a separate mode with keybind fallthrough to insert...
-        /*else */if self.document.selections().count() > 1{
+        /*else */if self.document.selections.count() > 1{
             //self.clear_non_primary_selections();
             self.selection_action(&SelectionAction::ClearNonPrimarySelections);
         }
-        else if self.document.selections().primary().is_extended(CURSOR_SEMANTICS){
+        else if self.document.selections.primary().is_extended(CURSOR_SEMANTICS){
             self.selection_action(&SelectionAction::CollapseSelections);
         }
         else{
@@ -390,13 +390,15 @@ impl Application{
     }
 
     pub fn quit(&mut self){
-        assert!(self.mode() == Mode::Insert);
+        assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
         //if self.ui.document_modified(){   //this is the old impl when editor was set up for client/server and state needed to be stored in ui
-        if self.document.is_modified(){self.mode_push(Mode::Warning(WarningKind::FileIsModified));}
+        if self.document.is_modified(){
+            self.mode_push(Mode::Warning(WarningKind::FileIsModified));
+        }
         else{self.should_quit = true;}
     }
     pub fn quit_ignoring_changes(&mut self){
-        assert!(self.mode() == Mode::Warning(WarningKind::FileIsModified));
+        assert!(self.mode() == Mode::Warning(WarningKind::FileIsModified) || self.mode() == Mode::Command);
         self.should_quit = true;
     }
 
@@ -458,7 +460,7 @@ impl Application{
         if self.mode() != Mode::Insert{self.mode_pop();}
         match result{
             Ok(()) => {
-                self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
+                self.checked_scroll_and_update(&self.document.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
                 if len != self.document.len(){self.ui.document_viewport.document_widget.doc_length = self.document.len();}
             }
             Err(e) => {self.handle_document_error(e);}
@@ -523,7 +525,7 @@ impl Application{
 
         match result{
             Ok(()) => {
-                self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
+                self.checked_scroll_and_update(&self.document.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
             }
             Err(e) => {self.handle_document_error(e);}
         }
@@ -584,11 +586,11 @@ impl Application{
             }
             Mode::Find => {
                 self.incremental_search();
-                self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
+                self.checked_scroll_and_update(&self.document.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
             }
             Mode::Split => {
                 self.incremental_split();
-                self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
+                self.checked_scroll_and_update(&self.document.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
             }
             Mode::Command => {/*do nothing*/}
         }
@@ -602,7 +604,7 @@ impl Application{
             else{
                 let line_number = line_number.saturating_sub(1);    // make line number 0 based for interfacing correctly with backend impl
                 match edit_core::utilities::move_to_line_number::document_impl(&mut self.document, line_number, CURSOR_SEMANTICS){
-                    Ok(()) => {self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_selections, Application::update_ui_data_selections);}  //TODO: pretty sure one of these should be update_ui_data_document
+                    Ok(()) => {self.checked_scroll_and_update(&self.document.selections.primary().clone(), Application::update_ui_data_selections, Application::update_ui_data_selections);}  //TODO: pretty sure one of these should be update_ui_data_document
                     Err(_) => {show_warning = true;}    //TODO: match error and handle
                 }
             }
@@ -643,8 +645,8 @@ impl Application{
 
     pub fn restore_selections_and_exit(&mut self){
         self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
-        *self.document.selections_mut() = self.ui.util_bar.utility_widget.preserved_selections.clone().unwrap();    //shouldn't be called unless this value is Some()
-        self.checked_scroll_and_update(&self.document.selections().primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
+        self.document.selections = self.ui.util_bar.utility_widget.preserved_selections.clone().unwrap();    //shouldn't be called unless this value is Some()
+        self.checked_scroll_and_update(&self.document.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
         self.mode_pop();
     }
     fn incremental_search(&mut self){   //this def doesn't work correctly with utf-8 yet
@@ -675,7 +677,7 @@ impl Application{
         self.ui.document_viewport.toggle_line_numbers();
                 
         self.ui.update_layouts(&self.mode());
-        self.document.view_mut().set_size(
+        self.document.client_view.set_size(
             self.ui.document_viewport.document_widget.rect.width as usize,
             self.ui.document_viewport.document_widget.rect.height as usize
         );
@@ -686,7 +688,7 @@ impl Application{
         self.ui.status_bar.toggle_status_bar();
                 
         self.ui.update_layouts(&self.mode());
-        self.document.view_mut().set_size(
+        self.document.client_view.set_size(
             self.ui.document_viewport.document_widget.rect.width as usize,
             self.ui.document_viewport.document_widget.rect.height as usize
         );
@@ -700,6 +702,7 @@ impl Application{
             .spawn()
             .expect("failed to spawn new terminal at current directory");
     }
+    //TODO: command mode should have completion suggestions
     pub fn command_mode_accept(&mut self){
         assert!(self.mode() == Mode::Command);
         let mut warn = false;
@@ -707,6 +710,15 @@ impl Application{
             "term" | "t" => {Application::open_new_terminal_window();}
             "toggle_line_numbers" | "ln" => {self.toggle_line_numbers();}
             "toggle_status_bar" | "sb" => {self.toggle_status_bar();}
+            "quit" | "q" => {
+                self.quit();
+                return; //needed so app can quit without running the rest of the code in this fn
+            }
+            "quit!" | "q!" => {
+                self.quit_ignoring_changes();
+                return;
+            }
+            //write | w         //write buffer contents to file //should this optionally take a filepath to save to? then we don't need to implement save as    //would have to split util bar text on ' ' into separate args
             _ => {warn = true;}
         }
         if warn{self.mode_push(Mode::Warning(WarningKind::CommandParseFailed));}

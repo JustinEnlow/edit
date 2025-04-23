@@ -11,6 +11,9 @@ pub const CURSOR_SEMANTICS: CursorSemantics = match CURSOR_STYLE{
     _ => CursorSemantics::Block
 };
 
+/// Determines whether the full file path or just the file name should be displayed when showing the document's name.
+pub const USE_FULL_FILE_PATH: bool = false;
+
 /// Indicates whether to use hard tabs (e.g., `\t`) or spaces for indentation.
 ///     - If `USE_HARD_TAB` is `true`, a literal tab character (`\t`) is inserted.
 ///     - If `USE_HARD_TAB` is `false`, spaces are inserted, with the number of spaces determined by the `TAB_WIDTH` setting.
