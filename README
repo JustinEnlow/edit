@@ -4,6 +4,8 @@ This is a reference frontend implementation using the edit_core backend.
 Edit is intended to be used inside a terminal that supports keyboard enhancement(tested with alacritty).
 if using a terminal without keyboard enhancement, you may have to rebind the default keybindings...
 
+Unix is the IDE...edit is the text editor component of that IDE.
+
 Features:
     Editing and movement features implemented in edit_core
         [x]

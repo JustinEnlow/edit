@@ -353,7 +353,7 @@ impl Application{
     }
     pub fn update_ui_data_util_bar(&mut self){
         let text = self.ui.util_bar.utility_widget.text_box.text.clone();
-        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection.clone()], 0, &text);
+        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection.clone()], 0, &text, CURSOR_SEMANTICS);
         self.ui.util_bar.utility_widget.text_box.view = self.ui.util_bar.utility_widget.text_box.view.scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
     }
 
@@ -503,7 +503,7 @@ impl Application{
             SelectionAction::RemovePrimarySelection => {edit_core::utilities::remove_primary_selection::document_impl(&mut self.document)}
             SelectionAction::IncrementPrimarySelection => {edit_core::utilities::increment_primary_selection::document_impl(&mut self.document)}
             SelectionAction::DecrementPrimarySelection => {edit_core::utilities::decrement_primary_selection::document_impl(&mut self.document)}
-            SelectionAction::Surround => {edit_core::utilities::surround::document_impl(&mut self.document)}
+            SelectionAction::Surround => {edit_core::utilities::surround::document_impl(&mut self.document, CURSOR_SEMANTICS)}
 
             //These may technically be distinct from the other selection actions, because they could be called from object mode, and would need to pop the mode stack after calling...
             //TODO: SelectionAction::Word => {self.document.word()}
@@ -652,7 +652,7 @@ impl Application{
     fn incremental_search(&mut self){   //this def doesn't work correctly with utf-8 yet
         match &self.ui.util_bar.utility_widget.preserved_selections{
             Some(preserved_selections) => {
-                match edit_core::utilities::incremental_search_in_selection::document_impl(&mut self.document, &self.ui.util_bar.utility_widget.text_box.text.to_string(), preserved_selections){
+                match edit_core::utilities::incremental_search_in_selection::document_impl(&mut self.document, &self.ui.util_bar.utility_widget.text_box.text.to_string(), preserved_selections, CURSOR_SEMANTICS){
                     Ok(()) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = true;}
                     Err(_) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = false;}
                 }
@@ -663,7 +663,7 @@ impl Application{
     fn incremental_split(&mut self){
         match &self.ui.util_bar.utility_widget.preserved_selections{
             Some(preserved_selections) => {
-                match edit_core::utilities::incremental_split_in_selection::document_impl(&mut self.document, &self.ui.util_bar.utility_widget.text_box.text.to_string(), preserved_selections){
+                match edit_core::utilities::incremental_split_in_selection::document_impl(&mut self.document, &self.ui.util_bar.utility_widget.text_box.text.to_string(), preserved_selections, CURSOR_SEMANTICS){
                     Ok(()) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = true;}
                     Err(_) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = false;}
                 }
@@ -702,6 +702,7 @@ impl Application{
             .spawn()
             .expect("failed to spawn new terminal at current directory");
     }
+    //should command parsing be implemented in edit_core?...
     //TODO: command mode should have completion suggestions
     pub fn command_mode_accept(&mut self){
         assert!(self.mode() == Mode::Command);
