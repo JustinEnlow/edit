@@ -61,7 +61,8 @@ impl FileNameWidget{
     pub fn widget(&self) -> Paragraph<'static>{
         let file_name = match &self.file_name{
             Some(file_name) => file_name.to_string(),
-            None => "None".to_string()
+            //None => "None".to_string()
+            None => "[Scratch]".to_string()
         };
         Paragraph::new(file_name)
             .alignment(Alignment::Left)

@@ -1,3 +1,32 @@
+//TODO: figure out how to launch another terminal session, start another edit session, and pass it text via stdin
+    //let _ = std::process::Command::new("alacritty")
+    //                    .args(&["-e", "bash", "-c", "<program to run>"])
+    //                    .spawn()
+    //                    .expect("Failed to launch Alacritty");
+
+//TODO: implement desired kakoune/sam/acme features here first, then design edit with client/server architecture with filesystem ipc...
+
+//TODO: if error message displayed in scratch buffer, select filename and error location, trigger goto command(acme mouse right click, not the built-in goto-mode...).
+// ex: file_name.rs:10:22
+// if the buffer with filename is open in session, and is the active buffer for this client, go to that location in the buffer
+// if the buffer with filename is open in session, but is not the active buffer for this client, set it as the active buffer for this client, and go to that location in the buffer
+// if the buffer with filename not open in session, open that file in session, set it as the active buffer for this client, and go to that location in the buffer
+// TODO: if used with multiple edit clients, may require integration with the window manager to set focus to the window of a specific edit client...
+
+//TODO: if buffer history(undo/redo) implement a display method, edit could expose those as command expansion variables/tags
+// ex: no_op %sh{echo %var{history} | edit -p} or no_op %sh{edit -p < %var{history}}      //no_op means edit will not evaluate any output resulting from the run of the shell session
+// this would pipe a displayable version of the buffer's undo/redo stack(s)/tree(s) in a scratch buffer in a new edit client
+// alternatively, if we impl the filesystem approach, user would just pipe tmp/edit/sessions/session_id/buffers/buffer_id/history to edit -p
+// ex: no_op %sh{edit -p < tmp/edit/sessions/%var{session_id}/buffers/%var{buffer_id}/history}
+
+// I don't want my editor implementation to also be a file system explorer, and so will not provide capabilities for navigating the
+// file system from within the editor, or opening buffers from within the editor.
+// user can navigate to a file in a terminal(or some external application) and open that buffer in the editor, 
+// or pass text from a terminal(or some external application) in to a scratch buffer in the editor
+// but the eventual client/server design shouldn't be restricted from doing so, if the user desires. it just won't be supported
+// as a built in feature...
+// we should prob support switching to other open buffers within a session inside the editor, though
+
 use std::error::Error;
 use std::path::PathBuf;
 use crossterm::event;
@@ -145,11 +174,20 @@ pub enum WarningKind{
 pub struct Application{
     should_quit: bool,
     mode_stack: Vec<Mode>,
-    document: Document,
+    document: Document, //to be replaced with buffer/client
+    //buffer: Buffer,               //TODO?: BufferType? File|Scratch
+    //last_saved_text: Buffer,      //we should prob be comparing directly to the file instead...
+    // client specific
+        //undo_stack: Vec<ChangeSet>,   //maybe have separate buffer and selections undo/redo stacks?...
+        //redo_stack: Vec<ChangeSet>,
+        //selections: Selections,
+        //view: View,
+        //clipboard: String,
+    //
     ui: UserInterface,
 }
 impl Application{
-    pub fn new(file_path: &str, terminal: &Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<Self, Box<dyn Error>>{
+    pub fn new(buffer_text: &str, file_name: Option<PathBuf>, terminal: &Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<Self, Box<dyn Error>>{
         let terminal_size = terminal.size()?;
         let terminal_rect = Rect::new(0, 0, terminal_size.width, terminal_size.height);
 
@@ -159,11 +197,20 @@ impl Application{
             document: Document::new(CURSOR_SEMANTICS),
             ui: UserInterface::new(terminal_rect)
         };
-
-        let path = PathBuf::from(file_path).canonicalize()?;
-
-        instance.document = Document::open(&path, CURSOR_SEMANTICS)?;
-        instance.ui.status_bar.file_name_widget.file_name = instance.document.file_name(USE_FULL_FILE_PATH);
+        
+        instance.document = Document::new(CURSOR_SEMANTICS).with_text(ropey::Rope::from(buffer_text));
+        //TODO: set filename in Application struct
+        instance.ui.status_bar.file_name_widget.file_name = match &file_name{
+            Some(path) => {
+                if USE_FULL_FILE_PATH{
+                    Some(path.to_string_lossy().to_string())
+                }else{
+                    Some(path.file_name().unwrap().to_string_lossy().to_string())
+                }
+            }
+            None => None
+        };
+        
         instance.ui.document_viewport.document_widget.doc_length = instance.document.len();
         
         instance.ui.update_layouts(&instance.mode());
@@ -178,7 +225,7 @@ impl Application{
 
         Ok(instance)
     }
-
+    
     pub fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<(), Box<dyn Error>>{
         loop{
             self.ui.update_layouts(&self.mode());
@@ -310,6 +357,27 @@ impl Application{
             }
         }
     }
+
+    ////////////////////////////////////////////////////////////////////////////
+    //pub fn insert(&mut self, new_text: &str){
+    //    //create pending changeset
+    //    //for each selection
+    //        //insert new_text at/replacing selection (depends on selection extension)
+    //        //handle hook behavior
+    //            //if new_text multichar
+    //                //extend selection to encompass new_text (extension direction could be input language dependent(like arabic could be backwards))
+    //            //else if new_text single char
+    //                //move cursor (movement direction could be input language dependent(like arabic could be backwards))
+    //            //update subsequent selection positions to reflect new changes
+    //            //add change to pending changeset (figure out how to group related subsequent changes(like typing each char in a word) in to one single changeset)
+    //}
+    //pub fn remove(&mut self){
+//
+    //}
+    //pub fn replace(&mut self, new_text: &str){
+//
+    //}
+    ////////////////////////////////////////////////////////////////////////////
 
     /// Set all data related to document viewport UI.
     pub fn update_ui_data_document(&mut self){
