@@ -822,26 +822,30 @@ impl Application{
         self.mode_pop();
     }
     fn incremental_search(&mut self){   //this def doesn't work correctly with utf-8 yet
-        //match &self.ui.util_bar.utility_widget.preserved_selections{
-        //    Some(preserved_selections) => {
-        //        match edit_core::utilities::incremental_search_in_selection::document_impl(&mut self.document, &self.ui.util_bar.utility_widget.text_box.text.to_string(), preserved_selections, CURSOR_SEMANTICS){
-        //            Ok(()) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = true;}
-        //            Err(_) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = false;}
-        //        }
-        //    }
-        //    None => {/* maybe error?... */unreachable!()}
-        //}
+        let preserved_selections = self.ui.util_bar.utility_widget.preserved_selections.clone();
+        let search_text = self.ui.util_bar.utility_widget.text_box.buffer.inner.to_string().clone();
+        match preserved_selections{
+            Some(preserved_selections) => {
+                match crate::utilities::incremental_search_in_selection::application_impl(self, &search_text, &preserved_selections, CURSOR_SEMANTICS){
+                    Ok(()) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = true;}
+                    Err(_) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = false;}
+                }
+            }
+            None => {/* maybe error?... */unreachable!()}
+        }
     }
     fn incremental_split(&mut self){
-        //match &self.ui.util_bar.utility_widget.preserved_selections{
-        //    Some(preserved_selections) => {
-        //        match edit_core::utilities::incremental_split_in_selection::document_impl(&mut self.document, &self.ui.util_bar.utility_widget.text_box.text.to_string(), preserved_selections, CURSOR_SEMANTICS){
-        //            Ok(()) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = true;}
-        //            Err(_) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = false;}
-        //        }
-        //    }
-        //    None => {/* maybe error?... */unreachable!()}
-        //}
+        let preserved_selections = self.ui.util_bar.utility_widget.preserved_selections.clone();
+        let split_text = self.ui.util_bar.utility_widget.text_box.buffer.inner.to_string().clone();
+        match preserved_selections{
+            Some(preserved_selections) => {
+                match crate::utilities::incremental_split_in_selection::application_impl(self, &split_text, &preserved_selections, CURSOR_SEMANTICS){
+                    Ok(()) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = true;}
+                    Err(_) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = false;}
+                }
+            }
+            None => {/* maybe error?... */unreachable!()}
+        }
     }
 
     pub fn toggle_line_numbers(&mut self){

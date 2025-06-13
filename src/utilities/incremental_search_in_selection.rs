@@ -1,12 +1,11 @@
 use crate::{
-    application::Application,
+    application::{Application, ApplicationError},
     selections::{Selections, SelectionsError},
     selection::{Selection, ExtensionDirection, CursorSemantics},
-    range::Range
 };
 use regex::Regex;
 
-pub fn application_impl(app: &mut Application, search_text: &str, selections_before_search: &Selections, semantics: CursorSemantics) -> Result<(), String>{
+pub fn application_impl(app: &mut Application, search_text: &str, selections_before_search: &Selections, semantics: CursorSemantics) -> Result<(), ApplicationError>{
     match selections_impl(selections_before_search, search_text, &app.buffer, semantics){
         Ok(new_selections) => {
             app.selections = new_selections;
@@ -14,7 +13,7 @@ pub fn application_impl(app: &mut Application, search_text: &str, selections_bef
         }
         Err(_) => {
             app.selections = selections_before_search.clone();
-            Err()
+            Err(ApplicationError::InvalidInput)
         }
     }
 }
@@ -64,7 +63,12 @@ pub fn selections_impl(selections: &Selections, input: &str, buffer: &crate::buf
     if let Ok(regex) = Regex::new(input){
         for search_match in regex.find_iter(&buffer.inner.to_string()[start..selection.range.end.min(buffer.len_chars())]){
             //selections.push(Selection::new(search_match.start().saturating_add(start), search_match.end().saturating_add(start)));
-            selections.push(Selection::new(Range::new(search_match.start().saturating_add(start), search_match.end().saturating_add(start)), Direction::Forward));
+            //selections.push(Selection::new(Range::new(search_match.start().saturating_add(start), search_match.end().saturating_add(start)), Direction::Forward));
+            let mut new_selection = selection.clone();
+            new_selection.range.start = search_match.start().saturating_add(start);
+            new_selection.range.end = search_match.end().saturating_add(start);
+            new_selection.direction = ExtensionDirection::Forward;
+            selections.push(new_selection);
         }
     }
     //else{/*return error FailedToParseRegex*/}

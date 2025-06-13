@@ -12,4 +12,4 @@ ropey = "1.6.1"
 #edit_core = {git = "https://github.com/JustinEnlow/edit_core"} #use this for release
 
 
-#regex = "1.11.1"
+regex = "1.11.1"
