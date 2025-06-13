@@ -3,8 +3,8 @@ use ratatui::widgets::Paragraph;
 use ratatui::style::Style;
 use ratatui::layout::{Alignment, Direction, Layout, Constraint};
 use crate::config::{LINE_NUMBER_BACKGROUNG_COLOR, LINE_NUMBER_FOREGROUNG_COLOR, DOCUMENT_BACKGROUND_COLOR, DOCUMENT_FOREGROUND_COLOR};
-use edit_core::position::Position;
-use edit_core::selection2d::Selection2d;
+use crate::position::Position;
+use crate::selection2d::Selection2d;
 use crate::config::{SELECTION_BACKGROUND_COLOR, SELECTION_FOREGROUND_COLOR, PRIMARY_CURSOR_BACKGROUND_COLOR, PRIMARY_CURSOR_FOREGROUND_COLOR, CURSOR_BACKGROUND_COLOR, CURSOR_FOREGROUND_COLOR};
 
 

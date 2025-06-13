@@ -1,5 +1,5 @@
 use crossterm::cursor;
-use edit_core::selection::CursorSemantics;
+use crate::selection::CursorSemantics;
 use ratatui::style::Color;
 
 // users preferred cursor style. Options: DefaultUserShape, BlinkingBLock(inform crossterm of capital L in 'Block'), SteadyBlock, BlinkingUnderScore, SteadyUnderScore, BlinkingBar, SteadyBar
@@ -23,8 +23,6 @@ pub const USE_HARD_TAB: bool = false;   //maybe do enum TabStyle{Hard, Soft, Sma
 pub const TAB_WIDTH: usize = 4; //should this be language dependant? on-the-fly configurable?   //TODO: consider what to do with files where the tab width already in use is different than this setting
 
 pub const VIEW_SCROLL_AMOUNT: usize = 1;    //should this have separate vertical and horizontal definitions?
-
-// should TAB_WIDTH be defined here instead of in edit_core?
 
 // what other config should be here?
     //themeing/coloring consts

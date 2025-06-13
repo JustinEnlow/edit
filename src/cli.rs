@@ -18,6 +18,8 @@ use ratatui::{backend::CrosstermBackend, Terminal};
 //ex: edit --readonly file_name.rs          //explicitly set the named buffer, the contents of which are the contents of file_name.rs, to read only
 //ex: edit --readonly -p < file_name.rs     //explicitly set the scratch buffer, the contents of which are the contents of file_name.rs, to read only
 //ex: date | edit --readonly -p             //explicitly set the scratch buffer, the contents of which are the output from the date program, to read only
+//TODO: file perms being read_only and passing the read_only flag may need to be handled differently, because file perms can change in the time the buffer is open
+//on a read_only perms file, maybe let the buffer be edited, but emit a read_only warning on save attempt?...
 const USAGE: &'static str = "
 Usage: edit [Options] [<file_path>]
 
@@ -33,7 +35,7 @@ pub fn parse_args() -> Result<(), Box<dyn Error>>{
         2 => {
             let arg = args[1].clone();
             let mut terminal = setup_terminal()?;
-            let (buffer_text, file_name) = match arg.as_str(){
+            let (buffer_text, file_path, read_only) = match arg.as_str(){
                 "-t" => {
                     //init app with buffer from stdin
                     let mut buffer_text = String::new();
@@ -42,7 +44,7 @@ pub fn parse_args() -> Result<(), Box<dyn Error>>{
                     //this may only matter for TUI client implementation... //wouldn't be needed if terminals didn't operate using ansi escape codes
                     //println!("{}", input);
 
-                    (buffer_text, None)
+                    (buffer_text, None, false/*true only if readonly flag passed*/)
                 }
                 _ => {
                     //init app with buffer from file path
@@ -61,11 +63,13 @@ pub fn parse_args() -> Result<(), Box<dyn Error>>{
                     //TODO: ensure buffer_text doesn't contain any \t(and maybe others) chars, because it messes up edit's display
                     //these should be converted to TAB_WIDTH number of spaces
 
-                    (buffer_text, Some(path))
+                    //TODO: check if we have write permissions for file or not(read_only)
+
+                    (buffer_text, Some(path), false/*true if file is read_only, or if read_only flag passed*/)
                 }
             };
 
-            match Application::new(&buffer_text, file_name, &terminal){
+            match Application::new(&buffer_text, file_path, read_only, &terminal){
                 Ok(mut app) => {
                     if let Err(e) = app.run(&mut terminal){
                         restore_terminal(&mut terminal)?;

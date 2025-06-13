@@ -5,8 +5,8 @@ use ratatui::widgets::Paragraph;
 use ratatui::style::{Style, Stylize};
 use ratatui::layout::{Direction, Layout, Constraint};
 use crate::config::{UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR, UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR, WARNING_BACKGROUND_COLOR, WARNING_FOREGROUND_COLOR, COPIED_INDICATOR_BACKGROUND_COLOR, COPIED_INDICATOR_FOREGROUND_COLOR};
-use edit_core::selections::Selections;
-use edit_core::selection::Selection;
+use crate::selections::Selections;
+use crate::selection::Selection;
 use crate::config::{SELECTION_BACKGROUND_COLOR, SELECTION_FOREGROUND_COLOR, PRIMARY_CURSOR_BACKGROUND_COLOR, PRIMARY_CURSOR_FOREGROUND_COLOR};
 
 
@@ -28,16 +28,16 @@ impl UtilityWidget{
     pub fn widget(&self, mode: Mode) -> Paragraph<'static>{
         match mode{
             Mode::Goto | Mode::Find | Mode::Split => {
-                let text = self.text_box.text.clone();
+                let buffer = &self.text_box.buffer;
                 if self.text_box.text_is_valid{
-                    Paragraph::new(self.text_box.view.text(&text))
+                    Paragraph::new(self.text_box.view.text(buffer))
                         .style(
                             Style::default()
                             .bg(UTIL_BAR_BACKGROUND_COLOR)
                             .fg(UTIL_BAR_FOREGROUND_COLOR)
                         )
                 }else{
-                    Paragraph::new(self.text_box.view.text(&text))
+                    Paragraph::new(self.text_box.view.text(buffer))
                         .style(
                             Style::default()
                                 .fg(UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR)
@@ -45,8 +45,8 @@ impl UtilityWidget{
                 }
             }
             Mode::Command => {
-                let text = self.text_box.text.clone();
-                Paragraph::new(self.text_box.view.text(&text))
+                let buffer = &self.text_box.buffer;
+                Paragraph::new(self.text_box.view.text(buffer))
             }
             Mode::Warning(kind) => {
                 Paragraph::new(

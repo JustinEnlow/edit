@@ -9,4 +9,7 @@ crossterm = {version = "0.26", features = ["event-stream"]}
 ratatui = {version = "0.28.0", features = ["all-widgets"]}
 ropey = "1.6.1"
 #edit_core = {path = "../edit_core"} #use this for developing
-edit_core = {git = "https://github.com/JustinEnlow/edit_core"} #use this for release
+#edit_core = {git = "https://github.com/JustinEnlow/edit_core"} #use this for release
+
+
+#regex = "1.11.1"

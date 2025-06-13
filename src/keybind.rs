@@ -65,13 +65,13 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
             else{app.no_op_keypress();}
         }
         (KeyCode::Home, modifiers) => {
-            if modifiers == KeyModifiers::CONTROL{app.selection_action(&SelectionAction::MoveCursorDocumentStart);}
+            if modifiers == KeyModifiers::CONTROL{app.selection_action(&SelectionAction::MoveCursorBufferStart);}
             else if modifiers == KeyModifiers::SHIFT{app.selection_action(&SelectionAction::ExtendSelectionHome);}
             else if modifiers == KeyModifiers::NONE{app.selection_action(&SelectionAction::MoveCursorHome);}
             else{app.no_op_keypress();}
         }
         (KeyCode::End, modifiers) => {
-            if modifiers == KeyModifiers::CONTROL{app.selection_action(&SelectionAction::MoveCursorDocumentEnd);}
+            if modifiers == KeyModifiers::CONTROL{app.selection_action(&SelectionAction::MoveCursorBufferEnd);}
             else if modifiers == KeyModifiers::SHIFT{app.selection_action(&SelectionAction::ExtendSelectionLineEnd);}
             else if modifiers == KeyModifiers::NONE{app.selection_action(&SelectionAction::MoveCursorLineEnd);}
             else{app.no_op_keypress();}

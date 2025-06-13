@@ -396,10 +396,13 @@ selections.
             If the buffer's contents are already selected, a same state error
             will be emitted.
 
-         ,---,   ,-----,
-         | ? | + | esc |    <ctrl+esc>?
-         `---`   `-----`
+         ,------,   ,-----,
+         | ctrl | + | esc |    <ctrl+esc>?
+         `------`   `-----`
         collapse to cursor
+         ,------,   ,-------,   ,-----,
+         | ctrl | + | shift | + | esc |
+         `------`   `-------`   `-----`
         collapse to anchor  (not implemented)     <ctrl+shift+esc>
 
          ,------,   ,---,

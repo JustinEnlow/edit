@@ -32,15 +32,19 @@ use std::path::PathBuf;
 use crossterm::event;
 use ratatui::layout::Rect;
 use ratatui::{backend::CrosstermBackend, Terminal};
-use crate::ui::UserInterface;
-use edit_core::selection::Selection;
-use edit_core::selections::{Selections, SelectionsError};
-use edit_core::document::{Document, DocumentError};
 use crate::keybind;
 use crate::config::{CURSOR_SEMANTICS, SHOW_SAME_STATE_WARNINGS, VIEW_SCROLL_AMOUNT, USE_HARD_TAB, TAB_WIDTH, USE_FULL_FILE_PATH};
 
 
 
+pub enum ApplicationError{
+    ReadOnlyBuffer,
+    InvalidInput,
+    SelectionAtDocBounds,
+    NoChangesToUndo,
+    NoChangesToRedo,
+    SelectionsError(crate::selections::SelectionsError),
+}
 pub enum UtilAction{
     Backspace,
     Delete,
@@ -91,8 +95,8 @@ pub enum SelectionAction{
     MoveCursorWordBoundaryBackward,
     MoveCursorLineEnd,
     MoveCursorHome,
-    MoveCursorDocumentStart,
-    MoveCursorDocumentEnd,
+    MoveCursorBufferStart,
+    MoveCursorBufferEnd,
     MoveCursorPageUp,
     MoveCursorPageDown,
     ExtendSelectionUp,
@@ -103,8 +107,8 @@ pub enum SelectionAction{
     ExtendSelectionWordBoundaryForward,
     ExtendSelectionLineEnd,
     ExtendSelectionHome,
-    //ExtendSelectionDocumentStart,
-    //ExtendSelectionDocumentEnd,
+    //ExtendSelectionBufferStart,
+    //ExtendSelectionBufferEnd,
     //ExtendSelectionPageUp,
     //ExtendSelectionPageDown,
     SelectLine,
@@ -174,54 +178,116 @@ pub enum WarningKind{
 pub struct Application{
     should_quit: bool,
     mode_stack: Vec<Mode>,
-    document: Document, //to be replaced with buffer/client
-    //buffer: Buffer,               //TODO?: BufferType? File|Scratch
-    //last_saved_text: Buffer,      //we should prob be comparing directly to the file instead...
-    // client specific
-        //undo_stack: Vec<ChangeSet>,   //maybe have separate buffer and selections undo/redo stacks?...
-        //redo_stack: Vec<ChangeSet>,
-        //selections: Selections,
-        //view: View,
-        //clipboard: String,
-    //
-    ui: UserInterface,
+    ui: crate::ui::UserInterface,
+
+    pub buffer: crate::buffer::Buffer,      //TODO?: BufferType? File|Scratch   //buffer type is already encoded in the file_path on Buffer being optional. if file_path == None, the buffer is a scratch buffer
+
+    pub undo_stack: Vec<crate::history::ChangeSet>,   //maybe have separate buffer and selections undo/redo stacks?...
+    pub redo_stack: Vec<crate::history::ChangeSet>,
+    pub selections: crate::selections::Selections,
+    pub view: crate::view::View,
+    pub clipboard: String,
 }
 impl Application{
-    pub fn new(buffer_text: &str, file_name: Option<PathBuf>, terminal: &Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<Self, Box<dyn Error>>{
-        let terminal_size = terminal.size()?;
-        let terminal_rect = Rect::new(0, 0, terminal_size.width, terminal_size.height);
-
+    #[cfg(test)] pub fn new_test_app(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, view: &crate::view::View) -> Self{
+        let buffer = crate::buffer::Buffer::new(buffer_text, file_path.clone(), read_only);
         let mut instance = Self{
             should_quit: false,
             mode_stack: vec![Mode::Insert],
-            document: Document::new(CURSOR_SEMANTICS),
-            ui: UserInterface::new(terminal_rect)
+            ui: crate::ui::UserInterface::new(Rect::new(view.horizontal_start as u16, view.vertical_start as u16, view.width as u16, view.height as u16)),
+            buffer: buffer.clone(),
+            undo_stack: Vec::new(),
+            redo_stack: Vec::new(),
+            selections: crate::selections::Selections::new(
+                vec![
+                    crate::selection::Selection::new_from_range(
+                        crate::range::Range::new(0, 1), 
+                        crate::selection::ExtensionDirection::None, 
+                        &buffer, 
+                        CURSOR_SEMANTICS)
+                ], 
+                0, 
+                &buffer, 
+                CURSOR_SEMANTICS
+            ),
+            view: crate::view::View::new(0, 0, 0, 0),
+            clipboard: String::new()
+        };
+
+        instance.ui.status_bar.file_name_widget.file_name = if USE_FULL_FILE_PATH{
+            instance.buffer.file_path()
+        }else{
+            instance.buffer.file_name()
         };
         
-        instance.document = Document::new(CURSOR_SEMANTICS).with_text(ropey::Rope::from(buffer_text));
-        //TODO: set filename in Application struct
-        instance.ui.status_bar.file_name_widget.file_name = match &file_name{
-            Some(path) => {
-                if USE_FULL_FILE_PATH{
-                    Some(path.to_string_lossy().to_string())
-                }else{
-                    Some(path.file_name().unwrap().to_string_lossy().to_string())
-                }
-            }
-            None => None
-        };
-        
-        instance.ui.document_viewport.document_widget.doc_length = instance.document.len();
+        instance.ui.document_viewport.document_widget.doc_length = instance.buffer.len_lines();
         
         instance.ui.update_layouts(&instance.mode());
         //init backend doc view size
-        instance.document.client_view.set_size(
+        instance.view.set_size(
             instance.ui.document_viewport.document_widget.rect.width as usize,
             instance.ui.document_viewport.document_widget.rect.height as usize
         );
 
         // prefer this over scroll_and_update, even when response fns are the same, because it saves us from unnecessarily reassigning the view
-        instance.checked_scroll_and_update(&instance.document.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
+        instance.checked_scroll_and_update(
+            &instance.selections.primary().clone(), 
+            Application::update_ui_data_document, 
+            Application::update_ui_data_document
+        );
+
+        instance
+    }
+    pub fn new(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, terminal: &Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<Self, Box<dyn Error>>{
+        let terminal_size = terminal.size()?;
+        let terminal_rect = Rect::new(0, 0, terminal_size.width, terminal_size.height);
+
+        let buffer = crate::buffer::Buffer::new(buffer_text, file_path.clone(), read_only);
+        let mut instance = Self{
+            should_quit: false,
+            mode_stack: vec![Mode::Insert],
+            ui: crate::ui::UserInterface::new(terminal_rect),
+            buffer: buffer.clone(),
+            undo_stack: Vec::new(),
+            redo_stack: Vec::new(),
+            selections: crate::selections::Selections::new(
+                vec![
+                    crate::selection::Selection::new_from_range(
+                        crate::range::Range::new(0, /*1*/buffer.next_grapheme_boundary_index(0)), 
+                        crate::selection::ExtensionDirection::None, 
+                        &buffer, 
+                        CURSOR_SEMANTICS)
+                ], 
+                0, 
+                &buffer, 
+                CURSOR_SEMANTICS
+            ),
+            view: crate::view::View::new(0, 0, 0, 0),
+            clipboard: String::new()
+        };
+        
+        instance.ui.status_bar.file_name_widget.file_name = if USE_FULL_FILE_PATH{
+            instance.buffer.file_path()
+        }else{
+            instance.buffer.file_name()
+        };
+        
+        instance.ui.document_viewport.document_widget.doc_length = instance.buffer.len_lines();
+        
+        instance.ui.update_layouts(&instance.mode());
+        //init backend doc view size
+        instance.view.set_size(
+            instance.ui.document_viewport.document_widget.rect.width as usize,
+            instance.ui.document_viewport.document_widget.rect.height as usize
+        );
+
+        // prefer this over scroll_and_update, even when response fns are the same, because it saves us from unnecessarily reassigning the view
+        //instance.checked_scroll_and_update(&instance.document.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
+        instance.checked_scroll_and_update(
+            &instance.selections.primary().clone(), 
+            Application::update_ui_data_document, 
+            Application::update_ui_data_document
+        );
 
         Ok(instance)
     }
@@ -261,18 +327,18 @@ impl Application{
             event::Event::Mouse(idk) => {
                 //TODO: maybe mode specific mouse handling...
                 match idk.kind{
-                    event::MouseEventKind::Down(_) => {self.no_op_event();}
-                    event::MouseEventKind::Up(_) => {self.no_op_event();}
-                    event::MouseEventKind::Drag(_) => {self.no_op_event();}
-                    event::MouseEventKind::Moved => {self.no_op_event();}
-                    event::MouseEventKind::ScrollDown => {self.no_op_event();}
-                    event::MouseEventKind::ScrollUp => {self.no_op_event();}
+                    event::MouseEventKind::Down(_) => {/*self.no_op_event();*/}
+                    event::MouseEventKind::Up(_) => {/*self.no_op_event();*/}
+                    event::MouseEventKind::Drag(_) => {/*self.no_op_event();*/}
+                    event::MouseEventKind::Moved => {/*self.no_op_event();*/}
+                    event::MouseEventKind::ScrollDown => {/*self.no_op_event();*/}
+                    event::MouseEventKind::ScrollUp => {/*self.no_op_event();*/}
                 }
             }
             event::Event::Resize(x, y) => self.resize(x, y),
             event::Event::FocusLost => {/*do nothing*/} //maybe quit displaying cursor(s)/selection(s)?...
             event::Event::FocusGained => {/*do nothing*/}   //display cursor(s)/selection(s)?...
-            event::Event::Paste(_) => {self.no_op_event();}
+            event::Event::Paste(_) => {/*self.no_op_event();*/}
         }
 
         Ok(())
@@ -306,7 +372,7 @@ impl Application{
         //handle exit behavior
         if update_layouts_and_document{
             self.ui.update_layouts(&self.mode());
-            self.document.client_view.set_size(
+            self.view.set_size(
                 self.ui.document_viewport.document_widget.rect.width as usize,
                 self.ui.document_viewport.document_widget.rect.height as usize
             );
@@ -345,11 +411,11 @@ impl Application{
 
             //handle entry behavior
             if save_selections{
-                self.ui.util_bar.utility_widget.preserved_selections = Some(self.document.selections.clone());
+                self.ui.util_bar.utility_widget.preserved_selections = Some(self.selections.clone());
             }
             if update_layouts_and_document{
                 self.ui.update_layouts(&self.mode());
-                self.document.client_view.set_size(
+                self.view.set_size(
                     self.ui.document_viewport.document_widget.rect.width as usize,
                     self.ui.document_viewport.document_widget.rect.height as usize
                 );
@@ -372,30 +438,30 @@ impl Application{
     //            //add change to pending changeset (figure out how to group related subsequent changes(like typing each char in a word) in to one single changeset)
     //}
     //pub fn remove(&mut self){
-//
+    //
     //}
     //pub fn replace(&mut self, new_text: &str){
-//
+    //
     //}
     ////////////////////////////////////////////////////////////////////////////
 
     /// Set all data related to document viewport UI.
     pub fn update_ui_data_document(&mut self){
-        let text = &self.document.text;
+        let text = &self.buffer;
         
-        self.ui.document_viewport.document_widget.text_in_view = self.document.client_view.text(text);
-        self.ui.document_viewport.line_number_widget.line_numbers_in_view = self.document.client_view.line_numbers(text);
+        self.ui.document_viewport.document_widget.text_in_view = self.view.text(text);
+        self.ui.document_viewport.line_number_widget.line_numbers_in_view = self.view.line_numbers(text);
         self.update_ui_data_selections();
-        self.ui.status_bar.modified_indicator_widget.document_modified_status = self.document.is_modified();
+        self.ui.status_bar.modified_indicator_widget.document_modified_status = self.buffer.is_modified();
     }
     /// Set only data related to selections in document viewport UI.
     pub fn update_ui_data_selections(&mut self){
-        let text = &self.document.text;
-        let selections = &self.document.selections;
+        let text = &self.buffer;
+        let selections = &self.selections;
         
-        self.ui.document_viewport.highlighter.set_primary_cursor_position(self.document.client_view.primary_cursor_position(text, selections, CURSOR_SEMANTICS));
-        self.ui.document_viewport.highlighter.set_client_cursor_positions(self.document.client_view.cursor_positions(text, selections, CURSOR_SEMANTICS));
-        self.ui.document_viewport.highlighter.selections = self.document.client_view.selections(selections, text);
+        self.ui.document_viewport.highlighter.set_primary_cursor_position(self.view.primary_cursor_position(text, selections, CURSOR_SEMANTICS));
+        self.ui.document_viewport.highlighter.set_client_cursor_positions(self.view.cursor_positions(text, selections, CURSOR_SEMANTICS));
+        self.ui.document_viewport.highlighter.selections = self.view.selections(selections, text);
         self.ui.status_bar.selections_widget.primary_selection_index = selections.primary_selection_index;
         self.ui.status_bar.selections_widget.num_selections = selections.count();
         self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone();
@@ -408,21 +474,30 @@ impl Application{
     //}
     //TODO: should edit_core handle updating the view, then return view information?
     // prefer this over scroll_and_update, even when response fns are the same, because it saves us from unnecessarily reassigning the view
-    pub fn checked_scroll_and_update<F, A>(&mut self, cursor_to_follow: &Selection, scroll_response_fn: F, non_scroll_response_fn: A)
+    pub fn checked_scroll_and_update<F, A>(&mut self, cursor_to_follow: &crate::selection::Selection, scroll_response_fn: F, non_scroll_response_fn: A)
         where F: Fn(&mut Application), A: Fn(&mut Application)
     {
-        let text = self.document.text.clone();
-        if self.document.client_view.should_scroll(cursor_to_follow, &text, CURSOR_SEMANTICS){
-            self.document.client_view = self.document.client_view.scroll_following_cursor(cursor_to_follow, &text, CURSOR_SEMANTICS);
+        let text = &self.buffer;
+        if self.view.should_scroll(cursor_to_follow, &text, CURSOR_SEMANTICS){
+            self.view = self.view.scroll_following_cursor(cursor_to_follow, &text, CURSOR_SEMANTICS);
             scroll_response_fn(self);
         }else{
             non_scroll_response_fn(self);
         }
     }
     pub fn update_ui_data_util_bar(&mut self){
-        let text = self.ui.util_bar.utility_widget.text_box.text.clone();
-        let selections = Selections::new(vec![self.ui.util_bar.utility_widget.text_box.selection.clone()], 0, &text, CURSOR_SEMANTICS);
-        self.ui.util_bar.utility_widget.text_box.view = self.ui.util_bar.utility_widget.text_box.view.scroll_following_cursor(selections.primary(), &text, CURSOR_SEMANTICS);
+        let buffer = &self.ui.util_bar.utility_widget.text_box.buffer;
+        let selections = crate::selections::Selections::new(
+            vec![self.ui.util_bar.utility_widget.text_box.selection.clone()], 
+            0, 
+            buffer,
+            CURSOR_SEMANTICS
+        );
+        self.ui.util_bar.utility_widget.text_box.view = self.ui.util_bar.utility_widget.text_box.view.scroll_following_cursor(
+            selections.primary(), 
+            buffer,
+            CURSOR_SEMANTICS
+        );
     }
 
 
@@ -437,19 +512,25 @@ impl Application{
         // ui layouts need to be updated before doc size set, so doc size can be calculated correctly
         self.ui.update_layouts(&self.mode());
         self.update_ui_data_util_bar(); //TODO: can this be called later in fn impl?
-        self.document.client_view.set_size(self.ui.document_viewport.document_widget.rect.width as usize, self.ui.document_viewport.document_widget.rect.height as usize);
+        self.view.set_size(
+            self.ui.document_viewport.document_widget.rect.width as usize, 
+            self.ui.document_viewport.document_widget.rect.height as usize
+        );
         // scrolling so cursor is in a reasonable place, and updating so any ui changes render correctly
-        self.checked_scroll_and_update(&self.document.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
+        self.checked_scroll_and_update(
+            &self.selections.primary().clone(),
+            Application::update_ui_data_document, 
+            Application::update_ui_data_document
+        );
     }
 
     pub fn esc_handle(&mut self){
         assert!(self.mode() == Mode::Insert);
         //TODO: if lsp suggestions displaying(currently unimplemented), exit that display   //lsp suggestions could be a separate mode with keybind fallthrough to insert...
-        /*else */if self.document.selections.count() > 1{
-            //self.clear_non_primary_selections();
+        /*else */if self.selections.count() > 1{
             self.selection_action(&SelectionAction::ClearNonPrimarySelections);
         }
-        else if self.document.selections.primary().is_extended(CURSOR_SEMANTICS){
+        else if self.selections.primary().is_extended(){
             self.selection_action(&SelectionAction::CollapseSelections);
         }
         else{
@@ -459,8 +540,7 @@ impl Application{
 
     pub fn quit(&mut self){
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
-        //if self.ui.document_modified(){   //this is the old impl when editor was set up for client/server and state needed to be stored in ui
-        if self.document.is_modified(){
+        if self.buffer.is_modified(){
             self.mode_push(Mode::Warning(WarningKind::FileIsModified));
         }
         else{self.should_quit = true;}
@@ -472,130 +552,144 @@ impl Application{
 
     pub fn save(&mut self){
         assert!(self.mode() == Mode::Insert);
-        match edit_core::utilities::save::document_impl(&mut self.document){
+        match crate::utilities::save::application_impl(self){
             Ok(()) => {self.update_ui_data_document();}
             Err(_) => {self.mode_push(Mode::Warning(WarningKind::FileSaveFailed));}
         }
     }
-    fn handle_document_error(&mut self, e: DocumentError){
+    fn handle_application_error(&mut self, e: ApplicationError){
         let this_file = std::panic::Location::caller().file();  //actually, these should prob be assigned in calling fn, and passed in, so that error location is the caller and not always here...
         let line_number = std::panic::Location::caller().line();
         match e{
-            DocumentError::InvalidInput => {self.mode_push(Mode::Warning(WarningKind::InvalidInput));}
-            DocumentError::SelectionAtDocBounds |
-            DocumentError::NoChangesToUndo |
-            DocumentError::NoChangesToRedo => {if SHOW_SAME_STATE_WARNINGS{self.mode_push(Mode::Warning(WarningKind::SameState));}}
-            DocumentError::SelectionsError(s) => {
+            ApplicationError::ReadOnlyBuffer => {self.mode_push(Mode::Warning(WarningKind::UnhandledError("buffer is read only".to_string())));}
+            ApplicationError::InvalidInput => {self.mode_push(Mode::Warning(WarningKind::InvalidInput));}
+            ApplicationError::SelectionAtDocBounds |
+            ApplicationError::NoChangesToUndo |
+            ApplicationError::NoChangesToRedo => {if SHOW_SAME_STATE_WARNINGS{self.mode_push(Mode::Warning(WarningKind::SameState));}}
+            ApplicationError::SelectionsError(s) => {
                 match s{
-                    SelectionsError::ResultsInSameState |
-                    SelectionsError::CannotAddSelectionAbove |
-                    SelectionsError::CannotAddSelectionBelow => {if SHOW_SAME_STATE_WARNINGS{self.mode_push(Mode::Warning(WarningKind::SameState));}}
-                    SelectionsError::MultipleSelections => {self.mode_push(Mode::Warning(WarningKind::MultipleSelections));}
-                    SelectionsError::SingleSelection => {self.mode_push(Mode::Warning(WarningKind::SingleSelection));}
-                    SelectionsError::NoSearchMatches |
+                    crate::selections::SelectionsError::ResultsInSameState |
+                    crate::selections::SelectionsError::CannotAddSelectionAbove |
+                    crate::selections::SelectionsError::CannotAddSelectionBelow => {if SHOW_SAME_STATE_WARNINGS{self.mode_push(Mode::Warning(WarningKind::SameState));}}
+                    crate::selections::SelectionsError::MultipleSelections => {self.mode_push(Mode::Warning(WarningKind::MultipleSelections));}
+                    crate::selections::SelectionsError::SingleSelection => {self.mode_push(Mode::Warning(WarningKind::SingleSelection));}
+                    crate::selections::SelectionsError::NoSearchMatches |
                     //TODO: this error can now happen. figure out how to handle it...
-                    SelectionsError::SpansMultipleLines => self.mode_push(Mode::Warning(WarningKind::UnhandledError(format!("{s:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))),
+                    crate::selections::SelectionsError::SpansMultipleLines => self.mode_push(Mode::Warning(WarningKind::UnhandledError(format!("{s:#?} at {this_file}::{line_number}. This Error shouldn't be possible here.")))),
                 }
             }
         }
     }
     pub fn copy(&mut self){
         assert!(self.mode() == Mode::Insert);
-        match edit_core::utilities::copy::document_impl(&mut self.document){
+        match crate::utilities::copy::application_impl(self){
             Ok(()) => {
                 self.mode_push(Mode::Notify);
                 self.update_ui_data_document(); //TODO: is this really needed for something?...
             }
-            Err(e) => {self.handle_document_error(e);}
+            Err(e) => {
+                self.handle_application_error(e);
+            }
         }
     }
     pub fn edit_action(&mut self, action: &EditAction){
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::AddSurround);
-        let len = self.document.len();
-        use edit_core::utilities::{insert_string, delete, backspace, cut, paste, undo, redo, add_surrounding_pair};
+        let len = self.buffer.len_lines();
+        use crate::utilities::{insert_string, delete, backspace, cut, paste, undo, redo, add_surrounding_pair};
         let result = match action{
-            EditAction::InsertChar(c) => insert_string::document_impl(&mut self.document, &c.to_string(), USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
-            EditAction::InsertNewline => insert_string::document_impl(&mut self.document, "\n", USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
-            EditAction::InsertTab => insert_string::document_impl(&mut self.document, "\t", USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
-            EditAction::Delete => delete::document_impl(&mut self.document, CURSOR_SEMANTICS),
-            EditAction::Backspace => backspace::document_impl(&mut self.document, USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
-            EditAction::Cut => cut::document_impl(&mut self.document, CURSOR_SEMANTICS),
-            EditAction::Paste => paste::document_impl(&mut self.document, USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
-            EditAction::Undo => undo::document_impl(&mut self.document, CURSOR_SEMANTICS),   // TODO: undo takes a long time to undo when whole text deleted. see if this can be improved
-            EditAction::Redo => redo::document_impl(&mut self.document, CURSOR_SEMANTICS),
-            EditAction::AddSurround(l, t) => add_surrounding_pair::document_impl(&mut self.document, *l, *t, CURSOR_SEMANTICS),
+            EditAction::InsertChar(c) => insert_string::application_impl(self, &c.to_string(), USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
+            EditAction::InsertNewline => insert_string::application_impl(self, "\n", USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
+            EditAction::InsertTab => insert_string::application_impl(self, "\t", USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
+            EditAction::Delete => delete::application_impl(self, CURSOR_SEMANTICS),
+            EditAction::Backspace => backspace::application_impl(self, USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
+            EditAction::Cut => cut::application_impl(self, CURSOR_SEMANTICS),
+            EditAction::Paste => paste::application_impl(self, USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
+            EditAction::Undo => undo::application_impl(self, CURSOR_SEMANTICS),   // TODO: undo takes a long time to undo when whole text deleted. see if this can be improved
+            EditAction::Redo => redo::application_impl(self, CURSOR_SEMANTICS),
+            EditAction::AddSurround(l, t) => add_surrounding_pair::application_impl(self, *l, *t, CURSOR_SEMANTICS),
         };
         if self.mode() != Mode::Insert{self.mode_pop();}
         match result{
             Ok(()) => {
-                self.checked_scroll_and_update(&self.document.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
-                if len != self.document.len(){self.ui.document_viewport.document_widget.doc_length = self.document.len();}
+                self.checked_scroll_and_update(
+                    &self.selections.primary().clone(), 
+                    Application::update_ui_data_document, 
+                    Application::update_ui_data_document
+                );
+                if len != self.buffer.len_lines(){self.ui.document_viewport.document_widget.doc_length = self.buffer.len_lines();}
             }
-            Err(e) => {self.handle_document_error(e);}
+            Err(e) => {
+                self.handle_application_error(e);
+            }
         }
     }
 
     pub fn selection_action(&mut self, action: &SelectionAction){
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::Object);
         let result = match action{
-            SelectionAction::MoveCursorUp => {edit_core::utilities::move_cursor_up::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorDown => {edit_core::utilities::move_cursor_down::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorLeft => {edit_core::utilities::move_cursor_left::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorRight => {edit_core::utilities::move_cursor_right::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorWordBoundaryForward => {edit_core::utilities::move_cursor_word_boundary_forward::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorWordBoundaryBackward => {edit_core::utilities::move_cursor_word_boundary_backward::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorLineEnd => {edit_core::utilities::move_cursor_line_end::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorHome => {edit_core::utilities::move_cursor_home::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorDocumentStart => {edit_core::utilities::move_cursor_document_start::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorDocumentEnd => {edit_core::utilities::move_cursor_document_end::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorPageUp => {edit_core::utilities::move_cursor_page_up::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorPageDown => {edit_core::utilities::move_cursor_page_down::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionUp => {edit_core::utilities::extend_selection_up::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionDown => {edit_core::utilities::extend_selection_down::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionLeft => {edit_core::utilities::extend_selection_left::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionRight => {edit_core::utilities::extend_selection_right::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionWordBoundaryBackward => {edit_core::utilities::extend_selection_word_boundary_backward::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionWordBoundaryForward => {edit_core::utilities::extend_selection_word_boundary_forward::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionLineEnd => {edit_core::utilities::extend_selection_line_end::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionHome => {edit_core::utilities::extend_selection_home::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorUp => {crate::utilities::move_cursor_up::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorDown => {crate::utilities::move_cursor_down::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorLeft => {crate::utilities::move_cursor_left::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorRight => {crate::utilities::move_cursor_right::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorWordBoundaryForward => {crate::utilities::move_cursor_word_boundary_forward::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorWordBoundaryBackward => {crate::utilities::move_cursor_word_boundary_backward::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorLineEnd => {crate::utilities::move_cursor_line_end::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorHome => {crate::utilities::move_cursor_home::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorBufferStart => {crate::utilities::move_cursor_buffer_start::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorBufferEnd => {crate::utilities::move_cursor_buffer_end::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorPageUp => {crate::utilities::move_cursor_page_up::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::MoveCursorPageDown => {crate::utilities::move_cursor_page_down::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::ExtendSelectionUp => {crate::utilities::extend_selection_up::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::ExtendSelectionDown => {crate::utilities::extend_selection_down::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::ExtendSelectionLeft => {crate::utilities::extend_selection_left::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::ExtendSelectionRight => {crate::utilities::extend_selection_right::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::ExtendSelectionWordBoundaryBackward => {crate::utilities::extend_selection_word_boundary_backward::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::ExtendSelectionWordBoundaryForward => {crate::utilities::extend_selection_word_boundary_forward::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::ExtendSelectionLineEnd => {crate::utilities::extend_selection_line_end::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::ExtendSelectionHome => {crate::utilities::extend_selection_home::application_impl(self, CURSOR_SEMANTICS)}
             //SelectionAction::ExtendSelectionDocumentStart => {self.document.extend_selection_document_start(CURSOR_SEMANTICS)}
             //SelectionAction::ExtendSelectionDocumentEnd => {self.document.extend_selection_document_end(CURSOR_SEMANTICS)}
             //SelectionAction::ExtendSelectionPageUp => {self.document.extend_selection_page_up(CURSOR_SEMANTICS)}
             //SelectionAction::ExtendSelectionPageDown => {self.document.extend_selection_page_down(CURSOR_SEMANTICS)}
-            SelectionAction::SelectLine => {edit_core::utilities::select_line::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::SelectAll => {edit_core::utilities::select_all::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::CollapseSelections => {edit_core::utilities::collapse_selections_to_cursor::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::ClearNonPrimarySelections => {edit_core::utilities::clear_non_primary_selections::document_impl(&mut self.document)}
-            SelectionAction::AddSelectionAbove => {edit_core::utilities::add_selection_above::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::AddSelectionBelow => {edit_core::utilities::add_selection_below::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-            SelectionAction::RemovePrimarySelection => {edit_core::utilities::remove_primary_selection::document_impl(&mut self.document)}
-            SelectionAction::IncrementPrimarySelection => {edit_core::utilities::increment_primary_selection::document_impl(&mut self.document)}
-            SelectionAction::DecrementPrimarySelection => {edit_core::utilities::decrement_primary_selection::document_impl(&mut self.document)}
-            SelectionAction::Surround => {edit_core::utilities::surround::document_impl(&mut self.document, CURSOR_SEMANTICS)}
-
+            SelectionAction::SelectLine => {crate::utilities::select_line::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::SelectAll => {crate::utilities::select_all::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::CollapseSelections => {crate::utilities::collapse_selections_to_cursor::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::ClearNonPrimarySelections => {crate::utilities::clear_non_primary_selections::application_impl(self)}
+            SelectionAction::AddSelectionAbove => {crate::utilities::add_selection_above::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::AddSelectionBelow => {crate::utilities::add_selection_below::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::RemovePrimarySelection => {crate::utilities::remove_primary_selection::application_impl(self)}
+            SelectionAction::IncrementPrimarySelection => {crate::utilities::increment_primary_selection::application_impl(self)}
+            SelectionAction::DecrementPrimarySelection => {crate::utilities::decrement_primary_selection::application_impl(self)}
+            SelectionAction::Surround => {crate::utilities::surround::application_impl(self, CURSOR_SEMANTICS)}
+        
             //These may technically be distinct from the other selection actions, because they could be called from object mode, and would need to pop the mode stack after calling...
             //TODO: SelectionAction::Word => {self.document.word()}
             //TODO: SelectionAction::Sentence => {self.document.sentence()}
             //TODO: SelectionAction::Paragraph => {self.document.paragraph()}
-            SelectionAction::SurroundingPair => {edit_core::utilities::nearest_surrounding_pair::document_impl(&mut self.document, CURSOR_SEMANTICS)}  //TODO: rename SurroundingBracketPair
+            SelectionAction::SurroundingPair => {crate::utilities::nearest_surrounding_pair::application_impl(self, CURSOR_SEMANTICS)}  //TODO: rename SurroundingBracketPair
             //TODO: SelectionAction::QuotePair => {self.document.nearest_quote_pair()}                      //TODO: rename SurroundingQuotePair
             //TODO: SelectionAction::ExclusiveSurroundingPair => {self.document.exclusive_surrounding_pair()}
             //TODO: SelectionAction::InclusiveSurroundingPair => {self.document.inclusive_surrounding_pair()}
-
-            SelectionAction::FlipDirection => {edit_core::utilities::flip_direction::document_impl(&mut self.document, CURSOR_SEMANTICS)}
+        
+            SelectionAction::FlipDirection => {crate::utilities::flip_direction::application_impl(self, CURSOR_SEMANTICS)}
         };
 
         //maybe.    so far, only needed for selection actions called from object mode
-        if self.mode() != Mode::Insert{ //if self.mode() == Mode::Object
+        if self.mode() != Mode::Insert{
             self.mode_pop();
         }
         //
 
         match result{
             Ok(()) => {
-                self.checked_scroll_and_update(&self.document.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
+                self.checked_scroll_and_update(&self.selections.primary().clone(), 
+                    Application::update_ui_data_document, 
+                    Application::update_ui_data_selections
+                );
             }
-            Err(e) => {self.handle_document_error(e);}
+            Err(e) => {
+                self.handle_application_error(e);
+            }
         }
     }
 
@@ -606,19 +700,21 @@ impl Application{
         let result = match action{
             ViewAction::CenterVerticallyAroundCursor => {
                 should_exit = true;
-                edit_core::utilities::center_view_vertically_around_cursor::document_impl(&mut self.document, CURSOR_SEMANTICS)
+                crate::utilities::center_view_vertically_around_cursor::application_impl(self, CURSOR_SEMANTICS)
             }
-            ViewAction::ScrollUp => edit_core::utilities::scroll_view_up::document_impl(&mut self.document, VIEW_SCROLL_AMOUNT),
-            ViewAction::ScrollDown => edit_core::utilities::scroll_view_down::document_impl(&mut self.document, VIEW_SCROLL_AMOUNT),
-            ViewAction::ScrollLeft => edit_core::utilities::scroll_view_left::document_impl(&mut self.document, VIEW_SCROLL_AMOUNT),
-            ViewAction::ScrollRight => edit_core::utilities::scroll_view_right::document_impl(&mut self.document, VIEW_SCROLL_AMOUNT)
+            ViewAction::ScrollUp => crate::utilities::scroll_view_up::application_impl(self, VIEW_SCROLL_AMOUNT),
+            ViewAction::ScrollDown => crate::utilities::scroll_view_down::application_impl(self, VIEW_SCROLL_AMOUNT),
+            ViewAction::ScrollLeft => crate::utilities::scroll_view_left::application_impl(self, VIEW_SCROLL_AMOUNT),
+            ViewAction::ScrollRight => crate::utilities::scroll_view_right::application_impl(self, VIEW_SCROLL_AMOUNT)
         };
         match result{
             Ok(()) => {
                 self.update_ui_data_document();
                 if self.mode() != Mode::Insert && should_exit{self.mode_pop();}
             }
-            Err(e) => self.handle_document_error(e),
+            Err(e) => {
+                self.handle_application_error(e)
+            }
         }
     }
 
@@ -654,11 +750,19 @@ impl Application{
             }
             Mode::Find => {
                 self.incremental_search();
-                self.checked_scroll_and_update(&self.document.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
+                self.checked_scroll_and_update(
+                    &self.selections.primary().clone(), 
+                    Application::update_ui_data_document, 
+                    Application::update_ui_data_selections
+                );
             }
             Mode::Split => {
                 self.incremental_split();
-                self.checked_scroll_and_update(&self.document.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
+                self.checked_scroll_and_update(
+                    &self.selections.primary().clone(), 
+                    Application::update_ui_data_document, 
+                    Application::update_ui_data_selections
+                );
             }
             Mode::Command => {/*do nothing*/}
         }
@@ -667,12 +771,12 @@ impl Application{
     pub fn goto_mode_accept(&mut self){
         assert!(self.mode() == Mode::Goto);
         let mut show_warning = false;
-        if let Ok(line_number) = self.ui.util_bar.utility_widget.text_box.text.to_string().parse::<usize>(){
+        if let Ok(line_number) = self.ui.util_bar.utility_widget.text_box.buffer.inner.to_string().parse::<usize>(){
             if line_number == 0{show_warning = true;}   //we have no line number 0, so this is invalid
             else{
                 let line_number = line_number.saturating_sub(1);    // make line number 0 based for interfacing correctly with backend impl
-                match edit_core::utilities::move_to_line_number::document_impl(&mut self.document, line_number, CURSOR_SEMANTICS){
-                    Ok(()) => {self.checked_scroll_and_update(&self.document.selections.primary().clone(), Application::update_ui_data_selections, Application::update_ui_data_selections);}  //TODO: pretty sure one of these should be update_ui_data_document
+                match crate::utilities::move_to_line_number::application_impl(self, line_number, CURSOR_SEMANTICS){
+                    Ok(()) => {self.checked_scroll_and_update(&self.selections.primary().clone(), Application::update_ui_data_selections, Application::update_ui_data_selections);}  //TODO: pretty sure one of these should be update_ui_data_document
                     Err(_) => {show_warning = true;}    //TODO: match error and handle
                 }
             }
@@ -686,7 +790,7 @@ impl Application{
     // Not entirely sure I want this behavior...
     pub fn goto_mode_selection_action(&mut self, action: &SelectionAction){  //TODO: this is pretty slow when user enters a large number into util text box
         assert!(self.mode() == Mode::Goto);
-        if let Ok(amount) = self.ui.util_bar.utility_widget.text_box.text.to_string().parse::<usize>(){
+        if let Ok(amount) = self.ui.util_bar.utility_widget.text_box.buffer.inner.to_string().parse::<usize>(){
             self.mode_pop();
             for _ in 0..amount{
                 if matches!(self.mode(), Mode::Warning(_)){break;}    //trying to speed this up by preventing this from running `amount` times, if there has already been an error
@@ -701,11 +805,11 @@ impl Application{
         assert!(self.mode() == Mode::Goto);
         // run text validity check
         let mut is_numeric = true;
-        for grapheme in self.ui.util_bar.utility_widget.text_box.text.chars(){ // .graphemes(true)?
+        for grapheme in self.ui.util_bar.utility_widget.text_box.buffer.inner.chars(){ // .graphemes(true)?
             if !grapheme.is_ascii_digit(){is_numeric = false;}
         }
-        let exceeds_doc_length = match self.ui.util_bar.utility_widget.text_box.text.to_string().parse::<usize>(){
-            Ok(line_number) => {line_number > self.document.len()}  //line_number > self.ui.document_length()
+        let exceeds_doc_length = match self.ui.util_bar.utility_widget.text_box.buffer.inner.to_string().parse::<usize>(){
+            Ok(line_number) => {line_number > self.buffer.len_lines()}  //line_number > self.ui.document_length()
             Err(_) => false
         };
         self.ui.util_bar.utility_widget.text_box.text_is_valid = is_numeric && !exceeds_doc_length;
@@ -713,31 +817,31 @@ impl Application{
 
     pub fn restore_selections_and_exit(&mut self){
         self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
-        self.document.selections = self.ui.util_bar.utility_widget.preserved_selections.clone().unwrap();    //shouldn't be called unless this value is Some()
-        self.checked_scroll_and_update(&self.document.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
+        self.selections = self.ui.util_bar.utility_widget.preserved_selections.clone().unwrap();    //shouldn't be called unless this value is Some()
+        self.checked_scroll_and_update(&self.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
         self.mode_pop();
     }
     fn incremental_search(&mut self){   //this def doesn't work correctly with utf-8 yet
-        match &self.ui.util_bar.utility_widget.preserved_selections{
-            Some(preserved_selections) => {
-                match edit_core::utilities::incremental_search_in_selection::document_impl(&mut self.document, &self.ui.util_bar.utility_widget.text_box.text.to_string(), preserved_selections, CURSOR_SEMANTICS){
-                    Ok(()) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = true;}
-                    Err(_) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = false;}
-                }
-            }
-            None => {/* maybe error?... */unreachable!()}
-        }
+        //match &self.ui.util_bar.utility_widget.preserved_selections{
+        //    Some(preserved_selections) => {
+        //        match edit_core::utilities::incremental_search_in_selection::document_impl(&mut self.document, &self.ui.util_bar.utility_widget.text_box.text.to_string(), preserved_selections, CURSOR_SEMANTICS){
+        //            Ok(()) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = true;}
+        //            Err(_) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = false;}
+        //        }
+        //    }
+        //    None => {/* maybe error?... */unreachable!()}
+        //}
     }
     fn incremental_split(&mut self){
-        match &self.ui.util_bar.utility_widget.preserved_selections{
-            Some(preserved_selections) => {
-                match edit_core::utilities::incremental_split_in_selection::document_impl(&mut self.document, &self.ui.util_bar.utility_widget.text_box.text.to_string(), preserved_selections, CURSOR_SEMANTICS){
-                    Ok(()) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = true;}
-                    Err(_) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = false;}
-                }
-            }
-            None => {/* maybe error?... */unreachable!()}
-        }
+        //match &self.ui.util_bar.utility_widget.preserved_selections{
+        //    Some(preserved_selections) => {
+        //        match edit_core::utilities::incremental_split_in_selection::document_impl(&mut self.document, &self.ui.util_bar.utility_widget.text_box.text.to_string(), preserved_selections, CURSOR_SEMANTICS){
+        //            Ok(()) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = true;}
+        //            Err(_) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = false;}
+        //        }
+        //    }
+        //    None => {/* maybe error?... */unreachable!()}
+        //}
     }
 
     pub fn toggle_line_numbers(&mut self){
@@ -745,7 +849,7 @@ impl Application{
         self.ui.document_viewport.toggle_line_numbers();
                 
         self.ui.update_layouts(&self.mode());
-        self.document.client_view.set_size(
+        self.view.set_size(
             self.ui.document_viewport.document_widget.rect.width as usize,
             self.ui.document_viewport.document_widget.rect.height as usize
         );
@@ -756,7 +860,7 @@ impl Application{
         self.ui.status_bar.toggle_status_bar();
                 
         self.ui.update_layouts(&self.mode());
-        self.document.client_view.set_size(
+        self.view.set_size(
             self.ui.document_viewport.document_widget.rect.width as usize,
             self.ui.document_viewport.document_widget.rect.height as usize
         );
@@ -775,7 +879,7 @@ impl Application{
     pub fn command_mode_accept(&mut self){
         assert!(self.mode() == Mode::Command);
         let mut warn = false;
-        match self.ui.util_bar.utility_widget.text_box.text.to_string().as_str(){
+        match self.ui.util_bar.utility_widget.text_box.buffer.inner.to_string().as_str(){
             "term" | "t" => {Application::open_new_terminal_window();}
             "toggle_line_numbers" | "ln" => {self.toggle_line_numbers();}
             "toggle_status_bar" | "sb" => {self.toggle_status_bar();}
@@ -792,5 +896,100 @@ impl Application{
         }
         if warn{self.mode_push(Mode::Warning(WarningKind::CommandParseFailed));}
         else{self.mode_pop()}
+    }
+
+
+    // TODO: test. should test rope is edited correctly and selection is moved correctly, not necessarily the returned change. behavior, not impl
+    pub fn apply_replace(
+        buffer: &mut crate::buffer::Buffer, 
+        replacement_text: &str, 
+        selection: &mut crate::selection::Selection, 
+        semantics: crate::selection::CursorSemantics
+    ) -> crate::history::Change{ //TODO: Error if replacement_text is empty(or if selection empty? is this possible?)
+        let old_selection = selection.clone();
+        let delete_change = Application::apply_delete(buffer, selection, semantics.clone());
+        let replaced_text = if let crate::history::Operation::Insert{inserted_text} = delete_change.inverse(){inserted_text}else{unreachable!();};  // inverse of delete change should always be insert
+        let _ = Application::apply_insert(buffer, replacement_text, selection, semantics.clone());   //intentionally discard returned Change
+
+        crate::history::Change::new(
+            crate::history::Operation::Replace{replacement_text: replacement_text.to_string()}, 
+            old_selection, 
+            selection.clone(), 
+            crate::history::Operation::Replace{replacement_text: replaced_text}
+        )
+    }
+    // TODO: test. should test rope is edited correctly and selection is moved correctly, not necessarily the returned change. behavior, not impl
+    pub fn apply_insert(
+        buffer: &mut crate::buffer::Buffer, 
+        string: &str, 
+        selection: &mut crate::selection::Selection, 
+        semantics: crate::selection::CursorSemantics
+    ) -> crate::history::Change{    //TODO: Error if string is empty
+        let old_selection = selection.clone();
+        buffer.insert(selection.cursor(buffer, semantics.clone()), string);
+        for _ in 0..string.len(){
+            if let Ok(new_selection) = crate::utilities::move_cursor_right::selection_impl(selection, buffer, semantics.clone()){
+                *selection = new_selection;
+            }
+        }
+
+        crate::history::Change::new(
+            crate::history::Operation::Insert{inserted_text: string.to_string()}, 
+            old_selection, 
+            selection.clone(), 
+            crate::history::Operation::Delete
+        )
+    }
+    // TODO: test. should test rope is edited correctly and selection is moved correctly, not necessarily the returned change. behavior, not impl
+    pub fn apply_delete(
+        buffer: &mut crate::buffer::Buffer, 
+        selection: &mut crate::selection::Selection, 
+        semantics: crate::selection::CursorSemantics
+    ) -> crate::history::Change{  //TODO: Error if cursor and anchor at end of text
+        use std::cmp::Ordering;
+        
+        let old_selection = selection.clone();
+        let original_text = buffer.clone();
+
+        let (start, end, new_cursor) = match selection.cursor(buffer, semantics.clone()).cmp(&selection.anchor()){
+            Ordering::Less => {(selection.head(), selection.anchor(), selection.cursor(buffer, semantics.clone()))}
+            Ordering::Greater => {
+                match semantics{
+                    crate::selection::CursorSemantics::Bar => {(selection.anchor(), selection.head(), selection.anchor())}
+                    crate::selection::CursorSemantics::Block => {
+                        if selection.cursor(&buffer, semantics.clone()) == buffer.len_chars(){(selection.anchor(), selection.cursor(buffer, semantics.clone()), selection.anchor())}
+                        else{(selection.anchor(), selection.head(), selection.anchor())}
+                    }
+                }
+            }
+            Ordering::Equal => {
+                if selection.cursor(buffer, semantics.clone()) == buffer.len_chars(){ //do nothing    //or preferrably return error   //could have condition check in calling fn
+                    return crate::history::Change::new(
+                        crate::history::Operation::Delete, 
+                        old_selection, 
+                        selection.clone(), 
+                        crate::history::Operation::Insert{inserted_text: String::new()}
+                    );   //change suggested by clippy lint
+                }
+                
+                match semantics.clone(){
+                    crate::selection::CursorSemantics::Bar => {(selection.head(), selection.head().saturating_add(1), selection.anchor())}
+                    crate::selection::CursorSemantics::Block => {(selection.anchor(), selection.head(), selection.anchor())}
+                }
+            }
+        };
+
+        let change_text = original_text.slice(start, end);
+        buffer.remove(start..end);
+        if let Ok(new_selection) = selection.put_cursor(new_cursor, &original_text, crate::selection::Movement::Move, semantics, true){
+            *selection = new_selection;
+        }
+
+        crate::history::Change::new(
+            crate::history::Operation::Delete, 
+            old_selection, 
+            selection.clone(), 
+            crate::history::Operation::Insert{inserted_text: change_text.to_string()}
+        )
     }
 }
