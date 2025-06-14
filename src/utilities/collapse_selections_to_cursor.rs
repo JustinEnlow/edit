@@ -3,7 +3,6 @@ use crate::{
     selection::{Selection, SelectionError, CursorSemantics, Movement}
 };
 
-//TODO: rename to collapse_selections_to_cursor
 pub fn application_impl(app: &mut Application, semantics: CursorSemantics) -> Result<(), ApplicationError>{
     match app.selections.move_cursor_non_overlapping(&app.buffer, semantics, selection_impl){
         Ok(new_selections) => {app.selections = new_selections;}

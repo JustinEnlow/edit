@@ -27,6 +27,7 @@ Features:
             [ ] Read Only Indicator
             [x] Selection Indicator(1/1 = primary cursor is the only one, 3/125 = primary cursor is the 3rd selection of 125)
             [x] primary cursor location indicator(line num:column num)
+            [ ] Mode Indicator/count of modes on mode stack     [Mode: Insert | Stack: 1]
         [ ] Utility Bar(mode specific) (should utils have suggestions/completion?)
             [x] Go to Mode  (should have popup with available commands?...)
                 [x] use input as line number
@@ -113,3 +114,8 @@ to uninstall:
     either delete 'edit' file at ~/.cargo/bin/edit
     or run:
         cargo uninstall edit
+
+
+for a tutorial:
+    in the directory you cloned the repo to, run:
+        edit -t < EDIT_TRAMPOLINE

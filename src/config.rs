@@ -1,15 +1,15 @@
-use crossterm::cursor;
+//use crossterm::cursor;
 use crate::selection::CursorSemantics;
 use ratatui::style::Color;
 
 // users preferred cursor style. Options: DefaultUserShape, BlinkingBLock(inform crossterm of capital L in 'Block'), SteadyBlock, BlinkingUnderScore, SteadyUnderScore, BlinkingBar, SteadyBar
-pub const CURSOR_STYLE: cursor::SetCursorStyle = cursor::SetCursorStyle::SteadyBlock;
+//pub const CURSOR_STYLE: cursor::SetCursorStyle = cursor::SetCursorStyle::SteadyBlock;
 
-// should only really be using Block semantics in a terminal...
-pub const CURSOR_SEMANTICS: CursorSemantics = match CURSOR_STYLE{
-    cursor::SetCursorStyle::BlinkingBar | cursor::SetCursorStyle::SteadyBar => CursorSemantics::Bar,
-    _ => CursorSemantics::Block
-};
+//pub const CURSOR_SEMANTICS: CursorSemantics = match CURSOR_STYLE{
+//    cursor::SetCursorStyle::BlinkingBar | cursor::SetCursorStyle::SteadyBar => CursorSemantics::Bar,
+//    _ => CursorSemantics::Block
+//};
+pub const CURSOR_SEMANTICS: CursorSemantics = CursorSemantics::Block;
 
 /// Determines whether the full file path or just the file name should be displayed when showing the document's name.
 pub const USE_FULL_FILE_PATH: bool = false;
@@ -26,9 +26,9 @@ pub const VIEW_SCROLL_AMOUNT: usize = 1;    //should this have separate vertical
 
 // what other config should be here?
     //themeing/coloring consts
-    pub const LINE_NUMBER_BACKGROUNG_COLOR: Color = Color::Black;
+    pub const LINE_NUMBER_BACKGROUNG_COLOR: Color = Color::Rgb(0, 0, 0);
     pub const LINE_NUMBER_FOREGROUNG_COLOR: Color = Color::Rgb(100, 100, 100);
-    pub const DOCUMENT_BACKGROUND_COLOR: Color = Color::Black;
+    pub const DOCUMENT_BACKGROUND_COLOR: Color = Color::Rgb(0, 0, 0);
     pub const DOCUMENT_FOREGROUND_COLOR: Color = Color::White;
     pub const STATUS_BAR_BACKGROUND_COLOR: Color = Color::DarkGray; //should this be broken down into widget specific background colors?
     pub const STATUS_BAR_FOREGROUND_COLOR: Color = Color::White;    //should this be broken down into widget specific foreground colors?
@@ -46,6 +46,14 @@ pub const VIEW_SCROLL_AMOUNT: usize = 1;    //should this have separate vertical
     pub const PRIMARY_CURSOR_FOREGROUND_COLOR: Color = Color::Black;
     pub const CURSOR_BACKGROUND_COLOR: Color = Color::Rgb(150, 150, 150);
     pub const CURSOR_FOREGROUND_COLOR: Color = Color::Black;
+
+    pub const CURSOR_COLUMN_BACKGROUND_COLOR: Color = Color::Rgb(45, 45, 45);
+    pub const CURSOR_COLUMN_FOREGROUND_COLOR: Color = Color::White;
+    pub const CURSOR_LINE_BACKGROUND_COLOR: Color = Color::Rgb(45, 45, 45);
+    pub const CURSOR_LINE_FOREGROUND_COLOR: Color = Color::White;
+
+pub const SHOW_CURSOR_COLUMN: bool = false;
+pub const SHOW_CURSOR_LINE: bool = false;
 
 // By default, this editor shows a warning when a requested action would result in the same state.
 // This is to make every action have a visible response.

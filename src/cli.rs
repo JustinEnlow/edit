@@ -2,7 +2,7 @@ use std::error::Error;
 use std::io::{self, Read};
 
 use crate::application::Application;
-use crate::config::CURSOR_STYLE;
+//use crate::config::CURSOR_STYLE;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture}, execute, terminal, ExecutableCommand
 };
@@ -97,7 +97,7 @@ fn setup_terminal() -> Result<Terminal<CrosstermBackend<std::io::Stdout>>, Box<d
     let mut stdout = std::io::stdout();
     terminal::enable_raw_mode()?;
     stdout.execute(crossterm::terminal::EnterAlternateScreen)?;
-    stdout.execute(CURSOR_STYLE)?;
+    //stdout.execute(CURSOR_STYLE)?;
     //
     stdout.execute(EnableMouseCapture)?;    //without this, mouse scroll seems to call whatever method is assigned at keypress up/down, and multiple times...
     //

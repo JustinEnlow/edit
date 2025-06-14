@@ -155,7 +155,14 @@ impl Selection{
     /// Returns the char index of the start of the [`Selection`] from left to right.
     // note: not tested in selection_tests, and i don't think it should be because all relevant tests are done in range_tests module
     #[must_use] pub fn start(&self) -> usize{self.range.start}      //only needed for Selections::sort. figure out how to make that work without this...
-    
+
+    /// If self.anchor and self.cursor are known, this can be used to determine the correct extension direction
+    pub fn direction(&self, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> ExtensionDirection{
+        if self.cursor(buffer, semantics.clone()) > self.anchor(){ExtensionDirection::Forward}
+        else if self.cursor(buffer, semantics.clone()) < self.anchor(){ExtensionDirection::Backward}
+        else{ExtensionDirection::None}
+    }
+
     //could do pub fn extension() -> ExtensionDirection{} instead, and use if selection.extension() == ExtensionDirection::None
     pub fn is_extended(&self) -> bool{
         self.direction == ExtensionDirection::Forward || self.direction == ExtensionDirection::Backward
@@ -470,9 +477,10 @@ mod tests{
         let idk = crate::selection::Selection::new_from_components(0, 0, None, buffer, semantics.clone());
         assert_eq!(0, idk.range.start);
         assert_eq!(0, idk.range.end);
-        assert_eq!(0, idk.cursor(buffer, semantics));
+        assert_eq!(0, idk.cursor(buffer, semantics.clone()));
         assert_eq!(None, idk.stored_line_offset);
         assert_eq!(crate::selection::ExtensionDirection::None, idk.direction);
+        assert_eq!(crate::selection::ExtensionDirection::None, idk.direction(&buffer, semantics.clone()));
     }
     #[test] fn non_extended_block_semantics(){
         let buffer = &crate::buffer::Buffer::new("idk\nsome\nshit\n", None, false);
@@ -480,9 +488,10 @@ mod tests{
         let idk = crate::selection::Selection::new_from_components(0, 1, None, buffer, semantics.clone());
         assert_eq!(0, idk.range.start);
         assert_eq!(1, idk.range.end);
-        assert_eq!(0, idk.cursor(buffer, semantics));
+        assert_eq!(0, idk.cursor(buffer, semantics.clone()));
         assert_eq!(None, idk.stored_line_offset);
         assert_eq!(crate::selection::ExtensionDirection::None, idk.direction);
+        assert_eq!(crate::selection::ExtensionDirection::None, idk.direction(&buffer, semantics));
     }
     #[test] fn backward_extended_bar_semantics(){
         let buffer = &crate::buffer::Buffer::new("idk\nsome\nshit\n", None, false);
@@ -490,9 +499,10 @@ mod tests{
         let idk = crate::selection::Selection::new_from_components(1, 0, None, buffer, semantics.clone());
         assert_eq!(0, idk.range.start);
         assert_eq!(1, idk.range.end);
-        assert_eq!(0, idk.cursor(buffer, semantics));
+        assert_eq!(0, idk.cursor(buffer, semantics.clone()));
         assert_eq!(None, idk.stored_line_offset);
         assert_eq!(crate::selection::ExtensionDirection::Backward, idk.direction);
+        assert_eq!(crate::selection::ExtensionDirection::Backward, idk.direction(&buffer, semantics));
     }
     #[test] fn backward_extended_block_semantics(){
         let buffer = &crate::buffer::Buffer::new("idk\nsome\nshit\n", None, false);
@@ -500,9 +510,10 @@ mod tests{
         let idk = crate::selection::Selection::new_from_components(2, 0, None, buffer, semantics.clone());
         assert_eq!(0, idk.range.start);
         assert_eq!(2, idk.range.end);
-        assert_eq!(0, idk.cursor(buffer, semantics));
+        assert_eq!(0, idk.cursor(buffer, semantics.clone()));
         assert_eq!(None, idk.stored_line_offset);
         assert_eq!(crate::selection::ExtensionDirection::Backward, idk.direction);
+        assert_eq!(crate::selection::ExtensionDirection::Backward, idk.direction(&buffer, semantics));
     }
     #[test] fn forward_extended_bar_semantics(){
         let buffer = &crate::buffer::Buffer::new("idk\nsome\nshit\n", None, false);
@@ -510,9 +521,10 @@ mod tests{
         let idk = crate::selection::Selection::new_from_components(0, 1, None, buffer, semantics.clone());
         assert_eq!(0, idk.range.start);
         assert_eq!(1, idk.range.end);
-        assert_eq!(1, idk.cursor(buffer, semantics));
+        assert_eq!(1, idk.cursor(buffer, semantics.clone()));
         assert_eq!(None, idk.stored_line_offset);
         assert_eq!(crate::selection::ExtensionDirection::Forward, idk.direction);
+        assert_eq!(crate::selection::ExtensionDirection::Forward, idk.direction(&buffer, semantics));
     }
     #[test] fn forward_extended_block_semantics(){
         let buffer = &crate::buffer::Buffer::new("idk\nsome\nshit\n", None, false);
@@ -520,8 +532,9 @@ mod tests{
         let idk = crate::selection::Selection::new_from_components(0, 2, None, buffer, semantics.clone());
         assert_eq!(0, idk.range.start);
         assert_eq!(2, idk.range.end);
-        assert_eq!(1, idk.cursor(buffer, semantics));
+        assert_eq!(1, idk.cursor(buffer, semantics.clone()));
         assert_eq!(None, idk.stored_line_offset);
         assert_eq!(crate::selection::ExtensionDirection::Forward, idk.direction);
+        assert_eq!(crate::selection::ExtensionDirection::Forward, idk.direction(&buffer, semantics));
     }
 }

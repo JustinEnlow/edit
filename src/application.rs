@@ -86,7 +86,7 @@ pub enum EditAction{
     //RotateTextInSelections,
     AddSurround(char, char),
 }
-pub enum SelectionAction{
+pub enum SelectionAction{   //TODO?: have (all?) selection actions take an amount, for action repetition. MoveCursorDown(2) would move the cursor down two lines, if possible, or saturate at buffer end otherwise, and error if already at buffer end
     MoveCursorUp,
     MoveCursorDown,
     MoveCursorLeft,
@@ -113,7 +113,8 @@ pub enum SelectionAction{
     //ExtendSelectionPageDown,
     SelectLine,
     SelectAll,
-    CollapseSelections,
+    CollapseSelectionToAnchor,
+    CollapseSelectionToCursor,
     ClearNonPrimarySelections,
     AddSelectionAbove,
     AddSelectionBelow,
@@ -486,18 +487,28 @@ impl Application{
         }
     }
     pub fn update_ui_data_util_bar(&mut self){
-        let buffer = &self.ui.util_bar.utility_widget.text_box.buffer;
-        let selections = crate::selections::Selections::new(
-            vec![self.ui.util_bar.utility_widget.text_box.selection.clone()], 
-            0, 
-            buffer,
-            CURSOR_SEMANTICS
-        );
-        self.ui.util_bar.utility_widget.text_box.view = self.ui.util_bar.utility_widget.text_box.view.scroll_following_cursor(
-            selections.primary(), 
-            buffer,
-            CURSOR_SEMANTICS
-        );
+        //let buffer = &self.ui.util_bar.utility_widget.text_box.buffer;
+        //let selections = crate::selections::Selections::new(
+        //    vec![self.ui.util_bar.utility_widget.text_box.selection.clone()], 
+        //    0, 
+        //    buffer,
+        //    CURSOR_SEMANTICS
+        //);
+        //self.ui.util_bar.utility_widget.text_box.view = self.ui.util_bar.utility_widget.text_box.view.scroll_following_cursor(
+        //    selections.primary(), 
+        //    buffer,
+        //    CURSOR_SEMANTICS
+        //);
+
+        // new
+            //this isn't working right yet...
+            //self.ui.util_bar.highlighter.selection = Some(self.ui.util_bar.utility_widget.text_box.selection.clone());
+            //self.ui.util_bar.highlighter.cursor = self.ui.util_bar.utility_widget.text_box.cursor_position();
+        
+        if self.ui.util_bar.utility_widget.text_box.view.should_scroll(&self.ui.util_bar.utility_widget.text_box.selection, &self.ui.util_bar.utility_widget.text_box.buffer, CURSOR_SEMANTICS){
+            self.ui.util_bar.utility_widget.text_box.view = self.ui.util_bar.utility_widget.text_box.view.scroll_following_cursor(&self.ui.util_bar.utility_widget.text_box.selection, &self.ui.util_bar.utility_widget.text_box.buffer, CURSOR_SEMANTICS)
+        }//else{/*keep current view*/}
+        //
     }
 
 
@@ -531,7 +542,7 @@ impl Application{
             self.selection_action(&SelectionAction::ClearNonPrimarySelections);
         }
         else if self.selections.primary().is_extended(){
-            self.selection_action(&SelectionAction::CollapseSelections);
+            self.selection_action(&SelectionAction::CollapseSelectionToCursor);
         }
         else{
             if SHOW_SAME_STATE_WARNINGS{self.mode_push(Mode::Warning(WarningKind::SameState));}
@@ -551,7 +562,7 @@ impl Application{
     }
 
     pub fn save(&mut self){
-        assert!(self.mode() == Mode::Insert);
+        assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
         match crate::utilities::save::application_impl(self){
             Ok(()) => {self.update_ui_data_document();}
             Err(_) => {self.mode_push(Mode::Warning(WarningKind::FileSaveFailed));}
@@ -653,7 +664,8 @@ impl Application{
             //SelectionAction::ExtendSelectionPageDown => {self.document.extend_selection_page_down(CURSOR_SEMANTICS)}
             SelectionAction::SelectLine => {crate::utilities::select_line::application_impl(self, CURSOR_SEMANTICS)}
             SelectionAction::SelectAll => {crate::utilities::select_all::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::CollapseSelections => {crate::utilities::collapse_selections_to_cursor::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::CollapseSelectionToAnchor => {crate::utilities::collapse_selections_to_anchor::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::CollapseSelectionToCursor => {crate::utilities::collapse_selections_to_cursor::application_impl(self, CURSOR_SEMANTICS)}
             SelectionAction::ClearNonPrimarySelections => {crate::utilities::clear_non_primary_selections::application_impl(self)}
             SelectionAction::AddSelectionAbove => {crate::utilities::add_selection_above::application_impl(self, CURSOR_SEMANTICS)}
             SelectionAction::AddSelectionBelow => {crate::utilities::add_selection_below::application_impl(self, CURSOR_SEMANTICS)}
@@ -895,7 +907,10 @@ impl Application{
                 self.quit_ignoring_changes();
                 return;
             }
-            //write | w         //write buffer contents to file //should this optionally take a filepath to save to? then we don't need to implement save as    //would have to split util bar text on ' ' into separate args
+            //write buffer contents to file //should this optionally take a filepath to save to? then we don't need to implement save as    //would have to split util bar text on ' ' into separate args
+            "write" | "w" => {
+                self.save();
+            }
             _ => {warn = true;}
         }
         if warn{self.mode_push(Mode::Warning(WarningKind::CommandParseFailed));}

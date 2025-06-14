@@ -24,9 +24,9 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
                 else if c == 'l'{app.selection_action(&SelectionAction::SelectLine);}
                 else if c == 'o'{app.mode_push(Mode::Object);}
                 else if c == 'p'{app.selection_action(&SelectionAction::IncrementPrimarySelection);}
-                else if c == 'q'{app.quit();}
+                //else if c == 'q'{app.quit();}
                 else if c == 'r'{app.selection_action(&SelectionAction::RemovePrimarySelection);}
-                else if c == 's'{app.save();}
+                //else if c == 's'{app.save();}
                 else if c == 't'{Application::open_new_terminal_window();}
                 else if c == 'v'{app.edit_action(&EditAction::Paste);}
                 else if c == 'x'{app.edit_action(&EditAction::Cut);}
@@ -111,7 +111,11 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
             else{app.no_op_keypress();}
         }
         (KeyCode::Esc, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.esc_handle();}  //how can this be disambiguated as custom behavior vs builtin fn?
+            if modifiers == KeyModifiers::CONTROL{app.selection_action(&SelectionAction::ClearNonPrimarySelections);}
+            else if modifiers == KeyModifiers::SHIFT{app.selection_action(&SelectionAction::CollapseSelectionToAnchor);}
+            else if modifiers == KeyModifiers::NONE{app.selection_action(&SelectionAction::CollapseSelectionToCursor);}
+            //or use this for automatic esc behavior
+            //if modifiers == KeyModifiers::NONE{app.esc_handle();} //how can this be disambiguated as custom behavior vs builtin fn?
             else{app.no_op_keypress();}
         }
         _ => {app.no_op_keypress();}

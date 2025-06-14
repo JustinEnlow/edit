@@ -256,7 +256,7 @@ selections.
                   |    ,------,
                    ----| down | accept entered value as relative line number downwards
                        `------`
-        Upon <alt+g> being triggered, Edit will enter Goto Mode. An interactive 
+        Upon <ctrl+g> being triggered, Edit will enter Goto Mode. An interactive 
         text box will be enabled in the util bar, in which the user can enter a 
         line number that the cursor should be moved to.
 
@@ -383,10 +383,10 @@ selections.
             N/A
         possible errors:
             If the line is already selected, a same state error will be emitted.
+
          ,------,   ,---,
          | ctrl | + | a |
          `------`   `---`
-        select all
         associated command name: "select all"
         common use:
             Selects the entire buffer's contents.
@@ -396,19 +396,40 @@ selections.
             If the buffer's contents are already selected, a same state error
             will be emitted.
 
-         ,------,   ,-----,
-         | ctrl | + | esc |    <ctrl+esc>?
-         `------`   `-----`
-        collapse to cursor
-         ,------,   ,-------,   ,-----,
-         | ctrl | + | shift | + | esc |
-         `------`   `-------`   `-----`
-        collapse to anchor  (not implemented)     <ctrl+shift+esc>
+         ,-----,
+         | esc |
+         `-----`
+        associated command name: "collapse_selection_to_cursor"
+        common use:
+            Collapses the selection, with the resultant cursor placed at the
+            location of the selection's cursor.
+        alternate behavior:
+            N/A
+        possible errors:
+            If the selection is not extended, a same state error will be emitted.
+
+         ,-------,   ,-----,
+         | shift | + | esc |
+         `-------`   `-----`
+        associated command name: "collapse_selection_to_anchor"
+        common use:
+            Collapses the selection, with the resultant cursor placed ate the
+            location of the selection's anchor.
+        alternate behavior:
+            N/A
+        possible errors:
+            If the selection is not extended, a same state error will be emitted.
 
          ,------,   ,---,
          | ctrl | + | f |
          `------`   `---`
-        flip direction
+        associated command name: "flip_direction"
+        common use:
+            Switches the selection's anchor and cursor.
+        alternate behavior:
+            N/A
+        possible errors:
+            If the selection is not extended, a same state error will be emitted.
 
 //TODO: selection history   (not implemented)
     //impl undo/redo, but for selection actions
@@ -507,16 +528,17 @@ how the view should be moved.
             shell command ignoring selections and pipe output to buffer
             shell command ignoring selections and pipe output to clipboard      //is this needed?
 
-         ,------,   ,---,
-         | ctrl | + | s |
-         `------`   `---`
-        associated command name: "save"
-        common use:
-            Saves the modified buffer to disk, overwriting previous content.
-        alternate behavior:
-            N/A
-        possible errors:
-            idk...
+        // this has been deprecated in favor of the "write" command
+        // ,------,   ,---,
+        // | ctrl | + | s |
+        // `------`   `---`
+        //associated command name: "save"
+        //common use:
+        //    Saves the modified buffer to disk, overwriting previous content.
+        //alternate behavior:
+        //    N/A
+        //possible errors:
+        //    idk...
 
                                      4.0
 +=--------------------=+ Advanced Selection Manipulation +=--------------------=+
@@ -611,9 +633,9 @@ how the view should be moved.
         possible errors:
             If only a single selection is in use, an error will be emitted.
 
-         ,-----,   ,-----,
-         |  ?  | + | esc |
-         `-----`   `-----`
+         ,------,   ,-----,
+         | ctrl | + | esc |
+         `------`   `-----`
         //Explain clear non primary
 
 4.2: Search:
@@ -695,8 +717,10 @@ Whilst technically everything we have done so far is manipulation of the editor,
 there are a few more commands to learn that do not effect selections, view, or
 text.
 
-quit                                    <ctrl+q>
+quit                                    //<ctrl+q>  //deprecated in favor of "quit" command
 Command Mode                            <ctrl+;>
+    toggle line number visibility       "toggle_line_numbers" command
+    toggle status bar visibility        "toggle_status_bar" command
 Notify Mode
 Warning Mode
 

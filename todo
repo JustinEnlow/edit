@@ -115,13 +115,13 @@ To meet reqs as simple text editor:
             [ ] status bar
                 [x] add status bar widget for number of selections(1/1 = primary cursor is the only one, 3/125 = primary cursor is the 3rd selection of 125)
                 [ ] loading indicator on save/open/big edits like undoing a deletion of the whole text
-            [ ] util bar
-                [ ] render interactive_text_box text + handle movement/selection extension
-                [ ] render interactive_text_box selections(find/replace, goto, command, etc.)
-                [ ] warning mode
+            [x] util bar
+                [x] render interactive_text_box text + handle movement/selection extension
+                [x] render interactive_text_box selections(find/replace, goto, command, etc.)
+                [x] warning mode
                 [x] selection copied indicator
             [ ] popups
-                [ ] available editor actions(space mode)
+                [x] available editor actions(space mode, goto, add_surround, object, etc)
                 [ ] completion suggestions from words already in doc
 
 
@@ -153,27 +153,10 @@ always ensure:
 
 
 bug fix:
-    open src/application.rs
-    search "pub"
-    move selections up
-    [ ] (bug 1: holding up for a while then releasing, cursors still move for quite a long time)(performance issue)
-        once all cursors at top of doc
-    [x] (bug 2: some have not merged when overlapped. figure out where merge_overlapping isn't being called or where it is failing)(logical issue)
-        (do the same issues apply elsewhere?)
-
-    [ ] problem:
-            doc cursor displaying over util bar when status bar hidden
-        category:
-            bugfix
-        setup:
-            open src/application.rs
-            switch to command mode
-                toggle status bar with "sb" <enter>
-            should now be back in insert mode
-            move cursor to bottom of screen(with page down?)
-            switch to any mode that uses the util bar for text input
-            document cursor is visible over util bar and shouldn't be...
-        solution:
+    [ ] extend selection word boundary forward/backward aren't behaving correctly in certain scenarios
+    [ ] util_bar interactive text box cursor goes wonky when text inserted past util_bar width      documented at util_bar.rs:141:73
+    [ ] util_bar interactive text box selection gets stuck if extended left from end of line, and try to extend selection right
+        //same happens in document when extended left from buffer end...
 
 
 other:

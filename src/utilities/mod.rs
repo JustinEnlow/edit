@@ -27,7 +27,7 @@ pub mod extend_selection_line_text_start;
 pub mod select_all;
 pub mod select_line;
 pub mod flip_direction;
-//TODO: pub mod collapse_selections_to_anchor;
+pub mod collapse_selections_to_anchor;
 pub mod collapse_selections_to_cursor;
 
 //selections

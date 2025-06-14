@@ -46,8 +46,6 @@ impl DocumentWidget{
 // render order matters. for example, always render cursors after selections, so that the cursor shows on top of the selection.
 #[derive(Default, Clone)]
 pub struct Highlighter{
-    //cursor_line: Option<u16>,   //bg color
-    //cursor_column: Option<u16>, //bg color
     // debug highlights //bg color
     // lsp highlights   //fg color
     pub selections: Vec<Selection2d>,   //bg color
@@ -69,6 +67,33 @@ impl Highlighter{
 }
 impl ratatui::widgets::Widget for Highlighter{
     fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer){
+        if crate::config::SHOW_CURSOR_COLUMN{
+            for y in area.top()..area.height{
+                if let Some(primary_cursor_position) = self.primary_cursor.clone(){
+                    if let Some(cell) = buf.cell_mut((area.left() + primary_cursor_position.x as u16, y)){
+                        cell.set_style(
+                            Style::default()
+                                .bg(crate::config::CURSOR_COLUMN_BACKGROUND_COLOR)
+                                .fg(crate::config::CURSOR_COLUMN_FOREGROUND_COLOR)
+                        );
+                    }
+                }
+            }
+        }
+        if crate::config::SHOW_CURSOR_LINE{
+            for x in area.left()..(area.width + area.left()){
+                if let Some(primary_cursor_position) = self.primary_cursor.clone(){
+                    if let Some(cell) = buf.cell_mut((x, area.top() + primary_cursor_position.y as u16)){
+                        cell.set_style(
+                            Style::default()
+                                .bg(crate::config::CURSOR_LINE_BACKGROUND_COLOR)
+                                .fg(crate::config::CURSOR_LINE_FOREGROUND_COLOR)
+                        );
+                    }
+                }
+            }
+        }
+
         //if let Some(selections) = self.selections{  //selection not rendering properly on last empty line following previous newline, when cursor rendering below is not drawn there. maybe this is correct, because there is technically no content there...
         if !self.selections.is_empty(){
             for selection in &self.selections{  //self.selections.iter(){   //change suggested by clippy lint
