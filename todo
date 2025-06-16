@@ -154,9 +154,18 @@ always ensure:
 
 bug fix:
     [ ] extend selection word boundary forward/backward aren't behaving correctly in certain scenarios
-    [ ] util_bar interactive text box cursor goes wonky when text inserted past util_bar width      documented at util_bar.rs:141:73
+    [x] util_bar interactive text box cursor goes wonky when text inserted past util_bar width      documented at util_bar.rs:141:73
     [ ] util_bar interactive text box selection gets stuck if extended left from end of line, and try to extend selection right
         //same happens in document when extended left from buffer end...
+    [ ] when status bar hidden, with cursor at bottom buffer line in view, if find/split mode(but not goto/command) entered, then exited, the view is moved down
+        one line, when it should remain the same...
+    [ ] when upward extended selection from line end extended back down, the resultant selection is wrong
+        put cursor at end of long line, over new line grapheme
+        extend selection up
+        extend selection back down
+        selection in incorrect state
+        //this seems to be related to shifting the selection so it cannot encompass the newline
+    [ ] add selection above/below only copies the primary selection, not any other selections on the same line as primary
 
 
 other:

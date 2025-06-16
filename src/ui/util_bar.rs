@@ -6,7 +6,6 @@ use ratatui::style::{Style, Stylize};
 use ratatui::layout::{Direction, Layout, Constraint};
 use crate::config::{UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR, UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR, WARNING_BACKGROUND_COLOR, WARNING_FOREGROUND_COLOR, COPIED_INDICATOR_BACKGROUND_COLOR, COPIED_INDICATOR_FOREGROUND_COLOR};
 use crate::selections::Selections;
-use crate::selection::Selection;
 use crate::config::{SELECTION_BACKGROUND_COLOR, SELECTION_FOREGROUND_COLOR, PRIMARY_CURSOR_BACKGROUND_COLOR, PRIMARY_CURSOR_FOREGROUND_COLOR};
 
 
@@ -134,17 +133,18 @@ impl UtilityPromptWidget{
 
 #[derive(Default, Clone)]
 pub struct Highlighter{
-    pub selection: Option<Selection>, //util bar text should be guaranteed to be one line...    //Option used here only to satisfy Default derive...
-    pub cursor: u16,
+    pub selection: Option<crate::selection2d::Selection2d>, //util bar text should be guaranteed to be one line...
+    pub cursor: Option<crate::position::Position>,
 }
 impl ratatui::widgets::Widget for Highlighter{
-    fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer){    //TODO: need to fix selection/cursor rendering when text is larger than util_bar rect
+    fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer){
         //render selection
         if let Some(selection) = self.selection{
-            if selection.range.end - selection.range.start > 0{
-                for col in selection.range.start..selection.range.end{
+            if selection.head().x - selection.anchor().x > 0{   //if selection extended
+                for col in selection.anchor().x..selection.head().x{
                     let x_pos = area.left() + (col as u16);
-                    let y_pos = area.top();
+                    //let y_pos = area.top();
+                    let y_pos = area.top() + (selection.head().y as u16);
         
                     if let Some(cell) = buf.cell_mut((x_pos, y_pos)){
                         cell.set_style(Style::default()
@@ -157,11 +157,13 @@ impl ratatui::widgets::Widget for Highlighter{
         }
 
         // render cursor
-        if let Some(cell) = buf.cell_mut((area.left() + self.cursor, area.top())){
-            cell.set_style(Style::default()
-                .bg(PRIMARY_CURSOR_BACKGROUND_COLOR)
-                .fg(PRIMARY_CURSOR_FOREGROUND_COLOR)
-            );
+        if let Some(cursor) = self.cursor{
+            if let Some(cell) = buf.cell_mut((area.left() + (cursor.x as u16), area.top() + (cursor.y as u16))){
+                cell.set_style(Style::default()
+                    .bg(PRIMARY_CURSOR_BACKGROUND_COLOR)
+                    .fg(PRIMARY_CURSOR_FOREGROUND_COLOR)
+                );
+            }
         }
     }
 }

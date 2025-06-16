@@ -314,6 +314,7 @@ impl Selections{
     }
     
     /// Intended to ease the use of Selection functions, when used over multiple selections, where the returned selections are moved by view height and could be overlapping.
+    // TODO: take view related data(document_widget area) as input param, instead of storing a separate source of truth that needs synching with frontend
     pub fn move_cursor_page<F>(
         &self, 
         buffer: &crate::buffer::Buffer, 

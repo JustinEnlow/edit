@@ -14,8 +14,8 @@ Features:
             [x] ascii text rendering
             [ ] utf-8 text rendering
             [x] cursor/selection rendering(done for document, still WIP in utilities)
-            [ ] cursor line (highlight the line the primary cursor is on)
-            [ ] cursor column (highlight the column the primary cursor is on)
+            [x] cursor line (highlight the line the primary cursor is on)
+            [x] cursor column (highlight the column the primary cursor is on)
             [ ] suggestions/completion(from previously used words)
         [ ] Scroll bar(shows relative location in document)(handle should be proportional to view size and backdrop should be proportional to doc len)
         [x] Toggleable Line Numbers
@@ -40,7 +40,7 @@ Features:
                 [ ] search whole document if no selection extended
                 [x] match regex pattern
                 [x] incremental search
-            [ ] Split Mode
+            [x] Split Mode
                 [x] match regex pattern
                 [x] incremental split
             [x] Warning Mode(blocking display useful warnings and visual responses to redundant/unhandled input)
@@ -70,14 +70,15 @@ Features:
                 [ ] word
                 [ ] sentence
                 [ ] paragraph
-                [ ] surrounding pair
+                [x] surrounding pair
                 [ ] exclusive surrounding pair
                 [ ] inclusive surrounding pair
-            [ ] Goto Mode
 
     
-    File Operations(Open/Close/Save)
-        [x] yes
+    File Operations
+        [x] Open (from command line)
+        [x] Close
+        [x] Save
     Performance
         [ ] make performant (trying, but i honestly have no clue what i am doing...)
 

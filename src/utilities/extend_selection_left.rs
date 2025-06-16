@@ -17,6 +17,9 @@ pub fn selection_impl(selection: &Selection, buffer: &crate::buffer::Buffer, sem
     selection.assert_invariants(buffer, semantics.clone());
     
     if selection.cursor(buffer, semantics.clone()) == 0{return Err(SelectionError::ResultsInSameState);}
+    //if selection.cursor(buffer, semantics.clone()) == buffer.len_chars(){     //possible fix for extend left from buffer end getting stuck bug logged in todo.rs
+    //    return crate::utilities::move_cursor_left::selection_impl(&selection, buffer, semantics);
+    //}
 
     let new_position = buffer.previous_grapheme_boundary_index(selection.cursor(buffer, semantics.clone()));
     

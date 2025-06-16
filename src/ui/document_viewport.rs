@@ -50,20 +50,8 @@ pub struct Highlighter{
     // lsp highlights   //fg color
     pub selections: Vec<Selection2d>,   //bg color
     pub primary_cursor: Option<Position>, //bg color + fg color?
-    pub cursors: Option<Vec<Position>>, //should this really be option? i feel like we could accomplish the same with an empty vec...
+    pub cursors: Vec<Position>, 
     // others idk
-}
-impl Highlighter{
-    pub fn set_client_cursor_positions(&mut self, positions: Vec<Position>){
-        if positions.is_empty(){
-            self.cursors = None;
-        }
-
-        self.cursors = Some(positions);
-    }
-    pub fn set_primary_cursor_position(&mut self, position: Option<Position>){
-        self.primary_cursor = position;
-    }
 }
 impl ratatui::widgets::Widget for Highlighter{
     fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer){
@@ -100,7 +88,8 @@ impl ratatui::widgets::Widget for Highlighter{
                 if selection.head().x - selection.anchor().x == 0{continue;}    //should this use start and end instead?
                 for col in selection.anchor().x../*=*/selection.head().x{
                     let x_pos = area.left() + (col as u16);
-                    let y_pos = selection.head().y as u16;
+                    //let y_pos = selection.head().y as u16;
+                    let y_pos = area.top() + (selection.head().y as u16);
         
                     if let Some(cell) = buf.cell_mut((x_pos, y_pos)){
                         cell.set_style(Style::default()
@@ -113,8 +102,8 @@ impl ratatui::widgets::Widget for Highlighter{
         }
 
         //render cursors for all selections
-        if let Some(cursors) = self.cursors{
-            for cursor in cursors{
+        if !self.cursors.is_empty(){
+            for cursor in self.cursors{
                 if let Some(cell) = buf.cell_mut((area.left() + (cursor.x as u16), area.top() + (cursor.y as u16))){
                     cell.set_style(Style::default()
                         .bg(CURSOR_BACKGROUND_COLOR)

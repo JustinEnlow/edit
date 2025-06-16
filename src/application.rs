@@ -281,6 +281,10 @@ impl Application{
             instance.ui.document_viewport.document_widget.rect.width as usize,
             instance.ui.document_viewport.document_widget.rect.height as usize
         );
+        instance.ui.util_bar.utility_widget.text_box.view.set_size( //needed for util bar cursor to render the first time it is triggered
+            instance.ui.util_bar.utility_widget.rect.width as usize, 
+            instance.ui.util_bar.utility_widget.rect.height as usize
+        );
 
         // prefer this over scroll_and_update, even when response fns are the same, because it saves us from unnecessarily reassigning the view
         //instance.checked_scroll_and_update(&instance.document.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
@@ -289,10 +293,11 @@ impl Application{
             Application::update_ui_data_document, 
             Application::update_ui_data_document
         );
+        instance.update_ui_data_util_bar(); //needed for util bar cursor to render the first time it is triggered
 
         Ok(instance)
     }
-    
+
     pub fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<(), Box<dyn Error>>{
         loop{
             self.ui.update_layouts(&self.mode());
@@ -381,6 +386,11 @@ impl Application{
         }
         if clear_util_bar_text{
             self.ui.util_bar.utility_widget.text_box.clear();
+            self.ui.util_bar.utility_widget.text_box.view.set_size(
+                self.ui.util_bar.utility_widget.rect.width as usize, 
+                self.ui.util_bar.utility_widget.rect.height as usize, 
+            );
+            self.update_ui_data_util_bar();
         }
         if clear_saved_selections{
             self.ui.util_bar.utility_widget.preserved_selections = None;
@@ -391,16 +401,19 @@ impl Application{
         else{
             //set any mode specific entry behavior
             let mut save_selections = false;
+            let mut update_util_bar = false;
             let mut update_layouts_and_document = false;
             match to_mode{
                 Mode::Find | Mode::Split => {
                     save_selections = true;
                     if !self.ui.status_bar.display{ // potential fix for status bar bug in todo.rs
+                        update_util_bar = true;
                         update_layouts_and_document = true;
                     }
                 }
                 Mode::Command | Mode::Goto => {
                     if !self.ui.status_bar.display{ // potential fix for status bar bug in todo.rs
+                        update_util_bar = true;
                         update_layouts_and_document = true;
                     }
                 }
@@ -421,6 +434,13 @@ impl Application{
                     self.ui.document_viewport.document_widget.rect.height as usize
                 );
                 self.update_ui_data_document();
+            }
+            if update_util_bar{
+                self.ui.util_bar.utility_widget.text_box.view.set_size(
+                    self.ui.util_bar.utility_widget.rect.width as usize, 
+                    self.ui.util_bar.utility_widget.rect.height as usize, 
+                );
+                self.update_ui_data_util_bar();
             }
         }
     }
@@ -460,12 +480,25 @@ impl Application{
         let text = &self.buffer;
         let selections = &self.selections;
         
-        self.ui.document_viewport.highlighter.set_primary_cursor_position(self.view.primary_cursor_position(text, selections, CURSOR_SEMANTICS));
-        self.ui.document_viewport.highlighter.set_client_cursor_positions(self.view.cursor_positions(text, selections, CURSOR_SEMANTICS));
+        self.ui.document_viewport.highlighter.primary_cursor = self.view.primary_cursor_position(text, selections, CURSOR_SEMANTICS);
+        self.ui.document_viewport.highlighter.cursors = self.view.cursor_positions(text, selections, CURSOR_SEMANTICS);
         self.ui.document_viewport.highlighter.selections = self.view.selections(selections, text);
         self.ui.status_bar.selections_widget.primary_selection_index = selections.primary_selection_index;
         self.ui.status_bar.selections_widget.num_selections = selections.count();
         self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone();
+    }
+    pub fn update_ui_data_util_bar(&mut self){
+        let text_box = &self.ui.util_bar.utility_widget.text_box;
+        if text_box.view.should_scroll(&text_box.selection, &text_box.buffer, CURSOR_SEMANTICS){
+            self.ui.util_bar.utility_widget.text_box.view = text_box.view.scroll_following_cursor(&text_box.selection, &text_box.buffer, CURSOR_SEMANTICS);
+        }//else{/*keep current view*/}
+
+        let text_box = &self.ui.util_bar.utility_widget.text_box;
+        let selections = crate::selections::Selections::new(
+            vec![text_box.selection.clone()], 0, &text_box.buffer, CURSOR_SEMANTICS
+        );
+        self.ui.util_bar.highlighter.selection = text_box.view.selections(&selections, &text_box.buffer).get(0).cloned();
+        self.ui.util_bar.highlighter.cursor = text_box.view.primary_cursor_position(&text_box.buffer, &selections, CURSOR_SEMANTICS);
     }
     // prefer this over checked_scroll_and_update only when the view should ALWAYS scroll.      //TODO: comment out this fn, and verify all callers actually need this fn and not checked_scroll_and_update
     //pub fn scroll_and_update(&mut self, selection: &Selection){ //TODO: maybe scrolling should be separate from scrolling?...
@@ -486,31 +519,6 @@ impl Application{
             non_scroll_response_fn(self);
         }
     }
-    pub fn update_ui_data_util_bar(&mut self){
-        //let buffer = &self.ui.util_bar.utility_widget.text_box.buffer;
-        //let selections = crate::selections::Selections::new(
-        //    vec![self.ui.util_bar.utility_widget.text_box.selection.clone()], 
-        //    0, 
-        //    buffer,
-        //    CURSOR_SEMANTICS
-        //);
-        //self.ui.util_bar.utility_widget.text_box.view = self.ui.util_bar.utility_widget.text_box.view.scroll_following_cursor(
-        //    selections.primary(), 
-        //    buffer,
-        //    CURSOR_SEMANTICS
-        //);
-
-        // new
-            //this isn't working right yet...
-            //self.ui.util_bar.highlighter.selection = Some(self.ui.util_bar.utility_widget.text_box.selection.clone());
-            //self.ui.util_bar.highlighter.cursor = self.ui.util_bar.utility_widget.text_box.cursor_position();
-        
-        if self.ui.util_bar.utility_widget.text_box.view.should_scroll(&self.ui.util_bar.utility_widget.text_box.selection, &self.ui.util_bar.utility_widget.text_box.buffer, CURSOR_SEMANTICS){
-            self.ui.util_bar.utility_widget.text_box.view = self.ui.util_bar.utility_widget.text_box.view.scroll_following_cursor(&self.ui.util_bar.utility_widget.text_box.selection, &self.ui.util_bar.utility_widget.text_box.buffer, CURSOR_SEMANTICS)
-        }//else{/*keep current view*/}
-        //
-    }
-
 
     pub fn no_op_keypress(&mut self){
         self.mode_push(Mode::Warning(WarningKind::UnhandledKeypress));
@@ -730,8 +738,6 @@ impl Application{
         }
     }
 
-    //TODO: util_action maybe should be a sub-action of EditorAction(which itself still needs to be implemented...)
-    //TODO: split into util_edit_action and util_selection_action?...
     pub fn util_action(&mut self, action: &UtilAction){
         let text_box = &mut self.ui.util_bar.utility_widget.text_box;
         match action{

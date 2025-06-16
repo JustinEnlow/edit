@@ -189,6 +189,8 @@ impl View{
 
         selections_in_view
     }
+    //TODO: maybe have fn selection(&self, selection: &Selection, buffer: &Buffer) -> Option<Selection2d>
+    //this would be useful for util_bar text_box view, but could also be done for all [Selection]s in selections, to replace fn selections
 
     /// Maps a [`View`] as a [`Vec`] of [`Range`]s over a text rope.
     /// This transforms the idea of a view from 2d to 1d, one view block per terminal row, and trims excess empty cells from each row.
