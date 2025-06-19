@@ -24,9 +24,9 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
                 else if c == 'l'{app.selection_action(&SelectionAction::SelectLine);}
                 else if c == 'o'{app.mode_push(Mode::Object);}
                 else if c == 'p'{app.selection_action(&SelectionAction::IncrementPrimarySelection);}
-                //else if c == 'q'{app.quit();}
+                else if c == 'q'{app.quit();}
                 else if c == 'r'{app.selection_action(&SelectionAction::RemovePrimarySelection);}
-                //else if c == 's'{app.save();}
+                else if c == 's'{app.save();}
                 else if c == 't'{Application::open_new_terminal_window();}
                 else if c == 'v'{app.edit_action(&EditAction::Paste);}
                 else if c == 'x'{app.edit_action(&EditAction::Cut);}

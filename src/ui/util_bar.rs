@@ -145,6 +145,7 @@ impl ratatui::widgets::Widget for Highlighter{
                     let x_pos = area.left() + (col as u16);
                     //let y_pos = area.top();
                     let y_pos = area.top() + (selection.head().y as u16);
+                    assert_eq!(0, y_pos, "util bar text should be guaranteed to be one line");
         
                     if let Some(cell) = buf.cell_mut((x_pos, y_pos)){
                         cell.set_style(Style::default()
@@ -158,6 +159,7 @@ impl ratatui::widgets::Widget for Highlighter{
 
         // render cursor
         if let Some(cursor) = self.cursor{
+            assert_eq!(0, cursor.y, "util bar text should be guaranteed to be one line");
             if let Some(cell) = buf.cell_mut((area.left() + (cursor.x as u16), area.top() + (cursor.y as u16))){
                 cell.set_style(Style::default()
                     .bg(PRIMARY_CURSOR_BACKGROUND_COLOR)
@@ -165,6 +167,14 @@ impl ratatui::widgets::Widget for Highlighter{
                 );
             }
         }
+
+        //debug //this can help ensure we are using the correct Rect
+        //if let Some(cell) = buf.cell_mut((area.left(), area.top())){
+        //    cell.set_style(
+        //        Style::default()
+        //            .bg(ratatui::style::Color::Yellow)
+        //    );
+        //}
     }
 }
 

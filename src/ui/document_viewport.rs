@@ -122,6 +122,14 @@ impl ratatui::widgets::Widget for Highlighter{
                 );
             }
         }
+
+        //debug //this can help ensure we are using the correct Rect
+        //if let Some(cell) = buf.cell_mut((area.left(), area.top())){
+        //    cell.set_style(
+        //        Style::default()
+        //            .bg(ratatui::style::Color::Yellow)
+        //    );
+        //}
     }
 }
 

@@ -645,53 +645,58 @@ impl Application{
 
     pub fn selection_action(&mut self, action: &SelectionAction){
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::Object);
-        let result = match action{
-            SelectionAction::MoveCursorUp => {crate::utilities::move_cursor_up::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorDown => {crate::utilities::move_cursor_down::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorLeft => {crate::utilities::move_cursor_left::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorRight => {crate::utilities::move_cursor_right::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorWordBoundaryForward => {crate::utilities::move_cursor_word_boundary_forward::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorWordBoundaryBackward => {crate::utilities::move_cursor_word_boundary_backward::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorLineEnd => {crate::utilities::move_cursor_line_end::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorHome => {crate::utilities::move_cursor_home::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorBufferStart => {crate::utilities::move_cursor_buffer_start::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorBufferEnd => {crate::utilities::move_cursor_buffer_end::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorPageUp => {crate::utilities::move_cursor_page_up::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::MoveCursorPageDown => {crate::utilities::move_cursor_page_down::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionUp => {crate::utilities::extend_selection_up::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionDown => {crate::utilities::extend_selection_down::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionLeft => {crate::utilities::extend_selection_left::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionRight => {crate::utilities::extend_selection_right::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionWordBoundaryBackward => {crate::utilities::extend_selection_word_boundary_backward::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionWordBoundaryForward => {crate::utilities::extend_selection_word_boundary_forward::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionLineEnd => {crate::utilities::extend_selection_line_end::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::ExtendSelectionHome => {crate::utilities::extend_selection_home::application_impl(self, CURSOR_SEMANTICS)}
+        enum SelectionToFollow{
+            Primary,
+            First,
+            Last,
+        }
+        let (result, selection_to_follow) = match action{
+            SelectionAction::MoveCursorUp => {(crate::utilities::move_cursor_up::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::MoveCursorDown => {(crate::utilities::move_cursor_down::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::MoveCursorLeft => {(crate::utilities::move_cursor_left::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::MoveCursorRight => {(crate::utilities::move_cursor_right::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::MoveCursorWordBoundaryForward => {(crate::utilities::move_cursor_word_boundary_forward::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::MoveCursorWordBoundaryBackward => {(crate::utilities::move_cursor_word_boundary_backward::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::MoveCursorLineEnd => {(crate::utilities::move_cursor_line_end::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::MoveCursorHome => {(crate::utilities::move_cursor_home::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::MoveCursorBufferStart => {(crate::utilities::move_cursor_buffer_start::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::MoveCursorBufferEnd => {(crate::utilities::move_cursor_buffer_end::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::MoveCursorPageUp => {(crate::utilities::move_cursor_page_up::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::MoveCursorPageDown => {(crate::utilities::move_cursor_page_down::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::ExtendSelectionUp => {(crate::utilities::extend_selection_up::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::ExtendSelectionDown => {(crate::utilities::extend_selection_down::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::ExtendSelectionLeft => {(crate::utilities::extend_selection_left::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::ExtendSelectionRight => {(crate::utilities::extend_selection_right::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::ExtendSelectionWordBoundaryBackward => {(crate::utilities::extend_selection_word_boundary_backward::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::ExtendSelectionWordBoundaryForward => {(crate::utilities::extend_selection_word_boundary_forward::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::ExtendSelectionLineEnd => {(crate::utilities::extend_selection_line_end::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::ExtendSelectionHome => {(crate::utilities::extend_selection_home::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
             //SelectionAction::ExtendSelectionDocumentStart => {self.document.extend_selection_document_start(CURSOR_SEMANTICS)}
             //SelectionAction::ExtendSelectionDocumentEnd => {self.document.extend_selection_document_end(CURSOR_SEMANTICS)}
             //SelectionAction::ExtendSelectionPageUp => {self.document.extend_selection_page_up(CURSOR_SEMANTICS)}
             //SelectionAction::ExtendSelectionPageDown => {self.document.extend_selection_page_down(CURSOR_SEMANTICS)}
-            SelectionAction::SelectLine => {crate::utilities::select_line::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::SelectAll => {crate::utilities::select_all::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::CollapseSelectionToAnchor => {crate::utilities::collapse_selections_to_anchor::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::CollapseSelectionToCursor => {crate::utilities::collapse_selections_to_cursor::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::ClearNonPrimarySelections => {crate::utilities::clear_non_primary_selections::application_impl(self)}
-            SelectionAction::AddSelectionAbove => {crate::utilities::add_selection_above::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::AddSelectionBelow => {crate::utilities::add_selection_below::application_impl(self, CURSOR_SEMANTICS)}
-            SelectionAction::RemovePrimarySelection => {crate::utilities::remove_primary_selection::application_impl(self)}
-            SelectionAction::IncrementPrimarySelection => {crate::utilities::increment_primary_selection::application_impl(self)}
-            SelectionAction::DecrementPrimarySelection => {crate::utilities::decrement_primary_selection::application_impl(self)}
-            SelectionAction::Surround => {crate::utilities::surround::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::SelectLine => {(crate::utilities::select_line::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::SelectAll => {(crate::utilities::select_all::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::CollapseSelectionToAnchor => {(crate::utilities::collapse_selections_to_anchor::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::CollapseSelectionToCursor => {(crate::utilities::collapse_selections_to_cursor::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::ClearNonPrimarySelections => {(crate::utilities::clear_non_primary_selections::application_impl(self), SelectionToFollow::Primary)}
+            SelectionAction::AddSelectionAbove => {(crate::utilities::add_selection_above::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::First)}
+            SelectionAction::AddSelectionBelow => {(crate::utilities::add_selection_below::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Last)}
+            SelectionAction::RemovePrimarySelection => {(crate::utilities::remove_primary_selection::application_impl(self), SelectionToFollow::Primary)}
+            SelectionAction::IncrementPrimarySelection => {(crate::utilities::increment_primary_selection::application_impl(self), SelectionToFollow::Primary)}
+            SelectionAction::DecrementPrimarySelection => {(crate::utilities::decrement_primary_selection::application_impl(self), SelectionToFollow::Primary)}
+            SelectionAction::Surround => {(crate::utilities::surround::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
         
             //These may technically be distinct from the other selection actions, because they could be called from object mode, and would need to pop the mode stack after calling...
             //TODO: SelectionAction::Word => {self.document.word()}
             //TODO: SelectionAction::Sentence => {self.document.sentence()}
             //TODO: SelectionAction::Paragraph => {self.document.paragraph()}
-            SelectionAction::SurroundingPair => {crate::utilities::nearest_surrounding_pair::application_impl(self, CURSOR_SEMANTICS)}  //TODO: rename SurroundingBracketPair
+            SelectionAction::SurroundingPair => {(crate::utilities::nearest_surrounding_pair::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}  //TODO: rename SurroundingBracketPair
             //TODO: SelectionAction::QuotePair => {self.document.nearest_quote_pair()}                      //TODO: rename SurroundingQuotePair
             //TODO: SelectionAction::ExclusiveSurroundingPair => {self.document.exclusive_surrounding_pair()}
             //TODO: SelectionAction::InclusiveSurroundingPair => {self.document.inclusive_surrounding_pair()}
         
-            SelectionAction::FlipDirection => {crate::utilities::flip_direction::application_impl(self, CURSOR_SEMANTICS)}
+            SelectionAction::FlipDirection => {(crate::utilities::flip_direction::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
         };
 
         //maybe.    so far, only needed for selection actions called from object mode
@@ -700,9 +705,17 @@ impl Application{
         }
         //
 
+        let primary_selection = self.selections.primary().clone();
+        let first_selection = self.selections.first().clone();
+        let last_selection = self.selections.last().clone();
         match result{
             Ok(()) => {
-                self.checked_scroll_and_update(&self.selections.primary().clone(), 
+                self.checked_scroll_and_update(
+                    match selection_to_follow{
+                        SelectionToFollow::Primary => &primary_selection,
+                        SelectionToFollow::First => &first_selection,
+                        SelectionToFollow::Last => &last_selection,
+                    },
                     Application::update_ui_data_document, 
                     Application::update_ui_data_selections
                 );

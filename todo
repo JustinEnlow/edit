@@ -165,6 +165,7 @@ bug fix:
         extend selection back down
         selection in incorrect state
         //this seems to be related to shifting the selection so it cannot encompass the newline
+    [ ] with selection extended to line end(cursor over newline), and move cursor line end called, the selection should be collapsed, not return a same state error
     [ ] add selection above/below only copies the primary selection, not any other selections on the same line as primary
 
 
