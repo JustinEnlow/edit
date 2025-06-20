@@ -1,10 +1,10 @@
 use crate::ui::interactive_text_box::InteractiveTextBox;
-use crate::application::{Mode, WarningKind};
+use crate::application::Mode;
 use ratatui::layout::Rect;
 use ratatui::widgets::Paragraph;
 use ratatui::style::{Style, Stylize};
 use ratatui::layout::{Direction, Layout, Constraint};
-use crate::config::{UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR, UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR, WARNING_BACKGROUND_COLOR, WARNING_FOREGROUND_COLOR, COPIED_INDICATOR_BACKGROUND_COLOR, COPIED_INDICATOR_FOREGROUND_COLOR};
+use crate::config::{UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR, UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR, ERROR_BACKGROUND_COLOR, ERROR_FOREGROUND_COLOR, NOTIFY_BACKGROUND_COLOR, NOTIFY_FOREGROUND_COLOR};
 use crate::selections::Selections;
 use crate::config::{SELECTION_BACKGROUND_COLOR, SELECTION_FOREGROUND_COLOR, PRIMARY_CURSOR_BACKGROUND_COLOR, PRIMARY_CURSOR_FOREGROUND_COLOR};
 
@@ -47,58 +47,25 @@ impl UtilityWidget{
                 let buffer = &self.text_box.buffer;
                 Paragraph::new(self.text_box.view.text(buffer))
             }
-            Mode::Warning(kind) => {
-                Paragraph::new(
-                match kind{
-                        WarningKind::FileIsModified => {
-                            "WARNING! File has unsaved changes. Press close again to ignore and close.".to_string()
-                        }
-                        WarningKind::FileSaveFailed => {
-                            "WARNING! File could not be saved.".to_string()
-                        }
-                        WarningKind::CommandParseFailed => {
-                            "WARNING! Failed to parse command. Command may be undefined.".to_string()
-                        }
-                        WarningKind::SingleSelection => {
-                            "WARNING! Requested action cannot be performed on single selection.".to_string()
-                        }
-                        WarningKind::MultipleSelections => {
-                            "WARNING! Requested action cannot be performed on multiple selections.".to_string()
-                        }
-                        WarningKind::InvalidInput => {
-                            "WARNING! Invalid input.".to_string()
-                        }
-                        WarningKind::SameState => {
-                            "WARNING! Requested action results in the same state.".to_string()
-                        }
-                        WarningKind::UnhandledError(e) => {
-                            e
-                        }
-                        WarningKind::UnhandledKeypress => {
-                            "WARNING! Unbound key pressed.".to_string()
-                        }
-                        WarningKind::UnhandledEvent => {
-                            "WARNING! Unhandled event occurred.".to_string()
-                        }
-                    }
-                )
+            Mode::Error(string) => {
+                Paragraph::new(string)
                     .alignment(ratatui::prelude::Alignment::Center)
                     .style(
                         Style::default()
-                            .bg(WARNING_BACKGROUND_COLOR)
-                            .fg(WARNING_FOREGROUND_COLOR)
+                            .bg(ERROR_BACKGROUND_COLOR)
+                            .fg(ERROR_FOREGROUND_COLOR)
                             .bold()
                     )
             },
-            Mode::Notify => {
-                Paragraph::new("Text copied to clipboard.")
-                        .alignment(ratatui::prelude::Alignment::Center)
-                        .style(
-                            Style::default()
-                                .bg(COPIED_INDICATOR_BACKGROUND_COLOR)
-                                .fg(COPIED_INDICATOR_FOREGROUND_COLOR)
-                                .bold()
-                        )
+            Mode::Notify(string) => {
+                Paragraph::new(string)
+                    .alignment(ratatui::prelude::Alignment::Center)
+                    .style(
+                        Style::default()
+                            .bg(NOTIFY_BACKGROUND_COLOR)
+                            .fg(NOTIFY_FOREGROUND_COLOR)
+                            .bold()
+                    )
             },
             Mode::Insert => {
                 Paragraph::new(String::new())
@@ -123,9 +90,9 @@ impl UtilityPromptWidget{
             Mode::Command => Paragraph::new(COMMAND_PROMPT),
             Mode::Insert |
             Mode::View |
-            Mode::Notify |
+            Mode::Notify(_) |
             Mode::Object |
-            Mode::Warning(_) |
+            Mode::Error(_) |
             Mode::AddSurround => Paragraph::new("")
         }
     }
@@ -198,8 +165,8 @@ impl UtilBar{
             Mode::Object |
             Mode::Insert |
             Mode::View |
-            Mode::Notify |
-            Mode::Warning(_) |
+            Mode::Notify(_) |
+            Mode::Error(_) |
             Mode::AddSurround => {
                 self.utility_widget.text_box.view.set_size(0, 1);
             }
@@ -218,8 +185,8 @@ impl UtilBar{
                             Mode::Find => FIND_PROMPT.len() as u16,
                             Mode::Split => SPLIT_PROMPT.len() as u16,
                             Mode::Command => COMMAND_PROMPT.len() as u16,
-                            Mode::Warning(_)
-                            | Mode::Notify
+                            Mode::Error(_)
+                            | Mode::Notify(_)
                             | Mode::Insert
                             | Mode::Object
                             | Mode::View 
@@ -232,8 +199,8 @@ impl UtilBar{
                             Mode::Insert
                             | Mode::Object
                             | Mode::View
-                            | Mode::Notify
-                            | Mode::Warning(_) 
+                            | Mode::Notify(_)
+                            | Mode::Error(_) 
                             | Mode::AddSurround => rect.width,
                             Mode::Goto => rect.width - GOTO_PROMPT.len() as u16,
                             Mode::Command => rect.width - COMMAND_PROMPT.len() as u16,

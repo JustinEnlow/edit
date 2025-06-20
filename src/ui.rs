@@ -1,4 +1,4 @@
-use crate::application::{Mode, WarningKind};
+use crate::application::Mode;
 use crate::config;
 use document_viewport::DocumentViewport;
 use popups::Popups;
@@ -55,7 +55,7 @@ impl UserInterface{
                     // util(goto/find/command) bar rect height
                     Constraint::Length(
                         match mode{
-                            Mode::Warning(_) | Mode::Command | Mode::Find | Mode::Goto | Mode::Notify | Mode::Split => 1,
+                            Mode::Error(_) | Mode::Command | Mode::Find | Mode::Goto | Mode::Notify(_) | Mode::Split => 1,
                             Mode::Object |
                             Mode::Insert |
                             Mode::View |
@@ -87,8 +87,8 @@ impl UserInterface{
         self.popups.command.rect = sized_centered_rect(self.popups.command.widest_element_len, self.popups.command.num_elements, self.terminal_size);
         self.popups.find.rect = sized_centered_rect(self.popups.find.widest_element_len, self.popups.find.num_elements, self.terminal_size);
         self.popups.split.rect = sized_centered_rect(self.popups.split.widest_element_len, self.popups.split.num_elements, self.terminal_size);
-        self.popups.warning.rect = sized_centered_rect(self.popups.warning.widest_element_len, self.popups.warning.num_elements, self.terminal_size);
-        self.popups.modified_warning.rect = sized_centered_rect(self.popups.modified_warning.widest_element_len, self.popups.modified_warning.num_elements, self.terminal_size);
+        self.popups.error.rect = sized_centered_rect(self.popups.error.widest_element_len, self.popups.error.num_elements, self.terminal_size);
+        self.popups.modified_error.rect = sized_centered_rect(self.popups.modified_error.widest_element_len, self.popups.modified_error.num_elements, self.terminal_size);
         self.popups.notify.rect = sized_centered_rect(self.popups.notify.widest_element_len, self.popups.notify.num_elements, self.terminal_size);
         self.popups.view.rect = sized_centered_rect(self.popups.view.widest_element_len, self.popups.view.num_elements, self.terminal_size);
         self.popups.object.rect = sized_centered_rect(self.popups.object.widest_element_len, self.popups.object.num_elements, self.terminal_size);
@@ -171,26 +171,26 @@ impl UserInterface{
                             frame.render_widget(self.popups.split.widget(), self.popups.split.rect);
                         }
                     }
-                    Mode::Warning(kind) => {
+                    Mode::Error(string) => {
                         //frame.render_widget(self.util_bar.prompt.widget(mode.clone()), self.util_bar.prompt.rect);
                         frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
 
-                        if kind == &WarningKind::FileIsModified{
+                        if string == crate::config::FILE_MODIFIED{
                             //TODO: status bar should have a mode indicator, for when this is hidden
                             if config::SHOW_CONTEXTUAL_KEYBINDS{
-                                frame.render_widget(ratatui::widgets::Clear, self.popups.modified_warning.rect);
-                                frame.render_widget(self.popups.modified_warning.widget(), self.popups.modified_warning.rect);
+                                frame.render_widget(ratatui::widgets::Clear, self.popups.modified_error.rect);
+                                frame.render_widget(self.popups.modified_error.widget(), self.popups.modified_error.rect);
                             }
                         }
                         else{
                             //TODO: status bar should have a mode indicator, for when this is hidden
                             if config::SHOW_CONTEXTUAL_KEYBINDS{
-                                frame.render_widget(ratatui::widgets::Clear, self.popups.warning.rect);
-                                frame.render_widget(self.popups.warning.widget(), self.popups.warning.rect);
+                                frame.render_widget(ratatui::widgets::Clear, self.popups.error.rect);
+                                frame.render_widget(self.popups.error.widget(), self.popups.error.rect);
                             }
                         }
                     }
-                    Mode::Notify => {
+                    Mode::Notify(_) => {
                         //frame.render_widget(self.util_bar.prompt.widget(mode.clone()), self.util_bar.prompt.rect);
                         frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
 

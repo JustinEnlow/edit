@@ -152,12 +152,12 @@ pub fn handle_view_mode_keypress(app: &mut Application, keycode: KeyCode, modifi
     }
 }
 
-pub fn handle_warning_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
+pub fn handle_error_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
     match (keycode, modifiers){
         (KeyCode::Char('q'), modifiers) => {
             if modifiers == KeyModifiers::CONTROL{
                 //TODO: should this logic be in its own fn in application.rs?...
-                if app.mode() == Mode::Warning(crate::application::WarningKind::FileIsModified){
+                if app.mode() == Mode::Error(crate::config::FILE_MODIFIED.to_string()){
                     app.quit_ignoring_changes();
                 }
                 else{app.no_op_keypress();}
@@ -227,7 +227,7 @@ pub fn handle_goto_mode_keypress(app: &mut Application, keycode: KeyCode, modifi
     }
 }
 
-pub fn handle_find_replace_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
+pub fn handle_find_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
     match (keycode, modifiers){
         (KeyCode::Right, modifiers) => {
             if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::ExtendRight);}

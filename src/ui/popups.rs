@@ -26,10 +26,10 @@ const SPLIT_MODE_MENU_ITEMS: [MenuItem; 2] = [
     MenuItem{key: if config::SHOW_SYMBOLIC_MENU_KEYS{"⏎"}else{"enter"},    command: "accept new selections", source: "(edit)"},
     MenuItem{key: if config::SHOW_SYMBOLIC_MENU_KEYS{"esc"}else{"escape"}, command: "exit mode",             source: "(edit)"},
 ];
-const WARNING_MODE_MENU_ITEMS: [MenuItem; 1] = [     //may have to have a second for WarningKing::FileIsModified, which has an extra "q quit ignoring changes (edit)" menu item
+const ERROR_MODE_MENU_ITEMS: [MenuItem; 1] = [     //may have to have a second for WarningKing::FileIsModified, which has an extra "q quit ignoring changes (edit)" menu item
 MenuItem{key: if config::SHOW_SYMBOLIC_MENU_KEYS{"esc"}else{"escape"}, command: "exit mode", source: "(edit)"},
 ];
-const MODIFIED_WARNING_MODE_MENU_ITEMS: [MenuItem; 2] = [
+const MODIFIED_ERROR_MODE_MENU_ITEMS: [MenuItem; 2] = [
     MenuItem{key: "ctrl+q",                                                command: "quit ignoring changes", source: "(edit)"},
     MenuItem{key: if config::SHOW_SYMBOLIC_MENU_KEYS{"esc"}else{"escape"}, command: "exit mode",             source: "(edit)"},
 ];
@@ -175,8 +175,8 @@ pub struct Popups{
     pub command: PopupMenu,
     pub find: PopupMenu,
     pub split: PopupMenu,
-    pub warning: PopupMenu,
-    pub modified_warning: PopupMenu,
+    pub error: PopupMenu,
+    pub modified_error: PopupMenu,  //TODO?: maybe remove this, and use normal error mode display instead?...
     pub notify: PopupMenu,
     pub view: PopupMenu,
     pub object: PopupMenu,
@@ -189,8 +189,8 @@ impl Popups{
             command: PopupMenu::new_from_mode_menu(&COMMAND_MODE_MENU_ITEMS, "Command"),
             find: PopupMenu::new_from_mode_menu(&FIND_MODE_MENU_ITEMS, "Find"),
             split: PopupMenu::new_from_mode_menu(&SPLIT_MODE_MENU_ITEMS, "Split"),
-            warning: PopupMenu::new_from_mode_menu(&WARNING_MODE_MENU_ITEMS, "Warning"),
-            modified_warning: PopupMenu::new_from_mode_menu(&MODIFIED_WARNING_MODE_MENU_ITEMS, "Warning"),
+            error: PopupMenu::new_from_mode_menu(&ERROR_MODE_MENU_ITEMS, "Error"),
+            modified_error: PopupMenu::new_from_mode_menu(&MODIFIED_ERROR_MODE_MENU_ITEMS, "Error(Modified)"),
             notify: PopupMenu::new_from_mode_menu(&NOTIFY_MODE_MENU_ITEMS, "Notify"),
             view: PopupMenu::new_from_mode_menu(&VIEW_MODE_MENU_ITEMS, "View"),
             object: PopupMenu::new_from_mode_menu(&OBJECT_MODE_MENU_ITEMS, "Object"),

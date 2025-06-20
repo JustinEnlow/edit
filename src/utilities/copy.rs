@@ -1,9 +1,10 @@
 use crate::application::{Application, ApplicationError};
+use crate::selections::SelectionsError;
 
 /// Copy single selection to clipboard.
 /// Ensure single selection when calling this function.
 pub fn application_impl(app: &mut Application) -> Result<(), ApplicationError>{
-    if app.selections.count() > 1{return Err(ApplicationError::InvalidInput);}
+    if app.selections.count() > 1{return Err(ApplicationError::SelectionsError(SelectionsError::MultipleSelections));}
     
     let selection = app.selections.primary().clone();
     // Copy the selected text to the clipboard
