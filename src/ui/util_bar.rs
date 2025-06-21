@@ -4,7 +4,7 @@ use ratatui::layout::Rect;
 use ratatui::widgets::Paragraph;
 use ratatui::style::{Style, Stylize};
 use ratatui::layout::{Direction, Layout, Constraint};
-use crate::config::{UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR, UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR, ERROR_BACKGROUND_COLOR, ERROR_FOREGROUND_COLOR, NOTIFY_BACKGROUND_COLOR, NOTIFY_FOREGROUND_COLOR};
+use crate::config::{UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR, UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR, ERROR_BACKGROUND_COLOR, ERROR_FOREGROUND_COLOR, WARNING_BACKGROUND_COLOR, WARNING_FOREGROUND_COLOR, NOTIFY_BACKGROUND_COLOR, NOTIFY_FOREGROUND_COLOR, INFO_BACKGROUND_COLOR, INFO_FOREGROUND_COLOR};
 use crate::selections::Selections;
 use crate::config::{SELECTION_BACKGROUND_COLOR, SELECTION_FOREGROUND_COLOR, PRIMARY_CURSOR_BACKGROUND_COLOR, PRIMARY_CURSOR_FOREGROUND_COLOR};
 
@@ -57,6 +57,16 @@ impl UtilityWidget{
                             .bold()
                     )
             },
+            Mode::Warning(string) => {
+                Paragraph::new(string)
+                    .alignment(ratatui::prelude::Alignment::Center)
+                    .style(
+                        Style::default()
+                            .bg(WARNING_BACKGROUND_COLOR)
+                            .fg(WARNING_FOREGROUND_COLOR)
+                            .bold()
+                    )
+            }
             Mode::Notify(string) => {
                 Paragraph::new(string)
                     .alignment(ratatui::prelude::Alignment::Center)
@@ -67,6 +77,16 @@ impl UtilityWidget{
                             .bold()
                     )
             },
+            Mode::Info(string) => {
+                Paragraph::new(string)
+                    .alignment(ratatui::prelude::Alignment::Center)
+                    .style(
+                        Style::default()
+                            .bg(INFO_BACKGROUND_COLOR)
+                            .fg(INFO_FOREGROUND_COLOR)
+                            .bold()
+                    )
+            }
             Mode::Insert => {
                 Paragraph::new(String::new())
             }
@@ -90,9 +110,11 @@ impl UtilityPromptWidget{
             Mode::Command => Paragraph::new(COMMAND_PROMPT),
             Mode::Insert |
             Mode::View |
-            Mode::Notify(_) |
-            Mode::Object |
             Mode::Error(_) |
+            Mode::Warning(_) |
+            Mode::Notify(_) |
+            Mode::Info(_) |
+            Mode::Object |
             Mode::AddSurround => Paragraph::new("")
         }
     }
@@ -165,8 +187,10 @@ impl UtilBar{
             Mode::Object |
             Mode::Insert |
             Mode::View |
-            Mode::Notify(_) |
             Mode::Error(_) |
+            Mode::Warning(_) |
+            Mode::Notify(_) |
+            Mode::Info(_) |
             Mode::AddSurround => {
                 self.utility_widget.text_box.view.set_size(0, 1);
             }
@@ -186,7 +210,9 @@ impl UtilBar{
                             Mode::Split => SPLIT_PROMPT.len() as u16,
                             Mode::Command => COMMAND_PROMPT.len() as u16,
                             Mode::Error(_)
+                            | Mode::Warning(_)
                             | Mode::Notify(_)
+                            | Mode::Info(_)
                             | Mode::Insert
                             | Mode::Object
                             | Mode::View 
@@ -199,8 +225,10 @@ impl UtilBar{
                             Mode::Insert
                             | Mode::Object
                             | Mode::View
-                            | Mode::Notify(_)
                             | Mode::Error(_) 
+                            | Mode::Warning(_)
+                            | Mode::Notify(_)
+                            | Mode::Info(_)
                             | Mode::AddSurround => rect.width,
                             Mode::Goto => rect.width - GOTO_PROMPT.len() as u16,
                             Mode::Command => rect.width - COMMAND_PROMPT.len() as u16,

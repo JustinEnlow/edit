@@ -55,7 +55,15 @@ impl UserInterface{
                     // util(goto/find/command) bar rect height
                     Constraint::Length(
                         match mode{
-                            Mode::Error(_) | Mode::Command | Mode::Find | Mode::Goto | Mode::Notify(_) | Mode::Split => 1,
+                            Mode::Error(_) | 
+                            Mode::Warning(_) | 
+                            Mode::Notify(_) | 
+                            Mode::Info(_) | 
+                            Mode::Command | 
+                            Mode::Find | 
+                            Mode::Goto | 
+                            Mode::Split => 1,
+
                             Mode::Object |
                             Mode::Insert |
                             Mode::View |
@@ -89,7 +97,9 @@ impl UserInterface{
         self.popups.split.rect = sized_centered_rect(self.popups.split.widest_element_len, self.popups.split.num_elements, self.terminal_size);
         self.popups.error.rect = sized_centered_rect(self.popups.error.widest_element_len, self.popups.error.num_elements, self.terminal_size);
         self.popups.modified_error.rect = sized_centered_rect(self.popups.modified_error.widest_element_len, self.popups.modified_error.num_elements, self.terminal_size);
+        self.popups.warning.rect = sized_centered_rect(self.popups.warning.widest_element_len, self.popups.warning.num_elements, self.terminal_size);
         self.popups.notify.rect = sized_centered_rect(self.popups.notify.widest_element_len, self.popups.notify.num_elements, self.terminal_size);
+        self.popups.info.rect = sized_centered_rect(self.popups.info.widest_element_len, self.popups.info.num_elements, self.terminal_size);
         self.popups.view.rect = sized_centered_rect(self.popups.view.widest_element_len, self.popups.view.num_elements, self.terminal_size);
         self.popups.object.rect = sized_centered_rect(self.popups.object.widest_element_len, self.popups.object.num_elements, self.terminal_size);
         self.popups.add_surround.rect = sized_centered_rect(self.popups.add_surround.widest_element_len, self.popups.add_surround.num_elements, self.terminal_size);
@@ -190,6 +200,15 @@ impl UserInterface{
                             }
                         }
                     }
+                    Mode::Warning(_) => {
+                        frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
+
+                        //TODO: status bar should have a mode indicator, for when this is hidden
+                        if config::SHOW_CONTEXTUAL_KEYBINDS{
+                            frame.render_widget(ratatui::widgets::Clear, self.popups.warning.rect);
+                            frame.render_widget(self.popups.warning.widget(), self.popups.warning.rect);
+                        }
+                    }
                     Mode::Notify(_) => {
                         //frame.render_widget(self.util_bar.prompt.widget(mode.clone()), self.util_bar.prompt.rect);
                         frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
@@ -198,6 +217,15 @@ impl UserInterface{
                         if config::SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.popups.notify.rect);
                             frame.render_widget(self.popups.notify.widget(), self.popups.notify.rect);
+                        }
+                    }
+                    Mode::Info(_) => {
+                        frame.render_widget(self.util_bar.utility_widget.widget(mode.clone()), self.util_bar.utility_widget.rect);
+
+                        //TODO: status bar should have a mode indicator, for when this is hidden
+                        if config::SHOW_CONTEXTUAL_KEYBINDS{
+                            frame.render_widget(ratatui::widgets::Clear, self.popups.info.rect);
+                            frame.render_widget(self.popups.info.widget(), self.popups.info.rect);
                         }
                     }
                     Mode::View => {

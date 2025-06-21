@@ -33,20 +33,12 @@ use crossterm::event;
 use ratatui::layout::Rect;
 use ratatui::{backend::CrosstermBackend, Terminal};
 use crate::keybind;
-use crate::config::{CURSOR_SEMANTICS, SHOW_SAME_STATE_WARNINGS, TAB_WIDTH, USE_FULL_FILE_PATH, USE_HARD_TAB, VIEW_SCROLL_AMOUNT};
+use crate::config::{CURSOR_SEMANTICS, TAB_WIDTH, USE_FULL_FILE_PATH, USE_HARD_TAB, VIEW_SCROLL_AMOUNT};
 use crate::config::{FILE_MODIFIED, FILE_SAVE_FAILED, COMMAND_PARSE_FAILED, SINGLE_SELECTION, MULTIPLE_SELECTIONS, INVALID_INPUT, SAME_STATE, UNHANDLED_KEYPRESS, UNHANDLED_EVENT, READ_ONLY_BUFFER};
 use crate::config::COPIED_TEXT;
 
 
 
-pub enum ApplicationError{
-    ReadOnlyBuffer,
-    InvalidInput,
-    SelectionAtDocBounds,
-    NoChangesToUndo,
-    NoChangesToRedo,
-    SelectionsError(crate::selections::SelectionsError),
-}
 pub enum UtilAction{
     Backspace,
     Delete,
@@ -141,7 +133,7 @@ pub enum Mode{
     /// for display of warnings(such as same state)
     /// unhandled keybinds should fall through to Insert mode, clearing util bar
     /// to be displayed in WARNING_MODE_BACKGROUND_COLOR and WARNING_MODE_FOREGROUND_COLOR
-    // Warning(String), 
+    Warning(String), 
     
     /// for display of notifications(such as text copied indicator, or "action performed outside of view" for non-visible actions)
     /// unhandled keybinds should fall through to Insert mode, clearing util bar
@@ -153,7 +145,7 @@ pub enum Mode{
     /// to be displayed in INFO_MODE_BACKGROUND_COLOR and INFO_MODE_FOREGROUND_COLOR
     /// for example, the command: info %{file_name} , should display the file name or None in the util bar
     /// or info date    , should display the current date in the util bar
-    // Info(String),
+    Info(String),
     
     /// for adjusting the visible area of text
     View,
@@ -187,22 +179,16 @@ pub enum Mode{
     //SelectUntilPrev,
 }
 
-//#[derive(Clone, PartialEq, Eq)]
-//pub enum WarningKind{
-//    FileIsModified,
-//    FileSaveFailed,
-//    CommandParseFailed,
-//    SingleSelection,
-//    MultipleSelections,
-//    InvalidInput,
-//    SameState,
-//    UnhandledError(String),    //prob should still panic if results in an invalid state...
-//    UnhandledKeypress,
-//    UnhandledEvent
-//}
 
 
-
+pub enum ApplicationError{
+    ReadOnlyBuffer,
+    InvalidInput,
+    SelectionAtDocBounds,
+    NoChangesToUndo,
+    NoChangesToRedo,
+    SelectionsError(crate::selections::SelectionsError),
+}
 pub struct Application{
     should_quit: bool,
     mode_stack: Vec<Mode>,
@@ -344,13 +330,21 @@ impl Application{
                 match self.mode(){
                     Mode::Insert => {keybind::handle_insert_mode_keypress(self, key_event.code, key_event.modifiers);}
                     Mode::View => {keybind::handle_view_mode_keypress(self, key_event.code, key_event.modifiers);}
-                    Mode::Error(_) => {keybind::handle_error_mode_keypress(self, key_event.code, key_event.modifiers);}
                     Mode::Goto => {keybind::handle_goto_mode_keypress(self, key_event.code, key_event.modifiers);}
                     Mode::Find => {keybind::handle_find_mode_keypress(self, key_event.code, key_event.modifiers);}
                     Mode::Command => {keybind::handle_command_mode_keypress(self, key_event.code, key_event.modifiers);}
+                    Mode::Error(_) => {keybind::handle_error_mode_keypress(self, key_event.code, key_event.modifiers);}
+                    Mode::Warning(_) => {
+                        //unhandled keybinds in warning mode fall through to insert mode //TODO: do the same for suggestions mode(not impled yet)
+                        keybind::handle_warning_mode_keypress(self, key_event.code, key_event.modifiers);
+                    }
                     Mode::Notify(_) => {
                         //unhandled keybinds in notify mode fall through to insert mode //TODO: do the same for suggestions mode(not impled yet)
                         keybind::handle_notify_mode_keypress(self, key_event.code, key_event.modifiers);
+                    }
+                    Mode::Info(_) => {
+                        //unhandled keybinds in info mode fall through to insert mode //TODO: do the same for suggestions mode(not impled yet)
+                        keybind::handle_info_mode_keypress(self, key_event.code, key_event.modifiers);
                     }
                     Mode::Split => {keybind::handle_split_mode_keypress(self, key_event.code, key_event.modifiers);}
                     Mode::Object => {keybind::handle_object_mode_keypress(self, key_event.code, key_event.modifiers);}
@@ -395,7 +389,13 @@ impl Application{
                 clear_util_bar_text = true;
                 clear_saved_selections = true;
             }
-            Mode::Object | Mode::Notify(_) | Mode::View | Mode::Error(_) | Mode::AddSurround => {}
+            Mode::Object | 
+            Mode::View | 
+            Mode::Error(_) | 
+            Mode::Warning(_) | 
+            Mode::Notify(_) | 
+            Mode::Info(_) | 
+            Mode::AddSurround => {/* do nothing */}
             Mode::Insert => {self.handle_notification(crate::config::INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}
         }
 
@@ -444,7 +444,14 @@ impl Application{
                         update_layouts_and_document = true;
                     }
                 }
-                Mode::Object | Mode::Insert | Mode::Notify(_) | Mode::View | Mode::Error(_) | Mode::AddSurround => {/* do nothing */}
+                Mode::Object | 
+                Mode::Insert | 
+                Mode::View | 
+                Mode::Error(_) | 
+                Mode::Warning(_) | 
+                Mode::Notify(_) | 
+                Mode::Info(_) | 
+                Mode::AddSurround => {/* do nothing */}
             }
 
             //add mode to top of stack
@@ -551,9 +558,10 @@ impl Application{
     fn handle_notification(&mut self, display_mode: crate::config::DisplayMode, message: &'static str){
         match display_mode{
             crate::config::DisplayMode::Error => {self.mode_push(Mode::Error(message.to_string()))}
-            crate::config::DisplayMode::Warning => {self.mode_push(/* TODO */Mode::Notify(message.to_string()));}
+            crate::config::DisplayMode::Warning => {self.mode_push(Mode::Warning(message.to_string()));}
             crate::config::DisplayMode::Notify => {self.mode_push(Mode::Notify(message.to_string()));}
-            crate::config::DisplayMode::Info => {self.mode_push(/* TODO */Mode::Notify(message.to_string()));}
+            crate::config::DisplayMode::Info => {self.mode_push(Mode::Info(message.to_string()));}
+            crate::config::DisplayMode::Ignore => {/* do nothing */}
         }
     }
 
@@ -590,7 +598,7 @@ impl Application{
             self.selection_action(&SelectionAction::CollapseSelectionToCursor);
         }
         else{
-            if SHOW_SAME_STATE_WARNINGS{self.handle_notification(crate::config::SAME_STATE_DISPLAY_MODE, SAME_STATE);}
+            self.handle_notification(crate::config::SAME_STATE_DISPLAY_MODE, SAME_STATE);
         }
     }
 
@@ -623,12 +631,12 @@ impl Application{
             ApplicationError::InvalidInput => {self.handle_notification(crate::config::INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}
             ApplicationError::SelectionAtDocBounds |
             ApplicationError::NoChangesToUndo |
-            ApplicationError::NoChangesToRedo => {if SHOW_SAME_STATE_WARNINGS{self.handle_notification(crate::config::SAME_STATE_DISPLAY_MODE, SAME_STATE);}}
+            ApplicationError::NoChangesToRedo => {self.handle_notification(crate::config::SAME_STATE_DISPLAY_MODE, SAME_STATE);}
             ApplicationError::SelectionsError(s) => {
                 match s{
                     crate::selections::SelectionsError::ResultsInSameState |
                     crate::selections::SelectionsError::CannotAddSelectionAbove |
-                    crate::selections::SelectionsError::CannotAddSelectionBelow => {if SHOW_SAME_STATE_WARNINGS{self.handle_notification(crate::config::SAME_STATE_DISPLAY_MODE, SAME_STATE);}}
+                    crate::selections::SelectionsError::CannotAddSelectionBelow => {self.handle_notification(crate::config::SAME_STATE_DISPLAY_MODE, SAME_STATE);}
                     crate::selections::SelectionsError::MultipleSelections => {self.handle_notification(crate::config::MULTIPLE_SELECTIONS_DISPLAY_MODE, MULTIPLE_SELECTIONS);}
                     crate::selections::SelectionsError::SingleSelection => {self.handle_notification(crate::config::SINGLE_SELECTION_DISPLAY_MODE, SINGLE_SELECTION);}
                     crate::selections::SelectionsError::NoSearchMatches |
@@ -812,8 +820,10 @@ impl Application{
             Mode::Object |
             Mode::Insert |
             Mode::View |
-            Mode::Notify(_) |
             Mode::Error(_) |
+            Mode::Warning(_) |
+            Mode::Notify(_) |
+            Mode::Info(_) |
             Mode::AddSurround => {/*do nothing*/}
             Mode::Goto => {
                 self.goto_mode_text_validity_check();

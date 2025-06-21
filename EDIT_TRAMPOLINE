@@ -139,7 +139,7 @@ selections.
 
             +-----------------------------NOTE--------------------------------+
             | This default behavior can be changed in config.rs by changing   |
-            | the SHOW_SAME_STATE_WARNINGS constant from true to false.       |
+            | the SAME_STATE_DISPLAY_MODE constant from WARNING to IGNORE.    |
             +-----------------------------------------------------------------+
 
     Try triggering the same state warning by placing the cursor at the start of

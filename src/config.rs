@@ -36,11 +36,11 @@ pub const VIEW_SCROLL_AMOUNT: usize = 1;    //should this have separate vertical
     pub const UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR: Color = Color::Red;
     pub const ERROR_BACKGROUND_COLOR: Color = Color::Red;
     pub const ERROR_FOREGROUND_COLOR: Color = Color::White;
-    pub const WARNING_BACKGROUND_COLOR: Color = Color::Yellow;
+    pub const WARNING_BACKGROUND_COLOR: Color = Color::Rgb(180, 180, 0);//Color::Rgb(255, 255, 0);
     pub const WARNING_FOREGROUND_COLOR: Color = Color::Black;
     pub const NOTIFY_BACKGROUND_COLOR: Color = Color::Green;
     pub const NOTIFY_FOREGROUND_COLOR: Color = Color::Black;
-    pub const INFO_BACKGROUND_COLOR: Color = Color::DarkGray;
+    pub const INFO_BACKGROUND_COLOR: Color = Color::Black;
     pub const INFO_FOREGROUND_COLOR: Color = Color::Gray;
 
     pub const SELECTION_BACKGROUND_COLOR: Color = Color::Blue;
@@ -58,15 +58,15 @@ pub const VIEW_SCROLL_AMOUNT: usize = 1;    //should this have separate vertical
 pub const SHOW_CURSOR_COLUMN: bool = false;
 pub const SHOW_CURSOR_LINE: bool = false;
 
-// user can change these text strings to customize their error/warning/notify/info messages
+// user can change these text strings to customize contextual util bar messages
 // errors/warnings/notifications/information
 
-    //this could allow the user to decide which mode to display messages in...
-    //TODO: need to match on this(in application.rs?), and display the message in the appropriate mode
-    pub enum DisplayMode{Error, Warning, Notify, Info}
+    //allows the user to decide which mode to display messages in...
+    //Ignore variant can be used to intentionally not display certain messages
+    pub enum DisplayMode{Error, Warning, Notify, Info, Ignore}  //should Info really be a part of this?...
 
     pub const FILE_MODIFIED: &'static str = "File has unsaved changes";
-    //maybe this should always be error mode, since we match against this to handle quitting...
+    //maybe this should always be error mode, since we match against this to handle quitting...(although that quit behavior may be deprecated)
     //pub const FILE_MODIFIED_DISPLAY_MODE: DisplayMode = DisplayMode::Error;
 
     pub const FILE_SAVE_FAILED: &'static str = "File could not be saved";
@@ -98,14 +98,9 @@ pub const SHOW_CURSOR_LINE: bool = false;
 
     pub const COPIED_TEXT: &'static str = "Text copied to clipboard.";
     pub const COPIED_TEXT_DISPLAY_MODE: DisplayMode = DisplayMode::Notify;
-
-    // By default, this editor shows a warning when a requested action would result in the same state.
-    // This is to make every action have a visible response.
-    // To disable, change to false...
-    pub const SHOW_SAME_STATE_WARNINGS: bool = true;
 //
 
-//
+// whether to display a popup menu showing mode specific keybinds   //TODO: need to add status bar Mode indicator, for when this is set to false, so user can see what mode they are in
 pub const SHOW_CONTEXTUAL_KEYBINDS: bool = true;    //may break these up into per mode toggles
 // whether popup menus should display the source(edit_core or name of external utility that provides command functionality) for each command
 pub const SHOW_COMMAND_SOURCES_IN_POPUP_MENUS: bool = false;

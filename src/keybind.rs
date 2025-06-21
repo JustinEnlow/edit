@@ -152,26 +152,6 @@ pub fn handle_view_mode_keypress(app: &mut Application, keycode: KeyCode, modifi
     }
 }
 
-pub fn handle_error_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
-    match (keycode, modifiers){
-        (KeyCode::Char('q'), modifiers) => {
-            if modifiers == KeyModifiers::CONTROL{
-                //TODO: should this logic be in its own fn in application.rs?...
-                if app.mode() == Mode::Error(crate::config::FILE_MODIFIED.to_string()){
-                    app.quit_ignoring_changes();
-                }
-                else{app.no_op_keypress();}
-            }
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Esc, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.mode_pop();}
-            else{app.no_op_keypress();}
-        }
-        _ => {app.no_op_keypress();}
-    }
-}
-
 pub fn handle_goto_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
     match (keycode, modifiers){
         (KeyCode::Up, modifiers) => {
@@ -378,20 +358,99 @@ pub fn handle_command_mode_keypress(app: &mut Application, keycode: KeyCode, mod
     }
 }
 
-pub fn handle_notify_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
+// error mode does not have fallthrough, and so, does not need to mode pop until Insert mode
+// if warning/notify/info mode entered from error mode, user can fallthrough to insert, or press esc to go back to error mode, 
+// and esc again to go back to the mode before error. so, the mode stack concept is still viable
+pub fn handle_error_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
     match (keycode, modifiers){
-        //handle notify specific key presses, if any
+        (KeyCode::Char('q'), modifiers) => {
+            if modifiers == KeyModifiers::CONTROL{
+                //TODO: should this logic be in its own fn in application.rs?...
+                if app.mode() == Mode::Error(crate::config::FILE_MODIFIED.to_string()){
+                    app.quit_ignoring_changes();
+                }
+                else{app.no_op_keypress();}
+            }
+            else{app.no_op_keypress();}
+        }
         (KeyCode::Esc, modifiers) => {
             if modifiers == KeyModifiers::NONE{app.mode_pop();}
+            else{app.no_op_keypress();}
+        }
+        _ => {app.no_op_keypress();}
+    }
+}
+
+//TODO: may need to do app.mode_pop() until app.mode() == Mode::Insert, to ensure we are in a good state
+// because this mode falls through to insert mode, and will crash if we pop to any other mode than insert
+pub fn handle_warning_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
+    match (keycode, modifiers){
+        //handle warning specific key presses, if any
+        (KeyCode::Esc, modifiers) => {
+            if modifiers == KeyModifiers::NONE{app.mode_pop();} //only pop once, to return to previous mode
             //else, have key presses fall through to insert mode
             else{
-                app.mode_pop();
+                while app.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
+                    app.mode_pop();
+                }
                 handle_insert_mode_keypress(app, keycode, modifiers);
             }
         }
         //else, have key presses fall through to insert mode
         _ => {
-            app.mode_pop();
+            while app.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
+                app.mode_pop();
+            }
+            handle_insert_mode_keypress(app, keycode, modifiers);
+        }
+    }
+}
+
+//TODO: may need to do app.mode_pop() until app.mode() == Mode::Insert, to ensure we are in a good state
+// because this mode falls through to insert mode, and will crash if we pop to any other mode than insert
+pub fn handle_notify_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
+    match (keycode, modifiers){
+        //handle warning specific key presses, if any
+        (KeyCode::Esc, modifiers) => {
+            if modifiers == KeyModifiers::NONE{app.mode_pop();} //only pop once, to return to previous mode
+            //else, have key presses fall through to insert mode
+            else{
+                while app.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
+                    app.mode_pop();
+                }
+                handle_insert_mode_keypress(app, keycode, modifiers);
+            }
+        }
+        //else, have key presses fall through to insert mode
+        _ => {
+            while app.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
+                app.mode_pop();
+            }
+            handle_insert_mode_keypress(app, keycode, modifiers);
+        }
+    }
+}
+
+//TODO: may need to do app.mode_pop() until app.mode() == Mode::Insert, to ensure we are in a good state
+// because this mode falls through to insert mode, and will crash if we pop to any other mode than insert
+pub fn handle_info_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
+    match (keycode, modifiers){
+        //handle warning specific key presses, if any
+        (KeyCode::Esc, modifiers) => {
+            if modifiers == KeyModifiers::NONE{app.mode_pop();} //only pop once, to return to previous mode
+            //else, have key presses fall through to insert mode
+            else{
+                while app.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
+                    app.mode_pop();
+                }
+                handle_insert_mode_keypress(app, keycode, modifiers);
+            }
+        }
+        //else, have key presses fall through to insert mode
+        _ => {
+            while app.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
+                app.mode_pop();
+            }
             handle_insert_mode_keypress(app, keycode, modifiers);
         }
     }
