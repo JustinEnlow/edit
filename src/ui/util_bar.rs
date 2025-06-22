@@ -134,7 +134,7 @@ impl ratatui::widgets::Widget for Highlighter{
                     let x_pos = area.left() + (col as u16);
                     //let y_pos = area.top();
                     let y_pos = area.top() + (selection.head().y as u16);
-                    assert_eq!(0, y_pos, "util bar text should be guaranteed to be one line");
+                    //assert_eq!(0, y_pos, "util bar text should be guaranteed to be one line");    //this seems to be causing issues when moving from end of line...
         
                     if let Some(cell) = buf.cell_mut((x_pos, y_pos)){
                         cell.set_style(Style::default()

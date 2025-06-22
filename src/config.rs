@@ -65,39 +65,45 @@ pub const SHOW_CURSOR_LINE: bool = false;
     //Ignore variant can be used to intentionally not display certain messages
     pub enum DisplayMode{Error, Warning, Notify, Info, Ignore}  //should Info really be a part of this?...
 
-    pub const FILE_MODIFIED: &'static str = "File has unsaved changes";
+    pub const FILE_MODIFIED: &str = "File has unsaved changes";
     //maybe this should always be error mode, since we match against this to handle quitting...(although that quit behavior may be deprecated)
     //pub const FILE_MODIFIED_DISPLAY_MODE: DisplayMode = DisplayMode::Error;
 
-    pub const FILE_SAVE_FAILED: &'static str = "File could not be saved";
+    pub const FILE_SAVE_FAILED: &str = "File could not be saved";
     pub const FILE_SAVE_FAILED_DISPLAY_MODE: DisplayMode = DisplayMode::Error;
 
-    pub const COMMAND_PARSE_FAILED: &'static str = "Failed to parse command. Command may be undefined";
+    pub const COMMAND_PARSE_FAILED: &str = "Failed to parse command. Command may be undefined";
     pub const COMMAND_PARSE_FAILED_DISPLAY_MODE: DisplayMode = DisplayMode::Error;
 
-    pub const SINGLE_SELECTION: &'static str = "Requested action cannot be performed on single selection";
+    pub const SINGLE_SELECTION: &str = "Requested action cannot be performed on single selection";
     pub const SINGLE_SELECTION_DISPLAY_MODE: DisplayMode = DisplayMode::Warning;
     
-    pub const MULTIPLE_SELECTIONS: &'static str = "Requested action cannot be performed on multiple selections";
+    pub const MULTIPLE_SELECTIONS: &str = "Requested action cannot be performed on multiple selections";
     pub const MULTIPLE_SELECTIONS_DISPLAY_MODE: DisplayMode = DisplayMode::Warning;
     
-    pub const INVALID_INPUT: &'static str = "Invalid input";
+    pub const INVALID_INPUT: &str = "Invalid input";
     pub const INVALID_INPUT_DISPLAY_MODE: DisplayMode = DisplayMode::Error;
     
-    pub const SAME_STATE: &'static str = "Requested action results in the same state";
+    pub const SAME_STATE: &str = "Requested action results in the same state";
     pub const SAME_STATE_DISPLAY_MODE: DisplayMode = DisplayMode::Warning;
     
-    pub const UNHANDLED_KEYPRESS: &'static str = "Unbound key pressed";
+    pub const UNHANDLED_KEYPRESS: &str = "Unbound key pressed";
     pub const UNHANDLED_KEYPRESS_DISPLAY_MODE: DisplayMode = DisplayMode::Warning;
     
-    pub const UNHANDLED_EVENT: &'static str = "Unhandled event occurred";
+    pub const UNHANDLED_EVENT: &str = "Unhandled event occurred";
     pub const UNHANDLED_EVENT_DISPLAY_MODE: DisplayMode = DisplayMode::Warning;
 
-    pub const READ_ONLY_BUFFER: &'static str = "Buffer is read only";
+    pub const READ_ONLY_BUFFER: &str = "Buffer is read only";
     pub const READ_ONLY_BUFFER_DISPLAY_MODE: DisplayMode = DisplayMode::Warning;
 
-    pub const COPIED_TEXT: &'static str = "Text copied to clipboard.";
+    pub const COPIED_TEXT: &str = "Text copied to clipboard";
     pub const COPIED_TEXT_DISPLAY_MODE: DisplayMode = DisplayMode::Notify;
+
+    pub const SELECTION_ACTION_OUT_OF_VIEW: &str = "A selection action occurred out of view";
+    pub const SELECTION_ACTION_DISPLAY_MODE: DisplayMode = DisplayMode::Info;
+
+    pub const EDIT_ACTION_OUT_OF_VIEW: &str = "An edit action occurred out of view";
+    pub const EDIT_ACTION_DISPLAY_MODE: DisplayMode = DisplayMode::Info;
 //
 
 // whether to display a popup menu showing mode specific keybinds   //TODO: need to add status bar Mode indicator, for when this is set to false, so user can see what mode they are in

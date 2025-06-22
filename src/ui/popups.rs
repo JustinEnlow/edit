@@ -8,12 +8,12 @@ use crate::config;
 //TODO: always make sure to add new widgets to update_layouts fn in ui.rs, so that they have screen space assigned to them
 
 //maybe these belong in config.rs?...
-const ESCAPE_GRAPHEME: &'static str = "␛";
-const ENTER_GRAPHEME: &'static str = "⏎";
-const UP_GRAPHEME: &'static str = "↑";
-const DOWN_GRAPHEME: &'static str = "↓";
-const LEFT_GRAPHEME: &'static str = "←";
-const RIGHT_GRAPHEME: &'static str = "→";
+const ESCAPE_GRAPHEME: &str = "␛";
+const ENTER_GRAPHEME: &str = "⏎";
+const UP_GRAPHEME: &str = "↑";
+const DOWN_GRAPHEME: &str = "↓";
+const LEFT_GRAPHEME: &str = "←";
+const RIGHT_GRAPHEME: &str = "→";
 
 
 const GOTO_MODE_MENU_ITEMS: [MenuItem; 4] = [

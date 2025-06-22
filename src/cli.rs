@@ -20,7 +20,7 @@ use ratatui::{backend::CrosstermBackend, Terminal};
 //ex: date | edit --readonly -p             //explicitly set the scratch buffer, the contents of which are the output from the date program, to read only
 //TODO: file perms being read_only and passing the read_only flag may need to be handled differently, because file perms can change in the time the buffer is open
 //on a read_only perms file, maybe let the buffer be edited, but emit a read_only warning on save attempt?...
-const USAGE: &'static str = "
+const USAGE: &str = "
 Usage: edit [Options] [<file_path>]
 
 Options:

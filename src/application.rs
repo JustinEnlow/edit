@@ -199,6 +199,8 @@ pub struct Application{
     pub undo_stack: Vec<crate::history::ChangeSet>,   //maybe have separate buffer and selections undo/redo stacks?...
     pub redo_stack: Vec<crate::history::ChangeSet>,
     pub selections: crate::selections::Selections,
+    //TODO: remove view, and pass a new instance(derived from document rect?) into each function that needs it. 
+    // this would keep the ui/terminal as the single source of truth for client view
     pub view: crate::view::View,
     pub clipboard: String,
 }
@@ -252,6 +254,8 @@ impl Application{
 
         instance
     }
+    //TODO: take a line: usize and column: usize as input for where to place cursor on startup. if user passes --line or --column, use the provided values, otherwise use 0
+    //or maybe keep the selection at 0, 0 here, then update it in run, where it can return an error if the provided values are invalid
     pub fn new(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, terminal: &Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<Self, Box<dyn Error>>{
         let terminal_size = terminal.size()?;
         let terminal_rect = Rect::new(0, 0, terminal_size.width, terminal_size.height);
@@ -267,7 +271,11 @@ impl Application{
             selections: crate::selections::Selections::new(
                 vec![
                     crate::selection::Selection::new_from_range(
-                        crate::range::Range::new(0, /*1*/buffer.next_grapheme_boundary_index(0)), 
+                        //crate::range::Range::new(0, /*1*/buffer.next_grapheme_boundary_index(0)), 
+                        match CURSOR_SEMANTICS{
+                            crate::selection::CursorSemantics::Bar => crate::range::Range::new(0, 0),
+                            crate::selection::CursorSemantics::Block => crate::range::Range::new(0, buffer.next_grapheme_boundary_index(0))
+                        },
                         crate::selection::ExtensionDirection::None, 
                         &buffer, 
                         CURSOR_SEMANTICS)
@@ -502,24 +510,24 @@ impl Application{
 
     /// Set all data related to document viewport UI.
     pub fn update_ui_data_document(&mut self){
-        let text = &self.buffer;
+        let buffer = &self.buffer;
         
-        self.ui.document_viewport.document_widget.text_in_view = self.view.text(text);
-        self.ui.document_viewport.line_number_widget.line_numbers_in_view = self.view.line_numbers(text);
+        self.ui.document_viewport.document_widget.text_in_view = self.view.text(buffer);
+        self.ui.document_viewport.line_number_widget.line_numbers_in_view = self.view.line_numbers(buffer);
         self.update_ui_data_selections();
-        self.ui.status_bar.modified_indicator_widget.document_modified_status = self.buffer.is_modified();
+        self.ui.status_bar.modified_indicator_widget.document_modified_status = self.buffer.is_modified();  //TODO?: this may be better to have in the main loop, in case the file is modified underneath us while the buffer is open...
     }
     /// Set only data related to selections in document viewport UI.
     pub fn update_ui_data_selections(&mut self){
-        let text = &self.buffer;
+        let buffer = &self.buffer;
         let selections = &self.selections;
         
-        self.ui.document_viewport.highlighter.primary_cursor = self.view.primary_cursor_position(text, selections, CURSOR_SEMANTICS);
-        self.ui.document_viewport.highlighter.cursors = self.view.cursor_positions(text, selections, CURSOR_SEMANTICS);
-        self.ui.document_viewport.highlighter.selections = self.view.selections(selections, text);
+        self.ui.document_viewport.highlighter.primary_cursor = self.view.primary_cursor_position(buffer, selections, CURSOR_SEMANTICS);
+        self.ui.document_viewport.highlighter.cursors = self.view.cursor_positions(buffer, selections, CURSOR_SEMANTICS);
+        self.ui.document_viewport.highlighter.selections = self.view.selections(selections, buffer);
         self.ui.status_bar.selections_widget.primary_selection_index = selections.primary_selection_index;
         self.ui.status_bar.selections_widget.num_selections = selections.count();
-        self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(text, CURSOR_SEMANTICS).head().clone();
+        self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(buffer, CURSOR_SEMANTICS).head().clone();
     }
     pub fn update_ui_data_util_bar(&mut self){
         let text_box = &self.ui.util_bar.utility_widget.text_box;
@@ -531,7 +539,7 @@ impl Application{
         let selections = crate::selections::Selections::new(
             vec![text_box.selection.clone()], 0, &text_box.buffer, CURSOR_SEMANTICS
         );
-        self.ui.util_bar.highlighter.selection = text_box.view.selections(&selections, &text_box.buffer).get(0).cloned();
+        self.ui.util_bar.highlighter.selection = text_box.view.selections(&selections, &text_box.buffer).first().cloned();
         self.ui.util_bar.highlighter.cursor = text_box.view.primary_cursor_position(&text_box.buffer, &selections, CURSOR_SEMANTICS);
     }
     // prefer this over checked_scroll_and_update only when the view should ALWAYS scroll.      //TODO: comment out this fn, and verify all callers actually need this fn and not checked_scroll_and_update
@@ -545,9 +553,9 @@ impl Application{
     pub fn checked_scroll_and_update<F, A>(&mut self, cursor_to_follow: &crate::selection::Selection, scroll_response_fn: F, non_scroll_response_fn: A)
         where F: Fn(&mut Application), A: Fn(&mut Application)
     {
-        let text = &self.buffer;
-        if self.view.should_scroll(cursor_to_follow, &text, CURSOR_SEMANTICS){
-            self.view = self.view.scroll_following_cursor(cursor_to_follow, &text, CURSOR_SEMANTICS);
+        let buffer = &self.buffer;
+        if self.view.should_scroll(cursor_to_follow, buffer, CURSOR_SEMANTICS){
+            self.view = self.view.scroll_following_cursor(cursor_to_follow, buffer, CURSOR_SEMANTICS);
             scroll_response_fn(self);
         }else{
             non_scroll_response_fn(self);
@@ -683,6 +691,18 @@ impl Application{
                     Application::update_ui_data_document
                 );
                 if len != self.buffer.len_lines(){self.ui.document_viewport.document_widget.doc_length = self.buffer.len_lines();}
+
+                // check if any selection is outside of view
+                let mut selection_out_of_view = false;
+                for selection in self.selections.iter(){
+                    if self.view.should_scroll(selection, &self.buffer, CURSOR_SEMANTICS){
+                        selection_out_of_view = true;
+                    }
+                }
+                if selection_out_of_view{
+                    self.handle_notification(crate::config::EDIT_ACTION_DISPLAY_MODE, crate::config::EDIT_ACTION_OUT_OF_VIEW);
+                }
+                //
             }
             Err(e) => {
                 self.handle_application_error(e);
@@ -766,6 +786,18 @@ impl Application{
                     Application::update_ui_data_document, 
                     Application::update_ui_data_selections
                 );
+
+                // check if any selection is outside of view
+                let mut selection_out_of_view = false;
+                for selection in self.selections.iter(){
+                    if self.view.should_scroll(selection, &self.buffer, CURSOR_SEMANTICS){
+                        selection_out_of_view = true;
+                    }
+                }
+                if selection_out_of_view{
+                    self.handle_notification(crate::config::SELECTION_ACTION_DISPLAY_MODE, crate::config::SELECTION_ACTION_OUT_OF_VIEW);
+                }
+                //
             }
             Err(e) => {
                 self.handle_application_error(e);
@@ -872,8 +904,16 @@ impl Application{
         assert!(self.mode() == Mode::Goto);
         if let Ok(amount) = self.ui.util_bar.utility_widget.text_box.buffer.inner.to_string().parse::<usize>(){
             self.mode_pop();
+            assert!(self.mode() == Mode::Insert);
             for _ in 0..amount{
-                if matches!(self.mode(), Mode::Error(_)){break;}    //trying to speed this up by preventing this from running `amount` times, if there has already been an error
+                //if matches!(self.mode(), Mode::Error(_)){break;}    //trying to speed this up by preventing this from running `amount` times, if there has already been an error
+                
+                //if matches!(self.mode(), Mode::Error(_))
+                //|| matches!(self.mode(), Mode::Warning(_))
+                //|| matches!(self.mode(), Mode::Notify(_))
+                //|| matches!(self.mode(), Mode::Info(_)){break;}
+                if self.mode() != Mode::Insert{break;}  //this should handle selection action errors
+                
                 self.selection_action(action);  //TODO: if this reaches doc boundaries, this will display same state warning. which it technically may not be the same state as when this fn was called...
             }
         }else{self.handle_notification(crate::config::INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}
@@ -1042,7 +1082,7 @@ impl Application{
                 match semantics{
                     crate::selection::CursorSemantics::Bar => {(selection.anchor(), selection.head(), selection.anchor())}
                     crate::selection::CursorSemantics::Block => {
-                        if selection.cursor(&buffer, semantics.clone()) == buffer.len_chars(){(selection.anchor(), selection.cursor(buffer, semantics.clone()), selection.anchor())}
+                        if selection.cursor(buffer, semantics.clone()) == buffer.len_chars(){(selection.anchor(), selection.cursor(buffer, semantics.clone()), selection.anchor())}
                         else{(selection.anchor(), selection.head(), selection.anchor())}
                     }
                 }

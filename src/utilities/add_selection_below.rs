@@ -68,7 +68,7 @@ fn selections_impl(selections: &Selections, buffer: &crate::buffer::Buffer, sema
     let mut selection = selections.primary().clone();
     selection.range.start = start;
     selection.range.end = end;
-    selection.direction = selection.direction(&buffer, semantics.clone());
+    selection.direction = selection.direction(buffer, semantics.clone());
     Ok(selections.push(selection, false))
 }
 

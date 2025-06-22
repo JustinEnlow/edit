@@ -85,7 +85,7 @@ impl Selection{
     }
 
     //TODO: eventually, this should be removed, and replaced with either new_from_range or new_from_components
-    /// Returns a new instance of [`Selection`].
+    // Returns a new instance of [`Selection`].
     //#[must_use] pub fn new(range: Range, direction: Direction) -> Self{
     //    Self{range, direction, stored_line_position: None}
     //}
