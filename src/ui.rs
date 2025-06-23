@@ -83,14 +83,15 @@ impl UserInterface{
         self.document_viewport.line_number_widget.rect = document_viewport_rect[0];
         // dont have to set line num right padding(document_and_line_num_rect[1])
         self.document_viewport.document_widget.rect = document_viewport_rect[2];
+        
         self.status_bar.file_name_widget.rect = status_bar_rect[0];
         self.status_bar.modified_indicator_widget.rect = status_bar_rect[1];
-        //selections padding(status_bar_rect[2])
-        self.status_bar.selections_widget.rect = status_bar_rect[2];    //[3] with selections padding enabled
-        //selections padding(status_bar_rect[4])
-        self.status_bar.document_cursor_position_widget.rect = status_bar_rect[3];  //[5] with selections padding enabled
+        self.status_bar.mode_widget.rect = status_bar_rect[2];
+        self.status_bar.selections_widget.rect = status_bar_rect[3];
+        self.status_bar.document_cursor_position_widget.rect = status_bar_rect[4];
         self.util_bar.prompt.rect = util_rect[0];
         self.util_bar.utility_widget.rect = util_rect[1];
+        
         self.popups.goto.rect = sized_centered_rect(self.popups.goto.widest_element_len, self.popups.goto.num_elements, self.terminal_size);
         self.popups.command.rect = sized_centered_rect(self.popups.command.widest_element_len, self.popups.command.num_elements, self.terminal_size);
         self.popups.find.rect = sized_centered_rect(self.popups.find.widest_element_len, self.popups.find.num_elements, self.terminal_size);
@@ -119,8 +120,9 @@ impl UserInterface{
                     frame.render_widget(self.document_viewport.line_number_widget.widget(), self.document_viewport.line_number_widget.rect);
                 }
                 if self.status_bar.display{
-                    frame.render_widget(self.status_bar.modified_indicator_widget.widget(), self.status_bar.modified_indicator_widget.rect);
                     frame.render_widget(self.status_bar.file_name_widget.widget(), self.status_bar.file_name_widget.rect);
+                    frame.render_widget(self.status_bar.modified_indicator_widget.widget(), self.status_bar.modified_indicator_widget.rect);
+                    frame.render_widget(self.status_bar.mode_widget.widget(), self.status_bar.mode_widget.rect);
                     frame.render_widget(self.status_bar.selections_widget.widget(), self.status_bar.selections_widget.rect);
                     frame.render_widget(self.status_bar.document_cursor_position_widget.widget(), self.status_bar.document_cursor_position_widget.rect);
                 }

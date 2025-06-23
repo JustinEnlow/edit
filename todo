@@ -110,9 +110,14 @@ To meet reqs as simple text editor:
                 [ ] highlighter
                     [x] selections
                     [x] cursors
-                    [ ] cursor line(highlight the line that the cursor is on)
-                    [ ] cursor column(highlight the column that the cursor is on)
+                    [x] cursor line(highlight the line that the cursor is on)
+                    [x] cursor column(highlight the column that the cursor is on)
+                    [ ] syntax
+                [ ] scroll bar (proportional to buffer len lines, and view size)
             [ ] status bar
+                [x] file name (not applicable to temp buffer)
+                [x] modified indicator
+                [x] mode indicator
                 [x] add status bar widget for number of selections(1/1 = primary cursor is the only one, 3/125 = primary cursor is the 3rd selection of 125)
                 [ ] loading indicator on save/open/big edits like undoing a deletion of the whole text
             [x] util bar

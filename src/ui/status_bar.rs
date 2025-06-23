@@ -12,6 +12,23 @@ const MODIFIED_INDICATOR: &str = "[Modified]";
 
 
 #[derive(Default)]
+pub struct ModeWidget{
+    pub rect: Rect,
+    pub text: String,
+}
+impl ModeWidget{
+    pub fn widget(&self) -> Paragraph<'static>{
+        Paragraph::new(self.text.clone())
+            .alignment(Alignment::Center)
+            .style(
+                Style::default()
+                    .bg(STATUS_BAR_BACKGROUND_COLOR)
+                    .fg(STATUS_BAR_FOREGROUND_COLOR)
+                    .bold()
+            )
+    }
+}
+#[derive(Default)]
 pub struct SelectionsWidget{
     pub rect: Rect,
     pub primary_selection_index: usize,
@@ -82,24 +99,25 @@ pub struct ModifiedIndicatorWidget{
 }
 impl ModifiedIndicatorWidget{
     pub fn widget(&self) -> Paragraph<'static>{
-        if self.document_modified_status{
+        //if self.document_modified_status{
             Paragraph::new(MODIFIED_INDICATOR)
-                .alignment(Alignment::Left)
+                .alignment(Alignment::Center)
                 .style(
                     Style::default()
                         .bg(STATUS_BAR_BACKGROUND_COLOR)
                         .fg(STATUS_BAR_FOREGROUND_COLOR)
                         .bold()
                 )
-        }else{
-            Paragraph::new("".repeat(MODIFIED_INDICATOR.len()))
-            .style(
-                Style::default()
-                    .bg(STATUS_BAR_BACKGROUND_COLOR)
-                    .fg(STATUS_BAR_FOREGROUND_COLOR)
-                    .bold()
-            )
-        }
+        //}else{
+        //    //Paragraph::new("".repeat(MODIFIED_INDICATOR.len()))
+        //    Paragraph::new(String::new())
+        //    .style(
+        //        Style::default()
+        //            .bg(STATUS_BAR_BACKGROUND_COLOR)
+        //            .fg(STATUS_BAR_FOREGROUND_COLOR)
+        //            .bold()
+        //    )
+        //}
     }
 }
 
@@ -108,6 +126,7 @@ pub struct StatusBar{
     pub display: bool,
     pub modified_indicator_widget: ModifiedIndicatorWidget,
     pub file_name_widget: FileNameWidget,
+    pub mode_widget: ModeWidget,
     pub selections_widget: SelectionsWidget,
     pub document_cursor_position_widget: DocumentCursorPositionWidget,
 }
@@ -117,6 +136,7 @@ impl Default for StatusBar{
             display: true,
             modified_indicator_widget: ModifiedIndicatorWidget::default(),
             file_name_widget: FileNameWidget::default(),
+            mode_widget: ModeWidget::default(),
             selections_widget: SelectionsWidget::default(),
             document_cursor_position_widget: DocumentCursorPositionWidget::default()
         }
@@ -140,19 +160,15 @@ impl StatusBar{
                     ),
                     // modified indicator width
                     Constraint::Max(
-                        //if self.modified_indicator_widget.document_modified_status{
-                            MODIFIED_INDICATOR.len() as u16
-                        //}else{0}
+                        if self.modified_indicator_widget.document_modified_status{
+                            MODIFIED_INDICATOR.len() as u16 + 2
+                        }else{0}
                     ),
-                        //TODO: add padding around selections widget
-                    //Constraint::Min(0),
+                    // mode widget
+                    Constraint::Max(self.mode_widget.text.len() as u16 + 2),
                     // selections widget
                     Constraint::Min(0),
-                    //Constraint::Max(format!("selections: {}/{}", self.selections_widget.primary_selection_index + 1, self.selections_widget.num_selections).len() as u16),
-                        //TODO: add padding around selections widget
-                    //Constraint::Min(0),
                     // cursor position indicator width
-                    //Constraint::Min(0)
                     Constraint::Max(format!("cursor: {}:{}", self.document_cursor_position_widget.document_cursor_position.y + 1, self.document_cursor_position_widget.document_cursor_position.x + 1).len() as u16)
                 ]
             )

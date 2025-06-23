@@ -22,12 +22,12 @@ Features:
             [x] absolute(works with raw text. annotations/collapsing/other display decorations is WIP)
             [ ] relative
         [x] Toggleable Status Bar
-            [x] Modified Indicator
             [x] File name
+            [x] Modified Indicator
             [ ] Read Only Indicator
+            [x] Mode Indicator/count of modes on mode stack     [Mode: Insert | Stack: 1]
             [x] Selection Indicator(1/1 = primary cursor is the only one, 3/125 = primary cursor is the 3rd selection of 125)
             [x] primary cursor location indicator(line num:column num)
-            [ ] Mode Indicator/count of modes on mode stack     [Mode: Insert | Stack: 1]
         [ ] Utility Bar(mode specific) (should utils have suggestions/completion?)
             [x] Go to Mode  (should have popup with available commands?...)
                 [x] use input as line number
@@ -43,7 +43,10 @@ Features:
             [x] Split Mode
                 [x] match regex pattern
                 [x] incremental split
-            [x] Warning Mode(blocking display useful warnings and visual responses to redundant/unhandled input)
+            [x] Error Mode(blocking display of error messages/visual responses to input)
+            [x] Warning Mode(non-blocking display of warning messages/visual responses to input)
+            [x] Notify Mode(non-blocking display of notifications/visual responses to input)
+            [x] Information Mode(non-blocking display of informational messages/visual responses to input)
                 [x] File modified
                 [x] Save failed
                 [x] Command parse failed
@@ -54,8 +57,9 @@ Features:
                 [x] Unhandled error
                 [x] Unhandled keypress
                 [x] Unhandled event
-            [x] Notify Mode(non-blocking display useful notifications and visual responses to input)
+                [x] Selection action out of view (inform user of non visible selection actions)
                 [x] Text copied
+                    //any of the above message types can be assigned to Error/Warning/Notify/Info mode, depending on user display/behavior preference
             [ ] Shell Mode
                 [ ] pipe selection(s) to external utility and replace selection(s) with utility output
                 [ ] call external utility and insert at/replace selection(s) with utility output

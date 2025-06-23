@@ -293,6 +293,8 @@ impl Application{
         }else{
             instance.buffer.file_name()
         };
+
+        instance.update_ui_data_mode();
         
         instance.ui.document_viewport.document_widget.doc_length = instance.buffer.len_lines();
         
@@ -430,6 +432,9 @@ impl Application{
         if clear_saved_selections{
             self.ui.util_bar.utility_widget.preserved_selections = None;
         }
+
+        //does this belong here, or in ui.rs?...
+        self.update_ui_data_mode();
     }
     pub fn mode_push(&mut self, to_mode: Mode){
         if self.mode() == to_mode{/*do nothing*/}   //don't push mode to stack because we are already there
@@ -484,6 +489,9 @@ impl Application{
                 );
                 self.update_ui_data_util_bar();
             }
+
+            //does this belong here, or in ui.rs?...
+            self.update_ui_data_mode();
         }
     }
 
@@ -528,6 +536,23 @@ impl Application{
         self.ui.status_bar.selections_widget.primary_selection_index = selections.primary_selection_index;
         self.ui.status_bar.selections_widget.num_selections = selections.count();
         self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(buffer, CURSOR_SEMANTICS).head().clone();
+    }
+    pub fn update_ui_data_mode(&mut self){
+        //does this belong here, or in ui.rs?...
+        self.ui.status_bar.mode_widget.text = match self.mode(){
+            Mode::AddSurround => format!("AddSurround: {:#?}", self.mode_stack.len()),
+            Mode::Command => format!("Command: {:#?}", self.mode_stack.len()),
+            Mode::Error(_) => format!("Error: {:#?}", self.mode_stack.len()),
+            Mode::Find => format!("Find: {:#?}", self.mode_stack.len()),
+            Mode::Goto => format!("Goto: {:#?}", self.mode_stack.len()),
+            Mode::Info(_) => format!("Info: {:#?}", self.mode_stack.len()),
+            Mode::Insert => format!("Insert: {:#?}", self.mode_stack.len()),
+            Mode::Notify(_) => format!("Notify: {:#?}", self.mode_stack.len()),
+            Mode::Object => format!("Object: {:#?}", self.mode_stack.len()),
+            Mode::Split => format!("Split: {:#?}", self.mode_stack.len()),
+            Mode::View => format!("View: {:#?}", self.mode_stack.len()),
+            Mode::Warning(_) => format!("Warning: {:#?}", self.mode_stack.len()),
+        };
     }
     pub fn update_ui_data_util_bar(&mut self){
         let text_box = &self.ui.util_bar.utility_widget.text_box;
@@ -624,10 +649,13 @@ impl Application{
 
     pub fn save(&mut self){
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
-        match crate::utilities::save::application_impl(self){
-            Ok(()) => {self.update_ui_data_document();}
-            Err(_) => {     //this could maybe benefit from passing the io error up to this fn...
-                self.handle_notification(crate::config::FILE_SAVE_FAILED_DISPLAY_MODE, FILE_SAVE_FAILED);
+        if self.buffer.read_only{self.handle_notification(crate::config::READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER);}
+        else{
+            match crate::utilities::save::application_impl(self){
+                Ok(()) => {self.update_ui_data_document();}
+                Err(_) => {     //this could maybe benefit from passing the io error up to this fn...
+                    self.handle_notification(crate::config::FILE_SAVE_FAILED_DISPLAY_MODE, FILE_SAVE_FAILED);
+                }
             }
         }
     }
@@ -668,44 +696,47 @@ impl Application{
     }
     pub fn edit_action(&mut self, action: &EditAction){
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::AddSurround);
-        let len = self.buffer.len_lines();
-        use crate::utilities::{insert_string, delete, backspace, cut, paste, undo, redo, add_surrounding_pair};
-        let result = match action{
-            EditAction::InsertChar(c) => insert_string::application_impl(self, &c.to_string(), USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
-            EditAction::InsertNewline => insert_string::application_impl(self, "\n", USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
-            EditAction::InsertTab => insert_string::application_impl(self, "\t", USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
-            EditAction::Delete => delete::application_impl(self, CURSOR_SEMANTICS),
-            EditAction::Backspace => backspace::application_impl(self, USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
-            EditAction::Cut => cut::application_impl(self, CURSOR_SEMANTICS),
-            EditAction::Paste => paste::application_impl(self, USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
-            EditAction::Undo => undo::application_impl(self, CURSOR_SEMANTICS),   // TODO: undo takes a long time to undo when whole text deleted. see if this can be improved
-            EditAction::Redo => redo::application_impl(self, CURSOR_SEMANTICS),
-            EditAction::AddSurround(l, t) => add_surrounding_pair::application_impl(self, *l, *t, CURSOR_SEMANTICS),
-        };
-        if self.mode() != Mode::Insert{self.mode_pop();}
-        match result{
-            Ok(()) => {
-                self.checked_scroll_and_update(
-                    &self.selections.primary().clone(), 
-                    Application::update_ui_data_document, 
-                    Application::update_ui_data_document
-                );
-                if len != self.buffer.len_lines(){self.ui.document_viewport.document_widget.doc_length = self.buffer.len_lines();}
+        if self.buffer.read_only{self.handle_notification(crate::config::READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER);}
+        else{
+            let len = self.buffer.len_lines();
+            use crate::utilities::{insert_string, delete, backspace, cut, paste, undo, redo, add_surrounding_pair};
+            let result = match action{
+                EditAction::InsertChar(c) => insert_string::application_impl(self, &c.to_string(), USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
+                EditAction::InsertNewline => insert_string::application_impl(self, "\n", USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
+                EditAction::InsertTab => insert_string::application_impl(self, "\t", USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
+                EditAction::Delete => delete::application_impl(self, CURSOR_SEMANTICS),
+                EditAction::Backspace => backspace::application_impl(self, USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
+                EditAction::Cut => cut::application_impl(self, CURSOR_SEMANTICS),
+                EditAction::Paste => paste::application_impl(self, USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
+                EditAction::Undo => undo::application_impl(self, CURSOR_SEMANTICS),   // TODO: undo takes a long time to undo when whole text deleted. see if this can be improved
+                EditAction::Redo => redo::application_impl(self, CURSOR_SEMANTICS),
+                EditAction::AddSurround(l, t) => add_surrounding_pair::application_impl(self, *l, *t, CURSOR_SEMANTICS),
+            };
+            if self.mode() != Mode::Insert{self.mode_pop();}
+            match result{
+                Ok(()) => {
+                    self.checked_scroll_and_update(
+                        &self.selections.primary().clone(), 
+                        Application::update_ui_data_document, 
+                        Application::update_ui_data_document
+                    );
+                    if len != self.buffer.len_lines(){self.ui.document_viewport.document_widget.doc_length = self.buffer.len_lines();}
 
-                // check if any selection is outside of view
-                let mut selection_out_of_view = false;
-                for selection in self.selections.iter(){
-                    if self.view.should_scroll(selection, &self.buffer, CURSOR_SEMANTICS){
-                        selection_out_of_view = true;
+                    // check if any selection is outside of view
+                    let mut selection_out_of_view = false;
+                    for selection in self.selections.iter(){
+                        if self.view.should_scroll(selection, &self.buffer, CURSOR_SEMANTICS){
+                            selection_out_of_view = true;
+                        }
                     }
+                    if selection_out_of_view{
+                        self.handle_notification(crate::config::EDIT_ACTION_DISPLAY_MODE, crate::config::EDIT_ACTION_OUT_OF_VIEW);
+                    }
+                    //
                 }
-                if selection_out_of_view{
-                    self.handle_notification(crate::config::EDIT_ACTION_DISPLAY_MODE, crate::config::EDIT_ACTION_OUT_OF_VIEW);
+                Err(e) => {
+                    self.handle_application_error(e);
                 }
-                //
-            }
-            Err(e) => {
-                self.handle_application_error(e);
             }
         }
     }
@@ -880,6 +911,7 @@ impl Application{
         }
     }
 
+    //TODO: entering current line number should be a same state warning, not invalid input error
     pub fn goto_mode_accept(&mut self){
         assert!(self.mode() == Mode::Goto);
         let mut show_warning = false;
