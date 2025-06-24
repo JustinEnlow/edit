@@ -24,13 +24,23 @@ pub const TAB_WIDTH: usize = 4; //should this be language dependant? on-the-fly 
 pub const VIEW_SCROLL_AMOUNT: usize = 1;    //should this have separate vertical and horizontal definitions?
 
 // what other config should be here?
-    //themeing/coloring consts
+//themeing/coloring consts
     pub const LINE_NUMBER_BACKGROUNG_COLOR: Color = Color::Rgb(0, 0, 0);
     pub const LINE_NUMBER_FOREGROUNG_COLOR: Color = Color::Rgb(100, 100, 100);
+    
     pub const DOCUMENT_BACKGROUND_COLOR: Color = Color::Rgb(0, 0, 0);
     pub const DOCUMENT_FOREGROUND_COLOR: Color = Color::White;
+    
     pub const STATUS_BAR_BACKGROUND_COLOR: Color = Color::DarkGray; //should this be broken down into widget specific background colors?
-    pub const STATUS_BAR_FOREGROUND_COLOR: Color = Color::White;    //should this be broken down into widget specific foreground colors?
+    //pub const STATUS_BAR_FOREGROUND_COLOR: Color = Color::White;    //should this be broken down into widget specific foreground colors?
+    //TODO: foreground colors for all other status bar widgets
+    pub const READ_ONLY_WIDGET_FOREGROUND_COLOR: Color = Color::White;//Rgb(0, 0, 100);
+    pub const FILE_NAME_WIDGET_FOREGROUND_COLOR: Color = Color::White;//Rgb(10, 10, 10);
+    pub const MODIFIED_WIDGET_FOREGROUND_COLOR: Color = Color::White;//Cyan;
+    pub const SELECTIONS_WIDGET_FOREGROUND_COLOR: Color = Color::White;//Rgb(100, 255, 100);
+    pub const CURSOR_POSITION_WIDGET_FOREGROUNG_COLOR: Color = Color::White;
+    pub const MODE_WIDGET_FOREGROUND_COLOR: Color = Color::White;//Rgb(100, 0, 0);
+    
     pub const UTIL_BAR_BACKGROUND_COLOR: Color = Color::Black;
     pub const UTIL_BAR_FOREGROUND_COLOR: Color = Color::White;
     pub const UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR: Color = Color::Red;

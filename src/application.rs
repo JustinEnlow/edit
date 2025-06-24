@@ -230,11 +230,28 @@ impl Application{
             clipboard: String::new()
         };
 
-        instance.ui.status_bar.file_name_widget.file_name = if USE_FULL_FILE_PATH{
-            instance.buffer.file_path()
+        //instance.ui.status_bar.file_name_widget.file_name = if USE_FULL_FILE_PATH{
+        //    instance.buffer.file_path()
+        //}else{
+        //    instance.buffer.file_name()
+        //};
+        if instance.buffer.file_path.is_some(){
+            instance.ui.status_bar.file_name_widget.show = true;
+            if USE_FULL_FILE_PATH{
+                instance.ui.status_bar.file_name_widget.text = match instance.buffer.file_path(){
+                    Some(file_path) => file_path,
+                    None => String::new()
+                };
+            }else{
+                instance.ui.status_bar.file_name_widget.text = match instance.buffer.file_name(){
+                    Some(file_name) => file_name,
+                    None => String::new()
+                };
+            }
         }else{
-            instance.buffer.file_name()
-        };
+            instance.ui.status_bar.file_name_widget.show = false;
+            instance.ui.status_bar.file_name_widget.text = String::new();
+        }
         
         instance.ui.document_viewport.document_widget.doc_length = instance.buffer.len_lines();
         
@@ -287,12 +304,37 @@ impl Application{
             view: crate::view::View::new(0, 0, 0, 0),
             clipboard: String::new()
         };
-        
-        instance.ui.status_bar.file_name_widget.file_name = if USE_FULL_FILE_PATH{
-            instance.buffer.file_path()
+
+        if instance.buffer.read_only{
+            instance.ui.status_bar.read_only_widget.show = true;
+            instance.ui.status_bar.read_only_widget.text = "ReadOnly".to_string();
         }else{
-            instance.buffer.file_name()
-        };
+            instance.ui.status_bar.read_only_widget.show = false;
+            instance.ui.status_bar.read_only_widget.text = String::new();
+        }
+        
+        //instance.ui.status_bar.file_name_widget.file_name = if USE_FULL_FILE_PATH{
+        //    instance.buffer.file_path()
+        //}else{
+        //    instance.buffer.file_name()
+        //};
+        if instance.buffer.file_path.is_some(){
+            instance.ui.status_bar.file_name_widget.show = true;
+            if USE_FULL_FILE_PATH{
+                instance.ui.status_bar.file_name_widget.text = match instance.buffer.file_path(){
+                    Some(file_path) => file_path,
+                    None => String::new()
+                };
+            }else{
+                instance.ui.status_bar.file_name_widget.text = match instance.buffer.file_name(){
+                    Some(file_name) => file_name,
+                    None => String::new()
+                };
+            }
+        }else{
+            instance.ui.status_bar.file_name_widget.show = false;
+            instance.ui.status_bar.file_name_widget.text = String::new();
+        }
 
         instance.update_ui_data_mode();
         
@@ -523,7 +565,15 @@ impl Application{
         self.ui.document_viewport.document_widget.text_in_view = self.view.text(buffer);
         self.ui.document_viewport.line_number_widget.line_numbers_in_view = self.view.line_numbers(buffer);
         self.update_ui_data_selections();
-        self.ui.status_bar.modified_indicator_widget.document_modified_status = self.buffer.is_modified();  //TODO?: this may be better to have in the main loop, in case the file is modified underneath us while the buffer is open...
+        //TODO?: this may be better to have in the main loop, in case the file is modified underneath us while the buffer is open...
+        //self.ui.status_bar.modified_widget.modified_status = self.buffer.is_modified();
+        if self.buffer.is_modified(){
+            self.ui.status_bar.modified_widget.show = true;
+            self.ui.status_bar.modified_widget.text = "[Modified]".to_string();
+        }else{
+            self.ui.status_bar.modified_widget.show = false;
+            self.ui.status_bar.modified_widget.text = String::new();
+        }
     }
     /// Set only data related to selections in document viewport UI.
     pub fn update_ui_data_selections(&mut self){
@@ -533,9 +583,17 @@ impl Application{
         self.ui.document_viewport.highlighter.primary_cursor = self.view.primary_cursor_position(buffer, selections, CURSOR_SEMANTICS);
         self.ui.document_viewport.highlighter.cursors = self.view.cursor_positions(buffer, selections, CURSOR_SEMANTICS);
         self.ui.document_viewport.highlighter.selections = self.view.selections(selections, buffer);
-        self.ui.status_bar.selections_widget.primary_selection_index = selections.primary_selection_index;
-        self.ui.status_bar.selections_widget.num_selections = selections.count();
-        self.ui.status_bar.document_cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(buffer, CURSOR_SEMANTICS).head().clone();
+        //TODO: we should set selections_widget text here. self.ui.status_bar.selections_widget.text = format!(whatever...)
+        //self.ui.status_bar.selections_widget.primary_selection_index = selections.primary_selection_index;
+        //self.ui.status_bar.selections_widget.num_selections = selections.count();
+        self.ui.status_bar.selections_widget.text = format!("selections: {}/{}", selections.primary_selection_index + 1, selections.count());
+        //TODO: we should set cursor_position_widget text here. self.ui.status_bar.cursor_position_widget.text = whatever...
+        //self.ui.status_bar.cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(buffer, CURSOR_SEMANTICS).head().clone();
+        self.ui.status_bar.cursor_position_widget.text = format!(
+            "cursor: {}:{}", 
+            selections.primary().selection_to_selection2d(buffer, CURSOR_SEMANTICS).head().clone().y + 1, 
+            selections.primary().selection_to_selection2d(buffer, CURSOR_SEMANTICS).head().clone().x + 1
+        )
     }
     pub fn update_ui_data_mode(&mut self){
         //does this belong here, or in ui.rs?...
@@ -649,7 +707,9 @@ impl Application{
 
     pub fn save(&mut self){
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
-        if self.buffer.read_only{self.handle_notification(crate::config::READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER);}
+        //if self.ui.status_bar.file_name_widget.file_name.is_none(){self.handle_notification(crate::config::DisplayMode::Error, "cannot save unnamed buffer");}
+        if self.buffer.file_path.is_none(){self.handle_notification(crate::config::DisplayMode::Error, "cannot save unnamed buffer");}
+        else if self.buffer.read_only{self.handle_notification(crate::config::READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER);}
         else{
             match crate::utilities::save::application_impl(self){
                 Ok(()) => {self.update_ui_data_document();}

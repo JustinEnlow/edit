@@ -7,90 +7,132 @@ use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture}, execute, terminal, ExecutableCommand
 };
 use ratatui::{backend::CrosstermBackend, Terminal};
+use crate::tutorial::TUTORIAL;
+use std::path::PathBuf;
+use std::io::Stdout;
 
 
 
-// -t flag may require session_id in future client/server impl    //edit -t [session_id] [client_id]
-// -p could be for passing commands to server(although, this isn't necessary with filesystem ipc. user could just write to server in file instead)
-//TODO: accept a --readonly flag, to disallow editing a buffer
-//files with permissions set to read only should automatically set Application's read_only value to true. writing to a read only file should never be permitted. user can change file permissions using another utility if they truly wish to modify the file
-//ex: edit file_name.rs                     //automatically set the named buffer, the contents of which are the contents of file_name.rs, to read only, if file_name.rs' permissions are read only. otherwise, read only is false
-//ex: edit --readonly file_name.rs          //explicitly set the named buffer, the contents of which are the contents of file_name.rs, to read only
-//ex: edit --readonly -p < file_name.rs     //explicitly set the scratch buffer, the contents of which are the contents of file_name.rs, to read only
-//ex: date | edit --readonly -p             //explicitly set the scratch buffer, the contents of which are the output from the date program, to read only
-//TODO: file perms being read_only and passing the read_only flag may need to be handled differently, because file perms can change in the time the buffer is open
+//edit file_name.rs                 //open named buffer, the contents of which are the contents of file_name.rs
+//edit file_name.rs -l 420 -c 69    //open named buffer, the constents of which are the contents of file_name.rs, with the cursor at :420:69
+//edit -r file_name.rs              //open named buffer, the contents of which are the contents of file_name.rs, as read only
+//edit -t < file_name.rs            //open unnamed buffer, the contents of which are the contents of file_name.rs
+//date | edit -t                    //open unnamed buffer, the contents of which are the output from the date program
+//edit -r -t < file_name.rs         //open unnamed buffer, the contents of which are the contents of file_name.rs, as read only
+//date | edit -r -t                 //open unnamed buffer, the contents of which are the output from the date program, as read only
+//edit -r -t -l 0 -c 0 < file_name.rs
+//date | edit -r -t -l 0 -c 0
+//edit --tutor                      //open unnamed buffer, the contents of which are edit's tutorial
+
+//TODO: file perms being read_only and passing the read_only flag may need to be handled separately, 
+//  because file perms can change in the time the buffer is open
+//writing to a file with read only perms should never be permitted. user can change file permissions using another utility if they truly wish to modify the file
 //on a read_only perms file, maybe let the buffer be edited, but emit a read_only warning on save attempt?...
+
 const USAGE: &str = "
 Usage: edit [Options] [<file_path>]
 
 Options:
-    -t      use stdin to populate a temporary, un-named buffer
+    -h, --help                    (Exclusive arg) prints help
+    -v, --version                 (Exclusive arg) prints version
+    -t, --temp_file               use stdin to populate a temporary, un-named buffer
+    -r, --read_only               sets the buffer to read only
+    -l, --line <line_number>      places the primary cursor at line(not implemented)
+    -c, --column <column_number>  places the primary cursor at column(not implemented)
+    --tutor                       tutorial
 ";
 
 
 
+fn pre_terminal_setup_error(message: &str) -> Result<(), Box<dyn Error>>{
+    println!("{}", USAGE);
+    Err(message.into())
+}
+fn post_terminal_setup_error(message: &str, show_usage: bool, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<(), Box<dyn Error>>{
+    restore_terminal(terminal)?;
+    if show_usage{println!("{USAGE}");}
+    Err(message.into())
+}
+fn pre_terminal_setup_ok(message: &str) -> Result<(), Box<dyn Error>>{
+    println!("{}", message);
+    Ok(())
+}
 pub fn parse_args() -> Result<(), Box<dyn Error>>{
-    let args: Vec<String> = std::env::args().collect();
-    match args.len(){
-        2 => {
-            let arg = args[1].clone();
-            let mut terminal = setup_terminal()?;
-            let (buffer_text, file_path, read_only) = match arg.as_str(){
-                "-t" => {
-                    //init app with buffer from stdin
-                    let mut buffer_text = String::new();
-                    io::stdin().read_to_string(&mut buffer_text).expect("Failed to read from stdin");
-                    //TODO: strip ansi escape codes from buffer_text (some utilities will write text containing ansi escape codes to their stdout, which messes up edit's display. these need to be removed...)
-                    //this may only matter for TUI client implementation... //wouldn't be needed if terminals didn't operate using ansi escape codes
-                    //println!("{}", input);
+    let mut temp_buffer = false;
+    let mut read_only = false;
+    let mut file_path: Option<PathBuf> = None;
+    let mut _line_number = 0;
+    let mut _column_number = 0;
+    let mut open_tutorial = false;
 
-                    (buffer_text, None, false/*true only if readonly flag passed*/)
-                }
-                _ => {
-                    //init app with buffer from file path
-                    let maybe_valid_file_path = arg;
-                    //let path = std::path::PathBuf::from(maybe_valid_file_path).canonicalize()?; //may need to restore terminal here, if path invalid
-                    let path = match std::path::PathBuf::from(maybe_valid_file_path).canonicalize(){
-                        Ok(path) => path,
-                        Err(/*e*/_) => {
-                            restore_terminal(&mut terminal)?;
-                            //return Err(Box::new(e));
-                            println!("{}", USAGE);
-                            return Err("invalid argument supplied".into());
-                        }
-                    };
-                    let buffer_text = std::fs::read_to_string(&path)?;
-                    //TODO: ensure buffer_text doesn't contain any \t(and maybe others) chars, because it messes up edit's display
-                    //these should be converted to TAB_WIDTH number of spaces
-
-                    //TODO: check if we have write permissions for file or not(read_only)
-
-                    (buffer_text, Some(path), false/*true if file is read_only, or if read_only flag passed*/)
-                }
-            };
-
-            match Application::new(&buffer_text, file_path, read_only, &terminal){
-                Ok(mut app) => {
-                    if let Err(e) = app.run(&mut terminal){
-                        restore_terminal(&mut terminal)?;
-                        eprintln!("Encountered an error while running the application: {e}");
-                        return Err(e);
-                    }
-                }
-                Err(e) => {
-                    restore_terminal(&mut terminal)?;
-                    eprintln!("Encountered an error while setting up the application: {e}");
-                    return Err(e);
-                }
+    let mut args = std::env::args();
+    let _ = args.next();    //discard program name, which is always the first arg
+    while let Some(arg) = args.next(){
+        match arg.as_str(){
+            "-h" | "--help" => {return pre_terminal_setup_ok(USAGE);}
+            "-v" | "--version" => {return pre_terminal_setup_ok(&format!("{}", env!("CARGO_PKG_VERSION")));}
+            "-t" | "--temp_buffer" => {temp_buffer = true;}
+            "-r" | "--read_only" => {read_only = true;}
+            "-l" | "--line" => {
+                if let Some(line) = args.next(){
+                    if let Ok(line) = line.parse(){_line_number = line;}
+                    else{return pre_terminal_setup_error("line number must be an unsigned integer");}
+                }else{return pre_terminal_setup_error("line number required");}
             }
-
-            restore_terminal(&mut terminal)
-        }
-        _ => {
-            println!("{}", USAGE);
-            Err("invalid argument supplied".into())
+            "-c" | "--column" => {
+                if let Some(column) = args.next(){
+                    if let Ok(column) = column.parse(){_column_number = column;}
+                    else{return pre_terminal_setup_error("column number must be an unsigned integer");}
+                }else{return pre_terminal_setup_error("column number required");}
+            }
+            "--tutor" => {open_tutorial = true;}
+            //anything else will always be interpreted as a file path...
+            path => {
+                if let Ok(_file_path) = std::path::PathBuf::from(path).canonicalize(){
+                    file_path = Some(_file_path);
+                }else{return pre_terminal_setup_error("invalid file path");}
+            }
         }
     }
+    if temp_buffer && file_path.is_some(){return pre_terminal_setup_error("temp buffer content must be piped over stdin");}
+
+    let mut terminal = setup_terminal()?;
+        
+    if open_tutorial{   //init app with buffer from tutorial file
+        run_app(TUTORIAL, None, false, &mut terminal)
+        //run_app(&crate::tutorial::tutorial_text(), file_path, read_only, &mut terminal)
+    }else if temp_buffer{   //init app with buffer from stdin
+        let mut buffer_text = String::new();
+        io::stdin().read_to_string(&mut buffer_text)?;
+        //TODO: strip ansi escape codes from buffer_text (some utilities will write text containing ansi escape codes to their stdout, which messes up edit's display. these need to be removed...)
+        //this may only matter for TUI client implementation... //wouldn't be needed if terminals didn't operate using ansi escape codes
+        run_app(&buffer_text, None, read_only, &mut terminal)
+    }else{  //init app with buffer from provided file
+        let verified_file_path = match &file_path{
+            Some(file_path) => file_path,
+            None => {return post_terminal_setup_error("invalid or no arguments provided", true, &mut terminal);}
+        };
+        let buffer_text = std::fs::read_to_string(&verified_file_path)?;
+        //TODO: ensure buffer_text doesn't contain any \t(and maybe others) chars, because it messes up edit's display
+        //these should be converted to TAB_WIDTH number of spaces
+        run_app(&buffer_text, file_path, read_only, &mut terminal)
+    }
+}
+
+fn run_app(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<(), Box<dyn Error>>{
+    match Application::new(buffer_text, file_path, read_only, terminal){
+        Ok(mut app) => {
+            //TODO: could pass column_number and line_number here, after verifying they are valid positions...
+            if let Err(e) = app.run(terminal){
+                return post_terminal_setup_error(&format!("{e}"), false, terminal);
+            }
+        }
+        Err(e) => {
+            return post_terminal_setup_error(&format!("{e}"), false, terminal);
+        }
+    }
+    
+    restore_terminal(terminal)
 }
 
 fn setup_terminal() -> Result<Terminal<CrosstermBackend<std::io::Stdout>>, Box<dyn Error>>{

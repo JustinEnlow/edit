@@ -21,5 +21,6 @@ pub mod view;
 pub mod keybind;
 pub mod ui;
 pub mod config;
+pub mod tutorial;
 
 pub mod utilities;
