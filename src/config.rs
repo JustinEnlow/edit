@@ -114,6 +114,9 @@ pub const SHOW_CURSOR_LINE: bool = false;
 
     pub const EDIT_ACTION_OUT_OF_VIEW: &str = "An edit action occurred out of view";
     pub const EDIT_ACTION_DISPLAY_MODE: DisplayMode = DisplayMode::Info;
+
+    pub const SPANS_MULTIPLE_LINES: &str = "Requested action cannot be performed on a selection that spans multiple lines";
+    pub const SPANS_MULTIPLE_LINES_DISPLAY_MODE: DisplayMode = DisplayMode::Warning;
 //
 
 // whether to display a popup menu showing mode specific keybinds   //TODO: need to add status bar Mode indicator, for when this is set to false, so user can see what mode they are in

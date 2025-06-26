@@ -4,7 +4,6 @@ use document_viewport::DocumentViewport;
 use popups::Popups;
 use util_bar::UtilBar;
 use status_bar::StatusBar;
-use std::error::Error;
 use ratatui::Terminal;
 use ratatui::layout::Rect;
 use ratatui::prelude::CrosstermBackend;
@@ -51,7 +50,7 @@ impl UserInterface{
                     // document + line num rect height
                     Constraint::Min(0),
                     // status bar rect height
-                    Constraint::Length(if self.status_bar.display{1}else{0}),
+                    Constraint::Length(if self.status_bar.show{1}else{0}),
                     // util(goto/find/command) bar rect height
                     Constraint::Length(
                         match mode{
@@ -67,7 +66,7 @@ impl UserInterface{
                             Mode::Object |
                             Mode::Insert |
                             Mode::View |
-                            Mode::AddSurround => if self.status_bar.display{1}else{0}
+                            Mode::AddSurround => if self.status_bar.show{1}else{0}
                         }
                     )
                 ]
@@ -81,7 +80,7 @@ impl UserInterface{
         let util_rect = self.util_bar.layout(mode, terminal_rect[2]);
 
         self.document_viewport.line_number_widget.rect = document_viewport_rect[0];
-        // dont have to set line num right padding(document_and_line_num_rect[1])
+        self.document_viewport.padding.rect = document_viewport_rect[1];
         self.document_viewport.document_widget.rect = document_viewport_rect[2];
         
         self.status_bar.read_only_widget.rect = status_bar_rect[0];
@@ -113,18 +112,20 @@ impl UserInterface{
         self.util_bar.update_width(mode);
     }
 
-    pub fn render(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>, mode: &Mode) -> Result<(), Box<dyn Error>>{
-        let _ = terminal.draw(  // Intentionally discarding `CompletedFrame`
+    pub fn render(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>, mode: &Mode) -> Result<(), String>{
+        match terminal.draw(
             |frame| {
                 // always render
                 frame.render_widget(self.document_viewport.document_widget.widget(), self.document_viewport.document_widget.rect);
                 frame.render_widget(self.document_viewport.highlighter.clone(), self.document_viewport.document_widget.rect);
                 
                 // conditionally render
-                if self.document_viewport.display_line_numbers{
+                //if self.document_viewport.display_line_numbers{
+                if self.document_viewport.line_number_widget.show{
                     frame.render_widget(self.document_viewport.line_number_widget.widget(), self.document_viewport.line_number_widget.rect);
+                    frame.render_widget(self.document_viewport.padding.widget(), self.document_viewport.padding.rect);
                 }
-                if self.status_bar.display{
+                if self.status_bar.show{
                     frame.render_widget(self.status_bar.read_only_widget.widget(), self.status_bar.read_only_widget.rect);
                     frame.render_widget(self.status_bar.padding_1.widget(), self.status_bar.padding_1.rect);
                     frame.render_widget(self.status_bar.file_name_widget.widget(), self.status_bar.file_name_widget.rect);
@@ -262,9 +263,10 @@ impl UserInterface{
                     }
                 }
             }
-        )?;
-
-        Ok(())
+        ){
+            Ok(_) => Ok(()),
+            Err(e) => Err(format!("{e}"))
+        }
     }
 }
 

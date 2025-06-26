@@ -9,14 +9,34 @@ use crate::config::{SELECTION_BACKGROUND_COLOR, SELECTION_FOREGROUND_COLOR, PRIM
 
 
 
+/// This is used to fill space between other widgets
+#[derive(Default)]
+pub struct Padding{
+    pub rect: Rect,
+}
+impl Padding{
+    pub fn widget(&self) ->Paragraph<'static>{
+        Paragraph::new(String::new())
+            .alignment(Alignment::Center)
+            .style(
+                Style::default()
+                    .bg(LINE_NUMBER_BACKGROUNG_COLOR)
+                    .fg(LINE_NUMBER_BACKGROUNG_COLOR)
+            )
+    }
+}
+
 #[derive(Default)]
 pub struct LineNumberWidget{
     pub rect: Rect,
-    pub line_numbers_in_view: String,
+    //pub line_numbers_in_view: String,
+    pub text: String,
+    pub show: bool,
 }
 impl LineNumberWidget{
     pub fn widget(&self) -> Paragraph<'static>{
-        Paragraph::new(self.line_numbers_in_view.clone())
+        //Paragraph::new(self.line_numbers_in_view.clone())
+        Paragraph::new(self.text.clone())
             .style(
                 Style::default()
                     .bg(LINE_NUMBER_BACKGROUNG_COLOR)
@@ -29,12 +49,12 @@ impl LineNumberWidget{
 #[derive(Default, Clone)]
 pub struct DocumentWidget{
     pub rect: Rect,
-    pub doc_length: usize,  //used in DocumentViewport
-    pub text_in_view: String,
+    pub doc_length: usize,  //used in DocumentViewport  //TODO: can this be set elsewhere?...maybe pass in to DocumentViewport::layout()?...
+    pub text: String,
 }
 impl DocumentWidget{
     pub fn widget(&self) -> Paragraph<'static>{
-        Paragraph::new(self.text_in_view.clone())
+        Paragraph::new(self.text.clone())
             .style(
                 Style::default()
                     .bg(DOCUMENT_BACKGROUND_COLOR)
@@ -135,41 +155,52 @@ impl ratatui::widgets::Widget for Highlighter{
 
 /// Container type for widgets in the document viewport.
 pub struct DocumentViewport{
-    pub display_line_numbers: bool,
-    pub document_widget: DocumentWidget,
+    //pub display_line_numbers: bool,
     pub line_number_widget: LineNumberWidget,
+    pub padding: Padding,
+    pub document_widget: DocumentWidget,
     pub highlighter: Highlighter,
 }
 impl Default for DocumentViewport{
     fn default() -> Self{
         Self{
-            display_line_numbers: true,
-            document_widget: DocumentWidget::default(),
+            //display_line_numbers: true,
             line_number_widget: LineNumberWidget::default(),
+            padding: Padding::default(),
+            document_widget: DocumentWidget::default(),
             highlighter: Highlighter::default(),
         }
     }
 }
 impl DocumentViewport{
-    pub fn toggle_line_numbers(&mut self){
-        self.display_line_numbers = !self.display_line_numbers;
-    }
+    //pub fn toggle_line_numbers(&mut self){
+    //    self.display_line_numbers = !self.display_line_numbers;
+    //}
     pub fn layout(&self, rect: Rect) -> std::rc::Rc<[Rect]>{
         // layout of document + line num rect
         Layout::default()
             .direction(Direction::Horizontal)
             .constraints(
                 vec![
-                    // line number left padding
-                    //Constraint::Length(if self.display_line_numbers{1}else{0}),
+                    //[0]
                     // line number rect width
                     Constraint::Length(
-                        if self.display_line_numbers{
+                        //if self.display_line_numbers{
+                        if self.line_number_widget.show{
                             count_digits(self.document_widget.doc_length)
                         }else{0}
                     ),
+
+                    //[1]
                     // line number right padding
-                    Constraint::Length(if self.display_line_numbers{1}else{0}),
+                    Constraint::Length(
+                        //if self.display_line_numbers{
+                        if self.line_number_widget.show{
+                            1
+                        }else{0}
+                    ),
+
+                    //[2]
                     // document rect width
                     Constraint::Min(5)
                 ]

@@ -220,48 +220,6 @@ impl Selections{
 
                 //TODO: pub fn search_whole_text
 
-    /// This may allow us to call movement functions, to be performed 'amount' number of times. (kind of. shouldn't just be a loop 'amount' times, but specific logic for movement with an associated count)
-    //for example: MoveCursorDown(2) would move the cursor down two lines, if possible, or saturate at buffer end otherwise, and error if already at buffer end
-    pub fn move_cursor_amount_potentially_overlapping<F>(
-        &self,
-        amount: usize,
-        buffer: &crate::buffer::Buffer,
-        semantics: crate::selection::CursorSemantics,
-        move_fn: F
-    ) -> Result<Self, SelectionsError>
-        where F: Fn(&crate::selection::Selection, usize, &crate::buffer::Buffer, crate::selection::CursorSemantics) -> Result<crate::selection::Selection, crate::selection::SelectionError>
-    {
-        let mut new_selections = Vec::with_capacity(self.count());  //the maximum size this vec should ever be is num selections in self
-        for selection in self.iter(){
-            match move_fn(selection, amount, buffer, semantics.clone()){
-                Ok(new_selection) => {new_selections.push(new_selection);}
-                Err(e) => {
-                    match e{
-                        crate::selection::SelectionError::ResultsInSameState => {
-                            if self.count() == 1{return Err(SelectionsError::ResultsInSameState)}
-                            new_selections.push(selection.clone()); //retains selections with no change resulting from move_fn
-                        }
-                        //TODO: figure out what to do with other errors, if they can even happen...
-                        //are we guaranteed by fn impls to never have these errors returned?
-                        //what if user passes an unintended move_fn to this one?...
-                        crate::selection::SelectionError::SpansMultipleLines => { //changed this when moving selection impls into utilities module
-                            if self.count() == 1{return Err(SelectionsError::SpansMultipleLines)}
-                            new_selections.push(selection.clone()); //retains selections with no change resulting from move_fn
-                        }
-                        crate::selection::SelectionError::DirectionMismatch |
-                        crate::selection::SelectionError::NoOverlap => {unreachable!()}   //if this is reached, move_fn called on one of the selections has probably put us in an unintended state. prob best to panic
-                    }
-                }
-            }
-        }
-        let mut new_selections = Selections::new(new_selections, self.primary_selection_index, buffer, semantics.clone());
-        if let Ok(merged_selections) = new_selections.merge_overlapping(buffer, semantics.clone()){
-            new_selections = merged_selections;
-        }
-        if &new_selections == self{return Err(SelectionsError::ResultsInSameState);}    //this should handle multicursor at doc end and another extend all the way right at text and, and no same state error
-        Ok(new_selections)
-    }
-
     /// Intended to ease the use of Selection functions, when used over multiple selections, where the returned selections could be overlapping.
     pub fn move_cursor_potentially_overlapping<F>(
         &self, 

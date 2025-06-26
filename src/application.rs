@@ -27,14 +27,13 @@
 // as a built in feature...
 // we should prob support switching to other open buffers within a session inside the editor, though
 
-use std::error::Error;
 use std::path::PathBuf;
 use crossterm::event;
 use ratatui::layout::Rect;
 use ratatui::{backend::CrosstermBackend, Terminal};
 use crate::keybind;
 use crate::config::{CURSOR_SEMANTICS, TAB_WIDTH, USE_FULL_FILE_PATH, USE_HARD_TAB, VIEW_SCROLL_AMOUNT};
-use crate::config::{FILE_MODIFIED, FILE_SAVE_FAILED, COMMAND_PARSE_FAILED, SINGLE_SELECTION, MULTIPLE_SELECTIONS, INVALID_INPUT, SAME_STATE, UNHANDLED_KEYPRESS, UNHANDLED_EVENT, READ_ONLY_BUFFER};
+use crate::config::{FILE_MODIFIED, FILE_SAVE_FAILED, COMMAND_PARSE_FAILED, SINGLE_SELECTION, MULTIPLE_SELECTIONS, INVALID_INPUT, SAME_STATE, UNHANDLED_KEYPRESS, UNHANDLED_EVENT, READ_ONLY_BUFFER, SPANS_MULTIPLE_LINES};
 use crate::config::COPIED_TEXT;
 
 
@@ -201,7 +200,7 @@ pub struct Application{
     pub selections: crate::selections::Selections,
     //TODO: remove view, and pass a new instance(derived from document rect?) into each function that needs it. 
     // this would keep the ui/terminal as the single source of truth for client view
-    pub view: crate::view::View,
+    pub view: crate::view::View,    //TODO: View should really be called DisplayArea
     pub clipboard: String,
 }
 impl Application{
@@ -226,55 +225,21 @@ impl Application{
                 &buffer, 
                 CURSOR_SEMANTICS
             ),
-            view: crate::view::View::new(0, 0, 0, 0),
+            view: view.clone(),//crate::view::View::new(0, 0, 0, 0),
             clipboard: String::new()
         };
 
-        //instance.ui.status_bar.file_name_widget.file_name = if USE_FULL_FILE_PATH{
-        //    instance.buffer.file_path()
-        //}else{
-        //    instance.buffer.file_name()
-        //};
-        if instance.buffer.file_path.is_some(){
-            instance.ui.status_bar.file_name_widget.show = true;
-            if USE_FULL_FILE_PATH{
-                instance.ui.status_bar.file_name_widget.text = match instance.buffer.file_path(){
-                    Some(file_path) => file_path,
-                    None => String::new()
-                };
-            }else{
-                instance.ui.status_bar.file_name_widget.text = match instance.buffer.file_name(){
-                    Some(file_name) => file_name,
-                    None => String::new()
-                };
-            }
-        }else{
-            instance.ui.status_bar.file_name_widget.show = false;
-            instance.ui.status_bar.file_name_widget.text = String::new();
-        }
-        
-        instance.ui.document_viewport.document_widget.doc_length = instance.buffer.len_lines();
-        
-        instance.ui.update_layouts(&instance.mode());
-        //init backend doc view size
-        instance.view.set_size(
-            instance.ui.document_viewport.document_widget.rect.width as usize,
-            instance.ui.document_viewport.document_widget.rect.height as usize
-        );
-
-        // prefer this over scroll_and_update, even when response fns are the same, because it saves us from unnecessarily reassigning the view
-        instance.checked_scroll_and_update(
-            &instance.selections.primary().clone(), 
-            Application::update_ui_data_document, 
-            Application::update_ui_data_document
-        );
+        instance.setup();
 
         instance
     }
     //TODO: take a line: usize and column: usize as input for where to place cursor on startup. if user passes --line or --column, use the provided values, otherwise use 0
     //or maybe keep the selection at 0, 0 here, then update it in run, where it can return an error if the provided values are invalid
-    pub fn new(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, terminal: &Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<Self, Box<dyn Error>>{
-        let terminal_size = terminal.size()?;
+    pub fn new(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, terminal: &Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<Self, String>{
+        let terminal_size = match terminal.size(){
+            Ok(size) => size,
+            Err(e) => return Err(format!("{}", e))
+        };
         let terminal_rect = Rect::new(0, 0, terminal_size.width, terminal_size.height);
 
         let buffer = crate::buffer::Buffer::new(buffer_text, file_path.clone(), read_only);
@@ -288,7 +253,6 @@ impl Application{
             selections: crate::selections::Selections::new(
                 vec![
                     crate::selection::Selection::new_from_range(
-                        //crate::range::Range::new(0, /*1*/buffer.next_grapheme_boundary_index(0)), 
                         match CURSOR_SEMANTICS{
                             crate::selection::CursorSemantics::Bar => crate::range::Range::new(0, 0),
                             crate::selection::CursorSemantics::Block => crate::range::Range::new(0, buffer.next_grapheme_boundary_index(0))
@@ -305,65 +269,65 @@ impl Application{
             clipboard: String::new()
         };
 
-        if instance.buffer.read_only{
-            instance.ui.status_bar.read_only_widget.show = true;
-            instance.ui.status_bar.read_only_widget.text = "ReadOnly".to_string();
+        instance.setup();
+
+        Ok(instance)
+    }
+    fn setup(&mut self){
+        self.ui.document_viewport.line_number_widget.show = true;
+
+        if self.buffer.read_only{
+            self.ui.status_bar.read_only_widget.show = true;
+            self.ui.status_bar.read_only_widget.text = "ReadOnly".to_string();
         }else{
-            instance.ui.status_bar.read_only_widget.show = false;
-            instance.ui.status_bar.read_only_widget.text = String::new();
+            self.ui.status_bar.read_only_widget.show = false;
+            self.ui.status_bar.read_only_widget.text = String::new();
         }
         
-        //instance.ui.status_bar.file_name_widget.file_name = if USE_FULL_FILE_PATH{
-        //    instance.buffer.file_path()
-        //}else{
-        //    instance.buffer.file_name()
-        //};
-        if instance.buffer.file_path.is_some(){
-            instance.ui.status_bar.file_name_widget.show = true;
+        if self.buffer.file_path.is_some(){
+            self.ui.status_bar.file_name_widget.show = true;
             if USE_FULL_FILE_PATH{
-                instance.ui.status_bar.file_name_widget.text = match instance.buffer.file_path(){
+                self.ui.status_bar.file_name_widget.text = match self.buffer.file_path(){
                     Some(file_path) => file_path,
                     None => String::new()
                 };
             }else{
-                instance.ui.status_bar.file_name_widget.text = match instance.buffer.file_name(){
+                self.ui.status_bar.file_name_widget.text = match self.buffer.file_name(){
                     Some(file_name) => file_name,
                     None => String::new()
                 };
             }
         }else{
-            instance.ui.status_bar.file_name_widget.show = false;
-            instance.ui.status_bar.file_name_widget.text = String::new();
+            self.ui.status_bar.file_name_widget.show = false;
+            self.ui.status_bar.file_name_widget.text = String::new();
         }
 
-        instance.update_ui_data_mode();
+        self.update_ui_data_mode();
         
-        instance.ui.document_viewport.document_widget.doc_length = instance.buffer.len_lines();
+        self.ui.document_viewport.document_widget.doc_length = self.buffer.len_lines();
         
-        instance.ui.update_layouts(&instance.mode());
+        self.ui.update_layouts(&self.mode());
         //init backend doc view size
-        instance.view.set_size(
-            instance.ui.document_viewport.document_widget.rect.width as usize,
-            instance.ui.document_viewport.document_widget.rect.height as usize
+        self.view.set_size(
+            self.ui.document_viewport.document_widget.rect.width as usize,
+            self.ui.document_viewport.document_widget.rect.height as usize
         );
-        instance.ui.util_bar.utility_widget.text_box.view.set_size( //needed for util bar cursor to render the first time it is triggered
-            instance.ui.util_bar.utility_widget.rect.width as usize, 
-            instance.ui.util_bar.utility_widget.rect.height as usize
+        self.ui.util_bar.utility_widget.text_box.view.set_size( //needed for util bar cursor to render the first time it is triggered
+            self.ui.util_bar.utility_widget.rect.width as usize, 
+            self.ui.util_bar.utility_widget.rect.height as usize
         );
 
         // prefer this over scroll_and_update, even when response fns are the same, because it saves us from unnecessarily reassigning the view
-        //instance.checked_scroll_and_update(&instance.document.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
-        instance.checked_scroll_and_update(
-            &instance.selections.primary().clone(), 
+        //self.checked_scroll_and_update(&self.document.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
+        self.checked_scroll_and_update(
+            &self.selections.primary().clone(), 
             Application::update_ui_data_document, 
             Application::update_ui_data_document
         );
-        instance.update_ui_data_util_bar(); //needed for util bar cursor to render the first time it is triggered
-
-        Ok(instance)
+        self.update_ui_data_util_bar(); //needed for util bar cursor to render the first time it is triggered
     }
 
-    pub fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<(), Box<dyn Error>>{
+    pub fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<(), String>{
         loop{
             self.ui.update_layouts(&self.mode());
             self.ui.render(terminal, &self.mode())?;
@@ -374,53 +338,58 @@ impl Application{
         }
     }
 
-    fn handle_event(&mut self) -> Result<(), Box<dyn Error>>{
-        match event::read()?{
-            //TODO: handle_keypress fns could take a mode as context, then mode specific functionality wouldn't need to be in separate fns...
-            //that context could also be used to fill available commands in mode specific popup menus
-            event::Event::Key(key_event) => {
-                match self.mode(){
-                    Mode::Insert => {keybind::handle_insert_mode_keypress(self, key_event.code, key_event.modifiers);}
-                    Mode::View => {keybind::handle_view_mode_keypress(self, key_event.code, key_event.modifiers);}
-                    Mode::Goto => {keybind::handle_goto_mode_keypress(self, key_event.code, key_event.modifiers);}
-                    Mode::Find => {keybind::handle_find_mode_keypress(self, key_event.code, key_event.modifiers);}
-                    Mode::Command => {keybind::handle_command_mode_keypress(self, key_event.code, key_event.modifiers);}
-                    Mode::Error(_) => {keybind::handle_error_mode_keypress(self, key_event.code, key_event.modifiers);}
-                    Mode::Warning(_) => {
-                        //unhandled keybinds in warning mode fall through to insert mode //TODO: do the same for suggestions mode(not impled yet)
-                        keybind::handle_warning_mode_keypress(self, key_event.code, key_event.modifiers);
+    fn handle_event(&mut self) -> Result<(), String>{
+        match event::read(){
+            Ok(event) => {
+                match event{
+                    //TODO: handle_keypress fns could take a mode as context, then mode specific functionality wouldn't need to be in separate fns...
+                    //that context could also be used to fill available commands in mode specific popup menus
+                    event::Event::Key(key_event) => {
+                        match self.mode(){
+                            Mode::Insert => {keybind::handle_insert_mode_keypress(self, key_event.code, key_event.modifiers);}
+                            Mode::View => {keybind::handle_view_mode_keypress(self, key_event.code, key_event.modifiers);}
+                            Mode::Goto => {keybind::handle_goto_mode_keypress(self, key_event.code, key_event.modifiers);}
+                            Mode::Find => {keybind::handle_find_mode_keypress(self, key_event.code, key_event.modifiers);}
+                            Mode::Command => {keybind::handle_command_mode_keypress(self, key_event.code, key_event.modifiers);}
+                            Mode::Error(_) => {keybind::handle_error_mode_keypress(self, key_event.code, key_event.modifiers);}
+                            Mode::Warning(_) => {
+                                //unhandled keybinds in warning mode fall through to insert mode //TODO: do the same for suggestions mode(not impled yet)
+                                keybind::handle_warning_mode_keypress(self, key_event.code, key_event.modifiers);
+                            }
+                            Mode::Notify(_) => {
+                                //unhandled keybinds in notify mode fall through to insert mode //TODO: do the same for suggestions mode(not impled yet)
+                                keybind::handle_notify_mode_keypress(self, key_event.code, key_event.modifiers);
+                            }
+                            Mode::Info(_) => {
+                                //unhandled keybinds in info mode fall through to insert mode //TODO: do the same for suggestions mode(not impled yet)
+                                keybind::handle_info_mode_keypress(self, key_event.code, key_event.modifiers);
+                            }
+                            Mode::Split => {keybind::handle_split_mode_keypress(self, key_event.code, key_event.modifiers);}
+                            Mode::Object => {keybind::handle_object_mode_keypress(self, key_event.code, key_event.modifiers);}
+                            Mode::AddSurround => {keybind::handle_add_surround_mode_keypress(self, key_event.code, key_event.modifiers);}
+                        }
+                    },
+                    event::Event::Mouse(idk) => {
+                        //TODO: maybe mode specific mouse handling...
+                        match idk.kind{
+                            event::MouseEventKind::Down(_) => {self.no_op_event();}
+                            event::MouseEventKind::Up(_) => {self.no_op_event();}
+                            event::MouseEventKind::Drag(_) => {self.no_op_event();}
+                            event::MouseEventKind::Moved => {self.no_op_event();}
+                            event::MouseEventKind::ScrollDown => {self.no_op_event();}
+                            event::MouseEventKind::ScrollUp => {self.no_op_event();}
+                        }
                     }
-                    Mode::Notify(_) => {
-                        //unhandled keybinds in notify mode fall through to insert mode //TODO: do the same for suggestions mode(not impled yet)
-                        keybind::handle_notify_mode_keypress(self, key_event.code, key_event.modifiers);
-                    }
-                    Mode::Info(_) => {
-                        //unhandled keybinds in info mode fall through to insert mode //TODO: do the same for suggestions mode(not impled yet)
-                        keybind::handle_info_mode_keypress(self, key_event.code, key_event.modifiers);
-                    }
-                    Mode::Split => {keybind::handle_split_mode_keypress(self, key_event.code, key_event.modifiers);}
-                    Mode::Object => {keybind::handle_object_mode_keypress(self, key_event.code, key_event.modifiers);}
-                    Mode::AddSurround => {keybind::handle_add_surround_mode_keypress(self, key_event.code, key_event.modifiers);}
+                    event::Event::Resize(x, y) => self.resize(x, y),
+                    event::Event::FocusLost => {/*do nothing*/} //maybe quit displaying cursor(s)/selection(s)?...
+                    event::Event::FocusGained => {/*do nothing*/}   //display cursor(s)/selection(s)?...
+                    event::Event::Paste(_) => {self.no_op_event();}
                 }
-            },
-            event::Event::Mouse(idk) => {
-                //TODO: maybe mode specific mouse handling...
-                match idk.kind{
-                    event::MouseEventKind::Down(_) => {self.no_op_event();}
-                    event::MouseEventKind::Up(_) => {self.no_op_event();}
-                    event::MouseEventKind::Drag(_) => {self.no_op_event();}
-                    event::MouseEventKind::Moved => {self.no_op_event();}
-                    event::MouseEventKind::ScrollDown => {self.no_op_event();}
-                    event::MouseEventKind::ScrollUp => {self.no_op_event();}
-                }
-            }
-            event::Event::Resize(x, y) => self.resize(x, y),
-            event::Event::FocusLost => {/*do nothing*/} //maybe quit displaying cursor(s)/selection(s)?...
-            event::Event::FocusGained => {/*do nothing*/}   //display cursor(s)/selection(s)?...
-            event::Event::Paste(_) => {self.no_op_event();}
-        }
 
-        Ok(())
+                Ok(())
+            }
+            Err(e) => Err(format!("{e}"))
+        }
     }
 
     pub fn mode(&self) -> Mode{
@@ -488,13 +457,13 @@ impl Application{
             match to_mode{
                 Mode::Find | Mode::Split => {
                     save_selections = true;
-                    if !self.ui.status_bar.display{ // potential fix for status bar bug in todo.rs
+                    if !self.ui.status_bar.show{ // potential fix for status bar bug in todo.rs
                         update_util_bar = true;
                         update_layouts_and_document = true;
                     }
                 }
                 Mode::Command | Mode::Goto => {
-                    if !self.ui.status_bar.display{ // potential fix for status bar bug in todo.rs
+                    if !self.ui.status_bar.show{ // potential fix for status bar bug in todo.rs
                         update_util_bar = true;
                         update_layouts_and_document = true;
                     }
@@ -562,11 +531,11 @@ impl Application{
     pub fn update_ui_data_document(&mut self){
         let buffer = &self.buffer;
         
-        self.ui.document_viewport.document_widget.text_in_view = self.view.text(buffer);
-        self.ui.document_viewport.line_number_widget.line_numbers_in_view = self.view.line_numbers(buffer);
+        self.ui.document_viewport.document_widget.text = self.view.text(buffer);
+        //self.ui.document_viewport.line_number_widget.line_numbers_in_view = self.view.line_numbers(buffer);
+        self.ui.document_viewport.line_number_widget.text = self.view.line_numbers(buffer);
         self.update_ui_data_selections();
         //TODO?: this may be better to have in the main loop, in case the file is modified underneath us while the buffer is open...
-        //self.ui.status_bar.modified_widget.modified_status = self.buffer.is_modified();
         if self.buffer.is_modified(){
             self.ui.status_bar.modified_widget.show = true;
             self.ui.status_bar.modified_widget.text = "[Modified]".to_string();
@@ -583,17 +552,9 @@ impl Application{
         self.ui.document_viewport.highlighter.primary_cursor = self.view.primary_cursor_position(buffer, selections, CURSOR_SEMANTICS);
         self.ui.document_viewport.highlighter.cursors = self.view.cursor_positions(buffer, selections, CURSOR_SEMANTICS);
         self.ui.document_viewport.highlighter.selections = self.view.selections(selections, buffer);
-        //TODO: we should set selections_widget text here. self.ui.status_bar.selections_widget.text = format!(whatever...)
-        //self.ui.status_bar.selections_widget.primary_selection_index = selections.primary_selection_index;
-        //self.ui.status_bar.selections_widget.num_selections = selections.count();
         self.ui.status_bar.selections_widget.text = format!("selections: {}/{}", selections.primary_selection_index + 1, selections.count());
-        //TODO: we should set cursor_position_widget text here. self.ui.status_bar.cursor_position_widget.text = whatever...
-        //self.ui.status_bar.cursor_position_widget.document_cursor_position = selections.primary().selection_to_selection2d(buffer, CURSOR_SEMANTICS).head().clone();
-        self.ui.status_bar.cursor_position_widget.text = format!(
-            "cursor: {}:{}", 
-            selections.primary().selection_to_selection2d(buffer, CURSOR_SEMANTICS).head().clone().y + 1, 
-            selections.primary().selection_to_selection2d(buffer, CURSOR_SEMANTICS).head().clone().x + 1
-        )
+        let cursor_position = selections.primary().selection_to_selection2d(buffer, CURSOR_SEMANTICS).head().clone();
+        self.ui.status_bar.cursor_position_widget.text = format!("cursor: {}:{}", cursor_position.y + 1, cursor_position.x + 1)
     }
     pub fn update_ui_data_mode(&mut self){
         //does this belong here, or in ui.rs?...
@@ -707,7 +668,6 @@ impl Application{
 
     pub fn save(&mut self){
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
-        //if self.ui.status_bar.file_name_widget.file_name.is_none(){self.handle_notification(crate::config::DisplayMode::Error, "cannot save unnamed buffer");}
         if self.buffer.file_path.is_none(){self.handle_notification(crate::config::DisplayMode::Error, "cannot save unnamed buffer");}
         else if self.buffer.read_only{self.handle_notification(crate::config::READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER);}
         else{
@@ -720,8 +680,8 @@ impl Application{
         }
     }
     fn handle_application_error(&mut self, e: ApplicationError){
-        let this_file = std::panic::Location::caller().file();  //actually, these should prob be assigned in calling fn, and passed in, so that error location is the caller and not always here...
-        let line_number = std::panic::Location::caller().line();
+        //let this_file = std::panic::Location::caller().file();  //actually, these should prob be assigned in calling fn, and passed in, so that error location is the caller and not always here...
+        //let line_number = std::panic::Location::caller().line();
         match e{
             ApplicationError::ReadOnlyBuffer => {self.handle_notification(crate::config::READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER);}
             ApplicationError::InvalidInput => {self.handle_notification(crate::config::INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}
@@ -736,8 +696,7 @@ impl Application{
                     crate::selections::SelectionsError::MultipleSelections => {self.handle_notification(crate::config::MULTIPLE_SELECTIONS_DISPLAY_MODE, MULTIPLE_SELECTIONS);}
                     crate::selections::SelectionsError::SingleSelection => {self.handle_notification(crate::config::SINGLE_SELECTION_DISPLAY_MODE, SINGLE_SELECTION);}
                     crate::selections::SelectionsError::NoSearchMatches |
-                    //TODO: this error can now happen. figure out how to handle it...
-                    crate::selections::SelectionsError::SpansMultipleLines => self.mode_push(Mode::Error(format!("{s:#?} at {this_file}::{line_number}. This Error shouldn't be possible here."))),
+                    crate::selections::SelectionsError::SpansMultipleLines => self.handle_notification(crate::config::SPANS_MULTIPLE_LINES_DISPLAY_MODE, SPANS_MULTIPLE_LINES),
                 }
             }
         }
@@ -1060,7 +1019,8 @@ impl Application{
 
     pub fn toggle_line_numbers(&mut self){
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
-        self.ui.document_viewport.toggle_line_numbers();
+        //self.ui.document_viewport.toggle_line_numbers();
+        self.ui.document_viewport.line_number_widget.show = !self.ui.document_viewport.line_number_widget.show;
                 
         self.ui.update_layouts(&self.mode());
         self.view.set_size(
@@ -1071,7 +1031,8 @@ impl Application{
     }
     pub fn toggle_status_bar(&mut self){
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
-        self.ui.status_bar.toggle_status_bar();
+        //self.ui.status_bar.toggle_status_bar();
+        self.ui.status_bar.show = !self.ui.status_bar.show;
                 
         self.ui.update_layouts(&self.mode());
         self.view.set_size(

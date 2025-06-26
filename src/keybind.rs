@@ -199,8 +199,12 @@ pub fn handle_goto_mode_keypress(app: &mut Application, keycode: KeyCode, modifi
             else{app.no_op_keypress();}
         }
         (KeyCode::Char(c), modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::InsertChar(c));}
-            else if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::InsertChar(c));}
+            //if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::InsertChar(c));}
+            //else if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::InsertChar(c));}
+            if modifiers == KeyModifiers::NONE{
+                if c.is_numeric(){app.util_action(&UtilAction::InsertChar(c));}
+                else{app.no_op_keypress();}
+            }
             else{app.no_op_keypress();}
         }
         _ => {app.no_op_keypress();}

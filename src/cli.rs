@@ -44,20 +44,22 @@ Options:
 
 
 
-fn pre_terminal_setup_error(message: &str) -> Result<(), Box<dyn Error>>{
-    println!("{}", USAGE);
+fn pre_terminal_setup_error(message: &str) -> Result<(), String>{
+    println!("{USAGE}");
     Err(message.into())
 }
-fn post_terminal_setup_error(message: &str, show_usage: bool, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<(), Box<dyn Error>>{
-    restore_terminal(terminal)?;
+fn post_terminal_setup_error(message: &str, show_usage: bool, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<(), String>{
+    if let Err(e) = restore_terminal(terminal){
+        return Err(format!("{e}"));
+    }
     if show_usage{println!("{USAGE}");}
     Err(message.into())
 }
-fn pre_terminal_setup_ok(message: &str) -> Result<(), Box<dyn Error>>{
-    println!("{}", message);
+fn pre_terminal_setup_ok(message: &str) -> Result<(), String>{
+    println!("{message}");
     Ok(())
 }
-pub fn parse_args() -> Result<(), Box<dyn Error>>{
+pub fn parse_args() -> Result<(), String>{
     let mut temp_buffer = false;
     let mut read_only = false;
     let mut file_path: Option<PathBuf> = None;
@@ -96,14 +98,24 @@ pub fn parse_args() -> Result<(), Box<dyn Error>>{
     }
     if temp_buffer && file_path.is_some(){return pre_terminal_setup_error("temp buffer content must be piped over stdin");}
 
-    let mut terminal = setup_terminal()?;
+    let mut terminal = match setup_terminal(){
+        Ok(term) => term,
+        Err(e) => return Err(format!("{e}"))
+    };
         
     if open_tutorial{   //init app with buffer from tutorial file
-        run_app(TUTORIAL, None, false, &mut terminal)
+        run_app(TUTORIAL, None, read_only, &mut terminal)
         //run_app(&crate::tutorial::tutorial_text(), file_path, read_only, &mut terminal)
     }else if temp_buffer{   //init app with buffer from stdin
+        //TODO: maybe timeout after some certain amount of time. this could catch calling "-t" with nothing passed on stdin
         let mut buffer_text = String::new();
-        io::stdin().read_to_string(&mut buffer_text)?;
+        if let Err(e) = io::stdin().read_to_string(&mut buffer_text){return Err(format!("{e}"));}
+        
+        //this didn't work...
+        //if buffer_text.trim().is_empty(){
+        //    return post_terminal_setup_error("no buffer content piped over stdin", true, &mut terminal);
+        //}
+
         //TODO: strip ansi escape codes from buffer_text (some utilities will write text containing ansi escape codes to their stdout, which messes up edit's display. these need to be removed...)
         //this may only matter for TUI client implementation... //wouldn't be needed if terminals didn't operate using ansi escape codes
         run_app(&buffer_text, None, read_only, &mut terminal)
@@ -112,27 +124,33 @@ pub fn parse_args() -> Result<(), Box<dyn Error>>{
             Some(file_path) => file_path,
             None => {return post_terminal_setup_error("invalid or no arguments provided", true, &mut terminal);}
         };
-        let buffer_text = std::fs::read_to_string(&verified_file_path)?;
+        let buffer_text = match std::fs::read_to_string(&verified_file_path){
+            Ok(text) => text,
+            Err(e) => return Err(format!("{e}"))
+        };
         //TODO: ensure buffer_text doesn't contain any \t(and maybe others) chars, because it messes up edit's display
         //these should be converted to TAB_WIDTH number of spaces
         run_app(&buffer_text, file_path, read_only, &mut terminal)
     }
 }
 
-fn run_app(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<(), Box<dyn Error>>{
+fn run_app(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<(), String>{
     match Application::new(buffer_text, file_path, read_only, terminal){
         Ok(mut app) => {
             //TODO: could pass column_number and line_number here, after verifying they are valid positions...
             if let Err(e) = app.run(terminal){
-                return post_terminal_setup_error(&format!("{e}"), false, terminal);
+                return post_terminal_setup_error(&e, false, terminal);
             }
         }
         Err(e) => {
-            return post_terminal_setup_error(&format!("{e}"), false, terminal);
+            return post_terminal_setup_error(&e, false, terminal);
         }
     }
     
-    restore_terminal(terminal)
+    match restore_terminal(terminal){
+        Ok(()) => Ok(()),
+        Err(e) => Err(format!("{e}"))
+    }
 }
 
 fn setup_terminal() -> Result<Terminal<CrosstermBackend<std::io::Stdout>>, Box<dyn Error>>{

@@ -21,7 +21,7 @@ const COMMAND_PROMPT: &str = " Command: ";
 pub struct UtilityWidget{
     pub rect: Rect,
     pub text_box: InteractiveTextBox,
-    pub preserved_selections: Option<Selections>,
+    pub preserved_selections: Option<Selections>,   //maybe this should be held in Application struct?...
 }
 impl UtilityWidget{
     pub fn widget(&self, mode: Mode) -> Paragraph<'static>{
