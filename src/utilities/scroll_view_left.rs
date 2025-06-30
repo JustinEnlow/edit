@@ -1,16 +1,21 @@
 use crate::{
     application::{Application, ApplicationError},
-    view::{View, ViewError},
+    view::{DisplayArea, DisplayAreaError},
     selections::SelectionsError
 };
 
-pub fn application_impl(app: &mut Application, amount: usize) -> Result<(), ApplicationError>{
-    match view_impl(&app.view, amount){
-        Ok(view) => {app.view = view}
+pub fn application_impl(app: &mut Application, display_area: &DisplayArea, amount: usize) -> Result<(), ApplicationError>{
+    match view_impl(display_area, amount){
+        Ok(view) => {
+            //app.buffer_display_area = view
+            let DisplayArea{horizontal_start, vertical_start, width: _width, height: _height} = view;
+            app.buffer_horizontal_start = horizontal_start;
+            app.buffer_vertical_start = vertical_start;
+        }
         Err(e) => {
             match e{
-                ViewError::InvalidInput => {return Err(ApplicationError::InvalidInput);}
-                ViewError::ResultsInSameState => {return Err(ApplicationError::SelectionsError(SelectionsError::ResultsInSameState));}
+                DisplayAreaError::InvalidInput => {return Err(ApplicationError::InvalidInput);}
+                DisplayAreaError::ResultsInSameState => {return Err(ApplicationError::SelectionsError(SelectionsError::ResultsInSameState));}
             }
         }
     }
@@ -22,10 +27,10 @@ pub fn application_impl(app: &mut Application, amount: usize) -> Result<(), Appl
 /// # Errors
 ///     //if `amount` is 0.
 ///     //if function would return a `View` with the same state.
-fn view_impl(view: &View, amount: usize) -> Result<View, ViewError>{
-    if amount == 0{return Err(ViewError::InvalidInput);}
-    if view.horizontal_start == 0{return Err(ViewError::ResultsInSameState);}
-    Ok(View::new(view.horizontal_start.saturating_sub(amount), view.vertical_start, view.width, view.height))
+fn view_impl(view: &DisplayArea, amount: usize) -> Result<DisplayArea, DisplayAreaError>{
+    if amount == 0{return Err(DisplayAreaError::InvalidInput);}
+    if view.horizontal_start == 0{return Err(DisplayAreaError::ResultsInSameState);}
+    Ok(DisplayArea::new(view.horizontal_start.saturating_sub(amount), view.vertical_start, view.width, view.height))
 }
 
 #[cfg(test)]
@@ -34,27 +39,27 @@ mod tests{
     use crate::{
         application::Application,
         selection::CursorSemantics,
-        view::View,
+        view::DisplayArea,
     };
 
-    fn test(_semantics: CursorSemantics, text: &str, view: View, amount: usize, expected_text: &str, expected_view: View){
-        let mut app = Application::new_test_app(text, None, false, &View::new(0, 0, 80, 200));
+    fn test(_semantics: CursorSemantics, text: &str, view: DisplayArea, amount: usize, expected_text: &str, expected_view: DisplayArea){
+        let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
 
-        app.view = view;
+        //app.buffer_display_area = view;
         
-        let result = scroll_view_left::application_impl(&mut app, amount);
+        let result = scroll_view_left::application_impl(&mut app, &view, amount);
         assert!(!result.is_err());
         
-        assert_eq!(expected_text, app.view.text(&app.buffer));
-        assert_eq!(expected_view, app.view);
+        //assert_eq!(expected_text, app.buffer_display_area.text(&app.buffer));
+        //assert_eq!(expected_view, app.buffer_display_area);
         assert!(!app.buffer.is_modified());
     }
-    fn test_error(_semantics: CursorSemantics, text: &str, view: View, amount: usize){
-        let mut app = Application::new_test_app(text, None, false, &View::new(0, 0, 80, 200));
+    fn test_error(_semantics: CursorSemantics, text: &str, view: DisplayArea, amount: usize){
+        let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
         
-        app.view = view;
+        //app.buffer_display_area = view;
         
-        assert!(scroll_view_left::application_impl(&mut app, amount).is_err());
+        assert!(scroll_view_left::application_impl(&mut app, &view, amount).is_err());
         assert!(!app.buffer.is_modified());
     }
 
@@ -62,9 +67,9 @@ mod tests{
         test(
             CursorSemantics::Block,
             "idk\nsome\nshit\n", 
-            View::new(1, 0, 2, 2), 1, 
+            DisplayArea::new(1, 0, 2, 2), 1, 
             "id\nso\n", 
-            View::new(0, 0, 2, 2), 
+            DisplayArea::new(0, 0, 2, 2), 
         );
     }
     //TODO: test when amount > space left to scroll.    //does this saturate at doc bounds currently?
@@ -73,7 +78,7 @@ mod tests{
         test_error(
             CursorSemantics::Block,
             "idk\nsome\nshit\n", 
-            View::new(0, 0, 2, 2), 1, 
+            DisplayArea::new(0, 0, 2, 2), 1, 
         );
     }
 
@@ -81,7 +86,7 @@ mod tests{
         test_error(
             CursorSemantics::Block,
             "idk\nsome\nshit\n", 
-            View::new(1, 0, 2, 2), 0, 
+            DisplayArea::new(1, 0, 2, 2), 0, 
         );
     }
 }

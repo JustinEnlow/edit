@@ -39,6 +39,7 @@ pub mod increment_primary_selection;
 pub mod decrement_primary_selection;
 pub mod surround;
 pub mod nearest_surrounding_pair;   //may rename to nearest bracket pair, and have separate nearest quote pair fn
+
 pub mod incremental_search_in_selection;
 pub mod incremental_split_in_selection;
 
@@ -70,3 +71,5 @@ pub mod scroll_view_right;
 //other
 pub mod copy;
 pub mod save;
+
+#[cfg(test)] pub mod test;

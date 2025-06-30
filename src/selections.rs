@@ -313,25 +313,59 @@ impl Selections{
         Ok(new_selections)
     }
     
-    /// Intended to ease the use of Selection functions, when used over multiple selections, where the returned selections are moved by view height and could be overlapping.
+    // Intended to ease the use of Selection functions, when used over multiple selections, where the returned selections are moved by view height and could be overlapping.
     // TODO: take view related data(document_widget area) as input param, instead of storing a separate source of truth that needs synching with frontend
-    pub fn move_cursor_page<F>(
-        &self, 
-        buffer: &crate::buffer::Buffer, 
-        view: &crate::view::View, 
-        semantics: crate::selection::CursorSemantics, 
-        move_fn: F
-    ) -> Result<Self, SelectionsError>
-        where F: Fn(
-            &crate::selection::Selection, 
-            &crate::buffer::Buffer, 
-            &crate::view::View, 
-            crate::selection::CursorSemantics
-        ) -> Result<crate::selection::Selection, crate::selection::SelectionError>
+    //pub fn move_cursor_page<F>(
+    //    &self, 
+    //    buffer: &crate::buffer::Buffer, 
+    //    view: &crate::view::DisplayArea, 
+    //    semantics: crate::selection::CursorSemantics, 
+    //    move_fn: F
+    //) -> Result<Self, SelectionsError>
+    //    where F: Fn(
+    //        &crate::selection::Selection, 
+    //        &crate::buffer::Buffer, 
+    //        &crate::view::DisplayArea, 
+    //        crate::selection::CursorSemantics
+    //    ) -> Result<crate::selection::Selection, crate::selection::SelectionError>
+    //{
+    //    let mut new_selections = Vec::with_capacity(self.count());  //the maximum size this vec should ever be is num selections in self
+    //    for selection in self.iter(){
+    //        match move_fn(selection, buffer, view, semantics.clone()){
+    //            Ok(new_selection) => {new_selections.push(new_selection);}
+    //            Err(e) => {
+    //                match e{
+    //                    crate::selection::SelectionError::ResultsInSameState => {
+    //                        if self.count() == 1{return Err(SelectionsError::ResultsInSameState)}
+    //                        new_selections.push(selection.clone()); //retains selections with no change resulting from move_fn
+    //                    }
+    //                    //TODO: figure out what to do with other errors, if they can even happen...
+    //                    //are we guaranteed by fn impls to never have these errors returned?
+    //                    //what if user passes an unintended move_fn to this one?...
+    //                    crate::selection::SelectionError::DirectionMismatch |
+    //                    crate::selection::SelectionError::SpansMultipleLines |//InvalidInput |
+    //                    crate::selection::SelectionError::NoOverlap => {
+    //                        //unreachable!()
+    //                        println!("{e:#?}");
+    //                    }   //if this is reached, move_fn called on one of the selections has probably put us in an unintended state. prob best to panic
+    //                }
+    //            }
+    //        }
+    //    }
+    //    let mut new_selections = Selections::new(new_selections, self.primary_selection_index, buffer, semantics.clone());
+    //    if let Ok(merged_selections) = new_selections.merge_overlapping(buffer, semantics.clone()){
+    //        new_selections = merged_selections;
+    //    }
+    //    Ok(new_selections)
+    //}
+
+    //could this handle all movement functions?...
+    pub fn move_selection<F>(&self, count: /*Option<*/usize/*>*/, buffer: &crate::buffer::Buffer, display_area: Option<&crate::view::DisplayArea>, semantics: crate::selection::CursorSemantics, move_fn: F) -> Result<Self, SelectionsError>
+        where F: Fn(&crate::selection::Selection, /*Option<*/usize/*>*/, &crate::buffer::Buffer, Option<&crate::view::DisplayArea>, crate::selection::CursorSemantics) -> Result<crate::selection::Selection, crate::selection::SelectionError>
     {
         let mut new_selections = Vec::with_capacity(self.count());  //the maximum size this vec should ever be is num selections in self
         for selection in self.iter(){
-            match move_fn(selection, buffer, view, semantics.clone()){
+            match move_fn(selection, count, buffer, display_area, semantics.clone()){
                 Ok(new_selection) => {new_selections.push(new_selection);}
                 Err(e) => {
                     match e{
@@ -342,12 +376,12 @@ impl Selections{
                         //TODO: figure out what to do with other errors, if they can even happen...
                         //are we guaranteed by fn impls to never have these errors returned?
                         //what if user passes an unintended move_fn to this one?...
+                        crate::selection::SelectionError::SpansMultipleLines => { //changed this when moving selection impls into utilities module
+                            if self.count() == 1{return Err(SelectionsError::SpansMultipleLines)}
+                            new_selections.push(selection.clone()); //retains selections with no change resulting from move_fn
+                        }
                         crate::selection::SelectionError::DirectionMismatch |
-                        crate::selection::SelectionError::SpansMultipleLines |//InvalidInput |
-                        crate::selection::SelectionError::NoOverlap => {
-                            //unreachable!()
-                            println!("{e:#?}");
-                        }   //if this is reached, move_fn called on one of the selections has probably put us in an unintended state. prob best to panic
+                        crate::selection::SelectionError::NoOverlap => {unreachable!()}   //if this is reached, move_fn called on one of the selections has probably put us in an unintended state. prob best to panic
                     }
                 }
             }
@@ -356,6 +390,7 @@ impl Selections{
         if let Ok(merged_selections) = new_selections.merge_overlapping(buffer, semantics.clone()){
             new_selections = merged_selections;
         }
+        if &new_selections == self{return Err(SelectionsError::ResultsInSameState);}    //this should handle multicursor at doc end and another extend all the way right at text and, and no same state error
         Ok(new_selections)
     }
 }

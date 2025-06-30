@@ -1,7 +1,12 @@
+//TODO: util bar view should scroll differently than buffer view
+// when inserting text, view scroll is ok
+// when backspacing text, view should move with cursor
+
+//TODO: impl cut/copy/paste for text box
+
 use crate::{
     range::Range,
     selection::{Movement, Selection, ExtensionDirection}, 
-    view::View, 
     config::CURSOR_SEMANTICS
 };
 use std::cmp::Ordering;
@@ -12,7 +17,8 @@ pub struct InteractiveTextBox{
     pub buffer: crate::buffer::Buffer,
     pub text_is_valid: bool,
     pub selection: Selection,
-    pub view: View
+    pub display_area_horizontal_start: usize,
+    pub display_area_vertical_start: usize,
 }
 impl Default for InteractiveTextBox{
     fn default() -> Self{
@@ -26,7 +32,8 @@ impl Default for InteractiveTextBox{
                 &buffer, 
                 CURSOR_SEMANTICS
             ),
-            view: View::new(0, 0, 0, 1)
+            display_area_horizontal_start: 0,
+            display_area_vertical_start: 0
         }
     }
 }
@@ -45,7 +52,7 @@ impl InteractiveTextBox{
         let mut new_text = text.clone();
         new_text.insert(self.selection.cursor(&text, CURSOR_SEMANTICS), &char.to_string());
         self.buffer = new_text;
-        if let Ok(new_selection) = crate::utilities::move_cursor_right::selection_impl(&self.selection, &self.buffer, CURSOR_SEMANTICS){
+        if let Ok(new_selection) = crate::utilities::move_cursor_right::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
             self.selection = new_selection;
         }
     }
@@ -91,7 +98,7 @@ impl InteractiveTextBox{
             self.delete();
         }else{
             if self.selection.cursor(&self.buffer, semantics) > 0{
-                if let Ok(new_selection) = crate::utilities::move_cursor_left::selection_impl(&self.selection, &self.buffer, CURSOR_SEMANTICS){
+                if let Ok(new_selection) = crate::utilities::move_cursor_left::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
                     self.selection = new_selection;
                 }
                 self.delete();
@@ -112,17 +119,17 @@ impl InteractiveTextBox{
         }
     }
     pub fn extend_selection_left(&mut self){
-        if let Ok(new_selection) = crate::utilities::extend_selection_left::selection_impl(&self.selection, &self.buffer, CURSOR_SEMANTICS){
+        if let Ok(new_selection) = crate::utilities::extend_selection_left::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
             self.selection = new_selection;
         }
     }
     pub fn extend_selection_right(&mut self){
-        if let Ok(new_selection) = crate::utilities::extend_selection_right::selection_impl(&self.selection, &self.buffer, CURSOR_SEMANTICS){
+        if let Ok(new_selection) = crate::utilities::extend_selection_right::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
             self.selection = new_selection;
         }
     }
     pub fn move_cursor_left(&mut self){
-        if let Ok(new_selection) = crate::utilities::move_cursor_left::selection_impl(&self.selection, &self.buffer, CURSOR_SEMANTICS){
+        if let Ok(new_selection) = crate::utilities::move_cursor_left::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
             self.selection = new_selection;
         }
     }
@@ -137,7 +144,7 @@ impl InteractiveTextBox{
         }
     }
     pub fn move_cursor_right(&mut self){
-        if let Ok(new_selection) = crate::utilities::move_cursor_right::selection_impl(&self.selection, &self.buffer, CURSOR_SEMANTICS){
+        if let Ok(new_selection) = crate::utilities::move_cursor_right::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
             self.selection = new_selection;
         }
     }

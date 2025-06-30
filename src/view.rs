@@ -10,7 +10,7 @@ use crate::position::Position;
 // this may conflict with the buffers idea of a range representing an index pair over graphemes(which can span multiple terminal cells)
 
 #[derive(Debug, PartialEq)]
-pub enum ViewError{
+pub enum DisplayAreaError{
     ResultsInSameState,
     InvalidInput,
 }
@@ -18,10 +18,12 @@ pub enum ViewError{
 /// origin is top left
 /// 
 /// the client should be the single source of truth for width + height, so maybe those should be passed in to relevant functions instead...
-/// however, `horizontal_start` + `vertical_start` need to be held in core, because the client does not have a full view of the
-/// text buffer, and some core functionality needs to modify these values
+/// 
+///// however, `horizontal_start` + `vertical_start` need to be held in core, because the client does not have a full view of the
+///// text buffer, and some core functionality needs to modify these values
+///// this issue could prob be alleviated if the client can get a full view of the text buffer...
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct View{
+pub struct DisplayArea{
     /// from left to right
     pub horizontal_start: usize,
     /// from top to bottom
@@ -29,7 +31,7 @@ pub struct View{
     pub width: usize,
     pub height: usize,
 }
-impl View{
+impl DisplayArea{
     /// Returns a new instance of [`View`] from provided inputs.
     #[must_use] pub fn new(horizontal_start: usize, vertical_start: usize, width: usize, height: usize) -> Self{
         Self{horizontal_start, vertical_start, width, height}
@@ -226,7 +228,7 @@ impl View{
     }
     
     // translates a document cursor position to a client view cursor position. if outside client view, returns None
-    fn cursor_position(doc_cursor: &Selection2d, client_view: &View) -> Option<Position>{
+    fn cursor_position(doc_cursor: &Selection2d, client_view: &DisplayArea) -> Option<Position>{
         let head_x = doc_cursor.head().x;
         let head_y = doc_cursor.head().y;
 

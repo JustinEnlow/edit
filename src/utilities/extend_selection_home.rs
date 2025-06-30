@@ -34,11 +34,11 @@ mod tests{
         application::Application,
         selections::Selections,
         selection::{Selection, CursorSemantics},
-        view::View,
+        view::DisplayArea,
     };
 
     fn test(semantics: CursorSemantics, text: &str, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize, tuple_expected_selections: Vec<(usize, usize, Option<usize>)>, expected_primary: usize){
-        let mut app = Application::new_test_app(text, None, false, &View::new(0, 0, 80, 200));
+        let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
 
         let mut vec_expected_selections = Vec::new();
         for tuple in tuple_expected_selections{
@@ -61,7 +61,7 @@ mod tests{
         assert!(!app.buffer.is_modified());
     }
     fn test_error(semantics: CursorSemantics, text: &str, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize){
-        let mut app = Application::new_test_app(text, None, false, &View::new(0, 0, 80, 200));
+        let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
         
         let mut vec_selections = Vec::new();
         for tuple in tuple_selections{

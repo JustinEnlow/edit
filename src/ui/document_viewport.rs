@@ -209,7 +209,7 @@ impl DocumentViewport{
     }
 }
 
-fn count_digits(mut n: usize) -> u16{
+pub fn count_digits(mut n: usize) -> u16{
     if n == 0{
         return 1;
     }

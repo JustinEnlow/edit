@@ -7,6 +7,7 @@ use ratatui::layout::{Direction, Layout, Constraint};
 use crate::config::{UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR, UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR, ERROR_BACKGROUND_COLOR, ERROR_FOREGROUND_COLOR, WARNING_BACKGROUND_COLOR, WARNING_FOREGROUND_COLOR, NOTIFY_BACKGROUND_COLOR, NOTIFY_FOREGROUND_COLOR, INFO_BACKGROUND_COLOR, INFO_FOREGROUND_COLOR};
 use crate::selections::Selections;
 use crate::config::{SELECTION_BACKGROUND_COLOR, SELECTION_FOREGROUND_COLOR, PRIMARY_CURSOR_BACKGROUND_COLOR, PRIMARY_CURSOR_FOREGROUND_COLOR};
+use crate::view::DisplayArea;
 
 
 
@@ -27,16 +28,29 @@ impl UtilityWidget{
     pub fn widget(&self, mode: Mode) -> Paragraph<'static>{
         match mode{
             Mode::Goto | Mode::Find | Mode::Split => {
-                let buffer = &self.text_box.buffer;
                 if self.text_box.text_is_valid{
-                    Paragraph::new(self.text_box.view.text(buffer))
+                    Paragraph::new(
+                        DisplayArea{
+                            horizontal_start: self.text_box.display_area_horizontal_start, 
+                            vertical_start: self.text_box.display_area_vertical_start, 
+                            width: self.rect.width as usize, 
+                            height: self.rect.height as usize
+                        }.text(&self.text_box.buffer)
+                    )
                         .style(
                             Style::default()
                             .bg(UTIL_BAR_BACKGROUND_COLOR)
                             .fg(UTIL_BAR_FOREGROUND_COLOR)
                         )
                 }else{
-                    Paragraph::new(self.text_box.view.text(buffer))
+                    Paragraph::new(
+                        DisplayArea{
+                            horizontal_start: self.text_box.display_area_horizontal_start, 
+                            vertical_start: self.text_box.display_area_vertical_start, 
+                            width: self.rect.width as usize, 
+                            height: self.rect.height as usize
+                        }.text(&self.text_box.buffer)
+                    )
                         .style(
                             Style::default()
                                 .fg(UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR)
@@ -44,8 +58,14 @@ impl UtilityWidget{
                 }
             }
             Mode::Command => {
-                let buffer = &self.text_box.buffer;
-                Paragraph::new(self.text_box.view.text(buffer))
+                Paragraph::new(
+                    DisplayArea{
+                        horizontal_start: self.text_box.display_area_horizontal_start, 
+                        vertical_start: self.text_box.display_area_vertical_start, 
+                        width: self.rect.width as usize, 
+                        height: self.rect.height as usize
+                    }.text(&self.text_box.buffer)
+                )
             }
             Mode::Error(string) => {
                 Paragraph::new(string)
@@ -175,27 +195,6 @@ pub struct UtilBar{
     pub highlighter: Highlighter,
 }
 impl UtilBar{
-    pub fn update_width(&mut self, mode: &Mode){
-        match mode{ //TODO: can these be set from relevant fns in application.rs? display_line_numbers, display_status_bar, resize, any mode change, etc
-            Mode::Command 
-            | Mode::Goto 
-            | Mode::Find 
-            | Mode::Split => {
-                let width = self.utility_widget.rect.width as usize;
-                self.utility_widget.text_box.view.set_size(width, 1);
-            }
-            Mode::Object |
-            Mode::Insert |
-            Mode::View |
-            Mode::Error(_) |
-            Mode::Warning(_) |
-            Mode::Notify(_) |
-            Mode::Info(_) |
-            Mode::AddSurround => {
-                self.utility_widget.text_box.view.set_size(0, 1);
-            }
-        }
-    }
     pub fn layout(&self, mode: &Mode, rect: Rect) -> std::rc::Rc<[Rect]>{
         // layout of util rect (goto/find/command/save as)
         Layout::default()

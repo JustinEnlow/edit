@@ -22,12 +22,12 @@ mod tests{
         application::Application,
         selections::Selections,
         selection::{Selection, CursorSemantics},
-        view::View,
+        view::DisplayArea,
     };
 
     //TODO: could take a view as arg, and verify that cursor movement moves the view correctly as well
     fn test(semantics: CursorSemantics, text: &str, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize, expected_text: &str, tuple_expected_selections: Vec<(usize, usize, Option<usize>)>, expected_primary: usize, expected_clipboard: &str){
-        let mut app = Application::new_test_app(text, None, false, &View::new(0, 0, 80, 200));
+        let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
 
         let expected_buffer = crate::buffer::Buffer::new(expected_text, None, false);
         let mut vec_expected_selections = Vec::new();
@@ -54,7 +54,7 @@ mod tests{
         //assert!(app.buffer.is_modified());    //is modified doesn't work with tests, because it now checks against a persistent file, which tests don't have
     }
     fn test_error(semantics: CursorSemantics, text: &str, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize){
-        let mut app = Application::new_test_app(text, None, false, &View::new(0, 0, 80, 200));
+        let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
         
         let mut vec_selections = Vec::new();
         for tuple in tuple_selections{

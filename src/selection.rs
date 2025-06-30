@@ -7,7 +7,7 @@ pub enum SelectionError{        //or should each fallible fn have its own fn spe
 }
 
 #[derive(PartialEq, Clone, Debug)]
-pub enum ExtensionDirection{
+pub enum ExtensionDirection{    //could be refactored to Option<Direction>, with Direction being Direction{Forward, Backward}. this would allow Direction to be used in other cases, but encode the possibility of no direction in selecion extension...
     Forward,
     Backward,
     None
@@ -20,7 +20,7 @@ pub enum Movement{  //TODO: remove when move_vertically/horizontally and put_cur
 }
 
 #[derive(Clone)]
-pub enum CursorSemantics{
+pub enum CursorSemantics{   //TODO: change to SelectionSemantics{Exclusive, Inclusive}
     Bar,
     Block,
 }
@@ -28,7 +28,7 @@ pub enum CursorSemantics{
 #[derive(PartialEq, Clone, Debug)]
 pub struct Selection{
     pub range: crate::range::Range,
-    pub direction: ExtensionDirection,
+    pub direction: ExtensionDirection,  //TODO: change to pub extension_direction: Option<Direction>,
     pub stored_line_offset: Option<usize>,      //grapheme offset of the cursor from line start     //may eventually remove Option
 }
 impl Selection{
@@ -256,7 +256,7 @@ impl Selection{
     //TODO: should this pass up possible errors from move/extend calls?
     pub fn shift_and_extend(&mut self, amount: usize, buffer: &crate::buffer::Buffer, semantics: CursorSemantics){ //-> Result<(), SelectionError>{
         for _ in 0..amount{
-            if let Ok(new_selection) = crate::utilities::move_cursor_left::selection_impl(self, buffer, semantics.clone()){
+            if let Ok(new_selection) = crate::utilities::move_cursor_left::selection_impl(self, 1, buffer, None, semantics.clone()){
                 *self = new_selection;
             }
         }
@@ -265,7 +265,7 @@ impl Selection{
                 CursorSemantics::Bar => 0..amount,
                 CursorSemantics::Block => 0..amount.saturating_sub(1)
             }{
-                if let Ok(new_selection) = crate::utilities::extend_selection_right::selection_impl(self, buffer, semantics.clone()){
+                if let Ok(new_selection) = crate::utilities::extend_selection_right::selection_impl(self, 1, buffer, None, semantics.clone()){
                     *self = new_selection;
                 }
             }
@@ -356,14 +356,22 @@ impl Selection{
             ExtensionDirection::Forward => {
                 let mut index = self.cursor(buffer, semantics.clone());
                 for _ in 0..amount{
-                    index = buffer.next_grapheme_boundary_index(index);
+                    let next_grapheme_boundary_index = buffer.next_grapheme_boundary_index(index);
+                    //if index == buffer.next_grapheme_boundary_index(index){break;}  //break out of loop early if we are already on the last grapheme
+                    if index == next_grapheme_boundary_index{break;} //break out of loop early if we are already on the last grapheme
+                    //index = buffer.next_grapheme_boundary_index(index);
+                    index = next_grapheme_boundary_index;
                 }
                 index.min(buffer.len_chars()) //ensures this does not move past text end      //could match on semantics, and ensure extend does index.min(previous_grapheme_index(text.len_chars()))
             }
             ExtensionDirection::Backward => {
                 let mut index = self.cursor(buffer, semantics.clone());
                 for _ in 0..amount{
-                    index = buffer.previous_grapheme_boundary_index(index);
+                    let previous_grapheme_boundary_index = buffer.previous_grapheme_boundary_index(index);
+                    //if index == buffer.previous_grapheme_boundary_index(index){break;}  //break out of loop early if we are already on the first grapheme
+                    if index == previous_grapheme_boundary_index{break;}    //break out of loop early if we are already on the first grapheme
+                    //index = buffer.previous_grapheme_boundary_index(index);
+                    index = previous_grapheme_boundary_index;
                 }
                 index
             }

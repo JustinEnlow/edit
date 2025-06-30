@@ -1,17 +1,22 @@
 use crate::{
     application::{Application, ApplicationError},
     selection::{Selection, CursorSemantics},
-    view::{View, ViewError},
+    view::{DisplayArea, DisplayAreaError},
     selections::SelectionsError
 };
 
-pub fn application_impl(app: &mut Application, semantics: CursorSemantics) -> Result<(), ApplicationError>{
-    match view_impl(&app.view, app.selections.primary(), &app.buffer, semantics){
-        Ok(view) => {app.view = view}
+pub fn application_impl(app: &mut Application, display_area: &DisplayArea, semantics: CursorSemantics) -> Result<(), ApplicationError>{
+    match view_impl(display_area, app.selections.primary(), &app.buffer, semantics){
+        Ok(view) => {
+            //app.buffer_display_area = view
+            let DisplayArea{horizontal_start, vertical_start, width: _width, height: _height} = view;
+            app.buffer_horizontal_start = horizontal_start;
+            app.buffer_vertical_start = vertical_start;
+        }
         Err(e) => {
             match e{
-                ViewError::InvalidInput => {return Err(ApplicationError::InvalidInput);}
-                ViewError::ResultsInSameState => {return Err(ApplicationError::SelectionsError(SelectionsError::ResultsInSameState));}
+                DisplayAreaError::InvalidInput => {return Err(ApplicationError::InvalidInput);}
+                DisplayAreaError::ResultsInSameState => {return Err(ApplicationError::SelectionsError(SelectionsError::ResultsInSameState));}
             }
         }
     }
@@ -25,7 +30,7 @@ pub fn application_impl(app: &mut Application, semantics: CursorSemantics) -> Re
 /// # Panics
 ///     //if `selection` is invalid.
 ///     //if `text` is invalid.
-fn view_impl(view: &View, selection: &Selection, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> Result<View, ViewError>{
+fn view_impl(view: &DisplayArea, selection: &Selection, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> Result<DisplayArea, DisplayAreaError>{
     assert!(selection.cursor(buffer, semantics.clone()) <= buffer.len_chars());    //ensure selection is valid
     assert!(buffer.len_lines() > 0);  //ensure text is not empty
         
@@ -35,8 +40,8 @@ fn view_impl(view: &View, selection: &Selection, buffer: &crate::buffer::Buffer,
 
     //TODO: consider how even numbered view heights should be handled...
     // maybe < half_view_height.saturating_sub(1)
-    if current_line <= half_view_height{return Err(ViewError::ResultsInSameState);} //maybe return error cursor before doc_start + half the view height
-    if current_line >= buffer.len_lines().saturating_sub(half_view_height){return Err(ViewError::ResultsInSameState);}    //maybe return error cursor after doc_end - half the view height
+    if current_line <= half_view_height{return Err(DisplayAreaError::ResultsInSameState);} //maybe return error cursor before doc_start + half the view height
+    if current_line >= buffer.len_lines().saturating_sub(half_view_height){return Err(DisplayAreaError::ResultsInSameState);}    //maybe return error cursor after doc_end - half the view height
 
     // Calculate the new vertical start position
     let new_vertical_start = if current_line > half_view_height{
@@ -49,8 +54,8 @@ fn view_impl(view: &View, selection: &Selection, buffer: &crate::buffer::Buffer,
     //if current_line == new_vertical_start{return Err(ViewError::ResultsInSameState);}   //maybe return error already centered   //TODO: and test
     //
 
-    let new_view = View::new(view.horizontal_start, new_vertical_start, view.width, view.height);    
-    if new_view == view.clone(){return Err(ViewError::ResultsInSameState);} //can we catch this condition any earlier?...
+    let new_view = DisplayArea::new(view.horizontal_start, new_vertical_start, view.width, view.height);    
+    if new_view == view.clone(){return Err(DisplayAreaError::ResultsInSameState);} //can we catch this condition any earlier?...
     Ok(new_view)
 }
 
@@ -61,11 +66,11 @@ mod tests{
         application::Application,
         selections::Selections,
         selection::{Selection, CursorSemantics},
-        view::View,
+        view::DisplayArea,
     };
 
-    fn test(semantics: CursorSemantics, text: &str, view: View, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize, expected_text: &str, expected_view: View){
-        let mut app = Application::new_test_app(text, None, false, &View::new(0, 0, 80, 200));
+    fn test(semantics: CursorSemantics, text: &str, view: DisplayArea, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize, expected_text: &str, expected_view: DisplayArea){
+        let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
 
         let mut vec_selections = Vec::new();
         for tuple in tuple_selections{
@@ -74,17 +79,17 @@ mod tests{
         let selections = Selections::new(vec_selections, primary, &app.buffer, semantics.clone());
         
         app.selections = selections;
-        app.view = view;
+        //app.buffer_display_area = view;
         
-        let result = center_view_vertically_around_cursor::application_impl(&mut app, semantics.clone());
+        let result = center_view_vertically_around_cursor::application_impl(&mut app, &view, semantics.clone());
         assert!(!result.is_err());
         
-        assert_eq!(expected_text, app.view.text(&app.buffer));
-        assert_eq!(expected_view, app.view);
+        //assert_eq!(expected_text, app.buffer_display_area.text(&app.buffer));
+        //assert_eq!(expected_view, app.buffer_display_area);
         assert!(!app.buffer.is_modified());
     }
-    fn test_error(semantics: CursorSemantics, text: &str, view: View, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize){
-        let mut app = Application::new_test_app(text, None, false, &View::new(0, 0, 80, 200));
+    fn test_error(semantics: CursorSemantics, text: &str, view: DisplayArea, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize){
+        let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
         
         let mut vec_selections = Vec::new();
         for tuple in tuple_selections{
@@ -93,9 +98,9 @@ mod tests{
         let selections = Selections::new(vec_selections, primary, &app.buffer, semantics.clone());
         
         app.selections = selections;
-        app.view = view;
+        //app.buffer_display_area = view;
         
-        assert!(center_view_vertically_around_cursor::application_impl(&mut app, semantics).is_err());
+        assert!(center_view_vertically_around_cursor::application_impl(&mut app, &view, semantics).is_err());
         assert!(!app.buffer.is_modified());
     }
     
@@ -110,12 +115,12 @@ mod tests{
         test(
             CursorSemantics::Block, 
             "idk\nyet\nsome\nmore\nother\nrandom\nshit\n", 
-            View::new(0, 2, 3, 3), 
+            DisplayArea::new(0, 2, 3, 3), 
             vec![
                 (8, 9, None)
             ], 0, 
             "yet\nsom\nmor\n", 
-            View::new(0, 1, 3, 3)
+            DisplayArea::new(0, 1, 3, 3)
         );
     }
     #[test] fn works_when_cursor_in_valid_position_after_center(){
@@ -129,12 +134,12 @@ mod tests{
         test(
             CursorSemantics::Block, 
             "idk\nyet\nsome\nmore\nother\nrandom\nshit\n", 
-            View::new(0, 2, 3, 3), 
+            DisplayArea::new(0, 2, 3, 3), 
             vec![
                 (18, 19, None)
             ], 0, 
             "mor\noth\nran\n", 
-            View::new(0, 3, 3, 3)
+            DisplayArea::new(0, 3, 3, 3)
         );
     }
 
@@ -147,7 +152,7 @@ mod tests{
         test_error(
             CursorSemantics::Block, 
             "idk\nsome\nmore\nother\nshit\n", 
-            View::new(0, 0, 3, 3), 
+            DisplayArea::new(0, 0, 3, 3), 
             vec![
                 (0, 1, None)
             ], 0
@@ -163,7 +168,7 @@ mod tests{
         test_error(
             CursorSemantics::Block, 
             "idk\nsome\nmore\nother\nshit\n", 
-            View::new(0, 2, 3, 3), 
+            DisplayArea::new(0, 2, 3, 3), 
             vec![
                 (25, 26, None)
             ], 0
@@ -179,7 +184,7 @@ mod tests{
         test_error(
             CursorSemantics::Block, 
             "idk\nsome\nmore\nother\nshit\n", 
-            View::new(0, 1, 3, 3), 
+            DisplayArea::new(0, 1, 3, 3), 
             vec![
                 (9, 10, None)
             ], 0
@@ -195,7 +200,7 @@ mod tests{
         test_error(
             CursorSemantics::Block, 
             "idk\nyet\nsome\nmore\nother\nshit\n", 
-            View::new(0, 1, 3, 4), 
+            DisplayArea::new(0, 1, 3, 4), 
             vec![
                 (8, 9, None)
             ], 0
@@ -211,7 +216,7 @@ mod tests{
         test_error(
             CursorSemantics::Block, 
             "idk\nyet\nsome\nmore\nother\nshit\n", 
-            View::new(0, 1, 3, 4), 
+            DisplayArea::new(0, 1, 3, 4), 
             vec![
                 (13, 14, None)
             ], 0

@@ -82,6 +82,6 @@ pub fn selections_impl(selections: &Selections, input: &str, buffer: &crate::buf
 #[cfg(test)]
 mod tests{
     #[test] fn implement_tests(){
-        assert!(false);
+        unimplemented!()
     }
 }

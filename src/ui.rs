@@ -47,10 +47,15 @@ impl UserInterface{
             .direction(Direction::Vertical)
             .constraints(
                 vec![
+                    //[0]
                     // document + line num rect height
                     Constraint::Min(0),
+                    
+                    //[1]
                     // status bar rect height
                     Constraint::Length(if self.status_bar.show{1}else{0}),
+
+                    //[2]
                     // util(goto/find/command) bar rect height
                     Constraint::Length(
                         match mode{
@@ -109,7 +114,7 @@ impl UserInterface{
         self.popups.object.rect = sized_centered_rect(self.popups.object.widest_element_len, self.popups.object.num_elements, self.terminal_size);
         self.popups.add_surround.rect = sized_centered_rect(self.popups.add_surround.widest_element_len, self.popups.add_surround.num_elements, self.terminal_size);
 
-        self.util_bar.update_width(mode);
+        //self.util_bar.update_width(mode);
     }
 
     pub fn render(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>, mode: &Mode) -> Result<(), String>{
@@ -120,7 +125,6 @@ impl UserInterface{
                 frame.render_widget(self.document_viewport.highlighter.clone(), self.document_viewport.document_widget.rect);
                 
                 // conditionally render
-                //if self.document_viewport.display_line_numbers{
                 if self.document_viewport.line_number_widget.show{
                     frame.render_widget(self.document_viewport.line_number_widget.widget(), self.document_viewport.line_number_widget.rect);
                     frame.render_widget(self.document_viewport.padding.widget(), self.document_viewport.padding.rect);

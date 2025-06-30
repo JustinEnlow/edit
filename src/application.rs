@@ -11,6 +11,7 @@
 // if the buffer with filename is open in session, and is the active buffer for this client, go to that location in the buffer
 // if the buffer with filename is open in session, but is not the active buffer for this client, set it as the active buffer for this client, and go to that location in the buffer
 // if the buffer with filename not open in session, open that file in session, set it as the active buffer for this client, and go to that location in the buffer
+// if an error occurs, display error in error mode util widget
 // TODO: if used with multiple edit clients, may require integration with the window manager to set focus to the window of a specific edit client...
 
 //TODO: if buffer history(undo/redo) implement a display method, edit could expose those as command expansion variables/tags
@@ -35,6 +36,8 @@ use crate::keybind;
 use crate::config::{CURSOR_SEMANTICS, TAB_WIDTH, USE_FULL_FILE_PATH, USE_HARD_TAB, VIEW_SCROLL_AMOUNT};
 use crate::config::{FILE_MODIFIED, FILE_SAVE_FAILED, COMMAND_PARSE_FAILED, SINGLE_SELECTION, MULTIPLE_SELECTIONS, INVALID_INPUT, SAME_STATE, UNHANDLED_KEYPRESS, UNHANDLED_EVENT, READ_ONLY_BUFFER, SPANS_MULTIPLE_LINES};
 use crate::config::COPIED_TEXT;
+use crate::view::DisplayArea;
+use crate::mode_stack::ModeStack;
 
 
 
@@ -53,30 +56,30 @@ pub enum UtilAction{
 }
 pub enum ViewAction{
     CenterVerticallyAroundCursor,
-    //CenterHorizontallyAroundCursor,
-    //AlignWithCursorAtTop,
-    //AlignWithCursorAtBottom,
+        //TODO: CenterHorizontallyAroundCursor,
+        //TODO: AlignWithCursorAtTop,
+        //TODO: AlignWithCursorAtBottom,    
     ScrollUp,
     ScrollDown,
     ScrollLeft,
     ScrollRight,
 }
 pub enum EditAction{
-    //AlignSelectedTextVertically,
+        //TODO: AlignSelectedTextVertically,
     InsertChar(char),
     InsertNewline,
     InsertTab,
     Delete,
-    //DeleteToNextWordBoundary,
-    //DeleteToPrevWordBoundary,
+        //TODO: DeleteToNextWordBoundary,
+        //TODO: DeleteToPrevWordBoundary,
     Backspace,
     Cut,
     Paste,
     Undo,
     Redo,
-    //SwapUp,   (if text selected, swap selected text with line above. if no selection, swap current line with line above)
-    //SwapDown, (if text selected, swap selected text with line below. if no selection, swap current line with line below)
-    //RotateTextInSelections,
+        //TODO: SwapUp,   (if text selected, swap selected text with line above. if no selection, swap current line with line above)
+        //TODO: SwapDown, (if text selected, swap selected text with line below. if no selection, swap current line with line below)
+        //TODO: RotateTextInSelections,
     AddSurround(char, char),
 }
 pub enum SelectionAction{   //TODO?: have (all?) selection actions take an amount, for action repetition. MoveCursorDown(2) would move the cursor down two lines, if possible, or saturate at buffer end otherwise, and error if already at buffer end
@@ -84,8 +87,8 @@ pub enum SelectionAction{   //TODO?: have (all?) selection actions take an amoun
     MoveCursorDown,
     MoveCursorLeft,
     MoveCursorRight,
-    MoveCursorWordBoundaryForward,
-    MoveCursorWordBoundaryBackward,
+    MoveCursorWordBoundaryForward,  //TODO: this isn't working with count, for some reason. check move_cursor_word_boundary_backward impl to determine cause...
+    MoveCursorWordBoundaryBackward, //TODO: this isn't working with count, for some reason. check move_cursor_word_boundary_forward impl to determine cause...
     MoveCursorLineEnd,
     MoveCursorHome,
     MoveCursorBufferStart,
@@ -96,30 +99,30 @@ pub enum SelectionAction{   //TODO?: have (all?) selection actions take an amoun
     ExtendSelectionDown,
     ExtendSelectionLeft,
     ExtendSelectionRight,
-    ExtendSelectionWordBoundaryBackward,
-    ExtendSelectionWordBoundaryForward,
+    ExtendSelectionWordBoundaryBackward,    //TODO: this isn't working with count, for some reason. check extend_selection_word_boundary_backward impl to determine cause...
+    ExtendSelectionWordBoundaryForward,     //TODO: this isn't working with count, for some reason. check extend_selection_word_boundary_forward impl to determine cause...
     ExtendSelectionLineEnd,
     ExtendSelectionHome,
-    //ExtendSelectionBufferStart,
-    //ExtendSelectionBufferEnd,
-    //ExtendSelectionPageUp,
-    //ExtendSelectionPageDown,
-    SelectLine,
+        //TODO: ExtendSelectionBufferStart,
+        //TODO: ExtendSelectionBufferEnd,
+        //TODO: ExtendSelectionPageUp,
+        //TODO: ExtendSelectionPageDown,
+    SelectLine,           //TODO: this may benefit from using a count. would the next count # of lines including current
     SelectAll,
     CollapseSelectionToAnchor,
     CollapseSelectionToCursor,
     ClearNonPrimarySelections,
-    AddSelectionAbove,
-    AddSelectionBelow,
+    AddSelectionAbove,    //TODO: this may benefit from using a count. would add count # of selections
+    AddSelectionBelow,    //TODO: this may benefit from using a count. would add count # of selections
     RemovePrimarySelection,
-    IncrementPrimarySelection,
-    DecrementPrimarySelection,
-    Surround,
-    SurroundingPair,
+    IncrementPrimarySelection,  //TODO: this may benefit from using a count. would increment primary selection index by 'count'
+    DecrementPrimarySelection,  //TODO: this may benefit from using a count. would decrement primary selection index by 'count'
+    Surround,         //this would not benefit from using a count. use existing selection primitives to select text to surround
+    SurroundingPair,  //TODO: this may benefit from using a count. would select the 'count'th surrounding pair
     FlipDirection
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum Mode{
     /// for editing text and moving/extending selections
     Insert,
@@ -189,26 +192,29 @@ pub enum ApplicationError{
     SelectionsError(crate::selections::SelectionsError),
 }
 pub struct Application{
+//these will be client constructs when client/server arichitecture impled...
     should_quit: bool,
-    mode_stack: Vec<Mode>,
-    ui: crate::ui::UserInterface,
+    mode_stack: ModeStack,
+    ui: crate::ui::UserInterface,   //TODO: remove this, and generate UI from Application state each run cycle(but only the widgets that need generating)
+    pub buffer_horizontal_start: usize,
+    pub buffer_vertical_start: usize,
+    //pub show_line_numbers: bool,  //for when ui removed
+    //pub show_status_bar: bool,    //for when ui removed
 
+//these will be server constructs when client/server architecture impled...
     pub buffer: crate::buffer::Buffer,      //TODO?: BufferType? File|Scratch   //buffer type is already encoded in the file_path on Buffer being optional. if file_path == None, the buffer is a scratch buffer
-
+    //pub preserved_selections: Option<Selections>, //TODO: move preserved_selections from crate::ui::util_bar.rs here...and modify necessary calling code
     pub undo_stack: Vec<crate::history::ChangeSet>,   //maybe have separate buffer and selections undo/redo stacks?...
     pub redo_stack: Vec<crate::history::ChangeSet>,
     pub selections: crate::selections::Selections,
-    //TODO: remove view, and pass a new instance(derived from document rect?) into each function that needs it. 
-    // this would keep the ui/terminal as the single source of truth for client view
-    pub view: crate::view::View,    //TODO: View should really be called DisplayArea
     pub clipboard: String,
 }
 impl Application{
-    #[cfg(test)] pub fn new_test_app(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, view: &crate::view::View) -> Self{
+    #[cfg(test)] pub fn new_test_app(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, view: &crate::view::DisplayArea) -> Self{
         let buffer = crate::buffer::Buffer::new(buffer_text, file_path.clone(), read_only);
         let mut instance = Self{
             should_quit: false,
-            mode_stack: vec![Mode::Insert],
+            mode_stack: ModeStack::default(),
             ui: crate::ui::UserInterface::new(Rect::new(view.horizontal_start as u16, view.vertical_start as u16, view.width as u16, view.height as u16)),
             buffer: buffer.clone(),
             undo_stack: Vec::new(),
@@ -225,7 +231,8 @@ impl Application{
                 &buffer, 
                 CURSOR_SEMANTICS
             ),
-            view: view.clone(),//crate::view::View::new(0, 0, 0, 0),
+            buffer_horizontal_start: 0,
+            buffer_vertical_start: 0,
             clipboard: String::new()
         };
 
@@ -233,9 +240,12 @@ impl Application{
 
         instance
     }
+    //TODO: may need to set a semantics variable in cli.rs to CURSOR_SEMANTICS, and pass it in here, and assign it to a param in Application,
+    // so that we can set cursor semantics for testing... this may also help in the future when user can change semantics on the fly...
+    // for now, tests only work with CursorSemantics::Block
     //TODO: take a line: usize and column: usize as input for where to place cursor on startup. if user passes --line or --column, use the provided values, otherwise use 0
     //or maybe keep the selection at 0, 0 here, then update it in run, where it can return an error if the provided values are invalid
-    pub fn new(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, terminal: &Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<Self, String>{
+    pub fn new(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, terminal: &Terminal<impl ratatui::prelude::Backend>) -> Result<Self, String>{
         let terminal_size = match terminal.size(){
             Ok(size) => size,
             Err(e) => return Err(format!("{}", e))
@@ -245,7 +255,7 @@ impl Application{
         let buffer = crate::buffer::Buffer::new(buffer_text, file_path.clone(), read_only);
         let mut instance = Self{
             should_quit: false,
-            mode_stack: vec![Mode::Insert],
+            mode_stack: ModeStack::default(),
             ui: crate::ui::UserInterface::new(terminal_rect),
             buffer: buffer.clone(),
             undo_stack: Vec::new(),
@@ -265,7 +275,8 @@ impl Application{
                 &buffer, 
                 CURSOR_SEMANTICS
             ),
-            view: crate::view::View::new(0, 0, 0, 0),
+            buffer_horizontal_start: 0,
+            buffer_vertical_start: 0,
             clipboard: String::new()
         };
 
@@ -307,18 +318,8 @@ impl Application{
         self.ui.document_viewport.document_widget.doc_length = self.buffer.len_lines();
         
         self.ui.update_layouts(&self.mode());
-        //init backend doc view size
-        self.view.set_size(
-            self.ui.document_viewport.document_widget.rect.width as usize,
-            self.ui.document_viewport.document_widget.rect.height as usize
-        );
-        self.ui.util_bar.utility_widget.text_box.view.set_size( //needed for util bar cursor to render the first time it is triggered
-            self.ui.util_bar.utility_widget.rect.width as usize, 
-            self.ui.util_bar.utility_widget.rect.height as usize
-        );
 
         // prefer this over scroll_and_update, even when response fns are the same, because it saves us from unnecessarily reassigning the view
-        //self.checked_scroll_and_update(&self.document.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_document);
         self.checked_scroll_and_update(
             &self.selections.primary().clone(), 
             Application::update_ui_data_document, 
@@ -328,14 +329,15 @@ impl Application{
     }
 
     pub fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<(), String>{
-        loop{
+        while !self.should_quit{
+            //derive User Interface from Application state
             self.ui.update_layouts(&self.mode());
             self.ui.render(terminal, &self.mode())?;
+            
+            //update Application state
             self.handle_event()?;
-            if self.should_quit{
-                return Ok(());
-            }
         }
+        Ok(())
     }
 
     fn handle_event(&mut self) -> Result<(), String>{
@@ -372,12 +374,12 @@ impl Application{
                     event::Event::Mouse(idk) => {
                         //TODO: maybe mode specific mouse handling...
                         match idk.kind{
-                            event::MouseEventKind::Down(_) => {self.no_op_event();}
-                            event::MouseEventKind::Up(_) => {self.no_op_event();}
-                            event::MouseEventKind::Drag(_) => {self.no_op_event();}
-                            event::MouseEventKind::Moved => {self.no_op_event();}
-                            event::MouseEventKind::ScrollDown => {self.no_op_event();}
-                            event::MouseEventKind::ScrollUp => {self.no_op_event();}
+                            event::MouseEventKind::Down(_) => {/*self.no_op_event();*/}
+                            event::MouseEventKind::Up(_) => {/*self.no_op_event();*/}
+                            event::MouseEventKind::Drag(_) => {/*self.no_op_event();*/}
+                            event::MouseEventKind::Moved => {/*self.no_op_event();*/}
+                            event::MouseEventKind::ScrollDown => {/*self.no_op_event();*/}
+                            event::MouseEventKind::ScrollUp => {/*self.no_op_event();*/}
                         }
                     }
                     event::Event::Resize(x, y) => self.resize(x, y),
@@ -392,8 +394,25 @@ impl Application{
         }
     }
 
+    pub fn buffer_display_area(&self) -> DisplayArea{
+        DisplayArea::new(
+            self.buffer_horizontal_start, 
+            self.buffer_vertical_start, 
+            self.ui.document_viewport.document_widget.rect.width as usize, 
+            self.ui.document_viewport.document_widget.rect.height as usize
+        )
+    }
+    fn text_box_display_area(&self) -> DisplayArea{
+        DisplayArea::new(
+            self.ui.util_bar.utility_widget.text_box.display_area_horizontal_start, 
+            self.ui.util_bar.utility_widget.text_box.display_area_vertical_start, 
+            self.ui.util_bar.utility_widget.rect.width as usize, 
+            self.ui.util_bar.utility_widget.rect.height as usize
+        )
+    }
+
     pub fn mode(&self) -> Mode{
-        self.mode_stack.last().unwrap().clone()
+        self.mode_stack.top().clone()
     }
     pub fn mode_pop(&mut self){
         //set any mode specific exit behavior
@@ -421,23 +440,17 @@ impl Application{
         }
 
         //remove current mode from stack
-        self.mode_stack.pop();
+        if let Err(_) = self.mode_stack.pop(){
+            self.handle_notification(crate::config::SAME_STATE_DISPLAY_MODE, SAME_STATE);
+        }
 
         //handle exit behavior
         if update_layouts_and_document{
             self.ui.update_layouts(&self.mode());
-            self.view.set_size(
-                self.ui.document_viewport.document_widget.rect.width as usize,
-                self.ui.document_viewport.document_widget.rect.height as usize
-            );
             self.update_ui_data_document();
         }
         if clear_util_bar_text{
             self.ui.util_bar.utility_widget.text_box.clear();
-            self.ui.util_bar.utility_widget.text_box.view.set_size(
-                self.ui.util_bar.utility_widget.rect.width as usize, 
-                self.ui.util_bar.utility_widget.rect.height as usize, 
-            );
             self.update_ui_data_util_bar();
         }
         if clear_saved_selections{
@@ -487,17 +500,9 @@ impl Application{
             }
             if update_layouts_and_document{
                 self.ui.update_layouts(&self.mode());
-                self.view.set_size(
-                    self.ui.document_viewport.document_widget.rect.width as usize,
-                    self.ui.document_viewport.document_widget.rect.height as usize
-                );
                 self.update_ui_data_document();
             }
             if update_util_bar{
-                self.ui.util_bar.utility_widget.text_box.view.set_size(
-                    self.ui.util_bar.utility_widget.rect.width as usize, 
-                    self.ui.util_bar.utility_widget.rect.height as usize, 
-                );
                 self.update_ui_data_util_bar();
             }
 
@@ -531,9 +536,8 @@ impl Application{
     pub fn update_ui_data_document(&mut self){
         let buffer = &self.buffer;
         
-        self.ui.document_viewport.document_widget.text = self.view.text(buffer);
-        //self.ui.document_viewport.line_number_widget.line_numbers_in_view = self.view.line_numbers(buffer);
-        self.ui.document_viewport.line_number_widget.text = self.view.line_numbers(buffer);
+        self.ui.document_viewport.document_widget.text = self.buffer_display_area().text(buffer);
+        self.ui.document_viewport.line_number_widget.text = self.buffer_display_area().line_numbers(buffer);
         self.update_ui_data_selections();
         //TODO?: this may be better to have in the main loop, in case the file is modified underneath us while the buffer is open...
         if self.buffer.is_modified(){
@@ -549,9 +553,9 @@ impl Application{
         let buffer = &self.buffer;
         let selections = &self.selections;
         
-        self.ui.document_viewport.highlighter.primary_cursor = self.view.primary_cursor_position(buffer, selections, CURSOR_SEMANTICS);
-        self.ui.document_viewport.highlighter.cursors = self.view.cursor_positions(buffer, selections, CURSOR_SEMANTICS);
-        self.ui.document_viewport.highlighter.selections = self.view.selections(selections, buffer);
+        self.ui.document_viewport.highlighter.primary_cursor = self.buffer_display_area().primary_cursor_position(buffer, selections, CURSOR_SEMANTICS);
+        self.ui.document_viewport.highlighter.cursors = self.buffer_display_area().cursor_positions(buffer, selections, CURSOR_SEMANTICS);
+        self.ui.document_viewport.highlighter.selections = self.buffer_display_area().selections(selections, buffer);
         self.ui.status_bar.selections_widget.text = format!("selections: {}/{}", selections.primary_selection_index + 1, selections.count());
         let cursor_position = selections.primary().selection_to_selection2d(buffer, CURSOR_SEMANTICS).head().clone();
         self.ui.status_bar.cursor_position_widget.text = format!("cursor: {}:{}", cursor_position.y + 1, cursor_position.x + 1)
@@ -575,16 +579,20 @@ impl Application{
     }
     pub fn update_ui_data_util_bar(&mut self){
         let text_box = &self.ui.util_bar.utility_widget.text_box;
-        if text_box.view.should_scroll(&text_box.selection, &text_box.buffer, CURSOR_SEMANTICS){
-            self.ui.util_bar.utility_widget.text_box.view = text_box.view.scroll_following_cursor(&text_box.selection, &text_box.buffer, CURSOR_SEMANTICS);
+        let text_box_display_area = self.text_box_display_area();
+        if text_box_display_area.should_scroll(&text_box.selection, &text_box.buffer, CURSOR_SEMANTICS){
+            let DisplayArea{horizontal_start, vertical_start, width: _width, height: _height} = text_box_display_area.scroll_following_cursor(&text_box.selection, &text_box.buffer, CURSOR_SEMANTICS);
+            self.ui.util_bar.utility_widget.text_box.display_area_horizontal_start = horizontal_start;
+            self.ui.util_bar.utility_widget.text_box.display_area_vertical_start = vertical_start;
         }//else{/*keep current view*/}
 
         let text_box = &self.ui.util_bar.utility_widget.text_box;
+        let text_box_display_area = self.text_box_display_area();
         let selections = crate::selections::Selections::new(
             vec![text_box.selection.clone()], 0, &text_box.buffer, CURSOR_SEMANTICS
         );
-        self.ui.util_bar.highlighter.selection = text_box.view.selections(&selections, &text_box.buffer).first().cloned();
-        self.ui.util_bar.highlighter.cursor = text_box.view.primary_cursor_position(&text_box.buffer, &selections, CURSOR_SEMANTICS);
+        self.ui.util_bar.highlighter.selection = text_box_display_area.selections(&selections, &text_box.buffer).first().cloned();
+        self.ui.util_bar.highlighter.cursor = text_box_display_area.primary_cursor_position(&text_box.buffer, &selections, CURSOR_SEMANTICS);
     }
     // prefer this over checked_scroll_and_update only when the view should ALWAYS scroll.      //TODO: comment out this fn, and verify all callers actually need this fn and not checked_scroll_and_update
     //pub fn scroll_and_update(&mut self, selection: &Selection){ //TODO: maybe scrolling should be separate from scrolling?...
@@ -598,8 +606,10 @@ impl Application{
         where F: Fn(&mut Application), A: Fn(&mut Application)
     {
         let buffer = &self.buffer;
-        if self.view.should_scroll(cursor_to_follow, buffer, CURSOR_SEMANTICS){
-            self.view = self.view.scroll_following_cursor(cursor_to_follow, buffer, CURSOR_SEMANTICS);
+        if self.buffer_display_area().should_scroll(cursor_to_follow, buffer, CURSOR_SEMANTICS){
+            let DisplayArea{horizontal_start, vertical_start, width: _width, height: _height} = self.buffer_display_area().scroll_following_cursor(cursor_to_follow, buffer, CURSOR_SEMANTICS);
+            self.buffer_horizontal_start = horizontal_start;
+            self.buffer_vertical_start = vertical_start;
             scroll_response_fn(self);
         }else{
             non_scroll_response_fn(self);
@@ -625,13 +635,8 @@ impl Application{
     }
     pub fn resize(&mut self, x: u16, y: u16){
         self.ui.set_terminal_size(x, y);
-        // ui layouts need to be updated before doc size set, so doc size can be calculated correctly
         self.ui.update_layouts(&self.mode());
         self.update_ui_data_util_bar(); //TODO: can this be called later in fn impl?
-        self.view.set_size(
-            self.ui.document_viewport.document_widget.rect.width as usize, 
-            self.ui.document_viewport.document_widget.rect.height as usize
-        );
         // scrolling so cursor is in a reasonable place, and updating so any ui changes render correctly
         self.checked_scroll_and_update(
             &self.selections.primary().clone(),
@@ -644,10 +649,10 @@ impl Application{
         assert!(self.mode() == Mode::Insert);
         //TODO: if lsp suggestions displaying(currently unimplemented), exit that display   //lsp suggestions could be a separate mode with keybind fallthrough to insert...
         /*else */if self.selections.count() > 1{
-            self.selection_action(&SelectionAction::ClearNonPrimarySelections);
+            self.selection_action(&SelectionAction::ClearNonPrimarySelections, 1);
         }
         else if self.selections.primary().is_extended(){
-            self.selection_action(&SelectionAction::CollapseSelectionToCursor);
+            self.selection_action(&SelectionAction::CollapseSelectionToCursor, 1);
         }
         else{
             self.handle_notification(crate::config::SAME_STATE_DISPLAY_MODE, SAME_STATE);
@@ -744,7 +749,7 @@ impl Application{
                     // check if any selection is outside of view
                     let mut selection_out_of_view = false;
                     for selection in self.selections.iter(){
-                        if self.view.should_scroll(selection, &self.buffer, CURSOR_SEMANTICS){
+                        if self.buffer_display_area().should_scroll(selection, &self.buffer, CURSOR_SEMANTICS){
                             selection_out_of_view = true;
                         }
                     }
@@ -760,7 +765,8 @@ impl Application{
         }
     }
 
-    pub fn selection_action(&mut self, action: &SelectionAction){
+    //TODO: maybe all application_impls should take a &Buffer, instead of a &Application...
+    pub fn selection_action(&mut self, action: &SelectionAction, count: usize){
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::Object);
         enum SelectionToFollow{
             Primary,
@@ -768,30 +774,30 @@ impl Application{
             Last,
         }
         let (result, selection_to_follow) = match action{
-            SelectionAction::MoveCursorUp => {(crate::utilities::move_cursor_up::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
-            SelectionAction::MoveCursorDown => {(crate::utilities::move_cursor_down::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
-            SelectionAction::MoveCursorLeft => {(crate::utilities::move_cursor_left::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
-            SelectionAction::MoveCursorRight => {(crate::utilities::move_cursor_right::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
-            SelectionAction::MoveCursorWordBoundaryForward => {(crate::utilities::move_cursor_word_boundary_forward::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
-            SelectionAction::MoveCursorWordBoundaryBackward => {(crate::utilities::move_cursor_word_boundary_backward::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::MoveCursorUp => {(crate::utilities::move_cursor_up::application_impl(self, count, None, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::MoveCursorDown => {(crate::utilities::move_cursor_down::application_impl(self, count, None, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::MoveCursorLeft => {(crate::utilities::move_cursor_left::application_impl(self, count, None, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::MoveCursorRight => {(crate::utilities::move_cursor_right::application_impl(self, count, None, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::MoveCursorWordBoundaryForward => {(crate::utilities::move_cursor_word_boundary_forward::application_impl(self, count, None, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::MoveCursorWordBoundaryBackward => {(crate::utilities::move_cursor_word_boundary_backward::application_impl(self, count, None, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
             SelectionAction::MoveCursorLineEnd => {(crate::utilities::move_cursor_line_end::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
             SelectionAction::MoveCursorHome => {(crate::utilities::move_cursor_home::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
             SelectionAction::MoveCursorBufferStart => {(crate::utilities::move_cursor_buffer_start::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
             SelectionAction::MoveCursorBufferEnd => {(crate::utilities::move_cursor_buffer_end::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
-            SelectionAction::MoveCursorPageUp => {(crate::utilities::move_cursor_page_up::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
-            SelectionAction::MoveCursorPageDown => {(crate::utilities::move_cursor_page_down::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
-            SelectionAction::ExtendSelectionUp => {(crate::utilities::extend_selection_up::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
-            SelectionAction::ExtendSelectionDown => {(crate::utilities::extend_selection_down::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
-            SelectionAction::ExtendSelectionLeft => {(crate::utilities::extend_selection_left::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
-            SelectionAction::ExtendSelectionRight => {(crate::utilities::extend_selection_right::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
-            SelectionAction::ExtendSelectionWordBoundaryBackward => {(crate::utilities::extend_selection_word_boundary_backward::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
-            SelectionAction::ExtendSelectionWordBoundaryForward => {(crate::utilities::extend_selection_word_boundary_forward::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::MoveCursorPageUp => {(crate::utilities::move_cursor_page_up::application_impl(self, count, Some(&self.buffer_display_area()), CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::MoveCursorPageDown => {(crate::utilities::move_cursor_page_down::application_impl(self, count, Some(&self.buffer_display_area()), CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::ExtendSelectionUp => {(crate::utilities::extend_selection_up::application_impl(self, count, None, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::ExtendSelectionDown => {(crate::utilities::extend_selection_down::application_impl(self, count, None, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::ExtendSelectionLeft => {(crate::utilities::extend_selection_left::application_impl(self, count, None, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::ExtendSelectionRight => {(crate::utilities::extend_selection_right::application_impl(self, count, None, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::ExtendSelectionWordBoundaryBackward => {(crate::utilities::extend_selection_word_boundary_backward::application_impl(self, count, None, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::ExtendSelectionWordBoundaryForward => {(crate::utilities::extend_selection_word_boundary_forward::application_impl(self, count, None, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
             SelectionAction::ExtendSelectionLineEnd => {(crate::utilities::extend_selection_line_end::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
             SelectionAction::ExtendSelectionHome => {(crate::utilities::extend_selection_home::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
-            //SelectionAction::ExtendSelectionDocumentStart => {self.document.extend_selection_document_start(CURSOR_SEMANTICS)}
-            //SelectionAction::ExtendSelectionDocumentEnd => {self.document.extend_selection_document_end(CURSOR_SEMANTICS)}
-            //SelectionAction::ExtendSelectionPageUp => {self.document.extend_selection_page_up(CURSOR_SEMANTICS)}
-            //SelectionAction::ExtendSelectionPageDown => {self.document.extend_selection_page_down(CURSOR_SEMANTICS)}
+                //SelectionAction::ExtendSelectionDocumentStart => {self.document.extend_selection_document_start(CURSOR_SEMANTICS)}
+                //SelectionAction::ExtendSelectionDocumentEnd => {self.document.extend_selection_document_end(CURSOR_SEMANTICS)}
+                //SelectionAction::ExtendSelectionPageUp => {self.document.extend_selection_page_up(CURSOR_SEMANTICS)}
+                //SelectionAction::ExtendSelectionPageDown => {self.document.extend_selection_page_down(CURSOR_SEMANTICS)}
             SelectionAction::SelectLine => {(crate::utilities::select_line::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
             SelectionAction::SelectAll => {(crate::utilities::select_all::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
             SelectionAction::CollapseSelectionToAnchor => {(crate::utilities::collapse_selections_to_anchor::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
@@ -802,18 +808,17 @@ impl Application{
             SelectionAction::RemovePrimarySelection => {(crate::utilities::remove_primary_selection::application_impl(self), SelectionToFollow::Primary)}
             SelectionAction::IncrementPrimarySelection => {(crate::utilities::increment_primary_selection::application_impl(self), SelectionToFollow::Primary)}
             SelectionAction::DecrementPrimarySelection => {(crate::utilities::decrement_primary_selection::application_impl(self), SelectionToFollow::Primary)}
-            SelectionAction::Surround => {(crate::utilities::surround::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+            SelectionAction::Surround => {(crate::utilities::surround::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)},
+            SelectionAction::FlipDirection => {(crate::utilities::flip_direction::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)},
         
-            //These may technically be distinct from the other selection actions, because they could be called from object mode, and would need to pop the mode stack after calling...
-            //TODO: SelectionAction::Word => {self.document.word()}
-            //TODO: SelectionAction::Sentence => {self.document.sentence()}
-            //TODO: SelectionAction::Paragraph => {self.document.paragraph()}
+                //These may technically be distinct from the other selection actions, because they could be called from object mode, and would need to pop the mode stack after calling...
+                //TODO: SelectionAction::Word => {self.document.word()}
+                //TODO: SelectionAction::Sentence => {self.document.sentence()}
+                //TODO: SelectionAction::Paragraph => {self.document.paragraph()}
             SelectionAction::SurroundingPair => {(crate::utilities::nearest_surrounding_pair::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}  //TODO: rename SurroundingBracketPair
-            //TODO: SelectionAction::QuotePair => {self.document.nearest_quote_pair()}                      //TODO: rename SurroundingQuotePair
-            //TODO: SelectionAction::ExclusiveSurroundingPair => {self.document.exclusive_surrounding_pair()}
-            //TODO: SelectionAction::InclusiveSurroundingPair => {self.document.inclusive_surrounding_pair()}
-        
-            SelectionAction::FlipDirection => {(crate::utilities::flip_direction::application_impl(self, CURSOR_SEMANTICS), SelectionToFollow::Primary)}
+                //TODO: SelectionAction::QuotePair => {self.document.nearest_quote_pair()}                      //TODO: rename SurroundingQuotePair
+                //TODO: SelectionAction::ExclusiveSurroundingPair => {self.document.exclusive_surrounding_pair()}
+                //TODO: SelectionAction::InclusiveSurroundingPair => {self.document.inclusive_surrounding_pair()}
         };
 
         //maybe.    so far, only needed for selection actions called from object mode
@@ -840,7 +845,7 @@ impl Application{
                 // check if any selection is outside of view
                 let mut selection_out_of_view = false;
                 for selection in self.selections.iter(){
-                    if self.view.should_scroll(selection, &self.buffer, CURSOR_SEMANTICS){
+                    if self.buffer_display_area().should_scroll(selection, &self.buffer, CURSOR_SEMANTICS){
                         selection_out_of_view = true;
                     }
                 }
@@ -862,12 +867,12 @@ impl Application{
         let result = match action{
             ViewAction::CenterVerticallyAroundCursor => {
                 should_exit = true;
-                crate::utilities::center_view_vertically_around_cursor::application_impl(self, CURSOR_SEMANTICS)
+                crate::utilities::center_view_vertically_around_cursor::application_impl(self, &self.buffer_display_area(), CURSOR_SEMANTICS)
             }
-            ViewAction::ScrollUp => crate::utilities::scroll_view_up::application_impl(self, VIEW_SCROLL_AMOUNT),
-            ViewAction::ScrollDown => crate::utilities::scroll_view_down::application_impl(self, VIEW_SCROLL_AMOUNT),
-            ViewAction::ScrollLeft => crate::utilities::scroll_view_left::application_impl(self, VIEW_SCROLL_AMOUNT),
-            ViewAction::ScrollRight => crate::utilities::scroll_view_right::application_impl(self, VIEW_SCROLL_AMOUNT)
+            ViewAction::ScrollUp => crate::utilities::scroll_view_up::application_impl(self, &self.buffer_display_area(), VIEW_SCROLL_AMOUNT),
+            ViewAction::ScrollDown => crate::utilities::scroll_view_down::application_impl(self, &self.buffer_display_area(), VIEW_SCROLL_AMOUNT),
+            ViewAction::ScrollLeft => crate::utilities::scroll_view_left::application_impl(self, &self.buffer_display_area(), VIEW_SCROLL_AMOUNT),
+            ViewAction::ScrollRight => crate::utilities::scroll_view_right::application_impl(self, &self.buffer_display_area(), VIEW_SCROLL_AMOUNT)
         };
         match result{
             Ok(()) => {
@@ -931,6 +936,7 @@ impl Application{
     }
 
     //TODO: entering current line number should be a same state warning, not invalid input error
+    //TODO: entering a very large number switches util bar text color to the valid state instead of the error state for some reason
     pub fn goto_mode_accept(&mut self){
         assert!(self.mode() == Mode::Goto);
         let mut show_warning = false;
@@ -948,26 +954,14 @@ impl Application{
         else{self.mode_pop()}
     }
     //TODO: add go to matching surrounding char(curly, square, paren, single quote, double quote, etc)
-    //TODO: this could prob use move_vertically/move_horizontally from edit_core...
     //TODO: can this be accomplished in edit_core instead?...
-    // Not entirely sure I want this behavior...
     pub fn goto_mode_selection_action(&mut self, action: &SelectionAction){  //TODO: this is pretty slow when user enters a large number into util text box
         assert!(self.mode() == Mode::Goto);
-        if let Ok(amount) = self.ui.util_bar.utility_widget.text_box.buffer.inner.to_string().parse::<usize>(){
+        if let Ok(count) = self.ui.util_bar.utility_widget.text_box.buffer.inner.to_string().parse::<usize>(){
             self.mode_pop();
             assert!(self.mode() == Mode::Insert);
-            for _ in 0..amount{
-                //if matches!(self.mode(), Mode::Error(_)){break;}    //trying to speed this up by preventing this from running `amount` times, if there has already been an error
-                
-                //if matches!(self.mode(), Mode::Error(_))
-                //|| matches!(self.mode(), Mode::Warning(_))
-                //|| matches!(self.mode(), Mode::Notify(_))
-                //|| matches!(self.mode(), Mode::Info(_)){break;}
-                if self.mode() != Mode::Insert{break;}  //this should handle selection action errors
-                
-                self.selection_action(action);  //TODO: if this reaches doc boundaries, this will display same state warning. which it technically may not be the same state as when this fn was called...
-            }
-        }else{self.handle_notification(crate::config::INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}
+            self.selection_action(action, count);
+        }else{self.handle_notification(crate::config::INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}  //TODO: this may benefit from a specific error, maybe stating why the input is invalid...empty/non number input string...//"action requires non-empty, numeric input string"
         //also, this doesn't work with goto_mode_text_validity_check
     }
     pub fn goto_mode_text_validity_check(&mut self){
@@ -978,8 +972,8 @@ impl Application{
             if !grapheme.is_ascii_digit(){is_numeric = false;}
         }
         let exceeds_doc_length = match self.ui.util_bar.utility_widget.text_box.buffer.inner.to_string().parse::<usize>(){
-            Ok(line_number) => {line_number > self.buffer.len_lines()}  //line_number > self.ui.document_length()
-            Err(_) => false
+            Ok(line_number) => {line_number > self.buffer.len_lines()}
+            Err(_) => false //TODO: very large numeric input strings aren't parseable to usize, thus set exceeds_doc_length to false...
         };
         self.ui.util_bar.utility_widget.text_box.text_is_valid = is_numeric && !exceeds_doc_length;
     }
@@ -1019,26 +1013,16 @@ impl Application{
 
     pub fn toggle_line_numbers(&mut self){
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
-        //self.ui.document_viewport.toggle_line_numbers();
         self.ui.document_viewport.line_number_widget.show = !self.ui.document_viewport.line_number_widget.show;
                 
         self.ui.update_layouts(&self.mode());
-        self.view.set_size(
-            self.ui.document_viewport.document_widget.rect.width as usize,
-            self.ui.document_viewport.document_widget.rect.height as usize
-        );
         self.update_ui_data_document();
     }
     pub fn toggle_status_bar(&mut self){
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
-        //self.ui.status_bar.toggle_status_bar();
         self.ui.status_bar.show = !self.ui.status_bar.show;
                 
         self.ui.update_layouts(&self.mode());
-        self.view.set_size(
-            self.ui.document_viewport.document_widget.rect.width as usize,
-            self.ui.document_viewport.document_widget.rect.height as usize
-        );
         self.update_ui_data_document();
     }
     pub fn open_new_terminal_window(){
@@ -1106,7 +1090,7 @@ impl Application{
         let old_selection = selection.clone();
         buffer.insert(selection.cursor(buffer, semantics.clone()), string);
         for _ in 0..string.len(){
-            if let Ok(new_selection) = crate::utilities::move_cursor_right::selection_impl(selection, buffer, semantics.clone()){
+            if let Ok(new_selection) = crate::utilities::move_cursor_right::selection_impl(selection, 1, buffer, None, semantics.clone()){
                 *selection = new_selection;
             }
         }

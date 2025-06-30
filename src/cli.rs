@@ -107,15 +107,9 @@ pub fn parse_args() -> Result<(), String>{
         run_app(TUTORIAL, None, read_only, &mut terminal)
         //run_app(&crate::tutorial::tutorial_text(), file_path, read_only, &mut terminal)
     }else if temp_buffer{   //init app with buffer from stdin
-        //TODO: maybe timeout after some certain amount of time. this could catch calling "-t" with nothing passed on stdin
         let mut buffer_text = String::new();
         if let Err(e) = io::stdin().read_to_string(&mut buffer_text){return Err(format!("{e}"));}
         
-        //this didn't work...
-        //if buffer_text.trim().is_empty(){
-        //    return post_terminal_setup_error("no buffer content piped over stdin", true, &mut terminal);
-        //}
-
         //TODO: strip ansi escape codes from buffer_text (some utilities will write text containing ansi escape codes to their stdout, which messes up edit's display. these need to be removed...)
         //this may only matter for TUI client implementation... //wouldn't be needed if terminals didn't operate using ansi escape codes
         run_app(&buffer_text, None, read_only, &mut terminal)

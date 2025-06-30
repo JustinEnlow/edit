@@ -75,11 +75,11 @@ pub const SHOW_CURSOR_LINE: bool = false;
     //Ignore variant can be used to intentionally not display certain messages
     pub enum DisplayMode{Error, Warning, Notify, Info, Ignore}  //should Info really be a part of this?...
 
-    pub const FILE_MODIFIED: &str = "File has unsaved changes";
+    pub const FILE_MODIFIED: &str = "Buffer has unsaved changes";
     //maybe this should always be error mode, since we match against this to handle quitting...(although that quit behavior may be deprecated)
     //pub const FILE_MODIFIED_DISPLAY_MODE: DisplayMode = DisplayMode::Error;
 
-    pub const FILE_SAVE_FAILED: &str = "File could not be saved";
+    pub const FILE_SAVE_FAILED: &str = "Buffer could not be saved to file";
     pub const FILE_SAVE_FAILED_DISPLAY_MODE: DisplayMode = DisplayMode::Error;
 
     pub const COMMAND_PARSE_FAILED: &str = "Failed to parse command. Command may be undefined";
