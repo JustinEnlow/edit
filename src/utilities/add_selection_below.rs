@@ -79,7 +79,7 @@ mod tests{
         application::Application,
         selections::Selections,
         selection::{Selection, CursorSemantics},
-        view::DisplayArea,
+        display_area::DisplayArea,
     };
 
     fn test(semantics: CursorSemantics, text: &str, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize, tuple_expected_selections: Vec<(usize, usize, Option<usize>)>, expected_primary: usize){

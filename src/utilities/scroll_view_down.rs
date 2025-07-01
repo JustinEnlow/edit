@@ -1,6 +1,6 @@
 use crate::{
     application::{Application, ApplicationError},
-    view::{DisplayArea, DisplayAreaError},
+    display_area::{DisplayArea, DisplayAreaError},
     selections::SelectionsError
 };
 
@@ -52,7 +52,7 @@ mod tests{
     use crate::{
         application::Application,
         selection::CursorSemantics,
-        view::DisplayArea,
+        display_area::DisplayArea,
     };
 
     fn test(_semantics: CursorSemantics, text: &str, view: DisplayArea, amount: usize, expected_text: &str, expected_view: DisplayArea){

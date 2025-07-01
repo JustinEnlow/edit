@@ -2,7 +2,7 @@ use crate::{
     application::{Application, ApplicationError},
     selection::{Selection, SelectionError, CursorSemantics, ExtensionDirection/*, Movement */},
     selections::SelectionsError,
-    view::DisplayArea
+    display_area::DisplayArea
 };
 
 pub fn application_impl(app: &mut Application, count: usize, display_area: Option<&DisplayArea>, semantics: CursorSemantics) -> Result<(), ApplicationError>{

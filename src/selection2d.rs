@@ -1,5 +1,6 @@
 use crate::position::Position;
 
+//TODO: really, this is a Range2d...
 /// 2 dimensional representation of a single selection(between anchor and head) within document text
 #[derive(Default, PartialEq, Debug, Clone)]
 pub struct Selection2d{     //TODO: should this actually be range2d? with start and end?

@@ -1,6 +1,6 @@
 use crate::{
     application::{Application, ApplicationError},
-    view::DisplayArea,
+    display_area::DisplayArea,
     selection::{Selection, SelectionError, CursorSemantics, ExtensionDirection, Movement}
 };
 

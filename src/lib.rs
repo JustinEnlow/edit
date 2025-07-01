@@ -17,7 +17,7 @@ pub mod range;
 pub mod selection;
 pub mod selection2d;
 pub mod selections;
-pub mod view;
+pub mod display_area;
 pub mod keybind;
 pub mod ui;
 pub mod config;

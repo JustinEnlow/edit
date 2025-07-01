@@ -8,6 +8,11 @@ pub struct Buffer{
 }
 impl Buffer{
     pub fn new(str: &str, file_path: Option<std::path::PathBuf>, read_only: bool) -> Self{
+        //TODO?: if UPDATE_BUFFER_TEXT_TO_FOLLOW_USE_HARD_TAB_SETTING
+        //let str = match crate::config::USE_HARD_TAB{
+        //    true => {swap existing TAB_WIDTH spaces for tabs}
+        //    false => {swap existing tabs for TAB_WIDTH spaces}
+        //}
         Buffer{
             inner: ropey::Rope::from(str),
             file_path,

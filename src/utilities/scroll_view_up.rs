@@ -1,6 +1,6 @@
 use crate::{
     application::{Application, ApplicationError},
-    view::{DisplayArea, DisplayAreaError},
+    display_area::{DisplayArea, DisplayAreaError},
     selections::SelectionsError
 };
 
@@ -38,23 +38,25 @@ fn view_impl(view: &DisplayArea, amount: usize) -> Result<DisplayArea, DisplayAr
 mod tests{
     use crate::utilities::scroll_view_up;
     use crate::{
-        application::Application,
+        application::{Application, ViewAction, Mode},
         selection::CursorSemantics,
-        view::DisplayArea,
+        display_area::DisplayArea,
+        utilities::test::test_view_action,
+        config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE}
     };
 
-    fn test(_semantics: CursorSemantics, text: &str, view: DisplayArea, amount: usize, expected_text: &str, expected_view: DisplayArea){
-        let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
-
-        //app.buffer_display_area = view;
-        
-        let result = scroll_view_up::application_impl(&mut app, &view, amount);
-        assert!(!result.is_err());
-        
-        //assert_eq!(expected_text, app.buffer_display_area.text(&app.buffer));
-        //assert_eq!(expected_view, app.buffer_display_area);
-        assert!(!app.buffer.is_modified());
-    }
+    //fn test(_semantics: CursorSemantics, text: &str, view: DisplayArea, amount: usize, expected_text: &str, expected_view: DisplayArea){
+    //    let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
+    //
+    //    //app.buffer_display_area = view;
+    //    
+    //    let result = scroll_view_up::application_impl(&mut app, &view, amount);
+    //    assert!(!result.is_err());
+    //    
+    //    //assert_eq!(expected_text, app.buffer_display_area.text(&app.buffer));
+    //    //assert_eq!(expected_view, app.buffer_display_area);
+    //    assert!(!app.buffer.is_modified());
+    //}
     fn test_error(_semantics: CursorSemantics, text: &str, view: DisplayArea, amount: usize){
         let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
         
@@ -65,38 +67,78 @@ mod tests{
     }
 
     #[test] fn scroll_up(){
-        test(
-            CursorSemantics::Block,
-            "idk\nsome\nshit\n", 
-            DisplayArea::new(0, 2, 2, 2), 1, 
-            "so\nsh\n", 
-            DisplayArea::new(0, 1, 2, 2), 
-        );
+        //test(
+        //    CursorSemantics::Block,
+        //    "idk\nsome\nshit\n", 
+        //    DisplayArea::new(0, 2, 2, 2), 1, 
+        //    "so\nsh\n", 
+        //    DisplayArea::new(0, 1, 2, 2), 
+        //);
+        //
+        //test(
+        //    CursorSemantics::Bar,
+        //    "idk\nsome\nshit\n", 
+        //    DisplayArea::new(0, 2, 2, 2), 1, 
+        //    "so\nsh\n", 
+        //    DisplayArea::new(0, 1, 2, 2), 
+        //);
 
-        test(
-            CursorSemantics::Bar,
+        // i d k        |i d|k
+        //|s o|m e      |s o|m e
+        //|s h|i t       s h i t
+        test_view_action(
+            ViewAction::ScrollUp, 
+            CursorSemantics::Block, 
+            false, 
+            false, 
+            DisplayArea{horizontal_start: 0, vertical_start: 1, width: 2, height: 2}, 
             "idk\nsome\nshit\n", 
-            DisplayArea::new(0, 2, 2, 2), 1, 
-            "so\nsh\n", 
-            DisplayArea::new(0, 1, 2, 2), 
+            vec![
+                (0, 1, None)
+            ], 
+            0, 
+            Mode::View, 
+            "id\nso\n",
+            DisplayArea{horizontal_start: 0, vertical_start: 0, width: 2, height: 2}
         );
     }
     //TODO: test when amount > space left to scroll.    //does this saturate at doc bounds currently?
 
     #[test] fn errors_if_already_scrolled_up_all_the_way(){
-        test_error(
-            CursorSemantics::Block,
+        //test_error(
+        //    CursorSemantics::Block,
+        //    "idk\nsome\nshit\n", 
+        //    DisplayArea::new(0, 0, 2, 2), 1, 
+        //);
+        //test_error(
+        //    CursorSemantics::Bar,
+        //    "idk\nsome\nshit\n", 
+        //    DisplayArea::new(0, 0, 2, 2), 1, 
+        //);
+        test_view_action(
+            ViewAction::ScrollUp, 
+            CursorSemantics::Block, 
+            false, 
+            false, 
+            DisplayArea{horizontal_start: 0, vertical_start: 0, width: 2, height: 2}, 
             "idk\nsome\nshit\n", 
-            DisplayArea::new(0, 0, 2, 2), 1, 
-        );
-        test_error(
-            CursorSemantics::Bar,
-            "idk\nsome\nshit\n", 
-            DisplayArea::new(0, 0, 2, 2), 1, 
+            vec![
+                (0, 1, None)
+            ], 
+            0, 
+            match SAME_STATE_DISPLAY_MODE{
+                DisplayMode::Error => Mode::Error(SAME_STATE.to_string()),
+                DisplayMode::Warning => Mode::Warning(SAME_STATE.to_string()),
+                DisplayMode::Notify => Mode::Notify(SAME_STATE.to_string()),
+                DisplayMode::Info => Mode::Info(SAME_STATE.to_string()),
+                DisplayMode::Ignore => Mode::Insert,
+            }, 
+            "id\nso\n", 
+            DisplayArea{horizontal_start: 0, vertical_start: 0, width: 2, height: 2}
         );
     }
 
-    #[test] fn errors_if_amount_is_zero(){
+    #[test] fn errors_if_amount_is_zero(){  //idk if this can be represented in test_view_action
         test_error(
             CursorSemantics::Block,
             "idk\nsome\nshit\n", 

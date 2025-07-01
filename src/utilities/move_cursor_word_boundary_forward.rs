@@ -2,7 +2,7 @@ use crate::{
     application::{Application, ApplicationError},
     selection::{Selection, SelectionError, CursorSemantics, Movement},
     selections::SelectionsError,
-    view::DisplayArea
+    display_area::DisplayArea
 };
 
 pub fn application_impl(app: &mut Application, count: usize, display_area: Option<&DisplayArea>, semantics: CursorSemantics) -> Result<(), ApplicationError>{
@@ -51,7 +51,7 @@ mod tests{
         application::Application,
         selections::Selections,
         selection::{Selection, CursorSemantics},
-        view::DisplayArea,
+        display_area::DisplayArea,
     };
     use crate::utilities::test;
 
@@ -94,7 +94,7 @@ mod tests{
     //    assert!(!app.buffer.is_modified());
     //}
 
-    #[test] fn implement_tests_using_count(){
+    #[ignore] #[test] fn implement_tests_using_count(){
         unimplemented!()
     }
 

@@ -9,6 +9,10 @@ use crate::config::{SELECTION_BACKGROUND_COLOR, SELECTION_FOREGROUND_COLOR, PRIM
 
 
 
+pub const LINE_NUMBER_PADDING: u16 = 1;
+
+
+
 /// This is used to fill space between other widgets
 #[derive(Default)]
 pub struct Padding{
@@ -196,7 +200,7 @@ impl DocumentViewport{
                     Constraint::Length(
                         //if self.display_line_numbers{
                         if self.line_number_widget.show{
-                            1
+                            LINE_NUMBER_PADDING//1
                         }else{0}
                     ),
 

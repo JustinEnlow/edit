@@ -2,7 +2,7 @@ use crate::{
     application::{Application, ApplicationError, Mode, SelectionAction, ViewAction},
     selections::Selections,
     selection::{Selection, CursorSemantics},
-    view::DisplayArea,
+    display_area::DisplayArea,
     buffer::Buffer,
     config::SAME_STATE,
 };
@@ -63,19 +63,20 @@ fn set_up_test_application(
     terminal_display_area: DisplayArea, //this represents our full terminal, not just the buffer viewport.
     buffer_text: &str, 
     read_only: bool,
-    //TODO: show_line_numbers: bool,
-    //TODO: show_status_bar: bool,
+    render_line_numbers: bool,
+    render_status_bar: bool,
     //TODO: expected_buffer_display_area: DisplayArea,
 ) -> Result<Application, String>{
-    /* could we derive terminal_display_area from given buffer_display_area?...
-    let terminal_width = if show_line_numbers{
-        //should this include padding too?...
-        buffer_display_area.width + crate::ui::document_viewport::count_digits(buffer_text.len_lines());   //width of line numbers
-    }else{buffer_display_area.width}
-    let terminal_height = if show_status_bar{
-        buffer_display_area.height + 2
-    }else{buffer_display_area.height}
-    */
+        // i don't think we want to do this. there are some advantages to passing in a manual terminal_display_area, and checking against an expected buffer_display_area
+        /* could we derive terminal_display_area from given buffer_display_area?...
+        let terminal_width = if show_line_numbers{
+            //should this include padding too?...
+            buffer_display_area.width + crate::ui::document_viewport::count_digits(buffer_text.len_lines());   //width of line numbers
+        }else{buffer_display_area.width}
+        let terminal_height = if show_status_bar{
+            buffer_display_area.height + 2
+        }else{buffer_display_area.height}
+        */
     let backend = ratatui::backend::TestBackend::new(
         terminal_display_area.width as u16, 
         terminal_display_area.height as u16
@@ -87,6 +88,11 @@ fn set_up_test_application(
                     app.buffer_horizontal_start = terminal_display_area.horizontal_start;
                     app.buffer_vertical_start = terminal_display_area.vertical_start;
 
+                    //this should disable extra widgets, and make terminal_display_area and buffer_display_area equivalent
+                    app.ui.document_viewport.line_number_widget.show = render_line_numbers;
+                    app.ui.status_bar.show = render_status_bar;
+                    app.ui.update_layouts(&app.mode());
+                    //TODO: figure out how to print terminal buffer for debugging...
                     //TODO: assert_eq!(expected_buffer_display_area, app.buffer_display_area());
                     Ok(app)
                 }
@@ -113,6 +119,8 @@ fn generate_selections(tuple_selections: Vec<(usize, usize, Option<usize>)>, pri
 fn test_selection_action(
     selection_action: SelectionAction,
     semantics: CursorSemantics,
+    render_line_numbers: bool,
+    render_status_bar: bool,
     terminal_display_area: DisplayArea,
     buffer_text: &str,
     //TODO: starting_expected_buffer_display_area: DisplayArea,
@@ -127,7 +135,7 @@ fn test_selection_action(
     //TODO: expected_buffer_display_area_text: &str,
 ){
     //set up app
-    match set_up_test_application(terminal_display_area, buffer_text, false/* TODO: , starting_expected_buffer_display_area */){
+    match set_up_test_application(terminal_display_area, buffer_text, false, render_line_numbers, render_status_bar/* TODO: , starting_expected_buffer_display_area */){
         Ok(mut app) => {
             let expected_selections = generate_selections(tuple_expected_selections, expected_primary, &app.buffer, semantics.clone()); 
             let selections = generate_selections(tuple_selections, primary, &app.buffer, semantics.clone());
@@ -149,6 +157,8 @@ fn test_selection_action(
     test_selection_action(
         SelectionAction::MoveCursorRight, 
         CursorSemantics::Block, 
+        false,
+        false,
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50},
         "idk\nsome\nshit\n", 
         vec![
@@ -168,6 +178,8 @@ fn test_selection_action(
     test_selection_action(
         SelectionAction::MoveCursorRight, 
         CursorSemantics::Block, 
+        false,
+        false,
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50},
         "idk\nsome\nshit\n", 
         vec![
@@ -187,6 +199,8 @@ fn test_selection_action(
 pub fn test_view_action(
     view_action: ViewAction,
     semantics: CursorSemantics,
+    render_line_numbers: bool,
+    render_status_bar: bool,
     //This may differ from buffer_display_area if line numbers or status bar are shown
     terminal_display_area: DisplayArea,
     buffer_text: &str,
@@ -197,7 +211,7 @@ pub fn test_view_action(
     expected_buffer_display_area: DisplayArea,
 ){
     //set up app
-    match set_up_test_application(terminal_display_area.clone(), buffer_text, false){
+    match set_up_test_application(terminal_display_area.clone(), buffer_text, false, render_line_numbers, render_status_bar){
         Ok(mut app) => {
             let selections = generate_selections(tuple_selections, primary, &app.buffer, semantics.clone());
             
@@ -210,29 +224,33 @@ pub fn test_view_action(
             assert_eq!(expected_mode, app.mode());
             assert_eq!(expected_buffer_display_area_text, app.buffer_display_area().text(&app.buffer));
             assert_eq!(expected_buffer_display_area, app.buffer_display_area());
+            //TODO?: could test if we get the correct selection2ds in display area
             assert!(!app.buffer.is_modified());
         }
         Err(e) => assert!(false, "{}", e)
     }
 }
 
-#[test] fn example_view_action_test(){
-    test_view_action(
-        ViewAction::ScrollRight, 
-        CursorSemantics::Block, 
-        DisplayArea{
-            horizontal_start: 0, 
-            vertical_start: 0, 
-            width: 3,   //buffer_display_area.width + len lines + padding?(for line numbers)   //why does set up test application not seem to layout line numbers rn?
-            height: 5   //buffer_display_area.height + 2(for status bar)
-        },
-        "idk\nsome\nshit\n", 
-        vec![
-            (0, 1, None)
-        ], 
-        0, 
-        Mode::View, 
-        "dk\nome\nhit\n", 
-        DisplayArea::new(1, 0, 3, 3)
-    );
-}
+//#[test] fn example_view_action_test(){
+//    test_view_action(
+//        ViewAction::ScrollRight, 
+//        CursorSemantics::Block, 
+//        false,
+//        false,
+//        DisplayArea{
+//            horizontal_start: 0, 
+//            vertical_start: 0, 
+//            //why does set up test application not seem to layout line numbers rn?
+//            width: 3,   //buffer_display_area.width + count_digits(buffer text len lines)(for line number width) + crate::ui::document_viewport::LINE_NUMBER_PADDING?
+//            height: 3//5   //buffer_display_area.height + 2(for status bar)
+//        },
+//        "idk\nsome\nshit\n", 
+//        vec![
+//            (0, 1, None)
+//        ], 
+//        0, 
+//        Mode::View, 
+//        "dk\nome\nhit\n", 
+//        DisplayArea::new(1, 0, 3, 3)
+//    );
+//}

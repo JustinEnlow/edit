@@ -55,7 +55,7 @@ mod tests{
         application::Application,
         selections::Selections,
         selection::{Selection, CursorSemantics},
-        view::DisplayArea,
+        display_area::DisplayArea,
     };
 
     //TODO: could take a view as arg, and verify that cursor movement moves the view correctly as well

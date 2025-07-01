@@ -6,12 +6,12 @@ use util_bar::UtilBar;
 use status_bar::StatusBar;
 use ratatui::Terminal;
 use ratatui::layout::Rect;
-use ratatui::prelude::CrosstermBackend;
+use ratatui::prelude::Backend;
 use ratatui::layout::{Direction, Layout, Constraint};
 
 
 
-mod document_viewport;
+pub mod document_viewport;
 mod status_bar;
 mod util_bar;
 mod interactive_text_box;
@@ -117,7 +117,7 @@ impl UserInterface{
         //self.util_bar.update_width(mode);
     }
 
-    pub fn render(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>, mode: &Mode) -> Result<(), String>{
+    pub fn render(&mut self, terminal: &mut Terminal<impl Backend>, mode: &Mode) -> Result<(), String>{
         match terminal.draw(
             |frame| {
                 // always render

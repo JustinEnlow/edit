@@ -36,7 +36,7 @@ use crate::keybind;
 use crate::config::{CURSOR_SEMANTICS, TAB_WIDTH, USE_FULL_FILE_PATH, USE_HARD_TAB, VIEW_SCROLL_AMOUNT};
 use crate::config::{FILE_MODIFIED, FILE_SAVE_FAILED, COMMAND_PARSE_FAILED, SINGLE_SELECTION, MULTIPLE_SELECTIONS, INVALID_INPUT, SAME_STATE, UNHANDLED_KEYPRESS, UNHANDLED_EVENT, READ_ONLY_BUFFER, SPANS_MULTIPLE_LINES};
 use crate::config::COPIED_TEXT;
-use crate::view::DisplayArea;
+use crate::display_area::DisplayArea;
 use crate::mode_stack::ModeStack;
 
 
@@ -119,7 +119,8 @@ pub enum SelectionAction{   //TODO?: have (all?) selection actions take an amoun
     DecrementPrimarySelection,  //TODO: this may benefit from using a count. would decrement primary selection index by 'count'
     Surround,         //this would not benefit from using a count. use existing selection primitives to select text to surround
     SurroundingPair,  //TODO: this may benefit from using a count. would select the 'count'th surrounding pair
-    FlipDirection
+    FlipDirection,
+        //TODO: SplitSelectionLines,    //split current selection into a selection for each line. error if single line
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -195,7 +196,7 @@ pub struct Application{
 //these will be client constructs when client/server arichitecture impled...
     should_quit: bool,
     mode_stack: ModeStack,
-    ui: crate::ui::UserInterface,   //TODO: remove this, and generate UI from Application state each run cycle(but only the widgets that need generating)
+    pub ui: crate::ui::UserInterface,   //TODO: remove this, and generate UI from Application state each run cycle(but only the widgets that need generating)
     pub buffer_horizontal_start: usize,
     pub buffer_vertical_start: usize,
     //pub show_line_numbers: bool,  //for when ui removed
@@ -210,7 +211,7 @@ pub struct Application{
     pub clipboard: String,
 }
 impl Application{
-    #[cfg(test)] pub fn new_test_app(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, view: &crate::view::DisplayArea) -> Self{
+    #[cfg(test)] pub fn new_test_app(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, view: &DisplayArea) -> Self{
         let buffer = crate::buffer::Buffer::new(buffer_text, file_path.clone(), read_only);
         let mut instance = Self{
             should_quit: false,
