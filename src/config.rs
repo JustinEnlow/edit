@@ -25,8 +25,8 @@ pub const VIEW_SCROLL_AMOUNT: usize = 1;    //should this have separate vertical
 
 // what other config should be here?
 //themeing/coloring consts
-    pub const LINE_NUMBER_BACKGROUNG_COLOR: Color = Color::Rgb(0, 0, 0);
-    pub const LINE_NUMBER_FOREGROUNG_COLOR: Color = Color::Rgb(100, 100, 100);
+    pub const LINE_NUMBER_BACKGROUND_COLOR: Color = Color::Rgb(0, 0, 0);
+    pub const LINE_NUMBER_FOREGROUND_COLOR: Color = Color::Rgb(100, 100, 100);
     
     pub const DOCUMENT_BACKGROUND_COLOR: Color = Color::Rgb(0, 0, 0);
     pub const DOCUMENT_FOREGROUND_COLOR: Color = Color::White;
@@ -38,7 +38,7 @@ pub const VIEW_SCROLL_AMOUNT: usize = 1;    //should this have separate vertical
     pub const FILE_NAME_WIDGET_FOREGROUND_COLOR: Color = Color::White;//Rgb(10, 10, 10);
     pub const MODIFIED_WIDGET_FOREGROUND_COLOR: Color = Color::White;//Cyan;
     pub const SELECTIONS_WIDGET_FOREGROUND_COLOR: Color = Color::White;//Rgb(100, 255, 100);
-    pub const CURSOR_POSITION_WIDGET_FOREGROUNG_COLOR: Color = Color::White;
+    pub const CURSOR_POSITION_WIDGET_FOREGROUND_COLOR: Color = Color::White;
     pub const MODE_WIDGET_FOREGROUND_COLOR: Color = Color::White;//Rgb(100, 0, 0);
     
     pub const UTIL_BAR_BACKGROUND_COLOR: Color = Color::Black;

@@ -30,14 +30,18 @@
 
 use std::path::PathBuf;
 use crossterm::event;
-use ratatui::layout::Rect;
-use ratatui::{backend::CrosstermBackend, Terminal};
-use crate::keybind;
-use crate::config::{CURSOR_SEMANTICS, TAB_WIDTH, USE_FULL_FILE_PATH, USE_HARD_TAB, VIEW_SCROLL_AMOUNT};
-use crate::config::{FILE_MODIFIED, FILE_SAVE_FAILED, COMMAND_PARSE_FAILED, SINGLE_SELECTION, MULTIPLE_SELECTIONS, INVALID_INPUT, SAME_STATE, UNHANDLED_KEYPRESS, UNHANDLED_EVENT, READ_ONLY_BUFFER, SPANS_MULTIPLE_LINES};
-use crate::config::COPIED_TEXT;
-use crate::display_area::DisplayArea;
-use crate::mode_stack::ModeStack;
+use ratatui::{
+    prelude::*,
+    widgets::*
+};
+use crate::{
+    config::*,
+    keybind,
+    display_area::DisplayArea,
+    mode_stack::ModeStack,
+    selections::Selections,
+    ui::util_bar::*
+};
 
 
 
@@ -204,7 +208,7 @@ pub struct Application{
 
 //these will be server constructs when client/server architecture impled...
     pub buffer: crate::buffer::Buffer,      //TODO?: BufferType? File|Scratch   //buffer type is already encoded in the file_path on Buffer being optional. if file_path == None, the buffer is a scratch buffer
-    //pub preserved_selections: Option<Selections>, //TODO: move preserved_selections from crate::ui::util_bar.rs here...and modify necessary calling code
+    pub preserved_selections: Option<Selections>, //TODO: move preserved_selections from crate::ui::util_bar.rs here...and modify necessary calling code
     pub undo_stack: Vec<crate::history::ChangeSet>,   //maybe have separate buffer and selections undo/redo stacks?...
     pub redo_stack: Vec<crate::history::ChangeSet>,
     pub selections: crate::selections::Selections,
@@ -218,6 +222,7 @@ impl Application{
             mode_stack: ModeStack::default(),
             ui: crate::ui::UserInterface::new(Rect::new(view.horizontal_start as u16, view.vertical_start as u16, view.width as u16, view.height as u16)),
             buffer: buffer.clone(),
+            preserved_selections: None,
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
             selections: crate::selections::Selections::new(
@@ -246,7 +251,7 @@ impl Application{
     // for now, tests only work with CursorSemantics::Block
     //TODO: take a line: usize and column: usize as input for where to place cursor on startup. if user passes --line or --column, use the provided values, otherwise use 0
     //or maybe keep the selection at 0, 0 here, then update it in run, where it can return an error if the provided values are invalid
-    pub fn new(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, terminal: &Terminal<impl ratatui::prelude::Backend>) -> Result<Self, String>{
+    pub fn new(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, terminal: &Terminal<impl Backend>) -> Result<Self, String>{
         let terminal_size = match terminal.size(){
             Ok(size) => size,
             Err(e) => return Err(format!("{}", e))
@@ -259,6 +264,7 @@ impl Application{
             mode_stack: ModeStack::default(),
             ui: crate::ui::UserInterface::new(terminal_rect),
             buffer: buffer.clone(),
+            preserved_selections: None,
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
             selections: crate::selections::Selections::new(
@@ -316,9 +322,11 @@ impl Application{
 
         self.update_ui_data_mode();
         
-        self.ui.document_viewport.document_widget.doc_length = self.buffer.len_lines();
+        //self.ui.document_viewport.document_widget.doc_length = self.buffer.len_lines();
         
-        self.ui.update_layouts(&self.mode());
+        //self.ui.update_layouts(&self.mode());
+        //crate::ui::update_layouts(self);
+        self.update_layouts();
 
         // prefer this over scroll_and_update, even when response fns are the same, because it saves us from unnecessarily reassigning the view
         self.checked_scroll_and_update(
@@ -329,16 +337,504 @@ impl Application{
         self.update_ui_data_util_bar(); //needed for util bar cursor to render the first time it is triggered
     }
 
-    pub fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<(), String>{
+    pub fn run(&mut self, terminal: &mut Terminal<impl Backend>) -> Result<(), String>{
+        //TODO?: run setup() //set inital ui state  //or is this better left being called from new()?
         while !self.should_quit{
             //derive User Interface from Application state
-            self.ui.update_layouts(&self.mode());
-            self.ui.render(terminal, &self.mode())?;
+            self.update_layouts();
+            self.render(terminal)?;
             
             //update Application state
             self.handle_event()?;
         }
         Ok(())
+    }
+
+    pub fn update_layouts(&mut self){   //-> Result<(), String>{ //to handle terminal.size() error
+        //TODO: terminal.size() should be called here, instead of storing terminal_size
+        // this will require all calling functions to return a Result. handle changes to action fns before doing this...
+        //let terminal_size = match terminal.size(){
+        //    Ok(size) => size,
+        //    Err(e) => return Err(format!("{}", e))
+        //};
+        //let terminal_size = Rect::new(0, 0, terminal_size.width, terminal_size.height);
+    
+        let terminal_rect = self.layout_terminal(self.ui.terminal_size);
+        let document_viewport_rect = self.layout_buffer_viewport(terminal_rect[0]);
+        let status_bar_rect = self.layout_status_bar(terminal_rect[1]);
+        let util_rect = self.layout_util_bar(terminal_rect[2]);
+    
+        self.ui.document_viewport.line_number_widget.rect = document_viewport_rect[0];
+        self.ui.document_viewport.padding.rect = document_viewport_rect[1];
+        self.ui.document_viewport.document_widget.rect = document_viewport_rect[2];
+            
+        self.ui.status_bar.read_only_widget.rect = status_bar_rect[0];
+        self.ui.status_bar.padding_1.rect = status_bar_rect[1];
+        self.ui.status_bar.file_name_widget.rect = status_bar_rect[2];
+        self.ui.status_bar.padding_2.rect = status_bar_rect[3];
+        self.ui.status_bar.modified_widget.rect = status_bar_rect[4];
+        self.ui.status_bar.selections_widget.rect = status_bar_rect[5];
+        self.ui.status_bar.cursor_position_widget.rect = status_bar_rect[6];
+        self.ui.status_bar.padding_3.rect = status_bar_rect[7];
+        self.ui.status_bar.mode_widget.rect = status_bar_rect[8];
+            
+        self.ui.util_bar.prompt.rect = util_rect[0];
+        self.ui.util_bar.utility_widget.rect = util_rect[1];
+            
+        self.ui.popups.goto.rect = crate::ui::sized_centered_rect(self.ui.popups.goto.widest_element_len, self.ui.popups.goto.num_elements, self.ui.terminal_size);
+        self.ui.popups.command.rect = crate::ui::sized_centered_rect(self.ui.popups.command.widest_element_len, self.ui.popups.command.num_elements, self.ui.terminal_size);
+        self.ui.popups.find.rect = crate::ui::sized_centered_rect(self.ui.popups.find.widest_element_len, self.ui.popups.find.num_elements, self.ui.terminal_size);
+        self.ui.popups.split.rect = crate::ui::sized_centered_rect(self.ui.popups.split.widest_element_len, self.ui.popups.split.num_elements, self.ui.terminal_size);
+        self.ui.popups.error.rect = crate::ui::sized_centered_rect(self.ui.popups.error.widest_element_len, self.ui.popups.error.num_elements, self.ui.terminal_size);
+        self.ui.popups.modified_error.rect = crate::ui::sized_centered_rect(self.ui.popups.modified_error.widest_element_len, self.ui.popups.modified_error.num_elements, self.ui.terminal_size);
+        self.ui.popups.warning.rect = crate::ui::sized_centered_rect(self.ui.popups.warning.widest_element_len, self.ui.popups.warning.num_elements, self.ui.terminal_size);
+        self.ui.popups.notify.rect = crate::ui::sized_centered_rect(self.ui.popups.notify.widest_element_len, self.ui.popups.notify.num_elements, self.ui.terminal_size);
+        self.ui.popups.info.rect = crate::ui::sized_centered_rect(self.ui.popups.info.widest_element_len, self.ui.popups.info.num_elements, self.ui.terminal_size);
+        self.ui.popups.view.rect = crate::ui::sized_centered_rect(self.ui.popups.view.widest_element_len, self.ui.popups.view.num_elements, self.ui.terminal_size);
+        self.ui.popups.object.rect = crate::ui::sized_centered_rect(self.ui.popups.object.widest_element_len, self.ui.popups.object.num_elements, self.ui.terminal_size);
+        self.ui.popups.add_surround.rect = crate::ui::sized_centered_rect(self.ui.popups.add_surround.widest_element_len, self.ui.popups.add_surround.num_elements, self.ui.terminal_size);
+    }
+    fn layout_terminal(&self, terminal_size: Rect) -> std::rc::Rc<[Rect]>{       //TODO: maybe rename layout_terminal_vertical_ui_components
+        // layout of the whole terminal screen
+        Layout::default()
+            .direction(ratatui::prelude::Direction::Vertical)
+            .constraints(
+                vec![
+                    //[0]
+                    // document + line num rect height
+                    Constraint::Min(0),
+
+                    //[1]
+                    // status bar rect height
+                    Constraint::Length(if self.ui.status_bar.show{1}else{0}),
+
+                    //[2]
+                    // util(goto/find/command) bar rect height
+                    Constraint::Length(
+                        match &self.mode(){
+                            Mode::Error(_) | 
+                            Mode::Warning(_) | 
+                            Mode::Notify(_) | 
+                            Mode::Info(_) | 
+                            Mode::Command | 
+                            Mode::Find | 
+                            Mode::Goto | 
+                            Mode::Split => 1,
+    
+                            Mode::Object |
+                            Mode::Insert |
+                            Mode::View |
+                            Mode::AddSurround => if self.ui.status_bar.show{1}else{0}
+                        }
+                    )
+                ]
+            )
+            .split(terminal_size)
+    }
+    fn layout_buffer_viewport(&self, rect: Rect) -> std::rc::Rc<[Rect]>{
+        // layout of document + line num rect
+        Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(
+                vec![
+                    //[0]
+                    // line number rect width
+                    Constraint::Length(
+                        if self.ui.document_viewport.line_number_widget.show{
+                            crate::ui::count_digits(self.buffer.len_lines())
+                        }else{0}
+                    ),
+    
+                    //[1]
+                    // line number right padding
+                    Constraint::Length(
+                        if self.ui.document_viewport.line_number_widget.show{
+                            1
+                        }else{0}
+                    ),
+    
+                    //[2]
+                    // document rect width
+                    Constraint::Min(5)
+                ]
+            )
+            .split(rect)
+    }
+    fn layout_status_bar(&self, rect: Rect) -> std::rc::Rc<[Rect]>{
+        // layout of status bar rect (modified_indicator/file_name/cursor_position)
+        Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(
+                vec![
+                    //[0]
+                    // read_only widget
+                    Constraint::Max(
+                        self.ui.status_bar.read_only_widget.text.len() as u16
+                    ),
+    
+                    //[1]
+                    // padding_1
+                    Constraint::Max(
+                        if self.buffer.read_only{
+                            1
+                        }else{0}
+                    ),
+                    
+                    //[2]
+                    // file_name widget
+                    Constraint::Max(
+                        self.ui.status_bar.file_name_widget.text.len() as u16
+                    ),
+    
+                    //[3]
+                    // padding_2
+                    Constraint::Max(
+                        if self.buffer.is_modified(){
+                            1
+                        }else{0}
+                    ),
+                    
+                    //[4]
+                    // modified widget
+                    Constraint::Max(
+                        self.ui.status_bar.modified_widget.text.len() as u16
+                    ),
+                    
+                    //[5]
+                    // selections widget
+                    Constraint::Min(0),     //or set selections widget to Max, and surround with 2 padding widgets set to Min(0)?...idk if that will work the same?...
+                    
+                    //[6]
+                    // cursor position indicator width
+                    Constraint::Max(
+                        self.ui.status_bar.cursor_position_widget.text.len() as u16
+                    ),
+    
+                    //[7]
+                    // padding_3
+                    Constraint::Max(1),
+    
+                    //[8]
+                    // mode widget
+                    Constraint::Max(
+                        self.ui.status_bar.mode_widget.text.len() as u16
+                    ),
+                ]
+            )
+            .split(rect)
+    }
+    fn layout_util_bar(&self, rect: Rect) -> std::rc::Rc<[Rect]>{
+        use crate::ui::util_bar::{GOTO_PROMPT, FIND_PROMPT, SPLIT_PROMPT, COMMAND_PROMPT};
+        // layout of util rect (goto/find/command/save as)
+        Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(
+                vec![
+                    //[0]
+                    // util bar prompt width
+                    Constraint::Length(
+                        match self.mode(){
+                            Mode::Goto => GOTO_PROMPT.len() as u16,
+                            Mode::Find => FIND_PROMPT.len() as u16,
+                            Mode::Split => SPLIT_PROMPT.len() as u16,
+                            Mode::Command => COMMAND_PROMPT.len() as u16,
+                            Mode::Error(_)
+                            | Mode::Warning(_)
+                            | Mode::Notify(_)
+                            | Mode::Info(_)
+                            | Mode::Insert
+                            | Mode::Object
+                            | Mode::View 
+                            | Mode::AddSurround => 0
+                        }
+                    ),
+
+                    //[1]
+                    // util bar rect width
+                    Constraint::Length(
+                        match self.mode(){
+                            Mode::Insert
+                            | Mode::Object
+                            | Mode::View
+                            | Mode::Error(_) 
+                            | Mode::Warning(_)
+                            | Mode::Notify(_)
+                            | Mode::Info(_)
+                            | Mode::AddSurround => rect.width,
+                            Mode::Goto => rect.width - GOTO_PROMPT.len() as u16,
+                            Mode::Command => rect.width - COMMAND_PROMPT.len() as u16,
+                            Mode::Find => rect.width - FIND_PROMPT.len() as u16,
+                            Mode::Split => rect.width - SPLIT_PROMPT.len() as u16,
+                        }
+                    ),
+                    // used to fill in space when other two are 0 length
+                    Constraint::Length(0)
+                ]
+            )
+            .split(rect)
+    }
+
+    pub fn render(&self, terminal: &mut Terminal<impl Backend>) -> Result<(), String>{
+        match terminal.draw(
+            |frame| {
+                // always render
+                render_widget(self.ui.document_viewport.document_widget.text.clone(), self.ui.document_viewport.document_widget.rect, Alignment::Left, false, DOCUMENT_BACKGROUND_COLOR, DOCUMENT_FOREGROUND_COLOR, frame);
+                self.render_buffer_highlights(frame.buffer_mut());
+                
+                // conditionally render
+                if self.ui.document_viewport.line_number_widget.show{
+                    render_widget(self.ui.document_viewport.line_number_widget.text.clone(), self.ui.document_viewport.line_number_widget.rect, Alignment::Right, false, LINE_NUMBER_BACKGROUND_COLOR, LINE_NUMBER_FOREGROUND_COLOR, frame);
+                    render_widget(String::new(), self.ui.document_viewport.padding.rect, Alignment::Center, false, LINE_NUMBER_BACKGROUND_COLOR, LINE_NUMBER_BACKGROUND_COLOR, frame);
+                }
+                if self.ui.status_bar.show{
+                    //instead of read_only_widget.text, we could do: if app.buffer.read_only{"ReadOnly"}else{String::new()}
+                    render_widget(self.ui.status_bar.read_only_widget.text.clone(), self.ui.status_bar.read_only_widget.rect, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, READ_ONLY_WIDGET_FOREGROUND_COLOR, frame);
+                    render_widget(String::new(), self.ui.status_bar.padding_1.rect, Alignment::Center, false, STATUS_BAR_BACKGROUND_COLOR, Color::Red, frame);
+                    render_widget(self.ui.status_bar.file_name_widget.text.clone(), self.ui.status_bar.file_name_widget.rect, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, FILE_NAME_WIDGET_FOREGROUND_COLOR, frame);
+                    render_widget(String::new(), self.ui.status_bar.padding_2.rect, Alignment::Center, false, STATUS_BAR_BACKGROUND_COLOR, Color::Red, frame);
+                    render_widget(self.ui.status_bar.modified_widget.text.clone(), self.ui.status_bar.modified_widget.rect, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, MODIFIED_WIDGET_FOREGROUND_COLOR, frame);
+                    render_widget(self.ui.status_bar.selections_widget.text.clone(), self.ui.status_bar.selections_widget.rect, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, SELECTIONS_WIDGET_FOREGROUND_COLOR, frame);
+                    render_widget(self.ui.status_bar.cursor_position_widget.text.clone(), self.ui.status_bar.cursor_position_widget.rect, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, CURSOR_POSITION_WIDGET_FOREGROUND_COLOR, frame);
+                    render_widget(String::new(), self.ui.status_bar.padding_3.rect, Alignment::Center, false, STATUS_BAR_BACKGROUND_COLOR, Color::Red, frame);
+                    render_widget(self.ui.status_bar.mode_widget.text.clone(), self.ui.status_bar.mode_widget.rect, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, MODE_WIDGET_FOREGROUND_COLOR, frame);
+                }
+    
+                // render according to mode
+                match self.mode(){
+                    Mode::Insert => {
+                        // built in cursor handling. now handling cursor rendering ourselves
+                        // frame.set_cursor_position((
+                        //     self.document_viewport.document_widget.rect.x + pos.x() as u16,
+                        //     self.document_viewport.document_widget.rect.y + pos.y() as u16
+                        // ))
+                    }
+                    Mode::Goto => {
+                        render_widget(GOTO_PROMPT.to_string(), self.ui.util_bar.prompt.rect, Alignment::Center, false, UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR, frame);
+                        render_widget(self.text_box_display_area().text(&self.ui.util_bar.utility_widget.text_box.buffer), self.ui.util_bar.utility_widget.rect, Alignment::Left, false, UTIL_BAR_BACKGROUND_COLOR, if self.ui.util_bar.utility_widget.text_box.text_is_valid{UTIL_BAR_FOREGROUND_COLOR}else{UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR}, frame);
+                        self.render_util_bar_highlights(frame.buffer_mut());
+                        if SHOW_CONTEXTUAL_KEYBINDS{
+                            frame.render_widget(ratatui::widgets::Clear, self.ui.popups.goto.rect);
+                            render_popup(self.ui.popups.goto.text.clone(), self.ui.popups.goto.title.clone(), self.ui.popups.goto.rect, Color::Black, Color::Yellow, frame);
+                        }
+                    }
+                    Mode::Command => {
+                        render_widget(COMMAND_PROMPT.to_string(), self.ui.util_bar.prompt.rect, Alignment::Center, false, UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR, frame);
+                        render_widget(self.text_box_display_area().text(&self.ui.util_bar.utility_widget.text_box.buffer), self.ui.util_bar.utility_widget.rect, Alignment::Left, false, UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR, frame);
+                        self.render_util_bar_highlights(frame.buffer_mut());
+                        if SHOW_CONTEXTUAL_KEYBINDS{
+                            frame.render_widget(ratatui::widgets::Clear, self.ui.popups.command.rect);
+                            render_popup(self.ui.popups.command.text.clone(), self.ui.popups.command.title.clone(), self.ui.popups.command.rect, Color::Black, Color::Yellow, frame);
+                        }
+                    }
+                    Mode::Find => {
+                        render_widget(FIND_PROMPT.to_string(), self.ui.util_bar.prompt.rect, Alignment::Center, false, UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR, frame);
+                        render_widget(self.text_box_display_area().text(&self.ui.util_bar.utility_widget.text_box.buffer), self.ui.util_bar.utility_widget.rect, Alignment::Left, false, UTIL_BAR_BACKGROUND_COLOR, if self.ui.util_bar.utility_widget.text_box.text_is_valid{UTIL_BAR_FOREGROUND_COLOR}else{UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR}, frame);
+                        self.render_util_bar_highlights(frame.buffer_mut());
+                        if SHOW_CONTEXTUAL_KEYBINDS{
+                            frame.render_widget(ratatui::widgets::Clear, self.ui.popups.find.rect);
+                            render_popup(self.ui.popups.find.text.clone(), self.ui.popups.find.title.clone(), self.ui.popups.find.rect, Color::Black, Color::Yellow, frame);
+                        }
+                    }
+                    Mode::Split => {
+                        render_widget(SPLIT_PROMPT.to_string(), self.ui.util_bar.prompt.rect, Alignment::Center, false, UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR, frame);
+                        render_widget(self.text_box_display_area().text(&self.ui.util_bar.utility_widget.text_box.buffer), self.ui.util_bar.utility_widget.rect, Alignment::Left, false, UTIL_BAR_BACKGROUND_COLOR, if self.ui.util_bar.utility_widget.text_box.text_is_valid{UTIL_BAR_FOREGROUND_COLOR}else{UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR}, frame);
+                        self.render_util_bar_highlights(frame.buffer_mut());
+                        if SHOW_CONTEXTUAL_KEYBINDS{
+                            frame.render_widget(ratatui::widgets::Clear, self.ui.popups.split.rect);
+                            render_popup(self.ui.popups.split.text.clone(), self.ui.popups.split.title.clone(), self.ui.popups.split.rect, Color::Black, Color::Yellow, frame);
+                        }
+                    }
+                    Mode::Error(string) => {
+                        render_widget(string.clone(), self.ui.util_bar.utility_widget.rect, Alignment::Center, true, ERROR_BACKGROUND_COLOR, ERROR_FOREGROUND_COLOR, frame);
+                        if &string == FILE_MODIFIED{
+                            if SHOW_CONTEXTUAL_KEYBINDS{
+                                frame.render_widget(ratatui::widgets::Clear, self.ui.popups.modified_error.rect);
+                                render_popup(self.ui.popups.error.text.clone(), self.ui.popups.error.title.clone(), self.ui.popups.error.rect, Color::Black, Color::Yellow, frame);
+                            }
+                        }
+                        else{
+                            if SHOW_CONTEXTUAL_KEYBINDS{
+                                frame.render_widget(ratatui::widgets::Clear, self.ui.popups.error.rect);
+                                render_popup(self.ui.popups.error.text.clone(), self.ui.popups.error.title.clone(), self.ui.popups.error.rect, Color::Black, Color::Yellow, frame);
+                            }
+                        }
+                    }
+                    Mode::Warning(string) => {
+                        render_widget(string.clone(), self.ui.util_bar.utility_widget.rect, Alignment::Center, true, WARNING_BACKGROUND_COLOR, WARNING_FOREGROUND_COLOR, frame);
+                        if SHOW_CONTEXTUAL_KEYBINDS{
+                            frame.render_widget(ratatui::widgets::Clear, self.ui.popups.warning.rect);
+                            render_popup(self.ui.popups.warning.text.clone(), self.ui.popups.warning.title.clone(), self.ui.popups.warning.rect, Color::Black, Color::Yellow, frame);
+                        }
+                    }
+                    Mode::Notify(string) => {
+                        render_widget(string.clone(), self.ui.util_bar.utility_widget.rect, Alignment::Center, true, NOTIFY_BACKGROUND_COLOR, NOTIFY_FOREGROUND_COLOR, frame);
+                        if SHOW_CONTEXTUAL_KEYBINDS{
+                            frame.render_widget(ratatui::widgets::Clear, self.ui.popups.notify.rect);
+                            render_popup(self.ui.popups.notify.text.clone(), self.ui.popups.notify.title.clone(), self.ui.popups.notify.rect, Color::Black, Color::Yellow, frame);
+                        }
+                    }
+                    Mode::Info(string) => {
+                        render_widget(string.clone(), self.ui.util_bar.utility_widget.rect, Alignment::Center, true, INFO_BACKGROUND_COLOR, INFO_FOREGROUND_COLOR, frame);
+                        if SHOW_CONTEXTUAL_KEYBINDS{
+                            frame.render_widget(ratatui::widgets::Clear, self.ui.popups.info.rect);
+                            render_popup(self.ui.popups.info.text.clone(), self.ui.popups.info.title.clone(), self.ui.popups.info.rect, Color::Black, Color::Yellow, frame);
+                        }
+                    }
+                    Mode::View => {
+                        if SHOW_CONTEXTUAL_KEYBINDS{
+                            frame.render_widget(ratatui::widgets::Clear, self.ui.popups.view.rect);
+                            render_popup(self.ui.popups.view.text.clone(), self.ui.popups.view.title.clone(), self.ui.popups.view.rect, Color::Black, Color::Yellow, frame);
+                        }
+                    }
+                    Mode::Object => {
+                        if SHOW_CONTEXTUAL_KEYBINDS{
+                            frame.render_widget(ratatui::widgets::Clear, self.ui.popups.object.rect);
+                            render_popup(self.ui.popups.object.text.clone(), self.ui.popups.object.title.clone(), self.ui.popups.object.rect, Color::Black, Color::Yellow, frame);
+                        }
+                    }
+                    Mode::AddSurround => {
+                        if SHOW_CONTEXTUAL_KEYBINDS{
+                            frame.render_widget(ratatui::widgets::Clear, self.ui.popups.add_surround.rect);
+                            render_popup(self.ui.popups.add_surround.text.clone(), self.ui.popups.add_surround.title.clone(), self.ui.popups.add_surround.rect, Color::Black, Color::Yellow, frame);
+                        }
+                    }
+                }
+            }
+        ){
+            Ok(_) => Ok(()),
+            Err(e) => Err(format!("{e}"))
+        }
+    }
+    fn render_buffer_highlights(&self, buf: &mut ratatui::prelude::Buffer){
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        let area = self.ui.document_viewport.document_widget.rect;
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    
+        let primary_cursor = self.ui.document_viewport.highlighter.primary_cursor.clone();
+        let cursors = self.ui.document_viewport.highlighter.cursors.clone();
+        let selections = self.ui.document_viewport.highlighter.selections.clone();
+        //
+        if crate::config::SHOW_CURSOR_COLUMN{
+            for y in area.top()..area.height{
+                if let Some(primary_cursor_position) = &primary_cursor{//self.primary_cursor.clone(){
+                    if let Some(cell) = buf.cell_mut((area.left() + primary_cursor_position.x as u16, y)){
+                        cell.set_style(
+                            Style::default()
+                                .bg(crate::config::CURSOR_COLUMN_BACKGROUND_COLOR)
+                                .fg(crate::config::CURSOR_COLUMN_FOREGROUND_COLOR)
+                        );
+                    }
+                }
+            }
+        }
+        if crate::config::SHOW_CURSOR_LINE{
+            for x in area.left()..(area.width + area.left()){
+                if let Some(primary_cursor_position) = &primary_cursor{//self.primary_cursor.clone(){
+                    if let Some(cell) = buf.cell_mut((x, area.top() + primary_cursor_position.y as u16)){
+                        cell.set_style(
+                            Style::default()
+                                .bg(crate::config::CURSOR_LINE_BACKGROUND_COLOR)
+                                .fg(crate::config::CURSOR_LINE_FOREGROUND_COLOR)
+                        );
+                    }
+                }
+            }
+        }
+    
+        //if let Some(selections) = self.selections{  //selection not rendering properly on last empty line following previous newline, when cursor rendering below is not drawn there. maybe this is correct, because there is technically no content there...
+        //if !self.selections.is_empty(){
+        if !selections.is_empty(){
+            for selection in selections{//&self.selections{  //self.selections.iter(){   //change suggested by clippy lint
+                if selection.head().x - selection.anchor().x == 0{continue;}    //should this use start and end instead?
+                for col in selection.anchor().x../*=*/selection.head().x{
+                    let x_pos = area.left() + (col as u16);
+                    //let y_pos = selection.head().y as u16;
+                    let y_pos = area.top() + (selection.head().y as u16);
+        
+                    if let Some(cell) = buf.cell_mut((x_pos, y_pos)){
+                        cell.set_style(Style::default()
+                            .bg(crate::config::SELECTION_BACKGROUND_COLOR)
+                            .fg(crate::config::SELECTION_FOREGROUND_COLOR)
+                        );
+                    }
+                }
+            }
+        }
+    
+        //render cursors for all selections
+        //if !self.cursors.is_empty(){
+        if !cursors.is_empty(){
+            for cursor in cursors{//self.cursors{
+                if let Some(cell) = buf.cell_mut((area.left() + (cursor.x as u16), area.top() + (cursor.y as u16))){
+                    cell.set_style(Style::default()
+                        .bg(crate::config::CURSOR_BACKGROUND_COLOR)
+                        .fg(crate::config::CURSOR_FOREGROUND_COLOR)
+                    );
+                }
+            }
+        }
+    
+        // render primary cursor
+        if let Some(cursor) = &primary_cursor{//self.primary_cursor{
+            if let Some(cell) = buf.cell_mut((area.left() + (cursor.x as u16), area.top() + (cursor.y as u16))){
+                cell.set_style(Style::default()
+                    .bg(crate::config::PRIMARY_CURSOR_BACKGROUND_COLOR)
+                    .fg(crate::config::PRIMARY_CURSOR_FOREGROUND_COLOR)
+                );
+            }
+        }
+    
+        //debug //this can help ensure we are using the correct Rect
+        //if let Some(cell) = buf.cell_mut((area.left(), area.top())){
+        //    cell.set_style(
+        //        Style::default()
+        //            .bg(ratatui::style::Color::Yellow)
+        //    );
+        //}
+    }
+    fn render_util_bar_highlights(&self, buf: &mut ratatui::prelude::Buffer){
+        let area = self.ui.util_bar.utility_widget.rect;
+    
+        let selection = self.ui.util_bar.highlighter.selection.clone();
+        let cursor = self.ui.util_bar.highlighter.cursor.clone();
+    
+        //render selection
+        if let Some(selection) = selection{//self.selection{
+            if selection.head().x - selection.anchor().x > 0{   //if selection extended
+                for col in selection.anchor().x..selection.head().x{
+                    let x_pos = area.left() + (col as u16);
+                    //let y_pos = area.top();
+                    let y_pos = area.top() + (selection.head().y as u16);
+                    //assert_eq!(0, y_pos, "util bar text should be guaranteed to be one line");    //this seems to be causing issues when moving from end of line...
+        
+                    if let Some(cell) = buf.cell_mut((x_pos, y_pos)){
+                        cell.set_style(Style::default()
+                            .bg(crate::config::SELECTION_BACKGROUND_COLOR)
+                            .fg(crate::config::SELECTION_FOREGROUND_COLOR)
+                        );
+                    }
+                }
+            }
+        }
+    
+        // render cursor
+        if let Some(cursor) = cursor{//self.cursor{
+            assert_eq!(0, cursor.y, "util bar text should be guaranteed to be one line");
+            if let Some(cell) = buf.cell_mut((area.left() + (cursor.x as u16), area.top() + (cursor.y as u16))){
+                cell.set_style(Style::default()
+                    .bg(crate::config::PRIMARY_CURSOR_BACKGROUND_COLOR)
+                    .fg(crate::config::PRIMARY_CURSOR_FOREGROUND_COLOR)
+                );
+            }
+        }
+    
+        //debug //this can help ensure we are using the correct Rect
+        //if let Some(cell) = buf.cell_mut((area.left(), area.top())){
+        //    cell.set_style(
+        //        Style::default()
+        //            .bg(ratatui::style::Color::Yellow)
+        //    );
+        //}
     }
 
     fn handle_event(&mut self) -> Result<(), String>{
@@ -403,7 +899,7 @@ impl Application{
             self.ui.document_viewport.document_widget.rect.height as usize
         )
     }
-    fn text_box_display_area(&self) -> DisplayArea{
+    pub fn text_box_display_area(&self) -> DisplayArea{
         DisplayArea::new(
             self.ui.util_bar.utility_widget.text_box.display_area_horizontal_start, 
             self.ui.util_bar.utility_widget.text_box.display_area_vertical_start, 
@@ -447,7 +943,9 @@ impl Application{
 
         //handle exit behavior
         if update_layouts_and_document{
-            self.ui.update_layouts(&self.mode());
+            //self.ui.update_layouts(&self.mode());
+            //crate::ui::update_layouts(self);
+            self.update_layouts();
             self.update_ui_data_document();
         }
         if clear_util_bar_text{
@@ -455,7 +953,8 @@ impl Application{
             self.update_ui_data_util_bar();
         }
         if clear_saved_selections{
-            self.ui.util_bar.utility_widget.preserved_selections = None;
+            //self.ui.util_bar.utility_widget.preserved_selections = None;
+            self.preserved_selections = None;
         }
 
         //does this belong here, or in ui.rs?...
@@ -497,10 +996,13 @@ impl Application{
 
             //handle entry behavior
             if save_selections{
-                self.ui.util_bar.utility_widget.preserved_selections = Some(self.selections.clone());
+                //self.ui.util_bar.utility_widget.preserved_selections = Some(self.selections.clone());
+                self.preserved_selections = Some(self.selections.clone());
             }
             if update_layouts_and_document{
-                self.ui.update_layouts(&self.mode());
+                //self.ui.update_layouts(&self.mode());
+                //crate::ui::update_layouts(self);
+                self.update_layouts();
                 self.update_ui_data_document();
             }
             if update_util_bar{
@@ -636,7 +1138,9 @@ impl Application{
     }
     pub fn resize(&mut self, x: u16, y: u16){
         self.ui.set_terminal_size(x, y);
-        self.ui.update_layouts(&self.mode());
+        //self.ui.update_layouts(&self.mode());
+        //crate::ui::update_layouts(self);
+        self.update_layouts();
         self.update_ui_data_util_bar(); //TODO: can this be called later in fn impl?
         // scrolling so cursor is in a reasonable place, and updating so any ui changes render correctly
         self.checked_scroll_and_update(
@@ -723,7 +1227,7 @@ impl Application{
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::AddSurround);
         if self.buffer.read_only{self.handle_notification(crate::config::READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER);}
         else{
-            let len = self.buffer.len_lines();
+            //let len = self.buffer.len_lines();
             use crate::utilities::{insert_string, delete, backspace, cut, paste, undo, redo, add_surrounding_pair};
             let result = match action{
                 EditAction::InsertChar(c) => insert_string::application_impl(self, &c.to_string(), USE_HARD_TAB, TAB_WIDTH, CURSOR_SEMANTICS),
@@ -745,7 +1249,7 @@ impl Application{
                         Application::update_ui_data_document, 
                         Application::update_ui_data_document
                     );
-                    if len != self.buffer.len_lines(){self.ui.document_viewport.document_widget.doc_length = self.buffer.len_lines();}
+                    //if len != self.buffer.len_lines(){self.ui.document_viewport.document_widget.doc_length = self.buffer.len_lines();}
 
                     // check if any selection is outside of view
                     let mut selection_out_of_view = false;
@@ -981,12 +1485,12 @@ impl Application{
 
     pub fn restore_selections_and_exit(&mut self){
         self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
-        self.selections = self.ui.util_bar.utility_widget.preserved_selections.clone().unwrap();    //shouldn't be called unless this value is Some()
+        self.selections = self.preserved_selections.clone().unwrap();//self.ui.util_bar.utility_widget.preserved_selections.clone().unwrap();    //shouldn't be called unless this value is Some()
         self.checked_scroll_and_update(&self.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
         self.mode_pop();
     }
     fn incremental_search(&mut self){   //this def doesn't work correctly with utf-8 yet
-        let preserved_selections = self.ui.util_bar.utility_widget.preserved_selections.clone();
+        let preserved_selections = self.preserved_selections.clone();//self.ui.util_bar.utility_widget.preserved_selections.clone();
         let search_text = self.ui.util_bar.utility_widget.text_box.buffer.inner.to_string().clone();
         match preserved_selections{
             Some(preserved_selections) => {
@@ -999,7 +1503,7 @@ impl Application{
         }
     }
     fn incremental_split(&mut self){
-        let preserved_selections = self.ui.util_bar.utility_widget.preserved_selections.clone();
+        let preserved_selections = self.preserved_selections.clone();//self.ui.util_bar.utility_widget.preserved_selections.clone();
         let split_text = self.ui.util_bar.utility_widget.text_box.buffer.inner.to_string().clone();
         match preserved_selections{
             Some(preserved_selections) => {
@@ -1016,14 +1520,18 @@ impl Application{
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
         self.ui.document_viewport.line_number_widget.show = !self.ui.document_viewport.line_number_widget.show;
                 
-        self.ui.update_layouts(&self.mode());
+        //self.ui.update_layouts(&self.mode());
+        //crate::ui::update_layouts(self);
+        self.update_layouts();
         self.update_ui_data_document();
     }
     pub fn toggle_status_bar(&mut self){
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
         self.ui.status_bar.show = !self.ui.status_bar.show;
                 
-        self.ui.update_layouts(&self.mode());
+        //self.ui.update_layouts(&self.mode());
+        //crate::ui::update_layouts(self);
+        self.update_layouts();
         self.update_ui_data_document();
     }
     pub fn open_new_terminal_window(){
@@ -1155,4 +1663,42 @@ impl Application{
             crate::history::Operation::Insert{inserted_text: change_text.to_string()}
         )
     }
+}
+
+fn render_widget(text: String, area: Rect, alignment: Alignment, bold: bool, background_color: Color, foreground_color: Color, frame: &mut Frame<'_>){
+    frame.render_widget(
+        if bold{
+            Paragraph::new(text)
+            .style(
+                Style::default()
+                    .bg(background_color)
+                    .fg(foreground_color)
+            )
+            .alignment(alignment)
+            .bold()
+        }else{
+            Paragraph::new(text)
+            .style(
+                Style::default()
+                    .bg(background_color)
+                    .fg(foreground_color)
+            )
+            .alignment(alignment)
+        }, 
+        area
+    );
+}
+fn render_popup(text: String, title: String, area: Rect, background_color: Color, foreground_color: Color, frame: &mut Frame<'_>){
+    frame.render_widget(
+        Paragraph::new(text)
+            .block(ratatui::widgets::Block::default()
+                .borders(ratatui::widgets::Borders::all())
+                .title(title))
+            .style(
+                Style::new()
+                    .bg(background_color)
+                    .fg(foreground_color)
+            ),
+        area
+    );
 }

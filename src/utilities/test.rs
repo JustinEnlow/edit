@@ -91,7 +91,8 @@ fn set_up_test_application(
                     //this should disable extra widgets, and make terminal_display_area and buffer_display_area equivalent
                     app.ui.document_viewport.line_number_widget.show = render_line_numbers;
                     app.ui.status_bar.show = render_status_bar;
-                    app.ui.update_layouts(&app.mode());
+                    //app.ui.update_layouts(&app.mode());
+                    app.update_layouts();
                     //TODO: figure out how to print terminal buffer for debugging...
                     //TODO: assert_eq!(expected_buffer_display_area, app.buffer_display_area());
                     Ok(app)

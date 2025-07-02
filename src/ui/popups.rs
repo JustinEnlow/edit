@@ -1,6 +1,4 @@
 use ratatui::layout::Rect;
-use ratatui::widgets::Paragraph;
-use ratatui::style::{Style, Color};
 use unicode_segmentation::UnicodeSegmentation;
 use crate::config;
 
@@ -100,8 +98,8 @@ pub struct PopupMenu{
     pub rect: Rect,
     pub widest_element_len: u16,    //+2 for border //the number of chars in the widest option in the space menu
     pub num_elements: u16,  //+2 for border //the number of options in the space menu
-    content: String,
-    context_menu_title: String,
+    pub text: String,
+    pub title: String,
     //bg_color: Color   //if we want to keep mode specific styling for popup
     //fg_color: Color   //if we want to keep mode specific styling for popup
 }
@@ -123,8 +121,8 @@ impl PopupMenu{
             rect: Rect::default(),
             widest_element_len: longest_line_len + 2,   //TODO: make a note why we need to add this number
             num_elements: num_lines + 2,                //TODO: make a note why we need to add this number
-            content: String::from(content),
-            context_menu_title: String::from(context_menu_title),
+            text: String::from(content),
+            title: String::from(context_menu_title),
         }
     }
     fn new_from_mode_menu(mode_menu: &[MenuItem], context_menu_title: &str) -> Self{
@@ -175,13 +173,6 @@ impl PopupMenu{
         }
         
         PopupMenu::new(&content, context_menu_title)
-    }
-    pub fn widget(&self) -> Paragraph<'static>{
-        Paragraph::new(self.content.clone())
-            .block(ratatui::widgets::Block::default()
-                .borders(ratatui::widgets::Borders::all())
-                .title(self.context_menu_title.clone()))
-            .style(Style::new().fg(Color::Rgb(255, 255, 0)))
     }
 }
 
