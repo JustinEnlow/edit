@@ -1,0 +1,176 @@
+use edit::{
+    application::{EditAction::Backspace, Mode},
+    selection::CursorSemantics,
+    display_area::DisplayArea,
+    config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER, SAME_STATE_DISPLAY_MODE, SAME_STATE}
+};
+use crate::edit_actions::test_edit_action;
+
+#[test] fn common_use(){
+    test_edit_action(
+        Backspace, 
+        CursorSemantics::Block, 
+        false, 
+        false, 
+        false, 
+        DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
+        "idk\nsome\nshit\n", 
+        vec![
+            (1, 2, None),
+            (5, 6, None)
+        ], 
+        0, 
+        "",
+        "dk\nome\nshit\n", 
+        Mode::Insert, 
+        vec![
+            (0, 1, Some(0)),
+            (3, 4, Some(0))
+        ], 
+        0,
+        ""
+    );
+}
+
+#[test] fn when_at_line_start_appends_current_line_to_previous_line(){
+    test_edit_action(
+        Backspace, 
+        CursorSemantics::Block, 
+        false, 
+        false, 
+        false, 
+        DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
+        "idk\nsome\nshit\n", 
+        vec![
+            (4, 5, None)
+        ], 
+        0, 
+        "",
+        "idksome\nshit\n", 
+        Mode::Insert, 
+        vec![
+            (3, 4, Some(3))
+        ], 
+        0,
+        ""
+    );
+}
+
+#[test] fn with_valid_selection_and_cursor_at_doc_start(){
+    test_edit_action(
+        Backspace, 
+        CursorSemantics::Block, 
+        false, 
+        false, 
+        false, 
+        DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
+        "idk\nsome\nshit\n", 
+        vec![
+            (0, 1, None),
+            (4, 5, None)
+        ], 
+        0, 
+        "",
+        "idksome\nshit\n", 
+        Mode::Insert, 
+        vec![
+            (0, 1, None),
+            (3, 4, Some(3))
+        ], 
+        0,
+        ""
+    );
+}
+
+#[test] fn with_extended_selection_deletes_selection(){
+    test_edit_action(
+        Backspace, 
+        CursorSemantics::Block, 
+        false, 
+        false, 
+        false, 
+        DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
+        "idk\nsome\nshit\n", 
+        vec![
+            (0, 4, None)
+        ], 
+        0, 
+        "",
+        "some\nshit\n", 
+        Mode::Insert, 
+        vec![
+            (0, 1, Some(0)),
+        ], 
+        0,
+        ""
+    );
+}
+
+#[test] fn errors_if_single_cursor_at_doc_start(){
+    test_edit_action(
+        Backspace, 
+        CursorSemantics::Block, 
+        false, 
+        false, 
+        false, 
+        DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
+        "idk\nsome\nshit\n", 
+        vec![
+            (0, 1, None)
+        ], 
+        0, 
+        "",
+        "idk\nsome\nshit\n", 
+        match SAME_STATE_DISPLAY_MODE{
+            DisplayMode::Error => {Mode::Error(SAME_STATE.to_string())}
+            DisplayMode::Warning => {Mode::Warning(SAME_STATE.to_string())}
+            DisplayMode::Notify => {Mode::Notify(SAME_STATE.to_string())}
+            DisplayMode::Info => {Mode::Info(SAME_STATE.to_string())}
+            DisplayMode::Ignore => {Mode::Insert}
+        }, 
+        vec![
+            (0, 1, None),
+        ], 
+        0,
+        ""
+    );
+}
+
+#[test] fn with_read_only_buffer_is_error(){
+    test_edit_action(
+        Backspace, 
+        CursorSemantics::Block, 
+        false, 
+        false, 
+        true, 
+        DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
+        "some\nshit\n", 
+        vec![
+            (0, 1, None),
+            (5, 6, None)
+        ], 
+        0, 
+        "",
+        "some\nshit\n", 
+        match READ_ONLY_BUFFER_DISPLAY_MODE{
+            DisplayMode::Error => {Mode::Error(READ_ONLY_BUFFER.to_string())}
+            DisplayMode::Warning => {Mode::Warning(READ_ONLY_BUFFER.to_string())}
+            DisplayMode::Notify => {Mode::Notify(READ_ONLY_BUFFER.to_string())}
+            DisplayMode::Info => {Mode::Info(READ_ONLY_BUFFER.to_string())}
+            DisplayMode::Ignore => {Mode::Insert}
+        }, 
+        vec![
+            (0, 1, None),
+            (5, 6, None)
+        ], 
+        0,
+        ""
+    );
+}
+
+//TODO: test tab deletion with soft tabs
+//TODO: test tab deletion with hard tabs
+//TODO: test with various tab widths
+
+
+//TODO: test error described in range.rs:15:9

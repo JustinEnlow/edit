@@ -1,0 +1,119 @@
+use edit::{
+    application::{EditAction::Cut, Mode},
+    selection::CursorSemantics::Block,
+    display_area::DisplayArea,
+    config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER, MULTIPLE_SELECTIONS_DISPLAY_MODE, MULTIPLE_SELECTIONS}
+};
+use crate::edit_actions::test_edit_action;
+
+#[test] fn cut_with_selection_direction_forward_block_semantics(){
+    test_edit_action(
+        Cut, 
+        Block, 
+        false, 
+        false, 
+        false, 
+        DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
+        "idk\nsome\nshit\n", 
+        vec![
+            (4, 9, None)
+        ], 
+        0, 
+        "",
+        "idk\nshit\n", 
+        Mode::Insert, 
+        vec![
+            (4, 5, Some(0))
+        ], 
+        0,
+        "some\n"
+    );
+}
+
+#[test] fn cut_with_selection_direction_backward_block_semantics(){
+    test_edit_action(
+        Cut, 
+        Block, 
+        false, 
+        false, 
+        false, 
+        DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
+        "idk\nsome\nshit\n", 
+        vec![
+            (9, 4, None)
+        ], 
+        0, 
+        "",
+        "idk\nshit\n", 
+        Mode::Insert, 
+        vec![
+            (4, 5, Some(0))
+        ], 
+        0,
+        "some\n"
+    );
+}
+
+#[test] fn cut_with_multiple_selections_returns_error(){
+    test_edit_action(
+        Cut, 
+        Block, 
+        false, 
+        false, 
+        false, 
+        DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
+        "idk\nsome\nshit\n", 
+        vec![
+            (0, 3, None),
+            (4, 7, None)
+        ], 
+        0, 
+        "",
+        "idk\nsome\nshit\n", 
+        match MULTIPLE_SELECTIONS_DISPLAY_MODE{
+            DisplayMode::Error => {Mode::Error(MULTIPLE_SELECTIONS.to_string())}
+            DisplayMode::Warning => {Mode::Warning(MULTIPLE_SELECTIONS.to_string())}
+            DisplayMode::Notify => {Mode::Notify(MULTIPLE_SELECTIONS.to_string())}
+            DisplayMode::Info => {Mode::Info(MULTIPLE_SELECTIONS.to_string())}
+            DisplayMode::Ignore => {Mode::Insert}
+        }, 
+        vec![
+            (0, 3, None),
+            (4, 7, None)
+        ], 
+        0,
+        ""
+    );
+}
+
+#[test] fn with_read_only_buffer_is_error(){
+    test_edit_action(
+        Cut, 
+        Block, 
+        false, 
+        false, 
+        true, 
+        DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
+        "some\nshit\n", 
+        vec![
+            (0, 1, None),
+            (5, 6, None)
+        ], 
+        0, 
+        "",
+        "some\nshit\n", 
+        match READ_ONLY_BUFFER_DISPLAY_MODE{
+            DisplayMode::Error => {Mode::Error(READ_ONLY_BUFFER.to_string())}
+            DisplayMode::Warning => {Mode::Warning(READ_ONLY_BUFFER.to_string())}
+            DisplayMode::Notify => {Mode::Notify(READ_ONLY_BUFFER.to_string())}
+            DisplayMode::Info => {Mode::Info(READ_ONLY_BUFFER.to_string())}
+            DisplayMode::Ignore => {Mode::Insert}
+        }, 
+        vec![
+            (0, 1, None),
+            (5, 6, None)
+        ], 
+        0,
+        ""
+    );
+}

@@ -37,6 +37,10 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
                 else{app.no_op_keypress();}
             }
             else if modifiers == KeyModifiers::SHIFT{app.edit_action(&EditAction::InsertChar(c));}
+            else if modifiers == KeyModifiers::ALT{
+                if c == 'v'{app.view_action(&ViewAction::CenterVerticallyAroundCursor);}
+                else{app.no_op_keypress();}
+            }
             else if modifiers == KeyModifiers::NONE{app.edit_action(&EditAction::InsertChar(c));}
             else{app.no_op_keypress();}
         }
@@ -53,14 +57,14 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
         (KeyCode::Up, modifiers) => {
             if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){app.selection_action(&SelectionAction::AddSelectionAbove, 1);}
             else if modifiers == KeyModifiers::SHIFT{app.selection_action(&SelectionAction::ExtendSelectionUp, 1);}
-                //else if modifiers == KeyModifiers::ALT{app.view_action(ViewAction::ScrollUp);}//{app.scroll_view_up(VIEW_SCROLL_AMOUNT);}
+            else if modifiers == KeyModifiers::ALT{app.view_action(&ViewAction::ScrollUp);}
             else if modifiers == KeyModifiers::NONE{app.selection_action(&SelectionAction::MoveCursorUp, 1);}
             else{app.no_op_keypress();}
         }
         (KeyCode::Down, modifiers) => {
             if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){app.selection_action(&SelectionAction::AddSelectionBelow, 1);}
             else if modifiers == KeyModifiers::SHIFT{app.selection_action(&SelectionAction::ExtendSelectionDown, 1);}
-                //else if modifiers == KeyModifiers::ALT{app.view_action(ViewAction::ScrollDown);}//{app.scroll_view_down(VIEW_SCROLL_AMOUNT);}
+            else if modifiers == KeyModifiers::ALT{app.view_action(&ViewAction::ScrollDown);}
             else if modifiers == KeyModifiers::NONE{app.selection_action(&SelectionAction::MoveCursorDown, 1);}
             else{app.no_op_keypress();}
         }
@@ -80,7 +84,7 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
             if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){app.selection_action(&SelectionAction::ExtendSelectionWordBoundaryForward, 1);}
             else if modifiers == KeyModifiers::CONTROL{app.selection_action(&SelectionAction::MoveCursorWordBoundaryForward, 1);}
             else if modifiers == KeyModifiers::SHIFT{app.selection_action(&SelectionAction::ExtendSelectionRight, 1);}
-                //else if modifiers == KeyModifiers::ALT{app.view_action(ViewAction::ScrollRight);}//{app.scroll_view_right(VIEW_SCROLL_AMOUNT);}
+            else if modifiers == KeyModifiers::ALT{app.view_action(&ViewAction::ScrollRight);}
             else if modifiers == KeyModifiers::NONE{app.selection_action(&SelectionAction::MoveCursorRight, 1);}
             else{app.no_op_keypress();}
         }
@@ -88,7 +92,7 @@ pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modi
             if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){app.selection_action(&SelectionAction::ExtendSelectionWordBoundaryBackward, 1);}
             else if modifiers == KeyModifiers::CONTROL{app.selection_action(&SelectionAction::MoveCursorWordBoundaryBackward, 1);}
             else if modifiers == KeyModifiers::SHIFT{app.selection_action(&SelectionAction::ExtendSelectionLeft, 1);}
-                //else if modifiers == KeyModifiers::ALT{app.view_action(ViewAction::ScrollLeft);}//{app.scroll_view_left(VIEW_SCROLL_AMOUNT);}
+            else if modifiers == KeyModifiers::ALT{app.view_action(&ViewAction::ScrollLeft);}
             else if modifiers == KeyModifiers::NONE{app.selection_action(&SelectionAction::MoveCursorLeft, 1);}
             else{app.no_op_keypress();}
         }
@@ -384,6 +388,8 @@ pub fn handle_command_mode_keypress(app: &mut Application, keycode: KeyCode, mod
 // if warning/notify/info mode entered from error mode, user can fallthrough to insert, or press esc to go back to error mode, 
 // and esc again to go back to the mode before error. so, the mode stack concept is still viable
 pub fn handle_error_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
+    //no op keypresses here need to also display in error mode, regardless of UNHANDLED_KEYPRESS_DISPLAY_MODE config.
+    //otherwise they could end up in a fallthrough mode, and repeated keypresses would escape error mode(possibly unintentionally)
     match (keycode, modifiers){
         (KeyCode::Char('q'), modifiers) => {
             if modifiers == KeyModifiers::CONTROL{
@@ -391,15 +397,15 @@ pub fn handle_error_mode_keypress(app: &mut Application, keycode: KeyCode, modif
                 if app.mode() == Mode::Error(crate::config::FILE_MODIFIED.to_string()){
                     app.quit_ignoring_changes();
                 }
-                else{app.no_op_keypress();}
+                else{app.handle_notification(crate::config::DisplayMode::Error, crate::config::UNHANDLED_KEYPRESS);/*app.no_op_keypress();*/}
             }
-            else{app.no_op_keypress();}
+            else{app.handle_notification(crate::config::DisplayMode::Error, crate::config::UNHANDLED_KEYPRESS);/*app.no_op_keypress();*/}
         }
         (KeyCode::Esc, modifiers) => {
             if modifiers == KeyModifiers::NONE{app.mode_pop();}
-            else{app.no_op_keypress();}
+            else{app.handle_notification(crate::config::DisplayMode::Error, crate::config::UNHANDLED_KEYPRESS);/*app.no_op_keypress();*/}
         }
-        _ => {app.no_op_keypress();}
+        _ => {app.handle_notification(crate::config::DisplayMode::Error, crate::config::UNHANDLED_KEYPRESS);/*app.no_op_keypress();*/}
     }
 }
 

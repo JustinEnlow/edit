@@ -50,7 +50,7 @@ impl DisplayArea{
     /// Returns a `bool` indicating whether the [`View`] should be scrolled or not. If `head` of primary [`Selection2d`]
     /// is outside [`View`] boundaries, [`View`] should be scrolled.
     /// # Panics
-    ///     //if `selection` is invalid.
+    /// when `selection` is invalid.
     #[must_use] pub fn should_scroll(&self, selection: &Selection, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> bool{
         assert!(selection.cursor(buffer, semantics.clone()) <= buffer.len_chars());
 
@@ -68,7 +68,7 @@ impl DisplayArea{
     /// [`Selection`] in [`View`].
     /// Can follow any specified selection, not just primary selection.
     /// # Panics
-    ///     //if `selection` is invalid.
+    /// when `selection` is invalid.
     #[must_use] pub fn scroll_following_cursor(&self, selection: &Selection, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> Self{
         assert!(selection.cursor(buffer, semantics.clone()) <= buffer.len_chars());
 

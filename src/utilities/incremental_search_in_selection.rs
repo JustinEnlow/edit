@@ -21,7 +21,7 @@ pub fn application_impl(app: &mut Application, search_text: &str, selections_bef
 //TODO: maybe. if no selection extended, search whole text
 /// 
 /// # Errors
-///     //if no matches.
+/// when no matches.
 pub fn selections_impl(selections: &Selections, input: &str, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> Result<Selections, SelectionsError>{
     if input.is_empty(){return Err(SelectionsError::NoSearchMatches);}
     let mut new_selections = Vec::new();

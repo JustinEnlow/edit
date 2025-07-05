@@ -39,7 +39,7 @@ impl Selection{
     }
     
     //for testing...
-    #[cfg(test)]pub fn new_from_components(
+    pub fn new_from_components(
         anchor: usize, 
         head: usize, 
         stored_line_offset: Option<usize>, 

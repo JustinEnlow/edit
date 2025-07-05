@@ -63,8 +63,8 @@ pub fn parse_args() -> Result<(), String>{
     let mut temp_buffer = false;
     let mut read_only = false;
     let mut file_path: Option<PathBuf> = None;
-    let mut _line_number = 0;
-    let mut _column_number = 0;
+    let mut _line_number = 1;//0;
+    let mut _column_number = 1;//0;
     let mut open_tutorial = false;
 
     let mut args = std::env::args();
@@ -129,6 +129,15 @@ pub fn parse_args() -> Result<(), String>{
 }
 
 fn run_app(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<(), String>{
+    //let config = crate::config::Config{
+    //        semantics: crate::config::CURSOR_SEMANTICS,
+    //        use_full_file_path: crate::config::USE_FULL_FILE_PATH,
+    //        etc.
+    //};
+    //let display_line_numbers_on_startup = crate::config::DISPLAY_LINE_NUMBERS_ON_STARTUP;
+    //let display_status_bar_on_startup = crate::config::DISPLAY_STATUS_BAR_ON_STARTUP;
+    //TODO: pass these in to Appliction::new() for proper set up
+    //the same Application::new() interface can be used for tests, using their own config parameters
     match Application::new(buffer_text, file_path, read_only, terminal){
         Ok(mut app) => {
             //TODO: could pass column_number and line_number here, after verifying they are valid positions...

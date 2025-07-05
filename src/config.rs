@@ -1,6 +1,21 @@
 use crate::selection::CursorSemantics;
 use ratatui::style::Color;
 
+//this should contain config options that could be changed at runtime
+pub struct Config{
+    semantics: CursorSemantics,
+    use_full_file_path: bool,
+    use_hard_tab: bool,
+    tab_width: usize,
+    view_scroll_amount: usize,
+    show_cursor_column: bool,
+    show_cursor_line: bool,
+    //maybe message display modes?...
+    //maybe others...
+}
+//display_line_numbers_on_startup can be passed to Application::new() separately, since it doesn't need to be stored
+//display_status_bar_on_startup can be passed to Application::new() separately, since it doesn't need to be stored
+
 // users preferred cursor style. Options: DefaultUserShape, BlinkingBLock(inform crossterm of capital L in 'Block'), SteadyBlock, BlinkingUnderScore, SteadyUnderScore, BlinkingBar, SteadyBar
 //pub const CURSOR_STYLE: cursor::SetCursorStyle = cursor::SetCursorStyle::SteadyBlock;
 
@@ -22,6 +37,9 @@ pub const USE_HARD_TAB: bool = false;   //maybe do enum TabStyle{Hard, Soft, Sma
 pub const TAB_WIDTH: usize = 4; //should this be language dependant? on-the-fly configurable?   //TODO: consider what to do with files where the tab width already in use is different than this setting
 
 pub const VIEW_SCROLL_AMOUNT: usize = 1;    //should this have separate vertical and horizontal definitions?
+
+pub const DISPLAY_LINE_NUMBERS_ON_STARTUP: bool = true;
+pub const DISPLAY_STATUS_BAR_ON_STARTUP: bool = true;
 
 // what other config should be here?
 //themeing/coloring consts
@@ -65,8 +83,8 @@ pub const VIEW_SCROLL_AMOUNT: usize = 1;    //should this have separate vertical
     pub const CURSOR_LINE_BACKGROUND_COLOR: Color = Color::Rgb(45, 45, 45);
     pub const CURSOR_LINE_FOREGROUND_COLOR: Color = Color::White;
 
-pub const SHOW_CURSOR_COLUMN: bool = false;
-pub const SHOW_CURSOR_LINE: bool = false;
+pub const SHOW_CURSOR_COLUMN: bool = true;//false;
+pub const SHOW_CURSOR_LINE: bool = true;//false;
 
 // user can change these text strings to customize contextual util bar messages
 // errors/warnings/notifications/information
