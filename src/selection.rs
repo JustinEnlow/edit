@@ -1,43 +1,46 @@
-#[derive(Debug, PartialEq)]
-pub enum SelectionError{        //or should each fallible fn have its own fn specific Error? this would prevent the calling fn from having to match unused variants in the fallible fn...
+//#[derive(PartialEq, Clone, Debug)]
+//pub enum Direction{Forward, Backward}
+//TODO: refactor to Option<Direction>. this would allow Direction to be used in other cases, but encode the possibility of no direction in selecion extension...
+#[derive(PartialEq, Clone, Debug)] pub enum ExtensionDirection{Forward, Backward, None}
+
+#[derive(PartialEq)] pub enum Movement{Extend, Move}
+
+//TODO?: change to SelectionSemantics{Exclusive, Inclusive}
+#[derive(Clone)] pub enum CursorSemantics{Bar, Block}
+
+//or should each fallible fn have its own fn specific Error? this would prevent the calling fn from having to match unused variants in the fallible fn...
+#[derive(Debug, PartialEq)] pub enum SelectionError{
     ResultsInSameState,
     NoOverlap,
     SpansMultipleLines,
     DirectionMismatch
 }
-
-#[derive(PartialEq, Clone, Debug)]
-pub enum ExtensionDirection{    //could be refactored to Option<Direction>, with Direction being Direction{Forward, Backward}. this would allow Direction to be used in other cases, but encode the possibility of no direction in selecion extension...
-    Forward,
-    Backward,
-    None
-}
-
-#[derive(PartialEq)]
-pub enum Movement{  //TODO: remove when move_vertically/horizontally and put_cursor fns are removed
-    Extend,
-    Move,
-}
-
-#[derive(Clone)]
-pub enum CursorSemantics{   //TODO: change to SelectionSemantics{Exclusive, Inclusive}
-    Bar,
-    Block,
-}
-
+//TODO: should be indices over a collection of bytes. not chars or graphemes
 #[derive(PartialEq, Clone, Debug)]
 pub struct Selection{
     pub range: crate::range::Range,
     pub direction: ExtensionDirection,  //TODO: change to pub extension_direction: Option<Direction>,
-    pub stored_line_offset: Option<usize>,      //grapheme offset of the cursor from line start     //may eventually remove Option
+    /// byte offset of the cursor from line start
+    pub stored_line_offset: Option<usize>,  //TODO: remove Option
 }
 impl Selection{
     /// Returns a new instance of [`Selection`] with a specified `stored_line_position`.
     // #[cfg(test)] ensures this is only compiled for tests
-    #[cfg(test)] #[must_use] pub fn with_stored_line_offset(range: crate::range::Range, direction: ExtensionDirection, stored_line_offset: usize) -> Self{
-        Self{range, direction, stored_line_offset: Some(stored_line_offset)}
+    //#[cfg(test)] #[must_use] pub fn with_stored_line_offset(range: crate::range::Range, direction: ExtensionDirection, stored_line_offset: usize) -> Self{
+    //    Self{range, direction, stored_line_offset: Some(stored_line_offset)}
+    //}
+    //TODO: change above impl to this, when new_from_components removed
+    #[must_use] pub fn with_stored_line_offset(&self, stored_line_offset: Option<usize>) -> Self{
+        let mut selection = self.clone();
+        selection.stored_line_offset = stored_line_offset;
+        selection
+    }
+    //or
+    /*#[cfg(test)] */#[must_use] pub fn new_unchecked(range: crate::range::Range, direction: ExtensionDirection, stored_line_offset: Option<usize>) -> Self{
+        Self{range, direction, stored_line_offset}
     }
     
+    //TODO: maybe have new_from_range.with_stored_line_offset() instead of new from components...
     //for testing...
     pub fn new_from_components(
         anchor: usize, 
@@ -58,6 +61,12 @@ impl Selection{
                     if head.saturating_sub(anchor) == 1{(anchor, head, ExtensionDirection::None)}
                     else{(anchor, head, ExtensionDirection::Forward)}
                 }
+                //
+                //else if head < anchor{    //this should fix backwards_cursor_should_be_extension_direction_none() test below... may break existing tests
+                //    if buffer.next_grapheme_boundary_index(head) == anchor{(head, anchor, ExtensionDirection::None)}
+                //    else{(head, anchor, ExtensionDirection::Backward)}
+                //}
+                //
                 else{(head, anchor, ExtensionDirection::Backward)}
             }
         };
@@ -545,4 +554,17 @@ mod tests{
         assert_eq!(crate::selection::ExtensionDirection::Forward, idk.direction);
         assert_eq!(crate::selection::ExtensionDirection::Forward, idk.direction(&buffer, semantics));
     }
+    // trying this out. not part of original code...
+    //#[test] fn backwards_cursor_should_be_extension_direction_none(){
+    //    let buffer = &crate::buffer::Buffer::new("idk\nsome\nshit\n", None, false);
+    //    let semantics = crate::selection::CursorSemantics::Block;
+    //    let idk = crate::selection::Selection::new_from_components(15, 14, None, buffer, semantics.clone());
+    //    assert_eq!(14, idk.range.start);
+    //    assert_eq!(15, idk.range.end);
+    //    assert_eq!(14, idk.cursor(buffer, semantics.clone()));
+    //    assert_eq!(None, idk.stored_line_offset);
+    //    assert_eq!(crate::selection::ExtensionDirection::None, idk.direction);
+    //    assert_eq!(crate::selection::ExtensionDirection::None, idk.direction(&buffer, semantics));
+    //}
+    //
 }

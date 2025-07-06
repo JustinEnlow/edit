@@ -2,14 +2,23 @@ use edit::{
     application::{EditAction::Cut, Mode},
     selection::CursorSemantics::Block,
     display_area::DisplayArea,
-    config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER, MULTIPLE_SELECTIONS_DISPLAY_MODE, MULTIPLE_SELECTIONS}
+    config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER, MULTIPLE_SELECTIONS_DISPLAY_MODE, MULTIPLE_SELECTIONS, Config}
 };
 use crate::edit_actions::test_edit_action;
 
 #[test] fn cut_with_selection_direction_forward_block_semantics(){
     test_edit_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         Cut, 
-        Block, 
+        //Block, 
         false, 
         false, 
         false, 
@@ -32,8 +41,17 @@ use crate::edit_actions::test_edit_action;
 
 #[test] fn cut_with_selection_direction_backward_block_semantics(){
     test_edit_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         Cut, 
-        Block, 
+        //Block, 
         false, 
         false, 
         false, 
@@ -56,8 +74,17 @@ use crate::edit_actions::test_edit_action;
 
 #[test] fn cut_with_multiple_selections_returns_error(){
     test_edit_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         Cut, 
-        Block, 
+        //Block, 
         false, 
         false, 
         false, 
@@ -88,8 +115,17 @@ use crate::edit_actions::test_edit_action;
 
 #[test] fn with_read_only_buffer_is_error(){
     test_edit_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         Cut, 
-        Block, 
+        //Block, 
         false, 
         false, 
         true, 

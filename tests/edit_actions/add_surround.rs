@@ -2,7 +2,7 @@ use edit::{
     application::{EditAction::AddSurround, Mode},
     selection::CursorSemantics::Block,
     display_area::DisplayArea,
-    config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER, INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT}
+    config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER, INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT, Config}
 };
 use crate::edit_actions::test_edit_action;
 
@@ -20,8 +20,17 @@ use crate::edit_actions::test_edit_action;
     //    ], 0
     //);
     test_edit_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         AddSurround('{', '}'), 
-        Block, 
+        //Block, 
         false, 
         false, 
         false, 
@@ -62,8 +71,17 @@ use crate::edit_actions::test_edit_action;
     //    ], 0
     //);
     test_edit_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         AddSurround('<', '>'), 
-        Block, 
+        //Block, 
         false, 
         false, 
         false, 
@@ -96,8 +114,17 @@ use crate::edit_actions::test_edit_action;
     //    '{', '}'
     //);
     test_edit_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         AddSurround('{', '}'), 
-        Block, 
+        //Block, 
         false, 
         false, 
         false, 
@@ -126,8 +153,17 @@ use crate::edit_actions::test_edit_action;
 
 #[test] fn with_read_only_buffer_is_error(){
     test_edit_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         AddSurround('[', ']'), 
-        Block, 
+        //Block, 
         false, 
         false, 
         true, 

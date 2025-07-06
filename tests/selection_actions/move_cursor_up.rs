@@ -2,7 +2,7 @@ use edit::{
     application::{SelectionAction::MoveCursorUp, Mode},
     selection::CursorSemantics::Block,
     display_area::DisplayArea,
-    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE}
+    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE, Config}
 };
 use crate::selection_actions::test_selection_action;
 
@@ -10,8 +10,17 @@ use crate::selection_actions::test_selection_action;
 
 #[test] fn to_shorter_line_block_semantics(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         MoveCursorUp, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -33,8 +42,17 @@ use crate::selection_actions::test_selection_action;
     
 #[test] fn to_line_with_equal_len_or_more_block_semantics(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         MoveCursorUp, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -57,8 +75,17 @@ use crate::selection_actions::test_selection_action;
 //with mixed valid and invalid selections   //one on top line, one not
 #[test] fn with_mixed_valid_and_invalid_selections_block_semantics(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         MoveCursorUp, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -81,8 +108,17 @@ use crate::selection_actions::test_selection_action;
 //merges overlapping resultant selections   //one on top line, one on second
 #[test] fn merges_overlapping_resultant_selections_block_semantics(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         MoveCursorUp, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -104,8 +140,17 @@ use crate::selection_actions::test_selection_action;
     //with extended selections collapses
 #[test] fn with_extended_selection_collapses_block_semantics(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         MoveCursorUp, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -127,8 +172,17 @@ use crate::selection_actions::test_selection_action;
     
 #[test] fn errors_if_single_selection_on_topmost_line_block_semantics(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         MoveCursorUp, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 

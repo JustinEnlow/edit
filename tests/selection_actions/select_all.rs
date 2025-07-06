@@ -2,7 +2,7 @@ use edit::{
     application::{SelectionAction::SelectAll, Mode},
     selection::CursorSemantics::Block,
     display_area::DisplayArea,
-    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE}
+    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE, Config}
 };
 use crate::selection_actions::test_selection_action;
 
@@ -12,8 +12,17 @@ use crate::selection_actions::test_selection_action;
     
 #[test] fn selects_all_and_clears_non_primary_selections(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         SelectAll, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -33,8 +42,17 @@ use crate::selection_actions::test_selection_action;
 }
 #[test] fn ensure_cannot_past_text_len(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         SelectAll, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -54,8 +72,17 @@ use crate::selection_actions::test_selection_action;
 
 #[test] fn errors_if_all_already_selected(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         SelectAll, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 

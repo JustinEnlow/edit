@@ -1,15 +1,24 @@
 use edit::{
     application::{EditAction::Delete, Mode},
-    selection::CursorSemantics,
+    selection::CursorSemantics::Block,
     display_area::DisplayArea,
-    config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER, SAME_STATE_DISPLAY_MODE, SAME_STATE}
+    config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER, SAME_STATE_DISPLAY_MODE, SAME_STATE, Config}
 };
 use crate::edit_actions::test_edit_action;
 
 #[test] fn with_non_extended_selections(){
     test_edit_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         Delete, 
-        CursorSemantics::Block, 
+        //CursorSemantics::Block, 
         false, 
         false, 
         false, 
@@ -34,8 +43,17 @@ use crate::edit_actions::test_edit_action;
 
 #[test] fn with_extended_selections(){
     test_edit_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         Delete, 
-        CursorSemantics::Block, 
+        //CursorSemantics::Block, 
         false, 
         false, 
         false, 
@@ -61,8 +79,17 @@ use crate::edit_actions::test_edit_action;
 
 #[test] fn with_valid_selection_and_cursor_at_doc_end(){
     test_edit_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         Delete, 
-        CursorSemantics::Block, 
+        //CursorSemantics::Block, 
         false, 
         false, 
         false, 
@@ -87,8 +114,17 @@ use crate::edit_actions::test_edit_action;
 
 #[test] fn errors_if_single_cursor_at_doc_end(){
     test_edit_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         Delete, 
-        CursorSemantics::Block, 
+        //CursorSemantics::Block, 
         false, 
         false, 
         false, 
@@ -117,8 +153,17 @@ use crate::edit_actions::test_edit_action;
 
 #[test] fn with_read_only_buffer_is_error(){
     test_edit_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         Delete, 
-        CursorSemantics::Block, 
+        //CursorSemantics::Block, 
         false, 
         false, 
         true, 

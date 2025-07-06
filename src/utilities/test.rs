@@ -56,10 +56,10 @@ use crate::{
 //    assert!(!app.buffer.is_modified());
 //}
 
-fn generate_selections(tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize, buffer: &Buffer, semantics: CursorSemantics) -> Selections{
-    let mut selections = Vec::new();
-    for tuple in tuple_selections{
-        selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, buffer, semantics.clone()));
-    }
-    Selections::new(selections, primary, buffer, semantics.clone())
-}
+//fn generate_selections(tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize, buffer: &Buffer, semantics: CursorSemantics) -> Selections{
+//    let mut selections = Vec::new();
+//    for tuple in tuple_selections{
+//        selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, buffer, semantics.clone()));
+//    }
+//    Selections::new(selections, primary, buffer, semantics.clone())
+//}

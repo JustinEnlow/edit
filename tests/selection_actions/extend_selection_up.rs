@@ -2,7 +2,7 @@ use edit::{
     application::{SelectionAction::ExtendSelectionUp, Mode},
     selection::CursorSemantics::Block,
     display_area::DisplayArea,
-    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE}
+    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE, Config}
 };
 use crate::selection_actions::test_selection_action;
 
@@ -11,8 +11,17 @@ use crate::selection_actions::test_selection_action;
 //TODO: this test is correct, but we are currently reducing the selection if it is over a newline, which maybe we shouldn't, as its causing bugs
 #[test] fn with_mixed_valid_and_invalid_selections_block_semantics(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         ExtendSelectionUp, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -42,8 +51,17 @@ use crate::selection_actions::test_selection_action;
     // s h i t| >       // s h i t  |       //these two should merge
     //
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         ExtendSelectionUp, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -66,8 +84,17 @@ use crate::selection_actions::test_selection_action;
     
 #[test] fn errors_when_single_selection_on_top_line_block_semantics(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         ExtendSelectionUp, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 

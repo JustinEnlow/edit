@@ -4,7 +4,7 @@ use edit::{
     application::{SelectionAction::SurroundingPair, Mode},
     selection::CursorSemantics::Block,
     display_area::DisplayArea,
-    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE}
+    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE, Config}
 };
 use crate::selection_actions::test_selection_action;
 
@@ -16,8 +16,17 @@ use crate::selection_actions::test_selection_action;
     //|i>d k ( s|o>m e|[>] _ t h|i>n g _ {|}>e l s e ) _ i|d>k
     //|i>d k|(>s o m e|[>]>_ t h i n g _|{>}>e l s e|)>_ i|d>k
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         SurroundingPair, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -54,8 +63,17 @@ use crate::selection_actions::test_selection_action;
 //|i>d k ( s o m e [ ] _ t h i n g _ { } e l s e ) _ i d k     //no surrounding pair with cursor at this location
 #[test] fn at_start_with_no_surrounding_pair(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         SurroundingPair, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -82,8 +100,17 @@ use crate::selection_actions::test_selection_action;
 // i d k ( s|o>m e [ ] _ t h i n g _ { } e l s e ) _ i d k     //paren surrounding pair with cursor at this location
 #[test] fn normal_case(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         SurroundingPair, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -105,8 +132,17 @@ use crate::selection_actions::test_selection_action;
 // i d k ( s o m e|[>] _ t h i n g _ { } e l s e ) _ i d k     //square bracket surrounding pair with cursor at this location
 #[test] fn with_cursor_over_surrounding_pair_opening(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         SurroundingPair, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -128,8 +164,17 @@ use crate::selection_actions::test_selection_action;
 // i d k ( s o m e [ ] _ t h|i>n g _ { } e l s e ) _ i d k     //paren surrounding pair with cursor at this location
 #[test] fn with_other_pairs_inside_surrounding_pair(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         SurroundingPair, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -151,8 +196,17 @@ use crate::selection_actions::test_selection_action;
 // i d k ( s o m e [ ] _ t h i n g _ {|}>e l s e ) _ i d k     //curly bracket surrounding pair with cursor at this location
 #[test] fn with_cursor_over_surrounding_pair_closing(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         SurroundingPair, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -174,8 +228,17 @@ use crate::selection_actions::test_selection_action;
 // i d k ( s o m e [ ] _ t h i n g _ { } e l s e ) _ i|d>k     //no surrounding pair with cursor at this location
 #[test] fn at_end_with_no_surrounding_pair(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         SurroundingPair, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -202,8 +265,17 @@ use crate::selection_actions::test_selection_action;
 //These two seem redundant given previous tests...
 #[test] fn no_opening_bracket_pair_returns_empty_vec(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         SurroundingPair, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -228,8 +300,17 @@ use crate::selection_actions::test_selection_action;
 }
 #[test] fn no_closing_bracket_pair_returns_empty_vec(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         SurroundingPair, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -256,8 +337,17 @@ use crate::selection_actions::test_selection_action;
 ////idk(some()t(h(i)n)g()else)    //test from multiple levels of same surrounding pair
 #[test] fn with_multiple_levels_of_same_surrounding_pair(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         SurroundingPair, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 

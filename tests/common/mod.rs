@@ -1,12 +1,15 @@
 use edit::{
-    application::Application,
-    buffer::Buffer,
-    selection::{Selection, CursorSemantics},
-    selections::Selections,
-    display_area::DisplayArea
+    application::Application, 
+    buffer::Buffer, 
+    config::Config, 
+    display_area::DisplayArea, 
+    //range::Range, 
+    selection::{CursorSemantics, Selection}, 
+    selections::Selections
 };
 
 pub fn set_up_test_application(
+    config: Config,
     terminal_display_area: DisplayArea, //this represents our full terminal, not just the buffer viewport.
     buffer_text: &str, 
     read_only: bool,
@@ -30,14 +33,14 @@ pub fn set_up_test_application(
     );
     match ratatui::Terminal::new(backend){
         Ok(terminal) => {
-            match Application::new(buffer_text, None, read_only,&terminal){
+            match Application::new(config, render_line_numbers, render_status_bar, buffer_text, None, read_only,&terminal){
                 Ok(mut app) => {
                     app.buffer_horizontal_start = terminal_display_area.horizontal_start;
                     app.buffer_vertical_start = terminal_display_area.vertical_start;
 
                     //this could disable extra widgets, and make terminal_display_area and buffer_display_area equivalent
-                    app.ui.document_viewport.line_number_widget.show = render_line_numbers;
-                    app.ui.status_bar.show = render_status_bar;
+                        //app.ui.document_viewport.line_number_widget.show = render_line_numbers;
+                        //app.ui.status_bar.show = render_status_bar;
                     app.update_layouts();
                     //TODO: figure out how to print terminal buffer for debugging...
                     //TODO: assert_eq!(expected_buffer_display_area, app.buffer_display_area());
@@ -54,6 +57,9 @@ pub fn generate_selections(tuple_selections: Vec<(usize, usize, Option<usize>)>,
     let mut selections = Vec::new();
     for tuple in tuple_selections{
         selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, buffer, semantics.clone()));
+        //TODO: would need to take an extension_direction, to use below...
+        //selections.push(Selection::new_from_range(Range::new(tuple.0, tuple.1), extension_direction, buffer, semantics.clone()).with_stored_line_offset(tuple.2));
+        //or just pass a Vec of Selection::new_unchecked() instead of tuple_selections...
     }
     Selections::new(selections, primary, buffer, semantics.clone())
 }

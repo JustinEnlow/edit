@@ -1,6 +1,7 @@
 use edit::{
+    config::Config,
     application::{ViewAction, Mode},
-    selection::CursorSemantics,
+    //selection::CursorSemantics,
     display_area::DisplayArea,
 };
 use crate::common::{
@@ -19,8 +20,9 @@ mod scroll_right;
 
 //TODO: could take expected display area selections
 pub fn test_view_action(
+    config: Config,
     view_action: ViewAction,
-    semantics: CursorSemantics,
+    //semantics: CursorSemantics,
     render_line_numbers: bool,
     render_status_bar: bool,
     //This may differ from buffer_display_area if line numbers or status bar are shown
@@ -34,9 +36,9 @@ pub fn test_view_action(
     expected_buffer_display_area: DisplayArea,
 ){
     //set up app
-    match set_up_test_application(terminal_display_area.clone(), buffer_text, false, render_line_numbers, render_status_bar){
+    match set_up_test_application(config.clone(), terminal_display_area.clone(), buffer_text, false, render_line_numbers, render_status_bar){
         Ok(mut app) => {
-            let selections = generate_selections(tuple_selections, primary, &app.buffer, semantics.clone());
+            let selections = generate_selections(tuple_selections, primary, &app.buffer, config.semantics.clone());
             
             app.selections = selections;
             //app.mode_push(Mode::View);

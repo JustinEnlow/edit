@@ -2,7 +2,7 @@ use edit::{
     application::{SelectionAction::ExtendSelectionRight, Mode},
     selection::CursorSemantics::Block,
     display_area::DisplayArea,
-    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE}
+    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE, Config}
 };
 use crate::selection_actions::test_selection_action;
 
@@ -10,8 +10,17 @@ use crate::selection_actions::test_selection_action;
 
 #[test] fn normal_use_block_semantics(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         ExtendSelectionRight, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -31,8 +40,17 @@ use crate::selection_actions::test_selection_action;
 
 #[test] fn extends_to_doc_text_end_block_semantics(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         ExtendSelectionRight, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -56,8 +74,17 @@ use crate::selection_actions::test_selection_action;
     // s h i t \n|      // s h i t \n|
     //                  //
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         ExtendSelectionRight, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -77,8 +104,17 @@ use crate::selection_actions::test_selection_action;
 
 #[test] fn errors_if_cursor_at_doc_text_end_block_semantics(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         ExtendSelectionRight, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -104,8 +140,17 @@ use crate::selection_actions::test_selection_action;
 
 #[test] fn errors_if_already_extended_forward_at_doc_text_end_block_semantics(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         ExtendSelectionRight, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 

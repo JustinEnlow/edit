@@ -1,7 +1,8 @@
 use edit::{
+    config::Config,
     application::{EditAction, Mode},
     buffer::Buffer,
-    selection::CursorSemantics,
+    //selection::CursorSemantics,
     display_area::DisplayArea,
 };
 use crate::common::{
@@ -25,8 +26,9 @@ mod add_surround;
 
 
 pub fn test_edit_action(
+    config: Config,
     edit_action: EditAction,
-    semantics: CursorSemantics,
+    //semantics: CursorSemantics,
     render_line_numbers: bool,
     render_status_bar: bool,
     read_only: bool,
@@ -43,12 +45,12 @@ pub fn test_edit_action(
     expected_primary: usize,
     expected_clipboard: &str
 ){
-    match set_up_test_application(terminal_display_area, buffer_text, read_only, render_line_numbers, render_status_bar){
+    match set_up_test_application(config.clone(), terminal_display_area, buffer_text, read_only, render_line_numbers, render_status_bar){
         Ok(mut app) => {
             //let expected_selections = generate_selections(tuple_expected_selections, expected_primary, &app.buffer, semantics.clone()); 
-            let selections = generate_selections(tuple_selections, primary, &app.buffer, semantics.clone());
+            let selections = generate_selections(tuple_selections, primary, &app.buffer, config.semantics.clone());
             let expected_buffer = Buffer::new(expected_buffer_text, None, read_only);
-            let expected_selections = generate_selections(tuple_expected_selections, expected_primary, &expected_buffer, semantics.clone()); 
+            let expected_selections = generate_selections(tuple_expected_selections, expected_primary, &expected_buffer, config.semantics.clone());
 
             app.clipboard = clipboard.to_string();
             app.selections = selections;

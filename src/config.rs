@@ -2,14 +2,15 @@ use crate::selection::CursorSemantics;
 use ratatui::style::Color;
 
 //this should contain config options that could be changed at runtime
+#[derive(Clone)]
 pub struct Config{
-    semantics: CursorSemantics,
-    use_full_file_path: bool,
-    use_hard_tab: bool,
-    tab_width: usize,
-    view_scroll_amount: usize,
-    show_cursor_column: bool,
-    show_cursor_line: bool,
+    pub semantics: CursorSemantics,
+    pub use_full_file_path: bool,
+    pub use_hard_tab: bool,
+    pub tab_width: usize,
+    pub view_scroll_amount: usize,
+    pub show_cursor_column: bool,
+    pub show_cursor_line: bool,
     //maybe message display modes?...
     //maybe others...
 }
@@ -83,7 +84,7 @@ pub const DISPLAY_STATUS_BAR_ON_STARTUP: bool = true;
     pub const CURSOR_LINE_BACKGROUND_COLOR: Color = Color::Rgb(45, 45, 45);
     pub const CURSOR_LINE_FOREGROUND_COLOR: Color = Color::White;
 
-pub const SHOW_CURSOR_COLUMN: bool = true;//false;
+pub const SHOW_CURSOR_COLUMN: bool = false;
 pub const SHOW_CURSOR_LINE: bool = true;//false;
 
 // user can change these text strings to customize contextual util bar messages

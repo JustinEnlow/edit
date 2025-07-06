@@ -1,8 +1,8 @@
 use edit::{
     application::{ViewAction, Mode},
-    selection::CursorSemantics,
+    selection::CursorSemantics::Block,
     display_area::DisplayArea,
-    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE}
+    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE, Config}
 };
 use crate::view_actions::test_view_action;
 
@@ -13,8 +13,17 @@ use crate::view_actions::test_view_action;
     //|s o|m e      |s o|m e
     //|s h|i t       s h i t
     test_view_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         ViewAction::ScrollUp, 
-        CursorSemantics::Block, 
+        //CursorSemantics::Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 1, width: 2, height: 2}, 
@@ -35,8 +44,17 @@ use crate::view_actions::test_view_action;
     //|s o|m e      |s o|m e
     //|s h|i t       s h i t
     test_view_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         ViewAction::ScrollUp, 
-        CursorSemantics::Block, 
+        //CursorSemantics::Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 1, width: 2, height: 2}, 
@@ -57,8 +75,17 @@ use crate::view_actions::test_view_action;
     //|s o|m e
     // s h i t
     test_view_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         ViewAction::ScrollUp, 
-        CursorSemantics::Block, 
+        //CursorSemantics::Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 2, height: 2}, 
@@ -82,8 +109,17 @@ use crate::view_actions::test_view_action;
 
 #[should_panic] #[test] fn should_panic_when_called_from_any_mode_but_insert_or_view(){
     test_view_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         ViewAction::ScrollUp, 
-        CursorSemantics::Block, 
+        //CursorSemantics::Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 2, height: 2}, 

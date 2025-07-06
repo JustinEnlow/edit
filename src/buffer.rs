@@ -155,10 +155,12 @@ impl Buffer{
         point.saturating_sub(line_start)
     }
 
+    //TODO: this really ought to be -> Result<usize, String>, and not saturate at buffer end
     #[must_use] pub fn next_grapheme_boundary_index(&self, current_index: usize) -> usize{ //should this eventually be Option<usize>?
         current_index.saturating_add(1).min(self.inner.len_chars().saturating_add(1)) //placeholder to handle ascii text. code will need to change to handle UTF-8
     }
     
+    //TODO: this really ought to be -> Result<usize, String>, and not saturate at buffer start
     #[must_use] pub fn previous_grapheme_boundary_index(&self, current_index: usize) -> usize{ //should this eventually be Option<usize>?
         current_index.saturating_sub(1) //placeholder to handle ascii text. code will need to change to handle UTF-8
     }

@@ -129,16 +129,18 @@ pub fn parse_args() -> Result<(), String>{
 }
 
 fn run_app(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<(), String>{
-    //let config = crate::config::Config{
-    //        semantics: crate::config::CURSOR_SEMANTICS,
-    //        use_full_file_path: crate::config::USE_FULL_FILE_PATH,
-    //        etc.
-    //};
-    //let display_line_numbers_on_startup = crate::config::DISPLAY_LINE_NUMBERS_ON_STARTUP;
-    //let display_status_bar_on_startup = crate::config::DISPLAY_STATUS_BAR_ON_STARTUP;
-    //TODO: pass these in to Appliction::new() for proper set up
-    //the same Application::new() interface can be used for tests, using their own config parameters
-    match Application::new(buffer_text, file_path, read_only, terminal){
+    let config = crate::config::Config{
+            semantics: crate::config::CURSOR_SEMANTICS,
+            use_full_file_path: crate::config::USE_FULL_FILE_PATH,
+            use_hard_tab: crate::config::USE_HARD_TAB,
+            tab_width: crate::config::TAB_WIDTH,
+            view_scroll_amount: crate::config::VIEW_SCROLL_AMOUNT,
+            show_cursor_column: crate::config::SHOW_CURSOR_COLUMN,
+            show_cursor_line: crate::config::SHOW_CURSOR_LINE
+    };
+    let display_line_numbers_on_startup = crate::config::DISPLAY_LINE_NUMBERS_ON_STARTUP;
+    let display_status_bar_on_startup = crate::config::DISPLAY_STATUS_BAR_ON_STARTUP;
+    match Application::new(config, display_line_numbers_on_startup, display_status_bar_on_startup, buffer_text, file_path, read_only, terminal){
         Ok(mut app) => {
             //TODO: could pass column_number and line_number here, after verifying they are valid positions...
             if let Err(e) = app.run(terminal){

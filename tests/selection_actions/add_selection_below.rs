@@ -2,7 +2,7 @@ use edit::{
     application::{SelectionAction::AddSelectionBelow, Mode},
     selection::CursorSemantics::Block,
     display_area::DisplayArea,
-    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE, SPANS_MULTIPLE_LINES_DISPLAY_MODE, SPANS_MULTIPLE_LINES}
+    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE, SPANS_MULTIPLE_LINES_DISPLAY_MODE, SPANS_MULTIPLE_LINES, Config}
 };
 use crate::selection_actions::test_selection_action;
 
@@ -24,8 +24,17 @@ use crate::selection_actions::test_selection_action;
                 // s h i t ⏎    // s h i t ⏎
                 //              //
                 test_selection_action(
+                    Config{
+                        semantics: Block, 
+                        use_full_file_path: false, 
+                        use_hard_tab: false, 
+                        tab_width: 4, 
+                        view_scroll_amount: 1, 
+                        show_cursor_column: false, 
+                        show_cursor_line: false
+                    },
                     AddSelectionBelow, 
-                    Block, 
+                    //Block, 
                     false, 
                     false, 
                     DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -53,8 +62,17 @@ use crate::selection_actions::test_selection_action;
                 // s h i t ⏎    // s h i t ⏎
                 //              //
                 test_selection_action(
+                    Config{
+                        semantics: Block, 
+                        use_full_file_path: false, 
+                        use_hard_tab: false, 
+                        tab_width: 4, 
+                        view_scroll_amount: 1, 
+                        show_cursor_column: false, 
+                        show_cursor_line: false
+                    },
                     AddSelectionBelow, 
-                    Block, 
+                    //Block, 
                     false, 
                     false, 
                     DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -87,8 +105,17 @@ use crate::selection_actions::test_selection_action;
                 // s h i t ⏎    // s h i t ⏎
                 //              //
                 test_selection_action(
+                    Config{
+                        semantics: Block, 
+                        use_full_file_path: false, 
+                        use_hard_tab: false, 
+                        tab_width: 4, 
+                        view_scroll_amount: 1, 
+                        show_cursor_column: false, 
+                        show_cursor_line: false
+                    },
                     AddSelectionBelow, 
-                    Block, 
+                    //Block, 
                     false, 
                     false, 
                     DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -116,8 +143,17 @@ use crate::selection_actions::test_selection_action;
                 // s h i t ⏎    // s h i t ⏎
                 //              //
                 test_selection_action(
+                    Config{
+                        semantics: Block, 
+                        use_full_file_path: false, 
+                        use_hard_tab: false, 
+                        tab_width: 4, 
+                        view_scroll_amount: 1, 
+                        show_cursor_column: false, 
+                        show_cursor_line: false
+                    },
                     AddSelectionBelow, 
-                    Block, 
+                    //Block, 
                     false, 
                     false, 
                     DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -168,8 +204,17 @@ use crate::selection_actions::test_selection_action;
                 //|s>h i t ⏎    //|s>h i t ⏎
                 //              //| >
                 test_selection_action(
+                    Config{
+                        semantics: Block, 
+                        use_full_file_path: false, 
+                        use_hard_tab: false, 
+                        tab_width: 4, 
+                        view_scroll_amount: 1, 
+                        show_cursor_column: false, 
+                        show_cursor_line: false
+                    },
                     AddSelectionBelow, 
-                    Block, 
+                    //Block, 
                     false, 
                     false, 
                     DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -201,8 +246,17 @@ use crate::selection_actions::test_selection_action;
                 //<s|h i t ⏎    //<s|h i t ⏎
                 //              //< |
                 test_selection_action(
+                    Config{
+                        semantics: Block, 
+                        use_full_file_path: false, 
+                        use_hard_tab: false, 
+                        tab_width: 4, 
+                        view_scroll_amount: 1, 
+                        show_cursor_column: false, 
+                        show_cursor_line: false
+                    },
                     AddSelectionBelow, 
-                    Block, 
+                    //Block, 
                     false, 
                     false, 
                     DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -235,8 +289,17 @@ use crate::selection_actions::test_selection_action;
                 //|s h i t>⏎    //|s h i t>⏎
                 //              //| >
                 test_selection_action(
+                    Config{
+                        semantics: Block, 
+                        use_full_file_path: false, 
+                        use_hard_tab: false, 
+                        tab_width: 4, 
+                        view_scroll_amount: 1, 
+                        show_cursor_column: false, 
+                        show_cursor_line: false
+                    },
                     AddSelectionBelow, 
-                    Block, 
+                    //Block, 
                     false, 
                     false, 
                     DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -268,8 +331,17 @@ use crate::selection_actions::test_selection_action;
                 //<s h i t|⏎    //<s h i t|⏎
                 //              //< |
                 test_selection_action(
+                    Config{
+                        semantics: Block, 
+                        use_full_file_path: false, 
+                        use_hard_tab: false, 
+                        tab_width: 4, 
+                        view_scroll_amount: 1, 
+                        show_cursor_column: false, 
+                        show_cursor_line: false
+                    },
                     AddSelectionBelow, 
-                    Block, 
+                    //Block, 
                     false, 
                     false, 
                     DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -336,8 +408,17 @@ use crate::selection_actions::test_selection_action;
                 // s h i t ⏎
                 //| >
                 test_selection_action(
+                    Config{
+                        semantics: Block, 
+                        use_full_file_path: false, 
+                        use_hard_tab: false, 
+                        tab_width: 4, 
+                        view_scroll_amount: 1, 
+                        show_cursor_column: false, 
+                        show_cursor_line: false
+                    },
                     AddSelectionBelow, 
-                    Block, 
+                    //Block, 
                     false, 
                     false, 
                     DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -374,8 +455,17 @@ use crate::selection_actions::test_selection_action;
                 // s h i t ⏎
                 //< |
                 test_selection_action(
+                    Config{
+                        semantics: Block, 
+                        use_full_file_path: false, 
+                        use_hard_tab: false, 
+                        tab_width: 4, 
+                        view_scroll_amount: 1, 
+                        show_cursor_column: false, 
+                        show_cursor_line: false
+                    },
                     AddSelectionBelow, 
-                    Block, 
+                    //Block, 
                     false, 
                     false, 
                     DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -412,8 +502,17 @@ use crate::selection_actions::test_selection_action;
                 // s o m e ⏎
                 //|s h>i t
                 test_selection_action(
+                    Config{
+                        semantics: Block, 
+                        use_full_file_path: false, 
+                        use_hard_tab: false, 
+                        tab_width: 4, 
+                        view_scroll_amount: 1, 
+                        show_cursor_column: false, 
+                        show_cursor_line: false
+                    },
                     AddSelectionBelow, 
-                    Block, 
+                    //Block, 
                     false, 
                     false, 
                     DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -445,8 +544,17 @@ use crate::selection_actions::test_selection_action;
                 // s o m e ⏎
                 //<s h|i t
                 test_selection_action(
+                    Config{
+                        semantics: Block, 
+                        use_full_file_path: false, 
+                        use_hard_tab: false, 
+                        tab_width: 4, 
+                        view_scroll_amount: 1, 
+                        show_cursor_column: false, 
+                        show_cursor_line: false
+                    },
                     AddSelectionBelow, 
-                    Block, 
+                    //Block, 
                     false, 
                     false, 
                     DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -493,8 +601,17 @@ use crate::selection_actions::test_selection_action;
                 // s h i t ⏎
                 //
                 test_selection_action(
+                    Config{
+                        semantics: Block, 
+                        use_full_file_path: false, 
+                        use_hard_tab: false, 
+                        tab_width: 4, 
+                        view_scroll_amount: 1, 
+                        show_cursor_column: false, 
+                        show_cursor_line: false
+                    },
                     AddSelectionBelow, 
-                    Block, 
+                    //Block, 
                     false, 
                     false, 
                     DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -527,8 +644,17 @@ use crate::selection_actions::test_selection_action;
                 // s h i t ⏎
                 //
                 test_selection_action(
+                    Config{
+                        semantics: Block, 
+                        use_full_file_path: false, 
+                        use_hard_tab: false, 
+                        tab_width: 4, 
+                        view_scroll_amount: 1, 
+                        show_cursor_column: false, 
+                        show_cursor_line: false
+                    },
                     AddSelectionBelow, 
-                    Block, 
+                    //Block, 
                     false, 
                     false, 
                     DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 

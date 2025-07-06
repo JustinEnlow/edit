@@ -2,7 +2,7 @@ use edit::{
     application::{SelectionAction::RemovePrimarySelection, Mode},
     selection::CursorSemantics::Block,
     display_area::DisplayArea,
-    config::{DisplayMode, SINGLE_SELECTION_DISPLAY_MODE, SINGLE_SELECTION}
+    config::{DisplayMode, SINGLE_SELECTION_DISPLAY_MODE, SINGLE_SELECTION, Config}
 };
 use crate::selection_actions::test_selection_action;
 
@@ -10,8 +10,17 @@ use crate::selection_actions::test_selection_action;
 
 #[test] fn when_primary_is_first_next_becomes_new_primary(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         RemovePrimarySelection, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -31,8 +40,17 @@ use crate::selection_actions::test_selection_action;
 }
 #[test] fn when_primary_not_first_previous_becomes_new_primary(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         RemovePrimarySelection, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -53,8 +71,17 @@ use crate::selection_actions::test_selection_action;
 
 #[test] fn errors_if_single_selection(){
     test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false
+        },
         RemovePrimarySelection, 
-        Block, 
+        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
