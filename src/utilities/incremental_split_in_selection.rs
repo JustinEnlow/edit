@@ -1,7 +1,7 @@
 use crate::{
     application::{Application, ApplicationError},
     selections::{Selections, SelectionsError},
-    selection::{Selection, ExtensionDirection, CursorSemantics},
+    selection::{Selection, /*Extension*/Direction, CursorSemantics},
     range::Range,
 };
 use regex::Regex;
@@ -70,7 +70,7 @@ fn selections_impl(selections: &Selections, input: &str, buffer: &crate::buffer:
                 let mut new_selection = selection.clone();
                 new_selection.range.start = selection_range.start;
                 new_selection.range.end = selection_range.end;
-                new_selection.direction = ExtensionDirection::Forward;
+                new_selection.extension_direction = Some(Direction::Forward);//ExtensionDirection::Forward;
                 selections.push(new_selection);
             }
             start = split.end().saturating_add(selection.range.start);
@@ -83,7 +83,7 @@ fn selections_impl(selections: &Selections, input: &str, buffer: &crate::buffer:
             let mut new_selection = selection.clone();
             new_selection.range.start = start;
             new_selection.range.end = selection.range.end.min(buffer.len_chars());
-            new_selection.direction = ExtensionDirection::Forward;
+            new_selection.extension_direction = Some(Direction::Forward);//ExtensionDirection::Forward;
             selections.push(new_selection);
         }
     }

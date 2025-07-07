@@ -1,6 +1,6 @@
 use crate::{
     application::{Application, ApplicationError},
-    selection::{Selection, SelectionError, CursorSemantics, ExtensionDirection/*, Movement */},
+    selection::{Selection, SelectionError, CursorSemantics, /*Extension*/Direction/*, Movement */},
     selections::SelectionsError,
     display_area::DisplayArea
 };
@@ -54,5 +54,5 @@ pub fn selection_impl(selection: &Selection, count: usize, buffer: &crate::buffe
 //
 //    selection.assert_invariants(buffer, semantics);
 //    Ok(selection)
-    selection.move_vertically(count, buffer, crate::selection::Movement::Move, ExtensionDirection::Backward, semantics)
+    selection.move_vertically(count, buffer, crate::selection::Movement::Move, /*Extension*/Direction::Backward, semantics)
 }

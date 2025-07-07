@@ -1,6 +1,6 @@
 use crate::{
     application::{Application, ApplicationError},
-    selection::{Selection, SelectionError, CursorSemantics},
+    selection::{Selection, SelectionError, CursorSemantics, Direction},
 };
 
 //pub fn application_impl(app: &mut Application, semantics: CursorSemantics) -> Result<(), ApplicationError>{
@@ -12,7 +12,7 @@ use crate::{
 //}
 
 pub fn selection_impl(selection: &Selection, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> Result<Selection, SelectionError>{
-    use crate::selection::ExtensionDirection;
+    //use crate::selection::ExtensionDirection;
     selection.assert_invariants(buffer, semantics.clone());
     if !selection.is_extended(){return Err(SelectionError::ResultsInSameState)}
     //Ok(
@@ -25,10 +25,10 @@ pub fn selection_impl(selection: &Selection, buffer: &crate::buffer::Buffer, sem
     //    )
     //)
     let mut new_selection = selection.clone();
-    new_selection.direction = match selection.direction{
-        ExtensionDirection::None => return Err(SelectionError::ResultsInSameState),
-        ExtensionDirection::Forward => ExtensionDirection::Backward,
-        ExtensionDirection::Backward => ExtensionDirection::Forward
+    new_selection.extension_direction = match selection.extension_direction{
+        None/*ExtensionDirection::None*/ => return Err(SelectionError::ResultsInSameState),
+        Some(Direction::Forward)/*ExtensionDirection::Forward*/ => Some(Direction::Backward)/*ExtensionDirection::Backward*/,
+        Some(Direction::Backward)/*ExtensionDirection::Backward*/ => Some(Direction::Forward)/*ExtensionDirection::Forward*/
     };
     Ok(new_selection)
 }

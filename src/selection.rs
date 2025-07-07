@@ -1,14 +1,11 @@
-//#[derive(PartialEq, Clone, Debug)]
-//pub enum Direction{Forward, Backward}
-//TODO: refactor to Option<Direction>. this would allow Direction to be used in other cases, but encode the possibility of no direction in selecion extension...
-#[derive(PartialEq, Clone, Debug)] pub enum ExtensionDirection{Forward, Backward, None}
+use crate::{
+    range::Range,
+    buffer::Buffer,
+};
 
+#[derive(PartialEq, Clone, Debug)] pub enum Direction{Forward, Backward}
 #[derive(PartialEq)] pub enum Movement{Extend, Move}
-
-//TODO?: change to SelectionSemantics{Exclusive, Inclusive}
-#[derive(Clone)] pub enum CursorSemantics{Bar, Block}
-
-//or should each fallible fn have its own fn specific Error? this would prevent the calling fn from having to match unused variants in the fallible fn...
+#[derive(Clone)] pub enum CursorSemantics{Bar, Block}   //TODO?: change to SelectionSemantics{Exclusive, Inclusive}
 #[derive(Debug, PartialEq)] pub enum SelectionError{
     ResultsInSameState,
     NoOverlap,
@@ -18,24 +15,24 @@
 //TODO: should be indices over a collection of bytes. not chars or graphemes
 #[derive(PartialEq, Clone, Debug)]
 pub struct Selection{
-    pub range: crate::range::Range,
-    pub direction: ExtensionDirection,  //TODO: change to pub extension_direction: Option<Direction>,
+    pub range: Range,
+    pub extension_direction: Option<Direction>,
     /// byte offset of the cursor from line start
-    pub stored_line_offset: Option<usize>,  //TODO: remove Option
+    pub stored_line_offset: Option<usize>,  //TODO: remove Option   //with buffer being passed in to new_from_range, we should be able to always derive stored_line_offset
 }
 impl Selection{
     // only use in tests, because this does not assert invariants
-    /*#[cfg(test)] */#[must_use] pub fn new_unchecked(range: crate::range::Range, direction: ExtensionDirection, stored_line_offset: Option<usize>) -> Self{
-        Self{range, direction, stored_line_offset}
+    /*#[cfg(test)] */#[must_use] pub fn new_unchecked(range: Range, extension_direction: Option<Direction>, stored_line_offset: Option<usize>) -> Self{
+        Self{range, extension_direction, stored_line_offset}
     }
     
     pub fn new_from_range(
-        range: crate::range::Range, 
-        direction: ExtensionDirection, 
-        buffer: &crate::buffer::Buffer, 
+        range: Range, 
+        extension_direction: Option<Direction>,
+        buffer: &Buffer, 
         semantics: CursorSemantics
     ) -> Self{
-        let instance = Self{range, direction, stored_line_offset: None};    //TODO: since we take buffer as an arg, we should determine stored_line_offset
+        let instance = Self{range, extension_direction, stored_line_offset: None};    //TODO: since we take buffer as an arg, we should determine stored_line_offset
 
         instance.assert_invariants(buffer, semantics);
 
@@ -43,7 +40,7 @@ impl Selection{
     }
 
     //TODO: make private, to determine where this is being called unnecessarily and delete calling code
-    pub fn assert_invariants(&self, buffer: &crate::buffer::Buffer, semantics: CursorSemantics){
+    pub fn assert_invariants(&self, buffer: &Buffer, semantics: CursorSemantics){
         //assert!(self.anchor() >= 0);  //already ensured by `usize` type
         //assert!(self.head() >= 0);    //already ensured by `usize` type
 
@@ -52,9 +49,9 @@ impl Selection{
                 assert!(self.anchor() <= buffer.len_chars());
                 assert!(self.head() <= buffer.len_chars());
                 // new. trying this out
-                if self.range.start == self.range.end{assert!(self.direction == ExtensionDirection::None);}
-                else if self.cursor(buffer, semantics.clone()) < self.anchor(){assert!(self.direction == ExtensionDirection::Backward);}
-                else{assert!(self.direction == ExtensionDirection::Forward);}
+                if self.range.start == self.range.end{assert!(self.extension_direction == None);}
+                else if self.cursor(buffer, semantics.clone()) < self.anchor(){assert!(self.extension_direction == Some(Direction::Backward));}
+                else{assert!(self.extension_direction == Some(Direction::Forward));}
                 //
             }
             CursorSemantics::Block => {
@@ -67,9 +64,9 @@ impl Selection{
                 }
                 assert!(self.anchor() != self.head());
                 // new. trying this out... it did already catch something that was useful... prob keep
-                if buffer.next_grapheme_boundary_index(self.range.start) == self.range.end{assert!(self.direction == ExtensionDirection::None);}
-                else if self.cursor(buffer, semantics.clone()) < self.anchor(){assert!(self.direction == ExtensionDirection::Backward);}
-                else{assert!(self.direction == ExtensionDirection::Forward);}
+                if buffer.next_grapheme_boundary_index(self.range.start) == self.range.end{assert!(self.extension_direction == None);}
+                else if self.cursor(buffer, semantics.clone()) < self.anchor(){assert!(self.extension_direction == Some(Direction::Backward));}
+                else{assert!(self.extension_direction == Some(Direction::Forward));}
                 //
             }
         }
@@ -85,33 +82,33 @@ impl Selection{
     // /// let selection = Selection{range: Range{start: 0, end: 3}, direction: ExtensionDirection::Forward, stored_line_offset: None};
     // /// assert_eq!("idk".to_string(), selection.to_string(&buffer));
     // ///```
-    pub fn to_string(&self, buffer: &crate::buffer::Buffer) -> String{
+    pub fn to_string(&self, buffer: &Buffer) -> String{
         //buffer.inner.slice(self.range.start..self.range.end).to_string()
         buffer.slice(self.range.start, self.range.end)
     }
 
     pub fn anchor(&self) -> usize{
-        match self.direction{
-            ExtensionDirection::None |
-            ExtensionDirection::Forward => {self.range.start}
-            ExtensionDirection::Backward => {self.range.end}
+        match self.extension_direction{
+            None |
+            Some(Direction::Forward) => {self.range.start}
+            Some(Direction::Backward) => {self.range.end}
         }
     }
     pub fn head(&self) -> usize{
-        match self.direction{
-            ExtensionDirection::None |
-            ExtensionDirection::Forward => {self.range.end}
-            ExtensionDirection::Backward => {self.range.start}
+        match self.extension_direction{
+            None |
+            Some(Direction::Forward) => {self.range.end}
+            Some(Direction::Backward) => {self.range.start}
         }
     }
-    pub fn cursor(&self, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> usize{
-        match self.direction{
-            ExtensionDirection::None |
-            ExtensionDirection::Forward => match semantics{//buffer.previous_grapheme_boundary_index(self.head()),
+    pub fn cursor(&self, buffer: &Buffer, semantics: CursorSemantics) -> usize{
+        match self.extension_direction{
+            None|
+            Some(Direction::Forward) => match semantics{
                 CursorSemantics::Bar => self.head(),
                 CursorSemantics::Block => buffer.previous_grapheme_boundary_index(self.head()),
             }
-            ExtensionDirection::Backward => self.head()
+            Some(Direction::Backward) => self.head()
         }
     }
     /// Returns the char index of the start of the [`Selection`] from left to right.
@@ -119,30 +116,30 @@ impl Selection{
     #[must_use] pub fn start(&self) -> usize{self.range.start}      //only needed for Selections::sort. figure out how to make that work without this...
 
     /// If self.anchor and self.cursor are known, this can be used to determine the correct extension direction
-    pub fn direction(&self, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> ExtensionDirection{
+    pub fn direction(&self, buffer: &Buffer, semantics: CursorSemantics) -> Option<Direction>{//ExtensionDirection{
         //if self.cursor(buffer, semantics.clone()) > self.anchor(){ExtensionDirection::Forward}
         //else if self.cursor(buffer, semantics.clone()) < self.anchor(){ExtensionDirection::Backward}
         //else{ExtensionDirection::None}
         match semantics{
             CursorSemantics::Bar => {
-                if self.range.start == self.range.end{ExtensionDirection::None}
-                else{self.direction.clone()}
+                if self.range.start == self.range.end{None}
+                else{self.extension_direction.clone()}
             }
             CursorSemantics::Block => {
-                if buffer.next_grapheme_boundary_index(self.range.start) == self.range.end{ExtensionDirection::None}
-                else{self.direction.clone()}
+                if buffer.next_grapheme_boundary_index(self.range.start) == self.range.end{None}
+                else{self.extension_direction.clone()}
             }
         }
     }
 
     //could do pub fn extension() -> ExtensionDirection{} instead, and use if selection.extension() == ExtensionDirection::None
     pub fn is_extended(&self) -> bool{
-        self.direction == ExtensionDirection::Forward || self.direction == ExtensionDirection::Backward
+        self.extension_direction == Some(Direction::Forward) || self.extension_direction == Some(Direction::Backward)
     }
 
-    pub fn spans_multiple_lines(&self, buffer: &crate::buffer::Buffer) -> bool{
+    pub fn spans_multiple_lines(&self, buffer: &Buffer) -> bool{
         // ensure the selection does not exceed the length of the text
-        if self.range.end > buffer.len_chars(){//buffer.inner.len_chars(){
+        if self.range.end > buffer.len_chars(){
             return false;
         }
 
@@ -165,54 +162,24 @@ impl Selection{
     }
 
     /// Returns a new [`Selection`] from the overlapping [`Range`]s of `self` and `other`, with a reasonable `stored_line_position` calculated.
-    pub fn merge_overlapping(&self, other: &Selection, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> Result<Selection, SelectionError>{
+    pub fn merge_overlapping(&self, other: &Selection, buffer: &Buffer, semantics: CursorSemantics) -> Result<Selection, SelectionError>{
         //assert!(self.semantics == other.semantics)    //for future consideration...
         //assert!(self.text == other.text)  //for future consideration...
         if self.range.overlaps(&other.range){
             // perform indiscriminate merge to get selection range
             let new_range = self.range.merge(&other.range);
-        //    //let mut selection = Selection::new(new_range.start, new_range.end);
-        //    let mut selection = Selection::new(Range::new(new_range.start, new_range.end), Direction::Forward); //maybe move match here instead of assigning Forward
-        //    
-        //    // set resultant direction, based on inputs
-        //    match (self.direction, other.direction, self.is_extended(semantics), other.is_extended(semantics)){
-        //        (Direction::Forward, Direction::Forward, false, false) => selection.direction = Direction::Forward,
-        //        (Direction::Forward, Direction::Forward, true, false) => selection.direction = Direction::Forward,
-        //        (Direction::Forward, Direction::Forward, false, true) => selection.direction = Direction::Forward,
-        //        (Direction::Forward, Direction::Forward, true, true) => selection.direction = Direction::Forward,
-        //
-        //        (Direction::Forward, Direction::Backward, false, false) => selection.direction = Direction::Forward,
-        //        (Direction::Forward, Direction::Backward, true, false) => selection.direction = Direction::Forward,
-        //        (Direction::Forward, Direction::Backward, false, true) => selection.direction = Direction::Backward,
-        //        (Direction::Forward, Direction::Backward, true, true) => selection.direction = Direction::Forward,
-        //
-        //        (Direction::Backward, Direction::Forward, false, false) => selection.direction = Direction::Forward,
-        //        (Direction::Backward, Direction::Forward, true, false) => selection.direction = Direction::Backward,
-        //        (Direction::Backward, Direction::Forward, false, true) => selection.direction = Direction::Forward,
-        //        (Direction::Backward, Direction::Forward, true, true) => selection.direction = Direction::Forward,
-        //
-        //        (Direction::Backward, Direction::Backward, false, false) => selection.direction = Direction::Backward,
-        //        (Direction::Backward, Direction::Backward, true, false) => selection.direction = Direction::Backward,
-        //        (Direction::Backward, Direction::Backward, false, true) => selection.direction = Direction::Backward,
-        //        (Direction::Backward, Direction::Backward, true, true) => selection.direction = Direction::Backward,
-        //    }
-        //    
-        //    // calculate new stored_line_position
-        //    //selection.stored_line_position = Some(text_util::offset_from_line_start(selection.cursor(text, semantics), text));
-        //    selection.stored_line_offset = Some(buffer.offset_from_line_start(selection.cursor(buffer)));
-
             let mut selection = Selection::new_from_range(
-                crate::range::Range::new(new_range.start, new_range.end), 
-                match (self.direction.clone(), other.direction.clone()){
-                    (ExtensionDirection::None, ExtensionDirection::None) => ExtensionDirection::None,
-                    (ExtensionDirection::None, ExtensionDirection::Forward) => ExtensionDirection::Forward,
-                    (ExtensionDirection::None, ExtensionDirection::Backward) => ExtensionDirection::Backward,
-                    (ExtensionDirection::Forward, ExtensionDirection::None) => ExtensionDirection::Forward,
-                    (ExtensionDirection::Forward, ExtensionDirection::Forward) => ExtensionDirection::Forward,
-                    (ExtensionDirection::Forward, ExtensionDirection::Backward) => ExtensionDirection::Forward,     //this may still change in the future...if even possible
-                    (ExtensionDirection::Backward, ExtensionDirection::None) => ExtensionDirection::Backward,
-                    (ExtensionDirection::Backward, ExtensionDirection::Forward) => ExtensionDirection::Forward,     //this may still change in the future...if even possible
-                    (ExtensionDirection::Backward, ExtensionDirection::Backward) => ExtensionDirection::Backward,
+                Range::new(new_range.start, new_range.end), 
+                match (self.extension_direction.clone(), other.extension_direction.clone()){
+                    (None, None) => None,
+                    (None, Some(Direction::Forward)) => Some(Direction::Forward),
+                    (None, Some(Direction::Backward)) => Some(Direction::Backward),
+                    (Some(Direction::Forward), None) => Some(Direction::Forward),
+                    (Some(Direction::Forward), Some(Direction::Forward)) => Some(Direction::Forward),
+                    (Some(Direction::Forward), Some(Direction::Backward)) => Some(Direction::Forward),  //this may still change in the future...if even possible
+                    (Some(Direction::Backward), None) => Some(Direction::Backward),
+                    (Some(Direction::Backward), Some(Direction::Forward)) => Some(Direction::Forward),  //this may still change in the future...if even possible
+                    (Some(Direction::Backward), Some(Direction::Backward)) => Some(Direction::Backward)
                 }, 
                 buffer, 
                 semantics.clone()
@@ -226,7 +193,7 @@ impl Selection{
 
     //TODO: should this be made purely functional?
     //TODO: should this pass up possible errors from move/extend calls?
-    pub fn shift_and_extend(&mut self, amount: usize, buffer: &crate::buffer::Buffer, semantics: CursorSemantics){ //-> Result<(), SelectionError>{
+    pub fn shift_and_extend(&mut self, amount: usize, buffer: &Buffer, semantics: CursorSemantics){ //-> Result<(), SelectionError>{
         for _ in 0..amount{
             if let Ok(new_selection) = crate::utilities::move_cursor_left::selection_impl(self, 1, buffer, None, semantics.clone()){
                 *self = new_selection;
@@ -245,7 +212,7 @@ impl Selection{
     }
 
     /// Translates a [`Selection`] to a [Selection2d].
-    #[must_use] pub fn selection_to_selection2d(&self, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> crate::selection2d::Selection2d{
+    #[must_use] pub fn selection_to_selection2d(&self, buffer: &Buffer, semantics: CursorSemantics) -> crate::selection2d::Selection2d{
         let line_number_head = buffer.inner.char_to_line(self.cursor(buffer, semantics.clone()));
         let line_number_anchor = buffer.inner.char_to_line(self.anchor());
 
@@ -287,16 +254,15 @@ impl Selection{
     /// Returns a new instance of [`Selection`] with the cursor moved vertically by specified amount.
     /// Errors if `amount` < 1.
     // ExtensionDirection is misused here. it used to be Direction{Forward, Backward} which makes more sense. this will all be removed when move_vertically/horizontally and put_cursor are done away with...
-    pub fn move_vertically(&self, amount: usize, buffer: &crate::buffer::Buffer, movement: Movement, direction: ExtensionDirection, semantics: CursorSemantics) -> Result<Self, SelectionError>{    //TODO: error if current_line + amount > text.len_lines, or if current_line < amount when moving backward
+    pub fn move_vertically(&self, amount: usize, buffer: &Buffer, movement: Movement, direction: Direction, semantics: CursorSemantics) -> Result<Self, SelectionError>{    //TODO: error if current_line + amount > text.len_lines, or if current_line < amount when moving backward
         if amount < 1{return Err(SelectionError::ResultsInSameState);}  //and this may make sense to be an assert. we want the calling function to ensure any input is valid...
         
         let mut selection = self.clone();
         
         let current_line = buffer.char_to_line(self.cursor(buffer, semantics.clone()));
         let goal_line_number = match direction{
-            ExtensionDirection::None |
-            ExtensionDirection::Forward => (current_line + amount).min(buffer.len_lines().saturating_sub(1)),
-            ExtensionDirection::Backward => current_line.saturating_sub(amount),
+            Direction::Forward => (current_line + amount).min(buffer.len_lines().saturating_sub(1)),
+            Direction::Backward => current_line.saturating_sub(amount),
         };
 
         let start_of_line = buffer.line_to_char(goal_line_number);
@@ -320,12 +286,11 @@ impl Selection{
 
     /// Returns a new instance of [`Selection`] with the cursor moved horizontally by specified amount.
     /// Errors if `amount` < 1.
-    pub fn move_horizontally(&self, amount: usize, buffer: &crate::buffer::Buffer, movement: Movement, direction: ExtensionDirection, semantics: CursorSemantics) -> Result<Self, SelectionError>{
+    pub fn move_horizontally(&self, amount: usize, buffer: &Buffer, movement: Movement, direction: Direction, semantics: CursorSemantics) -> Result<Self, SelectionError>{
         if amount < 1{return Err(SelectionError::ResultsInSameState);}     //and this may make sense to be an assert. we want the calling function to ensure any input is valid...
         
         let new_position = match direction{
-            ExtensionDirection::None |
-            ExtensionDirection::Forward => {
+            Direction::Forward => {
                 let mut index = self.cursor(buffer, semantics.clone());
                 for _ in 0..amount{
                     let next_grapheme_boundary_index = buffer.next_grapheme_boundary_index(index);
@@ -336,7 +301,7 @@ impl Selection{
                 }
                 index.min(buffer.len_chars()) //ensures this does not move past text end      //could match on semantics, and ensure extend does index.min(previous_grapheme_index(text.len_chars()))
             }
-            ExtensionDirection::Backward => {
+            Direction::Backward => {
                 let mut index = self.cursor(buffer, semantics.clone());
                 for _ in 0..amount{
                     let previous_grapheme_boundary_index = buffer.previous_grapheme_boundary_index(index);
@@ -356,7 +321,7 @@ impl Selection{
     /// If movement == `Movement::Move`, returned selection will always be `Direction::Forward`.
     /// `to` saturates at doc or text boundaries.
     //TODO: even if we saturate `to` at boundaries, we should assert it here, to ensure all calling functions are handling this correctly, and catching errors as early as possible
-    pub fn put_cursor(&self, to: usize, buffer: &crate::buffer::Buffer, movement: Movement, semantics: CursorSemantics, update_stored_line_position: bool) -> Result<Self, SelectionError>{
+    pub fn put_cursor(&self, to: usize, buffer: &Buffer, movement: Movement, semantics: CursorSemantics, update_stored_line_position: bool) -> Result<Self, SelectionError>{
         use core::cmp::Ord;
         let mut selection = self.clone();
         match (semantics.clone(), movement){
@@ -366,20 +331,20 @@ impl Selection{
                 //Selection::new(Range::new(to, to), ExtensionDirection::None)
                 selection.range.start = to;
                 selection.range.end = to;
-                selection.direction = ExtensionDirection::None;
+                selection.extension_direction = None;
             }
             (CursorSemantics::Bar, Movement::Extend) => {
                 //let to = to.min(buffer.len_chars());
                 let to = Ord::min(to, buffer.len_chars());
                 let (start, end, direction) = if to < self.anchor(){
-                    (to, self.anchor(), ExtensionDirection::Backward)
+                    (to, self.anchor(), Some(Direction::Backward))
                 }else{
-                    (self.anchor(), to, ExtensionDirection::Forward)
+                    (self.anchor(), to, Some(Direction::Forward))
                 };
                 //Selection::new(Range::new(start, end), direction)
                 selection.range.start = start;
                 selection.range.end = end;
-                selection.direction = direction;
+                selection.extension_direction = direction;
             }
             (CursorSemantics::Block, Movement::Move) => {
                 //let to = to.min(buffer.len_chars());
@@ -387,14 +352,14 @@ impl Selection{
                 //Selection::new(Range::new(to, buffer.next_grapheme_boundary_index(to).min(buffer.len_chars().saturating_add(1))), ExtensionDirection::None)
                 selection.range.start = to;
                 selection.range.end = Ord::min(buffer.next_grapheme_boundary_index(to), buffer.len_chars().saturating_add(1));
-                selection.direction = ExtensionDirection::None;
+                selection.extension_direction = None;
             }
             (CursorSemantics::Block, Movement::Extend) => {
                 //let to = to.min(buffer.previous_grapheme_boundary_index(buffer.len_chars()));
                 let to = Ord::min(to, buffer.previous_grapheme_boundary_index(buffer.len_chars()));
-                let new_anchor = match self.direction{
-                    ExtensionDirection::None |
-                    ExtensionDirection::Forward => {
+                let new_anchor = match self.extension_direction{
+                    None|
+                    Some(Direction::Forward) => {
                         if to < self.anchor(){  //could also do self.range.start
                             //if let Some(char_at_cursor) = buffer.get_char(self.cursor(buffer, semantics.clone())){
                             //    if char_at_cursor == '\n'{self.anchor()}
@@ -402,7 +367,7 @@ impl Selection{
                             /*}else{*/buffer.next_grapheme_boundary_index(self.anchor()).min(buffer.len_chars())//}
                         }else{self.anchor()}
                     }
-                    ExtensionDirection::Backward => {
+                    Some(Direction::Backward) => {
                         if to >= self.anchor(){buffer.previous_grapheme_boundary_index(self.anchor())} //could also do self.range.end
                         else{self.anchor()}
                     }
@@ -413,15 +378,15 @@ impl Selection{
                     selection.range.start = new_anchor;
                     selection.range.end = Ord::min(buffer.next_grapheme_boundary_index(to), buffer.len_chars().saturating_add(1));
                     //selection.direction = ExtensionDirection::Forward;
-                    selection.direction = if buffer.next_grapheme_boundary_index(selection.range.start) == selection.range.end{ExtensionDirection::None}
-                    else{ExtensionDirection::Forward}
+                    selection.extension_direction = if buffer.next_grapheme_boundary_index(selection.range.start) == selection.range.end{None}
+                    else{Some(Direction::Forward)}
                 }else{
                     //Selection::new(Range::new(to, new_anchor), ExtensionDirection::Backward)
                     selection.range.start = to;
                     selection.range.end = new_anchor;
                     //selection.direction = ExtensionDirection::Backward;
-                    selection.direction = if buffer.next_grapheme_boundary_index(selection.range.start) == selection.range.end{ExtensionDirection::None}
-                    else{ExtensionDirection::Backward}
+                    selection.extension_direction = if buffer.next_grapheme_boundary_index(selection.range.start) == selection.range.end{None}
+                    else{Some(Direction::Backward)}
                 }
             }
         };
@@ -439,112 +404,112 @@ impl Selection{
 
 #[cfg(test)]
 mod tests{
-    use crate::range::Range;
+    use Range;
     use super::*;
     #[should_panic] #[test] fn non_extended_block_cursor_should_panic_if_set_to_extension_direction_forward(){
-        let buffer = &crate::buffer::Buffer::new("idk\nsome\nshit\n", None, false);
+        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
         let semantics = crate::selection::CursorSemantics::Block;
-        let _ = Selection::new_from_range(Range::new(14, 15), ExtensionDirection::Forward, buffer, semantics.clone());
+        let _ = Selection::new_from_range(Range::new(14, 15), Some(Direction::Forward)/*ExtensionDirection::Forward*/, buffer, semantics.clone());
     }
     #[should_panic] #[test] fn non_extended_block_cursor_should_panic_if_set_to_extension_direction_backward(){
-        let buffer = &crate::buffer::Buffer::new("idk\nsome\nshit\n", None, false);
+        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
         let semantics = crate::selection::CursorSemantics::Block;
-        let _ = Selection::new_from_range(Range::new(14, 15), ExtensionDirection::Backward, buffer, semantics.clone());
+        let _ = Selection::new_from_range(Range::new(14, 15), Some(Direction::Backward)/*ExtensionDirection::Backward*/, buffer, semantics.clone());
     }
     #[should_panic] #[test] fn extended_bar_selection_should_panic_if_set_to_extension_direction_none(){
-        let buffer = &crate::buffer::Buffer::new("idk\nsome\nshit\n", None, false);
+        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
         let semantics = crate::selection::CursorSemantics::Bar;
-        let _ = Selection::new_from_range(Range::new(0, 3), ExtensionDirection::None, buffer, semantics.clone());
+        let _ = Selection::new_from_range(Range::new(0, 3), None/*ExtensionDirection::None*/, buffer, semantics.clone());
     }
     #[test] #[should_panic] fn zero_width_block_selection_panics(){
-        let buffer = &crate::buffer::Buffer::new("idk\nsome\nshit\n", None, false);
+        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
         let semantics = crate::selection::CursorSemantics::Block;
         //let _ = crate::selection::Selection::new_from_components(0, 0, None, buffer, semantics.clone());
-        let _ = Selection::new_from_range(Range::new(0, 0), ExtensionDirection::None, buffer, semantics);
+        let _ = Selection::new_from_range(Range::new(0, 0), None/*ExtensionDirection::None*/, buffer, semantics);
     }
     #[test] #[should_panic] fn index_past_buffer_len_panics_bar_semantics(){
-        let buffer = &crate::buffer::Buffer::new("idk\nsome\nshit\n", None, false);
+        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
         let semantics = crate::selection::CursorSemantics::Bar;
         //let _ = crate::selection::Selection::new_from_components(15, 15, None, buffer, semantics.clone());
-        let _ = Selection::new_from_range(Range::new(15, 15), ExtensionDirection::None, buffer, semantics);
+        let _ = Selection::new_from_range(Range::new(15, 15), None/*ExtensionDirection::None*/, buffer, semantics);
     }
     #[test] #[should_panic] fn index_past_buffer_len_panics_block_semantics(){
-        let buffer = &crate::buffer::Buffer::new("idk\nsome\nshit\n", None, false);
+        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
         let semantics = crate::selection::CursorSemantics::Block;
         //let _ = crate::selection::Selection::new_from_components(15, 16, None, buffer, semantics.clone());
-        let _ = Selection::new_from_range(Range::new(15, 16), ExtensionDirection::None, buffer, semantics);
+        let _ = Selection::new_from_range(Range::new(15, 16), None/*ExtensionDirection::None*/, buffer, semantics);
     }
     #[test] fn non_extended_bar_semantics(){
-        let buffer = &crate::buffer::Buffer::new("idk\nsome\nshit\n", None, false);
+        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
         let semantics = crate::selection::CursorSemantics::Bar;
         //let idk = crate::selection::Selection::new_from_components(0, 0, None, buffer, semantics.clone());
-        let idk = Selection::new_from_range(Range::new(0, 0), ExtensionDirection::None, buffer, semantics.clone());
+        let idk = Selection::new_from_range(Range::new(0, 0), None/*ExtensionDirection::None*/, buffer, semantics.clone());
         assert_eq!(0, idk.range.start);
         assert_eq!(0, idk.range.end);
         assert_eq!(0, idk.cursor(buffer, semantics.clone()));
         assert_eq!(None, idk.stored_line_offset);
-        assert_eq!(crate::selection::ExtensionDirection::None, idk.direction);
+        assert_eq!(None/*crate::selection::ExtensionDirection::None*/, idk.extension_direction);
         //assert_eq!(crate::selection::ExtensionDirection::None, idk.direction(&buffer, semantics.clone()));
     }
     #[test] fn non_extended_block_semantics(){
-        let buffer = &crate::buffer::Buffer::new("idk\nsome\nshit\n", None, false);
+        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
         let semantics = crate::selection::CursorSemantics::Block;
         //let idk = crate::selection::Selection::new_from_components(0, 1, None, buffer, semantics.clone());
-        let idk = Selection::new_from_range(Range::new(0, 1), ExtensionDirection::None, buffer, semantics.clone());
+        let idk = Selection::new_from_range(Range::new(0, 1), None/*ExtensionDirection::None*/, buffer, semantics.clone());
         assert_eq!(0, idk.range.start);
         assert_eq!(1, idk.range.end);
         assert_eq!(0, idk.cursor(buffer, semantics.clone()));
         assert_eq!(None, idk.stored_line_offset);
-        assert_eq!(crate::selection::ExtensionDirection::None, idk.direction);
+        assert_eq!(None/*crate::selection::ExtensionDirection::None*/, idk.extension_direction);
         //assert_eq!(crate::selection::ExtensionDirection::None, idk.direction(&buffer, semantics));
     }
     #[should_panic]
     #[test] fn backward_extended_bar_semantics(){
-        let buffer = &crate::buffer::Buffer::new("idk\nsome\nshit\n", None, false);
+        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
         let semantics = crate::selection::CursorSemantics::Bar;
         //let idk = crate::selection::Selection::new_from_components(1, 0, None, buffer, semantics.clone());
-        let idk = Selection::new_from_range(Range::new(1, 0), ExtensionDirection::None, buffer, semantics.clone());
+        let idk = Selection::new_from_range(Range::new(1, 0), Some(Direction::Backward)/*ExtensionDirection::None*/, buffer, semantics.clone());
         assert_eq!(0, idk.range.start);
         assert_eq!(1, idk.range.end);
         assert_eq!(0, idk.cursor(buffer, semantics.clone()));
         assert_eq!(None, idk.stored_line_offset);
-        assert_eq!(crate::selection::ExtensionDirection::Backward, idk.direction);
+        assert_eq!(Some(Direction::Backward)/*crate::selection::ExtensionDirection::Backward*/, idk.extension_direction);
         //assert_eq!(crate::selection::ExtensionDirection::Backward, idk.direction(&buffer, semantics));
     }
     #[test] fn backward_extended_block_semantics(){
-        let buffer = &crate::buffer::Buffer::new("idk\nsome\nshit\n", None, false);
+        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
         let semantics = crate::selection::CursorSemantics::Block;
         //let idk = crate::selection::Selection::new_from_components(2, 0, None, buffer, semantics.clone());
-        let idk = Selection::new_from_range(Range::new(0, 2), ExtensionDirection::Backward, buffer, semantics.clone());
+        let idk = Selection::new_from_range(Range::new(0, 2), Some(Direction::Backward)/*ExtensionDirection::Backward*/, buffer, semantics.clone());
         assert_eq!(0, idk.range.start);
         assert_eq!(2, idk.range.end);
         assert_eq!(0, idk.cursor(buffer, semantics.clone()));
         assert_eq!(None, idk.stored_line_offset);
-        assert_eq!(crate::selection::ExtensionDirection::Backward, idk.direction);
+        assert_eq!(Some(Direction::Backward)/*crate::selection::ExtensionDirection::Backward*/, idk.extension_direction);
         //assert_eq!(crate::selection::ExtensionDirection::Backward, idk.direction(&buffer, semantics));
     }
     #[test] fn forward_extended_bar_semantics(){
-        let buffer = &crate::buffer::Buffer::new("idk\nsome\nshit\n", None, false);
+        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
         let semantics = crate::selection::CursorSemantics::Bar;
         //let idk = crate::selection::Selection::new_from_components(0, 1, None, buffer, semantics.clone());
-        let idk = Selection::new_from_range(Range::new(0, 1), ExtensionDirection::Forward, buffer, semantics.clone());
+        let idk = Selection::new_from_range(Range::new(0, 1), Some(Direction::Forward)/*ExtensionDirection::Forward*/, buffer, semantics.clone());
         assert_eq!(0, idk.range.start);
         assert_eq!(1, idk.range.end);
         assert_eq!(1, idk.cursor(buffer, semantics.clone()));
         assert_eq!(None, idk.stored_line_offset);
-        assert_eq!(crate::selection::ExtensionDirection::Forward, idk.direction);
+        assert_eq!(Some(Direction::Forward)/*crate::selection::ExtensionDirection::Forward*/, idk.extension_direction);
         //assert_eq!(crate::selection::ExtensionDirection::Forward, idk.direction(&buffer, semantics));
     }
     #[test] fn forward_extended_block_semantics(){
-        let buffer = &crate::buffer::Buffer::new("idk\nsome\nshit\n", None, false);
+        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
         let semantics = crate::selection::CursorSemantics::Block;
         //let idk = crate::selection::Selection::new_from_components(0, 2, None, buffer, semantics.clone());
-        let idk = Selection::new_from_range(Range::new(0, 2), ExtensionDirection::Forward, buffer, semantics.clone());
+        let idk = Selection::new_from_range(Range::new(0, 2), Some(Direction::Forward)/*ExtensionDirection::Forward*/, buffer, semantics.clone());
         assert_eq!(0, idk.range.start);
         assert_eq!(2, idk.range.end);
         assert_eq!(1, idk.cursor(buffer, semantics.clone()));
         assert_eq!(None, idk.stored_line_offset);
-        assert_eq!(crate::selection::ExtensionDirection::Forward, idk.direction);
+        assert_eq!(Some(Direction::Forward)/*crate::selection::ExtensionDirection::Forward*/, idk.extension_direction);
         //assert_eq!(crate::selection::ExtensionDirection::Forward, idk.direction(&buffer, semantics));
     }
 }

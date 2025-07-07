@@ -1,6 +1,6 @@
 use crate::{
     application::{Application, ApplicationError},
-    selection::{Selection, SelectionError, CursorSemantics, ExtensionDirection, Movement},
+    selection::{Selection, SelectionError, CursorSemantics, /*Extension*/Direction, Movement},
     selections::SelectionsError,
     display_area::DisplayArea
 };
@@ -25,5 +25,5 @@ pub fn selection_impl(selection: &Selection, count: usize, buffer: &crate::buffe
     || buffer.char_to_line(selection.range.end) == last_line
     || buffer.char_to_line(selection.cursor(buffer, semantics.clone())) == last_line{return Err(SelectionError::ResultsInSameState);}
 
-    selection.move_vertically(count, buffer, Movement::Extend, ExtensionDirection::Forward, semantics)
+    selection.move_vertically(count, buffer, Movement::Extend, /*Extension*/Direction::Forward, semantics)
 }

@@ -6,7 +6,7 @@
 
 use crate::{
     range::Range,
-    selection::{Movement, Selection, ExtensionDirection}, 
+    selection::{Movement, Selection, /*ExtensionDirection*/}, 
     config::CURSOR_SEMANTICS
 };
 use std::cmp::Ordering;
@@ -28,7 +28,7 @@ impl Default for InteractiveTextBox{
             text_is_valid: false,
             selection: Selection::new_from_range(
                 Range::new(0, /*1*/buffer.next_grapheme_boundary_index(0)), 
-                ExtensionDirection::None, 
+                None,//ExtensionDirection::None, 
                 &buffer, 
                 CURSOR_SEMANTICS
             ),

@@ -72,12 +72,12 @@ pub fn selections_impl(selections: &Selections, buffer: &crate::buffer::Buffer, 
                             let mut first_selection = selection.clone();
                             first_selection.range.start = rev_search_index;
                             first_selection.range.end = buffer.next_grapheme_boundary_index(rev_search_index);
-                            first_selection.direction = crate::selection::ExtensionDirection::None;
+                            first_selection.extension_direction = None;//crate::selection::ExtensionDirection::None;
 
                             let mut second_selection = selection.clone();
                             second_selection.range.start = search_index;
                             second_selection.range.end = buffer.next_grapheme_boundary_index(search_index);
-                            second_selection.direction = crate::selection::ExtensionDirection::None;
+                            second_selection.extension_direction = None;//crate::selection::ExtensionDirection::None;
                             return vec![
                                 //Selection::new(Range::new(rev_search_index, text_util::next_grapheme_index(rev_search_index, text)), Direction::Forward),
                                 first_selection,
@@ -99,12 +99,12 @@ pub fn selections_impl(selections: &Selections, buffer: &crate::buffer::Buffer, 
                                 let mut first_selection = selection.clone();
                                 first_selection.range.start = rev_search_index;
                                 first_selection.range.end = buffer.next_grapheme_boundary_index(rev_search_index);
-                                first_selection.direction = crate::selection::ExtensionDirection::None;
+                                first_selection.extension_direction = None;//crate::selection::ExtensionDirection::None;
 
                                 let mut second_selection = selection.clone();
                                 second_selection.range.start = search_index;
                                 second_selection.range.end = buffer.next_grapheme_boundary_index(search_index);
-                                second_selection.direction = crate::selection::ExtensionDirection::None;
+                                second_selection.extension_direction = None;//crate::selection::ExtensionDirection::None;
                                 return vec![
                                     //Selection::new(Range::new(rev_search_index, text_util::next_grapheme_index(rev_search_index, text)), Direction::Forward),
                                     first_selection,

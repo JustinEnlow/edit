@@ -1,7 +1,7 @@
 use edit::{
     application::{ViewAction, Mode},
     range::Range,
-    selection::{Selection, CursorSemantics::Block, ExtensionDirection},
+    selection::{Selection, CursorSemantics::Block, /*Extension*/Direction},
     display_area::DisplayArea,
     config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE, Config}
 };
@@ -35,7 +35,7 @@ use crate::view_actions::test_view_action;
         "idk\nyet\nsome\nmore\nother\nrandom\nshit\n", 
         vec![
             //(8, 9, None)
-            Selection::new_unchecked(Range::new(8, 9), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(8, 9), None, None),
         ], 
         0, 
         Mode::Insert, 
@@ -91,7 +91,7 @@ use crate::view_actions::test_view_action;
         "idk\nyet\nsome\nmore\nother\nrandom\nshit\n", 
         vec![
             //(18, 19, None)
-            Selection::new_unchecked(Range::new(18, 19), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(18, 19), None, None),
         ], 
         0, 
         Mode::Insert, 
@@ -125,7 +125,7 @@ use crate::view_actions::test_view_action;
         "idk\nsome\nmore\nother\nshit\n", 
         vec![
             //(0, 1, None)
-            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, None),
         ], 
         0, 
         match SAME_STATE_DISPLAY_MODE{
@@ -165,7 +165,7 @@ use crate::view_actions::test_view_action;
         "idk\nsome\nmore\nother\nshit\n", 
         vec![
             //(25, 26, None)
-            Selection::new_unchecked(Range::new(25, 26), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(25, 26), None, None),
         ], 
         0, 
         match SAME_STATE_DISPLAY_MODE{
@@ -205,7 +205,7 @@ use crate::view_actions::test_view_action;
         "idk\nsome\nmore\nother\nshit\n", 
         vec![
             //(9, 10, None)
-            Selection::new_unchecked(Range::new(9, 10), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(9, 10), None, None),
         ], 
         0, 
         match SAME_STATE_DISPLAY_MODE{
@@ -245,7 +245,7 @@ use crate::view_actions::test_view_action;
         "idk\nyet\nsome\nmore\nother\nshit\n", 
         vec![
             //(8, 9, None)
-            Selection::new_unchecked(Range::new(8, 9), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(8, 9), None, None),
         ], 
         0, 
         match SAME_STATE_DISPLAY_MODE{
@@ -285,7 +285,7 @@ use crate::view_actions::test_view_action;
         "idk\nyet\nsome\nmore\nother\nshit\n", 
         vec![
             //(13, 14, None)
-            Selection::new_unchecked(Range::new(13, 14), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(13, 14), None, None),
         ], 
         0, 
         match SAME_STATE_DISPLAY_MODE{

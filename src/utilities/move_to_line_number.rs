@@ -1,6 +1,6 @@
 use crate::{
     application::{Application, ApplicationError},
-    selection::{Selection, SelectionError, ExtensionDirection, CursorSemantics, Movement},
+    selection::{Selection, SelectionError, /*Extension*/Direction, CursorSemantics, Movement},
     selections::SelectionsError
 };
 
@@ -28,9 +28,9 @@ fn selection_impl(selection: &Selection, line_number: usize, buffer: &crate::buf
     
     let current_line = buffer.char_to_line(selection.cursor(buffer, semantics.clone()));
     let (amount, direction) = if line_number < current_line{
-        (current_line.saturating_sub(line_number), ExtensionDirection::Backward)
+        (current_line.saturating_sub(line_number), /*Extension*/Direction::Backward)
     }else{
-        (line_number.saturating_sub(current_line), ExtensionDirection::Forward)
+        (line_number.saturating_sub(current_line), /*Extension*/Direction::Forward)
     };
     selection.move_vertically(amount, buffer, movement, direction, semantics)
 }

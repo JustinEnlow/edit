@@ -1,7 +1,7 @@
 use edit::{
     application::{EditAction::InsertTab, Mode},
     range::Range,
-    selection::{Selection, CursorSemantics::Block, ExtensionDirection},
+    selection::{Selection, CursorSemantics::Block, /*Extension*/Direction},
     display_area::DisplayArea,
     config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER, USE_HARD_TAB, Config}
 };
@@ -27,9 +27,9 @@ use crate::edit_actions::test_edit_action;
         "some\nshit\n", 
         vec![
             //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, None),
             //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(5, 6), None, None),
         ], 
         0, 
         "",
@@ -38,16 +38,16 @@ use crate::edit_actions::test_edit_action;
         if USE_HARD_TAB{
             vec![   //\tsome\n\tshit\n
                 //(1, 2, Some(0)),
-                Selection::new_unchecked(Range::new(1, 2), ExtensionDirection::None, Some(0)),
+                Selection::new_unchecked(Range::new(1, 2), None, Some(0)),
                 //(7, 8, Some(0))
-                Selection::new_unchecked(Range::new(7, 8), ExtensionDirection::None, Some(0)),
+                Selection::new_unchecked(Range::new(7, 8), None, Some(0)),
             ]
         }else{
             vec![   //    some\n    shit\n      //this would depend on TAB_WIDTH as well...
                 //(4, 5, Some(4)),
-                Selection::new_unchecked(Range::new(4, 5), ExtensionDirection::None, Some(4)),
+                Selection::new_unchecked(Range::new(4, 5), None, Some(4)),
                 //(13, 14, Some(4))
-                Selection::new_unchecked(Range::new(13, 14), ExtensionDirection::None, Some(4)),
+                Selection::new_unchecked(Range::new(13, 14), None, Some(4)),
             ]
         },
         0,
@@ -75,9 +75,9 @@ use crate::edit_actions::test_edit_action;
         "some\nshit\n", 
         vec![
             //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, None),
             //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(5, 6), None, None),
         ], 
         0, 
         "",
@@ -91,9 +91,9 @@ use crate::edit_actions::test_edit_action;
         }, 
         vec![
             //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, None),
             //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(5, 6), None, None),
         ], 
         0,
         ""

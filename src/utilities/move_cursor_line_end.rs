@@ -1,6 +1,6 @@
 use crate::{
     application::{Application, ApplicationError},
-    selection::{Selection, SelectionError, CursorSemantics, ExtensionDirection/*, Movement */},
+    selection::{Selection, SelectionError, CursorSemantics, /*ExtensionDirection*//*, Movement */},
     selections::SelectionsError
 };
 
@@ -30,7 +30,7 @@ pub fn selection_impl(selection: &Selection, buffer: &crate::buffer::Buffer, sem
         CursorSemantics::Bar => line_end.min(buffer.len_chars()),
         CursorSemantics::Block => buffer.next_grapheme_boundary_index(line_end).min(buffer.len_chars().saturating_add(1))
     };
-    selection.direction = ExtensionDirection::None;
+    selection.extension_direction = None;//ExtensionDirection::None;
     selection.stored_line_offset = Some(buffer.offset_from_line_start(selection.cursor(buffer, semantics.clone())));
     
     selection.assert_invariants(buffer, semantics.clone());

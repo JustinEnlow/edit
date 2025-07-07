@@ -1,6 +1,6 @@
 use crate::{
     application::{Application, ApplicationError},
-    selection::{Selection, SelectionError, CursorSemantics},
+    selection::{Selection, SelectionError, CursorSemantics, Direction},
     selections::SelectionsError
 };
 
@@ -30,7 +30,7 @@ pub fn selection_impl(selection: &Selection, buffer: &crate::buffer::Buffer, sem
         let mut selection = selection.clone();
         selection.range.start = line_start;
         selection.range.end = line_end;
-        selection.direction = crate::selection::ExtensionDirection::Forward;
+        selection.extension_direction = Some(Direction::Forward);//crate::selection::ExtensionDirection::Forward;
         //TODO?: maybe update stored line offset?...
         Ok(selection)
     }

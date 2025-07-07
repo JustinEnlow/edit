@@ -1,7 +1,7 @@
 use crate::{
     application::{Application, ApplicationError},
     display_area::DisplayArea,
-    selection::{Selection, SelectionError, CursorSemantics, ExtensionDirection, Movement}
+    selection::{Selection, SelectionError, CursorSemantics, /*Extension*/Direction, Movement}
 };
 
 //pub fn application_impl(app: &mut Application, count: usize, display_area: Option<&DisplayArea>, semantics: CursorSemantics) -> Result<(), ApplicationError>{
@@ -26,7 +26,7 @@ pub fn selection_impl(selection: &Selection, count: usize, buffer: &crate::buffe
         count.saturating_mul(client_view.height().saturating_sub(1)),
         buffer, 
         Movement::Move, 
-        ExtensionDirection::Forward, 
+        /*Extension*/Direction::Forward, 
         semantics
     )
 }

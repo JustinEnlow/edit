@@ -1,7 +1,7 @@
 use crate::{
     application::{Application, ApplicationError},
     selections::{Selections, SelectionsError},
-    selection::{Selection, ExtensionDirection, CursorSemantics},
+    selection::{Selection, /*Extension*/Direction, CursorSemantics},
 };
 use regex::Regex;
 
@@ -67,7 +67,7 @@ pub fn selections_impl(selections: &Selections, input: &str, buffer: &crate::buf
             let mut new_selection = selection.clone();
             new_selection.range.start = search_match.start().saturating_add(start);
             new_selection.range.end = search_match.end().saturating_add(start);
-            new_selection.direction = ExtensionDirection::Forward;
+            new_selection.extension_direction = Some(Direction::Forward);//ExtensionDirection::Forward;
             selections.push(new_selection);
         }
     }

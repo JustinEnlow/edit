@@ -59,12 +59,12 @@ pub fn selections_impl(selections: &Selections, buffer: &crate::buffer::Buffer, 
     let mut first_selection = selection.clone();
     first_selection.range.start = selection.range.start;
     first_selection.range.end = buffer.next_grapheme_boundary_index(selection.range.start);
-    first_selection.direction = crate::selection::ExtensionDirection::None;
+    first_selection.extension_direction = None;//crate::selection::ExtensionDirection::None;
     //let second_selection = Selection::new(Range::new(selection.range.end, text_util::next_grapheme_index(selection.range.end, text)), Direction::Forward);
     let mut second_selection = selection.clone();
     second_selection.range.start = selection.range.end;
     second_selection.range.end = buffer.next_grapheme_boundary_index(selection.range.end);
-    second_selection.direction = crate::selection::ExtensionDirection::None;
+    second_selection.extension_direction = None;//crate::selection::ExtensionDirection::None;
 
     surround_selections.push(first_selection);
     surround_selections.push(second_selection);

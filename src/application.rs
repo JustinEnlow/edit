@@ -246,7 +246,7 @@ impl Application{
                             crate::selection::CursorSemantics::Bar => crate::range::Range::new(0, 0),
                             crate::selection::CursorSemantics::Block => crate::range::Range::new(0, buffer.next_grapheme_boundary_index(0))
                         },
-                        crate::selection::ExtensionDirection::None, 
+                        /*crate::selection::ExtensionDirection::*/None, 
                         &buffer, 
                         config.semantics.clone())
                 ], 

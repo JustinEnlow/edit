@@ -1,7 +1,7 @@
 use edit::{
     application::{SelectionAction::MoveCursorRight, Mode},
     range::Range,
-    selection::{Selection, CursorSemantics::Block, ExtensionDirection},
+    selection::{Selection, CursorSemantics::Block, /*Extension*/Direction},
     display_area::DisplayArea,
     config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE, Config}
 };
@@ -28,22 +28,22 @@ use crate::selection_actions::test_selection_action;
         "idk\nsome\nshit\n", 
         vec![
             //(0, 1, None),   //common use
-            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, None),
             //(8, 9, None),   //line to line updates stored line position
-            Selection::new_unchecked(Range::new(8, 9), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(8, 9), None, None),
             //(10, 13, None)  //extended selection collapses then moves normally
-            Selection::new_unchecked(Range::new(10, 13), ExtensionDirection::Forward, None),
+            Selection::new_unchecked(Range::new(10, 13), Some(Direction::Forward), None),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
             //(1, 2, Some(1)),
-            Selection::new_unchecked(Range::new(1, 2), ExtensionDirection::None, Some(1)),
+            Selection::new_unchecked(Range::new(1, 2), None, Some(1)),
             //(9, 10, Some(0)),
-            Selection::new_unchecked(Range::new(9, 10), ExtensionDirection::None, Some(0)),
+            Selection::new_unchecked(Range::new(9, 10), None, Some(0)),
             //(13, 14, Some(4))
-            Selection::new_unchecked(Range::new(13, 14), ExtensionDirection::None, Some(4)),
+            Selection::new_unchecked(Range::new(13, 14), None, Some(4)),
         ], 
         0
     );
@@ -68,18 +68,18 @@ use crate::selection_actions::test_selection_action;
         "idk\nsome\nshit\n", 
         vec![
             //(0, 1, None),   //valid
-            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, None),
             //(14, 15, None)  //invalid
-            Selection::new_unchecked(Range::new(14, 15), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(14, 15), None, None),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
             //(1, 2, Some(1)),
-            Selection::new_unchecked(Range::new(1, 2), ExtensionDirection::None, Some(1)),
+            Selection::new_unchecked(Range::new(1, 2), None, Some(1)),
             //(14, 15, None)
-            Selection::new_unchecked(Range::new(14, 15), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(14, 15), None, None),
         ], 
         0
     );
@@ -104,7 +104,7 @@ use crate::selection_actions::test_selection_action;
         "idk\nsome\nshit\n", 
         vec![
             //(14, 15, None)
-            Selection::new_unchecked(Range::new(14, 15), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(14, 15), None, None),
         ], 
         0, 
         1, 
@@ -117,7 +117,7 @@ use crate::selection_actions::test_selection_action;
         }, 
         vec![
             //(14, 15, None)
-            Selection::new_unchecked(Range::new(14, 15), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(14, 15), None, None),
         ], 
         0
     );

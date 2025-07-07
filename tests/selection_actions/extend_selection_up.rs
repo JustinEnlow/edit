@@ -1,7 +1,7 @@
 use edit::{
     application::{SelectionAction::ExtendSelectionUp, Mode},
     range::Range,
-    selection::{Selection, CursorSemantics::Block, ExtensionDirection},
+    selection::{Selection, CursorSemantics::Block, /*Extension*/Direction},
     display_area::DisplayArea,
     config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE, Config}
 };
@@ -36,24 +36,24 @@ use crate::selection_actions::test_selection_action;
         "idk\nsome\nshit\n", 
         vec![
             //(0, 1, None),   //invalid
-            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, None),
             //(8, 9, None),   //to shorter line
-            Selection::new_unchecked(Range::new(8, 9), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(8, 9), None, None),
             //(14, 15, None)  //common use
-            Selection::new_unchecked(Range::new(14, 15), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(14, 15), None, None),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
             //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, None),
             //(9, 3, Some(4)),  //this really should be the correct resultant selection
             //(8, 3, Some(4)),    //but this is what we are getting, because we reduce the selection when over a newline, currently
-            Selection::new_unchecked(Range::new(3, 8), ExtensionDirection::Backward, Some(4)),
+            Selection::new_unchecked(Range::new(3, 8), Some(Direction::Backward), Some(4)),
             //(15, 9, Some(0))  //selections that extend past doc text end should be reduced down
             //(14, 9, Some(0))    //so i think this is correct...we want to keep this behavior
-            Selection::new_unchecked(Range::new(9, 14), ExtensionDirection::Backward, Some(0)),
+            Selection::new_unchecked(Range::new(9, 14), Some(Direction::Backward), Some(0)),
         ], 
         0
     );
@@ -85,22 +85,22 @@ use crate::selection_actions::test_selection_action;
         "idk\nsome\nshit\n", 
         vec![
             //(0, 1, None),   //invalid
-            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, None),
             //(8, 9, None),   //to shorter line
-            Selection::new_unchecked(Range::new(8, 9), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(8, 9), None, None),
             //(14, 15, None)  //common use
-            Selection::new_unchecked(Range::new(14, 15), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(14, 15), None, None),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
             //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, None),
             //(15, 3, Some(3))
-            //Selection::new_unchecked(Range::new(3, 15), ExtensionDirection::Backward, None),
-            Selection::new_unchecked(Range::new(3, 9), ExtensionDirection::Backward, Some(4)),
-            Selection::new_unchecked(Range::new(9, 14), ExtensionDirection::Backward, Some(0)),
+            //Selection::new_unchecked(Range::new(3, 15), Some(Direction::Backward), None),
+            Selection::new_unchecked(Range::new(3, 9), Some(Direction::Backward), Some(4)),
+            Selection::new_unchecked(Range::new(9, 14), Some(Direction::Backward), Some(0)),
         ], 
         0
     );
@@ -125,7 +125,7 @@ use crate::selection_actions::test_selection_action;
         "idk\nsome\nshit\n", 
         vec![
             //(3, 4, None)
-            Selection::new_unchecked(Range::new(3, 4), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(3, 4), None, None),
         ], 
         0, 
         1, 
@@ -138,7 +138,7 @@ use crate::selection_actions::test_selection_action;
         }, 
         vec![
             //(3, 4, None)
-            Selection::new_unchecked(Range::new(3, 4), ExtensionDirection::None, None),
+            Selection::new_unchecked(Range::new(3, 4), None, None),
         ], 
         0
     );
