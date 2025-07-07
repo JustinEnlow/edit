@@ -53,13 +53,20 @@ pub fn set_up_test_application(
     }
 }
 
-pub fn generate_selections(tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize, buffer: &Buffer, semantics: CursorSemantics) -> Selections{
-    let mut selections = Vec::new();
-    for tuple in tuple_selections{
-        selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, buffer, semantics.clone()));
-        //TODO: would need to take an extension_direction, to use below...
-        //selections.push(Selection::new_from_range(Range::new(tuple.0, tuple.1), extension_direction, buffer, semantics.clone()).with_stored_line_offset(tuple.2));
-        //or just pass a Vec of Selection::new_unchecked() instead of tuple_selections...
+//pub fn generate_selections(tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize, buffer: &Buffer, semantics: CursorSemantics) -> Selections{
+//    let mut selections = Vec::new();
+//    for tuple in tuple_selections{
+//        selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, buffer, semantics.clone()));
+//        //TODO: would need to take an extension_direction, to use below...
+//        //selections.push(Selection::new_from_range(Range::new(tuple.0, tuple.1), extension_direction, buffer, semantics.clone()).with_stored_line_offset(tuple.2));
+//        //or just pass a Vec of Selection::new_unchecked() instead of tuple_selections...
+//    }
+//    Selections::new(selections, primary, buffer, semantics.clone())
+//}
+pub fn generate_selections(selections: Vec<Selection>, primary: usize, buffer: &Buffer, semantics: CursorSemantics) -> Selections{
+    let mut new_selections = Vec::new();
+    for selection in selections{
+        new_selections.push(selection);
     }
-    Selections::new(selections, primary, buffer, semantics.clone())
+    Selections::new(new_selections, primary, buffer, semantics)
 }

@@ -2,7 +2,7 @@ use edit::{
     config::Config,
     application::{EditAction, Mode},
     buffer::Buffer,
-    //selection::CursorSemantics,
+    selection::Selection,
     display_area::DisplayArea,
 };
 use crate::common::{
@@ -34,23 +34,24 @@ pub fn test_edit_action(
     read_only: bool,
     terminal_display_area: DisplayArea,
     buffer_text: &str,
-    tuple_selections: Vec<(usize, usize, Option<usize>)>,
+    //tuple_selections: Vec<(usize, usize, Option<usize>)>,
+    selections: Vec<Selection>,
     primary: usize,
     clipboard: &str,
     //expected_buffer_display_area: DisplayArea,
     //expected_buffer_display_area_text: &str,
     expected_buffer_text: &str,
     expected_mode: Mode,
-    tuple_expected_selections: Vec<(usize, usize, Option<usize>)>,
+    //tuple_expected_selections: Vec<(usize, usize, Option<usize>)>,
+    expected_selections: Vec<Selection>,
     expected_primary: usize,
     expected_clipboard: &str
 ){
     match set_up_test_application(config.clone(), terminal_display_area, buffer_text, read_only, render_line_numbers, render_status_bar){
         Ok(mut app) => {
-            //let expected_selections = generate_selections(tuple_expected_selections, expected_primary, &app.buffer, semantics.clone()); 
-            let selections = generate_selections(tuple_selections, primary, &app.buffer, config.semantics.clone());
+            let selections = generate_selections(selections, primary, &app.buffer, config.semantics.clone());
             let expected_buffer = Buffer::new(expected_buffer_text, None, read_only);
-            let expected_selections = generate_selections(tuple_expected_selections, expected_primary, &expected_buffer, config.semantics.clone());
+            let expected_selections = generate_selections(expected_selections, expected_primary, &expected_buffer, config.semantics.clone());
 
             app.clipboard = clipboard.to_string();
             app.selections = selections;

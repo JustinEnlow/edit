@@ -1,7 +1,7 @@
 use edit::{
     config::Config,
     application::{ViewAction, Mode},
-    //selection::CursorSemantics,
+    selection::Selection,
     display_area::DisplayArea,
 };
 use crate::common::{
@@ -29,7 +29,8 @@ pub fn test_view_action(
     terminal_display_area: DisplayArea,
     starting_mode: Mode,
     buffer_text: &str,
-    tuple_selections: Vec<(usize, usize, Option<usize>)>,
+    //tuple_selections: Vec<(usize, usize, Option<usize>)>,
+    selections: Vec<Selection>,
     primary: usize,
     expected_mode: Mode,
     expected_buffer_display_area_text: &str,
@@ -38,7 +39,7 @@ pub fn test_view_action(
     //set up app
     match set_up_test_application(config.clone(), terminal_display_area.clone(), buffer_text, false, render_line_numbers, render_status_bar){
         Ok(mut app) => {
-            let selections = generate_selections(tuple_selections, primary, &app.buffer, config.semantics.clone());
+            let selections = generate_selections(selections, primary, &app.buffer, config.semantics.clone());
             
             app.selections = selections;
             //app.mode_push(Mode::View);

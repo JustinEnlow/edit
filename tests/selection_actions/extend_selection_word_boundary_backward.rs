@@ -1,6 +1,7 @@
 use edit::{
     application::{SelectionAction::ExtendSelectionWordBoundaryBackward, Mode},
-    selection::CursorSemantics::Block,
+    range::Range,
+    selection::{Selection, CursorSemantics::Block, ExtensionDirection},
     display_area::DisplayArea,
     config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE, Config}
 };
@@ -26,15 +27,19 @@ use crate::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            (2, 3, None),
-            (7, 8, None)
+            //(2, 3, None),
+            Selection::new_unchecked(Range::new(2, 3), ExtensionDirection::None, None),
+            //(7, 8, None)
+            Selection::new_unchecked(Range::new(7, 8), ExtensionDirection::None, None),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
-            (3, 0, Some(0)),
-            (8, 4, Some(0))
+            //(3, 0, Some(0)),
+            Selection::new_unchecked(Range::new(0, 3), ExtensionDirection::Backward, Some(0)),
+            //(8, 4, Some(0))
+            Selection::new_unchecked(Range::new(4, 8), ExtensionDirection::Backward, Some(0)),
         ], 
         0
     );
@@ -58,15 +63,19 @@ use crate::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            (0, 1, None),
-            (7, 8, None)
+            //(0, 1, None),
+            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
+            //(7, 8, None)
+            Selection::new_unchecked(Range::new(7, 8), ExtensionDirection::None, None),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
-            (0, 1, None),
-            (8, 4, Some(0))
+            //(0, 1, None),
+            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
+            //(8, 4, Some(0))
+            Selection::new_unchecked(Range::new(4, 8), ExtensionDirection::Backward, Some(0)),
         ], 
         0
     );
@@ -90,13 +99,15 @@ use crate::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "    idk\nsome\nshit\n", 
         vec![
-            (4, 5, None)
+            //(4, 5, None)
+            Selection::new_unchecked(Range::new(4, 5), ExtensionDirection::None, None),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
-            (5, 0, Some(0))
+            //(5, 0, Some(0))
+            Selection::new_unchecked(Range::new(0, 5), ExtensionDirection::Backward, Some(0)),
         ], 
         0
     );
@@ -120,13 +131,15 @@ use crate::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            (0, 14, None)
+            //(0, 14, None)
+            Selection::new_unchecked(Range::new(0, 14), ExtensionDirection::Forward, None),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
-            (0, 10, Some(0))
+            //(0, 10, Some(0))
+            Selection::new_unchecked(Range::new(0, 10), ExtensionDirection::Forward, Some(0)),
         ], 
         0
     );
@@ -150,13 +163,15 @@ use crate::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            (9, 10, None)
+            //(9, 10, None)
+            Selection::new_unchecked(Range::new(9, 10), ExtensionDirection::None, None),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
-            (0, 10, Some(0))
+            //(0, 10, Some(0))
+            Selection::new_unchecked(Range::new(0, 10), ExtensionDirection::Forward, Some(0)),
         ], 
         0
     );
@@ -186,7 +201,8 @@ use crate::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            (4, 5, None)
+            //(4, 5, None)
+            Selection::new_unchecked(Range::new(4, 5), ExtensionDirection::None, None),
         ], 
         0, 
         0, 
@@ -198,7 +214,8 @@ use crate::selection_actions::test_selection_action;
             DisplayMode::Ignore => {Mode::Insert},
         }, 
         vec![
-            (4, 5, None)
+            //(4, 5, None)
+            Selection::new_unchecked(Range::new(4, 5), ExtensionDirection::None, None),
         ], 
         0
     );
@@ -221,7 +238,8 @@ use crate::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            (0, 1, None)
+            //(0, 1, None)
+            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
         ], 
         0, 
         1, 
@@ -233,7 +251,8 @@ use crate::selection_actions::test_selection_action;
             DisplayMode::Ignore => {Mode::Insert},
         }, 
         vec![
-            (0, 1, None)
+            //(0, 1, None)
+            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
         ], 
         0
     );
@@ -256,7 +275,8 @@ use crate::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            (14, 0, None)
+            //(14, 0, None)
+            Selection::new_unchecked(Range::new(0, 14), ExtensionDirection::Backward, None),
         ], 
         0, 
         1, 
@@ -268,7 +288,8 @@ use crate::selection_actions::test_selection_action;
             DisplayMode::Ignore => {Mode::Insert},
         }, 
         vec![
-            (14, 0, None)
+            //(14, 0, None)
+            Selection::new_unchecked(Range::new(0, 14), ExtensionDirection::Backward, None),
         ], 
         0
     );

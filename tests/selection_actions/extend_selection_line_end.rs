@@ -1,6 +1,7 @@
 use edit::{
     application::{SelectionAction::ExtendSelectionLineEnd, Mode},
-    selection::CursorSemantics::Block,
+    range::Range,
+    selection::{Selection, CursorSemantics::Block, ExtensionDirection},
     display_area::DisplayArea,
     config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE, Config}
 };
@@ -26,15 +27,19 @@ use crate::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            (0, 1, None),
-            (4, 5, None)
+            //(0, 1, None),
+            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
+            //(4, 5, None)
+            Selection::new_unchecked(Range::new(4, 5), ExtensionDirection::None, None),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
-            (0, 3, Some(2)),
-            (4, 8, Some(3))
+            //(0, 3, Some(2)),
+            Selection::new_unchecked(Range::new(0, 3), ExtensionDirection::Forward, Some(2)),
+            //(4, 8, Some(3))
+            Selection::new_unchecked(Range::new(4, 8), ExtensionDirection::Forward, Some(3)),
         ], 
         0
     );
@@ -58,15 +63,19 @@ use crate::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            (2, 3, None),
-            (4, 5, None)
+            //(2, 3, None),
+            Selection::new_unchecked(Range::new(2, 3), ExtensionDirection::None, None),
+            //(4, 5, None)
+            Selection::new_unchecked(Range::new(4, 5), ExtensionDirection::None, None),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
-            (2, 3, None),
-            (4, 8, Some(3))
+            //(2, 3, None),
+            Selection::new_unchecked(Range::new(2, 3), ExtensionDirection::None, None),
+            //(4, 8, Some(3))
+            Selection::new_unchecked(Range::new(4, 8), ExtensionDirection::Forward, Some(3)),
         ], 
         0
     );
@@ -90,8 +99,10 @@ use crate::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            (2, 3, None),
-            (7, 8, None)
+            //(2, 3, None),
+            Selection::new_unchecked(Range::new(2, 3), ExtensionDirection::None, None),
+            //(7, 8, None)
+            Selection::new_unchecked(Range::new(7, 8), ExtensionDirection::None, None),
         ], 
         0, 
         1, 
@@ -103,8 +114,10 @@ use crate::selection_actions::test_selection_action;
             DisplayMode::Ignore => {Mode::Insert},
         }, 
         vec![
-            (2, 3, None),
-            (7, 8, None)
+            //(2, 3, None),
+            Selection::new_unchecked(Range::new(2, 3), ExtensionDirection::None, None),
+            //(7, 8, None)
+            Selection::new_unchecked(Range::new(7, 8), ExtensionDirection::None, None),
         ], 
         0
     );
@@ -129,8 +142,10 @@ use crate::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            (3, 4, None),
-            (8, 9, None)
+            //(3, 4, None),
+            Selection::new_unchecked(Range::new(3, 4), ExtensionDirection::None, None),
+            //(8, 9, None)
+            Selection::new_unchecked(Range::new(8, 9), ExtensionDirection::None, None),
         ], 
         0, 
         1, 
@@ -142,8 +157,10 @@ use crate::selection_actions::test_selection_action;
             DisplayMode::Ignore => {Mode::Insert},
         }, 
         vec![
-            (3, 4, None),
-            (8, 9, None)
+            //(3, 4, None),
+            Selection::new_unchecked(Range::new(3, 4), ExtensionDirection::None, None),
+            //(8, 9, None)
+            Selection::new_unchecked(Range::new(8, 9), ExtensionDirection::None, None),
         ], 
         0
     );

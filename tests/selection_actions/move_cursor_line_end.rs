@@ -1,6 +1,7 @@
 use edit::{
     application::{SelectionAction::MoveCursorLineEnd, Mode},
-    selection::CursorSemantics::Block,
+    range::Range,
+    selection::{Selection, CursorSemantics::Block, ExtensionDirection},
     display_area::DisplayArea,
     config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE, Config}
 };
@@ -26,17 +27,23 @@ use crate::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            (0, 1, None),   //common use
-            (6, 7, None),   //from middle of line
-            (14, 15, None)  //invalid. already at line end
+            //(0, 1, None),   //common use
+            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
+            //(6, 7, None),   //from middle of line
+            Selection::new_unchecked(Range::new(6, 7), ExtensionDirection::None, None),
+            //(14, 15, None)  //invalid. already at line end
+            Selection::new_unchecked(Range::new(14, 15), ExtensionDirection::None, None),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
-            (3, 4, Some(3)),
-            (8, 9, Some(4)),
-            (14, 15, None)
+            //(3, 4, Some(3)),
+            Selection::new_unchecked(Range::new(3, 4), ExtensionDirection::None, Some(3)),
+            //(8, 9, Some(4)),
+            Selection::new_unchecked(Range::new(8, 9), ExtensionDirection::None, Some(4)),
+            //(14, 15, None)
+            Selection::new_unchecked(Range::new(14, 15), ExtensionDirection::None, None),
         ], 
         0
     );
@@ -60,7 +67,8 @@ use crate::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            (3, 4, None)
+            //(3, 4, None)
+            Selection::new_unchecked(Range::new(3, 4), ExtensionDirection::None, None),
         ], 
         0, 
         1, 
@@ -72,7 +80,8 @@ use crate::selection_actions::test_selection_action;
             DisplayMode::Ignore => {Mode::Insert},
         }, 
         vec![
-            (3, 4, None)
+            //(3, 4, None)
+            Selection::new_unchecked(Range::new(3, 4), ExtensionDirection::None, None),
         ], 
         0
     );

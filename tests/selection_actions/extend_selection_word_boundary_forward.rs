@@ -1,6 +1,7 @@
 use edit::{
     application::{SelectionAction::ExtendSelectionWordBoundaryForward, Mode},
-    selection::CursorSemantics::Block,
+    range::Range,
+    selection::{Selection, CursorSemantics::Block, ExtensionDirection},
     display_area::DisplayArea,
     config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE, Config}
 };
@@ -41,15 +42,19 @@ use crate::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            (0, 1, None),
-            (4, 5, None)
+            //(0, 1, None),
+            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
+            //(4, 5, None)
+            Selection::new_unchecked(Range::new(4, 5), ExtensionDirection::None, None),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
-            (0, 3, Some(2)),
-            (4, 8, Some(3))
+            //(0, 3, Some(2)),
+            Selection::new_unchecked(Range::new(0, 3), ExtensionDirection::Forward, Some(2)),
+            //(4, 8, Some(3))
+            Selection::new_unchecked(Range::new(4, 8), ExtensionDirection::Forward, Some(3)),
         ], 
         0
     );
@@ -87,15 +92,19 @@ use crate::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            (0, 1, None),
-            (13, 14, None)
+            //(0, 1, None),
+            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
+            //(13, 14, None)
+            Selection::new_unchecked(Range::new(13, 14), ExtensionDirection::None, None),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
-            (0, 3, Some(2)),
-            (13, 14, None)
+            //(0, 3, Some(2)),
+            Selection::new_unchecked(Range::new(0, 3), ExtensionDirection::Forward, Some(2)),
+            //(13, 14, None)
+            Selection::new_unchecked(Range::new(13, 14), ExtensionDirection::None, None),
         ], 
         0
     );
@@ -127,13 +136,15 @@ use crate::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit    \n", 
         vec![
-            (12, 13, None)
+            //(12, 13, None)
+            Selection::new_unchecked(Range::new(12, 13), ExtensionDirection::None, None),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
-            (12, 18, Some(8))
+            //(12, 18, Some(8))
+            Selection::new_unchecked(Range::new(12, 18), ExtensionDirection::Forward, Some(8)),
         ], 
         0
     );
@@ -169,13 +180,15 @@ use crate::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            (0, 1, None)
+            //(0, 1, None)
+            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
-            (0, 3, Some(2))
+            //(0, 3, Some(2))
+            Selection::new_unchecked(Range::new(0, 3), ExtensionDirection::Forward, Some(2)),
         ], 
         0
     );
@@ -207,13 +220,15 @@ use crate::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            (12, 13, None)
+            //(12, 13, None)
+            Selection::new_unchecked(Range::new(12, 13), ExtensionDirection::None, None),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
-            (12, 14, Some(4))
+            //(12, 14, Some(4))
+            Selection::new_unchecked(Range::new(12, 14), ExtensionDirection::Forward, Some(4)),
         ], 
         0
     );
@@ -244,7 +259,8 @@ use crate::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            (13, 14, None)
+            //(13, 14, None)
+            Selection::new_unchecked(Range::new(13, 14), ExtensionDirection::None, None),
         ], 
         0, 
         1, 
@@ -256,7 +272,8 @@ use crate::selection_actions::test_selection_action;
             DisplayMode::Ignore => {Mode::Insert},
         }, 
         vec![
-            (13, 14, None)
+            //(13, 14, None)
+            Selection::new_unchecked(Range::new(13, 14), ExtensionDirection::None, None),
         ], 
         0
     );
@@ -287,7 +304,8 @@ use crate::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            (0, 14, None)
+            //(0, 14, None)
+            Selection::new_unchecked(Range::new(0, 14), ExtensionDirection::Forward, None),
         ], 
         0, 
         1, 
@@ -299,7 +317,8 @@ use crate::selection_actions::test_selection_action;
             DisplayMode::Ignore => {Mode::Insert},
         }, 
         vec![
-            (0, 14, None)
+            //(0, 14, None)
+            Selection::new_unchecked(Range::new(0, 14), ExtensionDirection::Forward, None),
         ], 
         0
     );

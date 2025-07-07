@@ -1,6 +1,7 @@
 use edit::{
     application::{ViewAction::ScrollLeft, Mode},
-    selection::CursorSemantics::Block,
+    range::Range,
+    selection::{Selection, CursorSemantics::Block, ExtensionDirection},
     display_area::DisplayArea,
     config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE, Config}
 };
@@ -28,7 +29,8 @@ use crate::view_actions::test_view_action;
         Mode::View,
         "idk\nsome\nshit\n", 
         vec![
-            (0, 1, None)
+            //(0, 1, None)
+            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
         ], 
         0, 
         Mode::View, 
@@ -59,7 +61,8 @@ use crate::view_actions::test_view_action;
         Mode::Insert,
         "idk\nsome\nshit\n", 
         vec![
-            (0, 1, None)
+            //(0, 1, None)
+            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
         ], 
         0, 
         Mode::Insert, 
@@ -91,7 +94,8 @@ use crate::view_actions::test_view_action;
         Mode::View, 
         "idk\nsome\nshit\n", 
         vec![
-            (0, 1, None)
+            //(0, 1, None)
+            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
         ], 
         0, 
         match SAME_STATE_DISPLAY_MODE{
@@ -125,7 +129,8 @@ use crate::view_actions::test_view_action;
         Mode::Command,
         "idk\nsome\nshit\n", 
         vec![
-            (0, 1, None)
+            //(0, 1, None)
+            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
         ], 
         0, 
         match SAME_STATE_DISPLAY_MODE{

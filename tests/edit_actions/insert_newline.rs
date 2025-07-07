@@ -1,6 +1,7 @@
 use edit::{
     application::{EditAction::InsertNewline, Mode},
-    selection::CursorSemantics::Block,
+    range::Range,
+    selection::{Selection, CursorSemantics::Block, ExtensionDirection},
     display_area::DisplayArea,
     config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER, Config}
 };
@@ -25,16 +26,20 @@ use crate::edit_actions::test_edit_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "some\nshit\n", 
         vec![
-            (0, 1, None),
-            (5, 6, None)
+            //(0, 1, None),
+            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
+            //(5, 6, None)
+            Selection::new_unchecked(Range::new(5, 6), ExtensionDirection::None, None),
         ], 
         0, 
         "",
         "\nsome\n\nshit\n", 
         Mode::Insert, 
         vec![
-            (1, 2, Some(0)),
-            (7, 8, Some(0))
+            //(1, 2, Some(0)),
+            Selection::new_unchecked(Range::new(1, 2), ExtensionDirection::None, Some(0)),
+            //(7, 8, Some(0))
+            Selection::new_unchecked(Range::new(7, 8), ExtensionDirection::None, Some(0)),
         ], 
         0,
         ""
@@ -60,8 +65,10 @@ use crate::edit_actions::test_edit_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "some\nshit\n", 
         vec![
-            (0, 1, None),
-            (5, 6, None)
+            //(0, 1, None),
+            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
+            //(5, 6, None)
+            Selection::new_unchecked(Range::new(5, 6), ExtensionDirection::None, None),
         ], 
         0, 
         "",
@@ -74,8 +81,10 @@ use crate::edit_actions::test_edit_action;
             DisplayMode::Ignore => {Mode::Insert}
         }, 
         vec![
-            (0, 1, None),
-            (5, 6, None)
+            //(0, 1, None),
+            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
+            //(5, 6, None)
+            Selection::new_unchecked(Range::new(5, 6), ExtensionDirection::None, None),
         ], 
         0,
         ""

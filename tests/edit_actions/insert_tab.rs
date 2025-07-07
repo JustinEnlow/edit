@@ -1,6 +1,7 @@
 use edit::{
     application::{EditAction::InsertTab, Mode},
-    selection::CursorSemantics::Block,
+    range::Range,
+    selection::{Selection, CursorSemantics::Block, ExtensionDirection},
     display_area::DisplayArea,
     config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER, USE_HARD_TAB, Config}
 };
@@ -25,8 +26,10 @@ use crate::edit_actions::test_edit_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "some\nshit\n", 
         vec![
-            (0, 1, None),
-            (5, 6, None)
+            //(0, 1, None),
+            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
+            //(5, 6, None)
+            Selection::new_unchecked(Range::new(5, 6), ExtensionDirection::None, None),
         ], 
         0, 
         "",
@@ -34,13 +37,17 @@ use crate::edit_actions::test_edit_action;
         Mode::Insert, 
         if USE_HARD_TAB{
             vec![   //\tsome\n\tshit\n
-                (1, 2, Some(0)),
-                (7, 8, Some(0))
+                //(1, 2, Some(0)),
+                Selection::new_unchecked(Range::new(1, 2), ExtensionDirection::None, Some(0)),
+                //(7, 8, Some(0))
+                Selection::new_unchecked(Range::new(7, 8), ExtensionDirection::None, Some(0)),
             ]
         }else{
             vec![   //    some\n    shit\n      //this would depend on TAB_WIDTH as well...
-                (4, 5, Some(4)),
-                (13, 14, Some(4))
+                //(4, 5, Some(4)),
+                Selection::new_unchecked(Range::new(4, 5), ExtensionDirection::None, Some(4)),
+                //(13, 14, Some(4))
+                Selection::new_unchecked(Range::new(13, 14), ExtensionDirection::None, Some(4)),
             ]
         },
         0,
@@ -67,8 +74,10 @@ use crate::edit_actions::test_edit_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "some\nshit\n", 
         vec![
-            (0, 1, None),
-            (5, 6, None)
+            //(0, 1, None),
+            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
+            //(5, 6, None)
+            Selection::new_unchecked(Range::new(5, 6), ExtensionDirection::None, None),
         ], 
         0, 
         "",
@@ -81,8 +90,10 @@ use crate::edit_actions::test_edit_action;
             DisplayMode::Ignore => {Mode::Insert}
         }, 
         vec![
-            (0, 1, None),
-            (5, 6, None)
+            //(0, 1, None),
+            Selection::new_unchecked(Range::new(0, 1), ExtensionDirection::None, None),
+            //(5, 6, None)
+            Selection::new_unchecked(Range::new(5, 6), ExtensionDirection::None, None),
         ], 
         0,
         ""
