@@ -1,5 +1,4 @@
 use crate::{
-    application::{Application, ApplicationError},
     selection::CursorSemantics,
     selections::{Selections, SelectionsError}
 };

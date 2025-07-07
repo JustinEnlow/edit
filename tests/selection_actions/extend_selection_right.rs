@@ -73,7 +73,7 @@ use crate::selection_actions::test_selection_action;
     );
 }
 
-#[ignore] #[test] fn with_previously_backward_extended_selection(){
+/*#[ignore] */#[test] fn with_previously_backward_extended_selection(){
     //<i d k \n         // i<d k \n
     // s o m e \n       // s o m e \n
     // s h i t \n|      // s h i t \n|

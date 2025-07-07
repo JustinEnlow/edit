@@ -1,7 +1,5 @@
 use crate::{
-    application::{Application, ApplicationError},
-    selection::{Selection, SelectionError, CursorSemantics, /*Extension*/Direction/*, Movement */},
-    selections::SelectionsError,
+    selection::{Selection, SelectionError, CursorSemantics, Direction},
     display_area::DisplayArea
 };
 
@@ -16,14 +14,28 @@ use crate::{
 
 pub fn selection_impl(selection: &Selection, count: usize, buffer: &crate::buffer::Buffer, display_area: Option<&DisplayArea>, semantics: CursorSemantics) -> Result<Selection, SelectionError>{
     if count < 1{return Err(SelectionError::ResultsInSameState);}
-    assert!(!display_area.is_some());
+    assert!(display_area.is_none());
 
 //    let mut selection = selection.clone();
     selection.assert_invariants(buffer, semantics.clone());
-    
-    if selection.range.start == buffer.len_chars()
-    || selection.range.end == buffer.len_chars()
-    || selection.cursor(buffer, semantics.clone()) == buffer.len_chars(){return Err(SelectionError::ResultsInSameState);}
+
+    // i d k \n s o m e \n s h i t \n
+    // block            // block            // bar
+    // i d k \n         // i d k \n         // i d k \n
+    // s o m e \n       // s o m e \n       // s o m e \n
+    // s h i t|\n>      // s h i t \n       // s h i t \n
+    //                  //| >               //|
+    //if selection.range.start == buffer.len_chars()
+    //|| selection.range.end == buffer.len_chars()
+    //|| selection.cursor(buffer, semantics.clone()) == buffer.len_chars(){return Err(SelectionError::ResultsInSameState);}
+    if (
+        selection.range.start == buffer.len_chars() || 
+        selection.range.end == buffer.len_chars() || 
+        selection.cursor(buffer, semantics.clone()) == buffer.len_chars()
+    ) && (    //needs to be able to shrink selection if extension_direction is Backward
+        selection.extension_direction.is_none() ||
+        selection.extension_direction == Some(Direction::Forward)
+    ){return Err(SelectionError::ResultsInSameState);}
 
 //    //let next = buffer.next_grapheme_boundary_index(selection.cursor(buffer, semantics.clone()));
 //    let mut next = selection.cursor(buffer, semantics.clone());

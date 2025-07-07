@@ -72,7 +72,7 @@ pub fn parse_args() -> Result<(), String>{
     while let Some(arg) = args.next(){
         match arg.as_str(){
             "-h" | "--help" => {return pre_terminal_setup_ok(USAGE);}
-            "-v" | "--version" => {return pre_terminal_setup_ok(&format!("{}", env!("CARGO_PKG_VERSION")));}
+            "-v" | "--version" => {return pre_terminal_setup_ok(env!("CARGO_PKG_VERSION"));}
             "-t" | "--temp_buffer" => {temp_buffer = true;}
             "-r" | "--read_only" => {read_only = true;}
             "-l" | "--line" => {
@@ -118,7 +118,7 @@ pub fn parse_args() -> Result<(), String>{
             Some(file_path) => file_path,
             None => {return post_terminal_setup_error("invalid or no arguments provided", true, &mut terminal);}
         };
-        let buffer_text = match std::fs::read_to_string(&verified_file_path){
+        let buffer_text = match std::fs::read_to_string(verified_file_path){
             Ok(text) => text,
             Err(e) => return Err(format!("{e}"))
         };

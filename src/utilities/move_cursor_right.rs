@@ -1,7 +1,5 @@
 use crate::{
-    application::{Application, ApplicationError},
-    selection::{Selection, SelectionError, CursorSemantics, /*Extension*/Direction/*, Movement */},
-    selections::SelectionsError,
+    selection::{Selection, SelectionError, CursorSemantics, Direction},
     display_area::DisplayArea,
 };
 
@@ -17,7 +15,7 @@ use crate::{
 /// Returns a new instance of [`Selection`] with cursor moved down.
 pub fn selection_impl(selection: &Selection, count: usize, buffer: &crate::buffer::Buffer, display_area: Option<&DisplayArea>, semantics: CursorSemantics) -> Result<Selection, SelectionError>{
     if count < 1{return Err(SelectionError::ResultsInSameState);}
-    assert!(!display_area.is_some());
+    assert!(display_area.is_none());
 
 //    let mut selection = selection.clone();
     selection.assert_invariants(buffer, semantics.clone());

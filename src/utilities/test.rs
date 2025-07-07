@@ -1,13 +1,3 @@
-use crate::{
-    application::{Application, ApplicationError},
-    selections::Selections,
-    selection::{Selection, CursorSemantics},
-    display_area::DisplayArea,
-    buffer::Buffer,
-};
-
-
-
 //TODO?: could call app.handle_whatever_mode_keypress instead of calling f. this would allow us to test our reaction code as well...
 //TODO: could take a view as arg, and verify that cursor movement moves the view correctly as well
 //pub fn selection_movement_with_count<F>(

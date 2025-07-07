@@ -1,8 +1,6 @@
 use crate::{
-    application::{Application, ApplicationError},
     selection::{Selection, CursorSemantics},
     display_area::{DisplayArea, DisplayAreaError},
-    selections::SelectionsError
 };
 
 //pub fn application_impl(app: &mut Application, display_area: &DisplayArea, semantics: CursorSemantics) -> Result<(), ApplicationError>{

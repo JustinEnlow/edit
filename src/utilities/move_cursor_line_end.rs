@@ -1,7 +1,5 @@
 use crate::{
-    application::{Application, ApplicationError},
-    selection::{Selection, SelectionError, CursorSemantics, /*ExtensionDirection*//*, Movement */},
-    selections::SelectionsError
+    selection::{Selection, SelectionError, CursorSemantics},
 };
 
 //pub fn application_impl(app: &mut Application, semantics: CursorSemantics) -> Result<(), ApplicationError>{

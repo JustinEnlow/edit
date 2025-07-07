@@ -36,10 +36,10 @@ impl DisplayArea{
     #[must_use] pub fn new(horizontal_start: usize, vertical_start: usize, width: usize, height: usize) -> Self{
         Self{horizontal_start, vertical_start, width, height}
     }
-    pub fn set_size(&mut self, width: usize, height: usize){
-        self.width = width;
-        self.height = height;
-    }
+    //pub fn set_size(&mut self, width: usize, height: usize){
+    //    self.width = width;
+    //    self.height = height;
+    //}
     #[must_use] pub fn height(&self) -> usize{
         self.height
     }

@@ -246,7 +246,7 @@ impl Application{
                             crate::selection::CursorSemantics::Bar => crate::range::Range::new(0, 0),
                             crate::selection::CursorSemantics::Block => crate::range::Range::new(0, buffer.next_grapheme_boundary_index(0))
                         },
-                        /*crate::selection::ExtensionDirection::*/None, 
+                        None, 
                         &buffer, 
                         config.semantics.clone())
                 ], 
@@ -622,7 +622,7 @@ impl Application{
                     }
                     Mode::Error(string) => {
                         render_widget(string.clone(), self.ui.util_bar.utility_widget.rect, Alignment::Center, true, ERROR_BACKGROUND_COLOR, ERROR_FOREGROUND_COLOR, frame);
-                        if &string == FILE_MODIFIED{
+                        if string == FILE_MODIFIED{
                             if SHOW_CONTEXTUAL_KEYBINDS{
                                 frame.render_widget(ratatui::widgets::Clear, self.ui.popups.modified_error.rect);
                                 render_popup(self.ui.popups.error.text.clone(), self.ui.popups.error.title.clone(), self.ui.popups.error.rect, Color::Black, Color::Yellow, frame);
@@ -913,7 +913,7 @@ impl Application{
         }
 
         //remove current mode from stack
-        if let Err(_) = self.mode_stack.pop(){
+        if self.mode_stack.pop().is_err(){
             self.handle_notification(SAME_STATE_DISPLAY_MODE, SAME_STATE);
         }
 

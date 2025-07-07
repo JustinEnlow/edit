@@ -1,7 +1,5 @@
 use crate::{
-    application::{Application, ApplicationError},
-    selection::{Selection, SelectionError, CursorSemantics, /*Extension*/Direction, Movement},
-    selections::SelectionsError,
+    selection::{Selection, SelectionError, CursorSemantics, Direction, Movement},
     display_area::DisplayArea
 };
 

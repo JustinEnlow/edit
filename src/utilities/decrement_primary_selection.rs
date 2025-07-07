@@ -1,5 +1,4 @@
 use crate::{
-    application::{Application, ApplicationError},
     selections::{Selections, SelectionsError}
 };
 

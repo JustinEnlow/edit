@@ -1,7 +1,5 @@
 use crate::{
-    application::{Application, ApplicationError},
     display_area::{DisplayArea, DisplayAreaError},
-    selections::SelectionsError
 };
 
 //pub fn application_impl(app: &mut Application, amount: usize) -> Result<(), ApplicationError>{

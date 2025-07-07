@@ -26,12 +26,7 @@ impl Selection{
         Self{range, extension_direction, stored_line_offset}
     }
     
-    pub fn new_from_range(
-        range: Range, 
-        extension_direction: Option<Direction>,
-        buffer: &Buffer, 
-        semantics: CursorSemantics
-    ) -> Self{
+    pub fn new_from_range(range: Range, extension_direction: Option<Direction>, buffer: &Buffer, semantics: CursorSemantics) -> Self{
         let instance = Self{range, extension_direction, stored_line_offset: None};    //TODO: since we take buffer as an arg, we should determine stored_line_offset
 
         instance.assert_invariants(buffer, semantics);
@@ -49,7 +44,7 @@ impl Selection{
                 assert!(self.anchor() <= buffer.len_chars());
                 assert!(self.head() <= buffer.len_chars());
                 // new. trying this out
-                if self.range.start == self.range.end{assert!(self.extension_direction == None);}
+                if self.range.start == self.range.end{assert!(self.extension_direction.is_none());}
                 else if self.cursor(buffer, semantics.clone()) < self.anchor(){assert!(self.extension_direction == Some(Direction::Backward));}
                 else{assert!(self.extension_direction == Some(Direction::Forward));}
                 //
@@ -64,7 +59,7 @@ impl Selection{
                 }
                 assert!(self.anchor() != self.head());
                 // new. trying this out... it did already catch something that was useful... prob keep
-                if buffer.next_grapheme_boundary_index(self.range.start) == self.range.end{assert!(self.extension_direction == None);}
+                if buffer.next_grapheme_boundary_index(self.range.start) == self.range.end{assert!(self.extension_direction.is_none());}
                 else if self.cursor(buffer, semantics.clone()) < self.anchor(){assert!(self.extension_direction == Some(Direction::Backward));}
                 else{assert!(self.extension_direction == Some(Direction::Forward));}
                 //
@@ -89,22 +84,19 @@ impl Selection{
 
     pub fn anchor(&self) -> usize{
         match self.extension_direction{
-            None |
-            Some(Direction::Forward) => {self.range.start}
+            None | Some(Direction::Forward) => {self.range.start}
             Some(Direction::Backward) => {self.range.end}
         }
     }
     pub fn head(&self) -> usize{
         match self.extension_direction{
-            None |
-            Some(Direction::Forward) => {self.range.end}
+            None | Some(Direction::Forward) => {self.range.end}
             Some(Direction::Backward) => {self.range.start}
         }
     }
     pub fn cursor(&self, buffer: &Buffer, semantics: CursorSemantics) -> usize{
         match self.extension_direction{
-            None|
-            Some(Direction::Forward) => match semantics{
+            None | Some(Direction::Forward) => match semantics{
                 CursorSemantics::Bar => self.head(),
                 CursorSemantics::Block => buffer.previous_grapheme_boundary_index(self.head()),
             }
@@ -253,7 +245,6 @@ impl Selection{
 
     /// Returns a new instance of [`Selection`] with the cursor moved vertically by specified amount.
     /// Errors if `amount` < 1.
-    // ExtensionDirection is misused here. it used to be Direction{Forward, Backward} which makes more sense. this will all be removed when move_vertically/horizontally and put_cursor are done away with...
     pub fn move_vertically(&self, amount: usize, buffer: &Buffer, movement: Movement, direction: Direction, semantics: CursorSemantics) -> Result<Self, SelectionError>{    //TODO: error if current_line + amount > text.len_lines, or if current_line < amount when moving backward
         if amount < 1{return Err(SelectionError::ResultsInSameState);}  //and this may make sense to be an assert. we want the calling function to ensure any input is valid...
         
@@ -294,9 +285,7 @@ impl Selection{
                 let mut index = self.cursor(buffer, semantics.clone());
                 for _ in 0..amount{
                     let next_grapheme_boundary_index = buffer.next_grapheme_boundary_index(index);
-                    //if index == buffer.next_grapheme_boundary_index(index){break;}  //break out of loop early if we are already on the last grapheme
                     if index == next_grapheme_boundary_index{break;} //break out of loop early if we are already on the last grapheme
-                    //index = buffer.next_grapheme_boundary_index(index);
                     index = next_grapheme_boundary_index;
                 }
                 index.min(buffer.len_chars()) //ensures this does not move past text end      //could match on semantics, and ensure extend does index.min(previous_grapheme_index(text.len_chars()))
@@ -305,9 +294,7 @@ impl Selection{
                 let mut index = self.cursor(buffer, semantics.clone());
                 for _ in 0..amount{
                     let previous_grapheme_boundary_index = buffer.previous_grapheme_boundary_index(index);
-                    //if index == buffer.previous_grapheme_boundary_index(index){break;}  //break out of loop early if we are already on the first grapheme
                     if index == previous_grapheme_boundary_index{break;}    //break out of loop early if we are already on the first grapheme
-                    //index = buffer.previous_grapheme_boundary_index(index);
                     index = previous_grapheme_boundary_index;
                 }
                 index
@@ -326,7 +313,6 @@ impl Selection{
         let mut selection = self.clone();
         match (semantics.clone(), movement){
             (CursorSemantics::Bar, Movement::Move) => {
-                //let to = to.min(buffer.len_chars());
                 let to = Ord::min(to, buffer.len_chars());
                 //Selection::new(Range::new(to, to), ExtensionDirection::None)
                 selection.range.start = to;
@@ -334,7 +320,6 @@ impl Selection{
                 selection.extension_direction = None;
             }
             (CursorSemantics::Bar, Movement::Extend) => {
-                //let to = to.min(buffer.len_chars());
                 let to = Ord::min(to, buffer.len_chars());
                 let (start, end, direction) = if to < self.anchor(){
                     (to, self.anchor(), Some(Direction::Backward))
@@ -347,7 +332,6 @@ impl Selection{
                 selection.extension_direction = direction;
             }
             (CursorSemantics::Block, Movement::Move) => {
-                //let to = to.min(buffer.len_chars());
                 let to = Ord::min(to, buffer.len_chars());
                 //Selection::new(Range::new(to, buffer.next_grapheme_boundary_index(to).min(buffer.len_chars().saturating_add(1))), ExtensionDirection::None)
                 selection.range.start = to;
@@ -355,7 +339,6 @@ impl Selection{
                 selection.extension_direction = None;
             }
             (CursorSemantics::Block, Movement::Extend) => {
-                //let to = to.min(buffer.previous_grapheme_boundary_index(buffer.len_chars()));
                 let to = Ord::min(to, buffer.previous_grapheme_boundary_index(buffer.len_chars()));
                 let new_anchor = match self.extension_direction{
                     None|

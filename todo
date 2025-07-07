@@ -154,6 +154,7 @@ always ensure:
     user should be able to negate this by removing code that triggers warning mode in each action fn called, or a config flag
     (there are some instances where visual feedback may not be possible/reasonable)
         like when multiple cursors are moved, but the movement happens outside view. idk what would be a reasonable visual cue that the editor has properly responded to input here
+    use "cargo clippy -- -W clippy::pedantic" to run lints
 
 
 
