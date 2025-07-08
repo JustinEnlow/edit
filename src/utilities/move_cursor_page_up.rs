@@ -22,7 +22,7 @@ pub fn selection_impl(selection: &Selection, count: usize, buffer: &crate::buffe
     if buffer.char_to_line(selection.cursor(buffer, semantics.clone())) == 0{return Err(SelectionError::ResultsInSameState);}
     //selection.move_vertically(client_view.height().saturating_sub(1), buffer, Movement::Move, ExtensionDirection::Backward, semantics)
     selection.move_vertically(
-        count.saturating_mul(client_view.height().saturating_sub(1)),
+        count.saturating_mul(client_view.height.saturating_sub(1)),
         buffer, 
         Movement::Move, 
         /*Extension*/Direction::Backward, 

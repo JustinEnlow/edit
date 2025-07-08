@@ -7,6 +7,7 @@ pub struct Buffer{
     pub read_only: bool //true if explicitly set, or if from file with read only permissions
 }
 impl Buffer{
+    //TODO?: maybe new() should only take a &str, and we could make .with_file_path() and .read_only() builder methods...
     pub fn new(str: &str, file_path: Option<std::path::PathBuf>, read_only: bool) -> Self{
         //TODO?: if UPDATE_BUFFER_TEXT_TO_FOLLOW_USE_HARD_TAB_SETTING
         //let str = match crate::config::USE_HARD_TAB{
@@ -18,6 +19,10 @@ impl Buffer{
             file_path,
             read_only
         }
+    }
+
+    pub fn to_string(&self) -> String{
+        self.inner.to_string()
     }
 
     pub fn file_path(&self) -> Option<String>{
@@ -42,17 +47,21 @@ impl Buffer{
         self.inner.len_lines()
     }
 
+    //TODO: we should really be using len_bytes
     pub fn len_chars(&self) -> usize{
         self.inner.len_chars()
     }
 
+    //TODO: we should really be using byte_to_line. maybe try_byte_to_line to avoid panics?
     pub fn char_to_line(&self, char_idx: usize) -> usize{
         self.inner.char_to_line(char_idx)
     }
+    //TODO: we should really be using line_to_byte
     pub fn line_to_char(&self, line_idx: usize) -> usize{
         self.inner.line_to_char(line_idx)
     }
 
+    //TODO: should really be getting a byte or a grapheme(multiple bytes)
     pub fn get_char(&self, char_idx: usize) -> Option<char>{
         self.inner.get_char(char_idx)
     }
@@ -149,20 +158,23 @@ impl Buffer{
     }
 
     /// Returns the offset of cursor position from the start of a line of text.
-    // TODO: maybe this really does belong in [Selection] in selection.rs?
+    //TODO: maybe this should be they byte offset and not char offset
+    //TODO?: would a version of this using grapheme|cell width be useful?...
     #[must_use] pub fn offset_from_line_start(&self, point: usize) -> usize{
         let line_start = self.inner.line_to_char(self.inner.char_to_line(point));
         point.saturating_sub(line_start)
     }
 
-    //TODO: this really ought to be -> Result<usize, String>, and not saturate at buffer end
-    #[must_use] pub fn next_grapheme_boundary_index(&self, current_index: usize) -> usize{ //should this eventually be Option<usize>?
-        current_index.saturating_add(1).min(self.inner.len_chars().saturating_add(1)) //placeholder to handle ascii text. code will need to change to handle UTF-8
+    //TODO: should this eventually be Option<usize>?, and not saturate at buffer end
+    #[must_use] pub fn next_grapheme_boundary_index(&self, current_index: usize) -> usize{
+        //placeholder to handle ascii text. code will need to change to handle UTF-8
+        current_index.saturating_add(1).min(self.inner.len_chars().saturating_add(1))
     }
     
-    //TODO: this really ought to be -> Result<usize, String>, and not saturate at buffer start
-    #[must_use] pub fn previous_grapheme_boundary_index(&self, current_index: usize) -> usize{ //should this eventually be Option<usize>?
-        current_index.saturating_sub(1) //placeholder to handle ascii text. code will need to change to handle UTF-8
+    //TODO: should this eventually be Option<usize>?, and not saturate at buffer start
+    #[must_use] pub fn previous_grapheme_boundary_index(&self, current_index: usize) -> usize{
+        //placeholder to handle ascii text. code will need to change to handle UTF-8
+        current_index.saturating_sub(1)
     }
 
     fn is_word_char(char: char) -> bool{

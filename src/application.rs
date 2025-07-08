@@ -37,10 +37,14 @@ use ratatui::{
 use crate::{
     config::*,
     keybind,
+    range::Range,
+    buffer::Buffer,
     display_area::{DisplayArea, DisplayAreaError},
     mode_stack::ModeStack,
+    selection::{Selection, CursorSemantics},
     selections::{Selections, SelectionsError},
-    ui::util_bar::*
+    ui::{UserInterface, util_bar::*},
+    history::{Change, ChangeSet, Operation},
 };
 
 
@@ -194,23 +198,23 @@ pub enum ApplicationError{
     SelectionAtDocBounds,
     NoChangesToUndo,
     NoChangesToRedo,
-    SelectionsError(crate::selections::SelectionsError),
+    SelectionsError(SelectionsError),
 }
 pub struct Application{
 //these will be client constructs when client/server arichitecture impled...
     should_quit: bool,
     mode_stack: ModeStack,
-    pub ui: crate::ui::UserInterface, 
+    pub ui: UserInterface, 
     pub buffer_horizontal_start: usize,
     pub buffer_vertical_start: usize,
 
 //these will be server constructs when client/server architecture impled...
     pub config: Config,
-    pub buffer: crate::buffer::Buffer, 
+    pub buffer: Buffer, 
     pub preserved_selections: Option<Selections>, 
-    pub undo_stack: Vec<crate::history::ChangeSet>,   //maybe have separate buffer and selections undo/redo stacks?...
-    pub redo_stack: Vec<crate::history::ChangeSet>,
-    pub selections: crate::selections::Selections,
+    pub undo_stack: Vec<ChangeSet>,   //maybe have separate buffer and selections undo/redo stacks?...
+    pub redo_stack: Vec<ChangeSet>,
+    pub selections: Selections,
     pub clipboard: String,
 }
 impl Application{
@@ -229,22 +233,22 @@ impl Application{
         };
         let terminal_rect = Rect::new(0, 0, terminal_size.width, terminal_size.height);
 
-        let buffer = crate::buffer::Buffer::new(buffer_text, file_path.clone(), read_only);
+        let buffer = Buffer::new(buffer_text, file_path.clone(), read_only);
         let mut instance = Self{
             should_quit: false,
             mode_stack: ModeStack::default(),
-            ui: crate::ui::UserInterface::new(terminal_rect),
+        ui: UserInterface::new(terminal_rect),
             config: config.clone(),
             buffer: buffer.clone(),
             preserved_selections: None,
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
-            selections: crate::selections::Selections::new(
+            selections: Selections::new(
                 vec![
-                    crate::selection::Selection::new_from_range(
+                    Selection::new_from_range(
                         match config.semantics.clone(){
-                            crate::selection::CursorSemantics::Bar => crate::range::Range::new(0, 0),
-                            crate::selection::CursorSemantics::Block => crate::range::Range::new(0, buffer.next_grapheme_boundary_index(0))
+                            CursorSemantics::Bar => Range::new(0, 0),
+                            CursorSemantics::Block => Range::new(0, buffer.next_grapheme_boundary_index(0))
                         },
                         None, 
                         &buffer, 
@@ -278,15 +282,9 @@ impl Application{
         if self.buffer.file_path.is_some(){
             self.ui.status_bar.file_name_widget.show = true;
             if self.config.use_full_file_path{
-                self.ui.status_bar.file_name_widget.text = match self.buffer.file_path(){
-                    Some(file_path) => file_path,
-                    None => String::new()
-                };
+                self.ui.status_bar.file_name_widget.text = self.buffer.file_path().unwrap_or_default();
             }else{
-                self.ui.status_bar.file_name_widget.text = match self.buffer.file_name(){
-                    Some(file_name) => file_name,
-                    None => String::new()
-                };
+                self.ui.status_bar.file_name_widget.text = self.buffer.file_name().unwrap_or_default();
             }
         }else{
             self.ui.status_bar.file_name_widget.show = false;
@@ -1067,7 +1065,7 @@ impl Application{
 
         let text_box = &self.ui.util_bar.utility_widget.text_box;
         let text_box_display_area = self.text_box_display_area();
-        let selections = crate::selections::Selections::new(
+        let selections = Selections::new(
             vec![text_box.selection.clone()], 0, &text_box.buffer, self.config.semantics.clone()
         );
         self.ui.util_bar.highlighter.selection = text_box_display_area.selections(&selections, &text_box.buffer).first().cloned();
@@ -1081,7 +1079,7 @@ impl Application{
     //}
     //TODO: should edit_core handle updating the view, then return view information?
     // prefer this over scroll_and_update, even when response fns are the same, because it saves us from unnecessarily reassigning the view
-    pub fn checked_scroll_and_update<F, A>(&mut self, cursor_to_follow: &crate::selection::Selection, scroll_response_fn: F, non_scroll_response_fn: A)
+    pub fn checked_scroll_and_update<F, A>(&mut self, cursor_to_follow: &Selection, scroll_response_fn: F, non_scroll_response_fn: A)
         where F: Fn(&mut Application), A: Fn(&mut Application)
     {
         let buffer = &self.buffer;
@@ -1176,13 +1174,13 @@ impl Application{
             ApplicationError::NoChangesToRedo => {self.handle_notification(SAME_STATE_DISPLAY_MODE, SAME_STATE);}
             ApplicationError::SelectionsError(s) => {
                 match s{
-                    crate::selections::SelectionsError::ResultsInSameState |
-                    crate::selections::SelectionsError::CannotAddSelectionAbove |
-                    crate::selections::SelectionsError::CannotAddSelectionBelow => {self.handle_notification(SAME_STATE_DISPLAY_MODE, SAME_STATE);}
-                    crate::selections::SelectionsError::MultipleSelections => {self.handle_notification(MULTIPLE_SELECTIONS_DISPLAY_MODE, MULTIPLE_SELECTIONS);}
-                    crate::selections::SelectionsError::SingleSelection => {self.handle_notification(SINGLE_SELECTION_DISPLAY_MODE, SINGLE_SELECTION);}
-                    crate::selections::SelectionsError::NoSearchMatches |
-                    crate::selections::SelectionsError::SpansMultipleLines => self.handle_notification(SPANS_MULTIPLE_LINES_DISPLAY_MODE, SPANS_MULTIPLE_LINES),
+                    SelectionsError::ResultsInSameState |
+                    SelectionsError::CannotAddSelectionAbove |
+                    SelectionsError::CannotAddSelectionBelow => {self.handle_notification(SAME_STATE_DISPLAY_MODE, SAME_STATE);}
+                    SelectionsError::MultipleSelections => {self.handle_notification(MULTIPLE_SELECTIONS_DISPLAY_MODE, MULTIPLE_SELECTIONS);}
+                    SelectionsError::SingleSelection => {self.handle_notification(SINGLE_SELECTION_DISPLAY_MODE, SINGLE_SELECTION);}
+                    SelectionsError::NoSearchMatches |
+                    SelectionsError::SpansMultipleLines => self.handle_notification(SPANS_MULTIPLE_LINES_DISPLAY_MODE, SPANS_MULTIPLE_LINES),
                 }
             }
         }
@@ -1428,7 +1426,7 @@ impl Application{
     pub fn goto_mode_accept(&mut self){
         assert!(self.mode() == Mode::Goto);
         let mut show_warning = false;
-        if let Ok(line_number) = self.ui.util_bar.utility_widget.text_box.buffer.inner.to_string().parse::<usize>(){
+        if let Ok(line_number) = self.ui.util_bar.utility_widget.text_box.buffer./*inner.*/to_string().parse::<usize>(){
             if line_number == 0{show_warning = true;}   //we have no line number 0, so this is invalid
             else{
                 let line_number = line_number.saturating_sub(1);    // make line number 0 based for interfacing correctly with backend impl
@@ -1445,7 +1443,7 @@ impl Application{
     //TODO: can this be accomplished in edit_core instead?...
     pub fn goto_mode_selection_action(&mut self, action: &SelectionAction){  //TODO: this is pretty slow when user enters a large number into util text box
         assert!(self.mode() == Mode::Goto);
-        if let Ok(count) = self.ui.util_bar.utility_widget.text_box.buffer.inner.to_string().parse::<usize>(){
+        if let Ok(count) = self.ui.util_bar.utility_widget.text_box.buffer./*inner.*/to_string().parse::<usize>(){
             self.mode_pop();
             assert!(self.mode() == Mode::Insert);
             self.selection_action(action, count);
@@ -1459,7 +1457,7 @@ impl Application{
         for grapheme in self.ui.util_bar.utility_widget.text_box.buffer.inner.chars(){ // .graphemes(true)?
             if !grapheme.is_ascii_digit(){is_numeric = false;}
         }
-        let exceeds_doc_length = match self.ui.util_bar.utility_widget.text_box.buffer.inner.to_string().parse::<usize>(){
+        let exceeds_doc_length = match self.ui.util_bar.utility_widget.text_box.buffer./*inner.*/to_string().parse::<usize>(){
             Ok(line_number) => {line_number > self.buffer.len_lines()}
             Err(_) => false //TODO: very large numeric input strings aren't parseable to usize, thus set exceeds_doc_length to false...
         };
@@ -1474,7 +1472,7 @@ impl Application{
     }
     fn incremental_search(&mut self){   //this def doesn't work correctly with utf-8 yet
         let preserved_selections = self.preserved_selections.clone();//self.ui.util_bar.utility_widget.preserved_selections.clone();
-        let search_text = self.ui.util_bar.utility_widget.text_box.buffer.inner.to_string().clone();
+        let search_text = self.ui.util_bar.utility_widget.text_box.buffer./*inner.*/to_string().clone();
         match preserved_selections{
             Some(preserved_selections) => {
                 match crate::utilities::incremental_search_in_selection::application_impl(self, &search_text, &preserved_selections, self.config.semantics.clone()){
@@ -1487,7 +1485,7 @@ impl Application{
     }
     fn incremental_split(&mut self){
         let preserved_selections = self.preserved_selections.clone();//self.ui.util_bar.utility_widget.preserved_selections.clone();
-        let split_text = self.ui.util_bar.utility_widget.text_box.buffer.inner.to_string().clone();
+        let split_text = self.ui.util_bar.utility_widget.text_box.buffer./*inner.*/to_string().clone();
         match preserved_selections{
             Some(preserved_selections) => {
                 match crate::utilities::incremental_split_in_selection::application_impl(self, &split_text, &preserved_selections, self.config.semantics.clone()){
@@ -1530,7 +1528,7 @@ impl Application{
     pub fn command_mode_accept(&mut self){
         assert!(self.mode() == Mode::Command);
         let mut warn = false;
-        match self.ui.util_bar.utility_widget.text_box.buffer.inner.to_string().as_str(){
+        match self.ui.util_bar.utility_widget.text_box.buffer./*inner.*/to_string().as_str(){
             "term" | "t" => {Application::open_new_terminal_window();}
             "toggle_line_numbers" | "ln" => {self.toggle_line_numbers();}
             "toggle_status_bar" | "sb" => {self.toggle_status_bar();}
@@ -1555,30 +1553,30 @@ impl Application{
 
     // TODO: test. should test rope is edited correctly and selection is moved correctly, not necessarily the returned change. behavior, not impl
     pub fn apply_replace(
-        buffer: &mut crate::buffer::Buffer, 
+        buffer: &mut Buffer, 
         replacement_text: &str, 
-        selection: &mut crate::selection::Selection, 
-        semantics: crate::selection::CursorSemantics
-    ) -> crate::history::Change{ //TODO: Error if replacement_text is empty(or if selection empty? is this possible?)
+        selection: &mut Selection, 
+        semantics: CursorSemantics
+    ) -> Change{ //TODO: Error if replacement_text is empty(or if selection empty? is this possible?)
         let old_selection = selection.clone();
         let delete_change = Application::apply_delete(buffer, selection, semantics.clone());
-        let replaced_text = if let crate::history::Operation::Insert{inserted_text} = delete_change.inverse(){inserted_text}else{unreachable!();};  // inverse of delete change should always be insert
+        let replaced_text = if let Operation::Insert{inserted_text} = delete_change.inverse(){inserted_text}else{unreachable!();};  // inverse of delete change should always be insert
         let _ = Application::apply_insert(buffer, replacement_text, selection, semantics.clone());   //intentionally discard returned Change
 
-        crate::history::Change::new(
-            crate::history::Operation::Replace{replacement_text: replacement_text.to_string()}, 
+        Change::new(
+            Operation::Replace{replacement_text: replacement_text.to_string()}, 
             old_selection, 
             selection.clone(), 
-            crate::history::Operation::Replace{replacement_text: replaced_text}
+            Operation::Replace{replacement_text: replaced_text}
         )
     }
     // TODO: test. should test rope is edited correctly and selection is moved correctly, not necessarily the returned change. behavior, not impl
     pub fn apply_insert(
-        buffer: &mut crate::buffer::Buffer, 
+        buffer: &mut Buffer, 
         string: &str, 
-        selection: &mut crate::selection::Selection, 
-        semantics: crate::selection::CursorSemantics
-    ) -> crate::history::Change{    //TODO: Error if string is empty
+        selection: &mut Selection, 
+        semantics: CursorSemantics
+    ) -> Change{    //TODO: Error if string is empty
         let old_selection = selection.clone();
         buffer.insert(selection.cursor(buffer, semantics.clone()), string);
         for _ in 0..string.len(){
@@ -1587,19 +1585,19 @@ impl Application{
             }
         }
 
-        crate::history::Change::new(
-            crate::history::Operation::Insert{inserted_text: string.to_string()}, 
+        Change::new(
+            Operation::Insert{inserted_text: string.to_string()}, 
             old_selection, 
             selection.clone(), 
-            crate::history::Operation::Delete
+            Operation::Delete
         )
     }
     // TODO: test. should test rope is edited correctly and selection is moved correctly, not necessarily the returned change. behavior, not impl
     pub fn apply_delete(
-        buffer: &mut crate::buffer::Buffer, 
-        selection: &mut crate::selection::Selection, 
-        semantics: crate::selection::CursorSemantics
-    ) -> crate::history::Change{  //TODO: Error if cursor and anchor at end of text
+        buffer: &mut Buffer, 
+        selection: &mut Selection, 
+        semantics: CursorSemantics
+    ) -> Change{  //TODO: Error if cursor and anchor at end of text
         use std::cmp::Ordering;
         
         let old_selection = selection.clone();
@@ -1609,8 +1607,8 @@ impl Application{
             Ordering::Less => {(selection.head(), selection.anchor(), selection.cursor(buffer, semantics.clone()))}
             Ordering::Greater => {
                 match semantics{
-                    crate::selection::CursorSemantics::Bar => {(selection.anchor(), selection.head(), selection.anchor())}
-                    crate::selection::CursorSemantics::Block => {
+                    CursorSemantics::Bar => {(selection.anchor(), selection.head(), selection.anchor())}
+                    CursorSemantics::Block => {
                         if selection.cursor(buffer, semantics.clone()) == buffer.len_chars(){(selection.anchor(), selection.cursor(buffer, semantics.clone()), selection.anchor())}
                         else{(selection.anchor(), selection.head(), selection.anchor())}
                     }
@@ -1618,17 +1616,17 @@ impl Application{
             }
             Ordering::Equal => {
                 if selection.cursor(buffer, semantics.clone()) == buffer.len_chars(){ //do nothing    //or preferrably return error   //could have condition check in calling fn
-                    return crate::history::Change::new(
-                        crate::history::Operation::Delete, 
+                    return Change::new(
+                        Operation::Delete, 
                         old_selection, 
                         selection.clone(), 
-                        crate::history::Operation::Insert{inserted_text: String::new()}
+                        Operation::Insert{inserted_text: String::new()}
                     );   //change suggested by clippy lint
                 }
                 
                 match semantics.clone(){
-                    crate::selection::CursorSemantics::Bar => {(selection.head(), selection.head().saturating_add(1), selection.anchor())}
-                    crate::selection::CursorSemantics::Block => {(selection.anchor(), selection.head(), selection.anchor())}
+                    CursorSemantics::Bar => {(selection.head(), selection.head().saturating_add(1), selection.anchor())}
+                    CursorSemantics::Block => {(selection.anchor(), selection.head(), selection.anchor())}
                 }
             }
         };
@@ -1639,11 +1637,11 @@ impl Application{
             *selection = new_selection;
         }
 
-        crate::history::Change::new(
-            crate::history::Operation::Delete, 
+        Change::new(
+            Operation::Delete, 
             old_selection, 
             selection.clone(), 
-            crate::history::Operation::Insert{inserted_text: change_text.to_string()}
+            Operation::Insert{inserted_text: change_text.to_string()}
         )
     }
 }

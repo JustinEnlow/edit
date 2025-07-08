@@ -5,7 +5,7 @@ use crate::{
 
 #[derive(PartialEq, Clone, Debug)] pub enum Direction{Forward, Backward}
 #[derive(PartialEq)] pub enum Movement{Extend, Move}
-#[derive(Clone)] pub enum CursorSemantics{Bar, Block}   //TODO?: change to SelectionSemantics{Exclusive, Inclusive}
+#[derive(PartialEq, Clone)] pub enum CursorSemantics{Bar, Block}   //TODO?: change to SelectionSemantics{Exclusive, Inclusive}
 #[derive(Debug, PartialEq)] pub enum SelectionError{
     ResultsInSameState,
     NoOverlap,
@@ -22,7 +22,7 @@ pub struct Selection{
 }
 impl Selection{
     // only use in tests, because this does not assert invariants
-    /*#[cfg(test)] */#[must_use] pub fn new_unchecked(range: Range, extension_direction: Option<Direction>, stored_line_offset: Option<usize>) -> Self{
+    #[cfg(test)] #[must_use] pub fn new_unchecked(range: Range, extension_direction: Option<Direction>, stored_line_offset: Option<usize>) -> Self{
         Self{range, extension_direction, stored_line_offset}
     }
     
@@ -68,18 +68,35 @@ impl Selection{
         assert!(self.cursor(buffer, semantics) <= buffer.len_chars());
     }
 
-    // ///```
-    // /// use ropey::Rope;
-    // /// use edit::buffer::Buffer;
-    // /// use edit::range::Range;
-    // /// use edit::selection::{Selection, ExtensionDirection};
-    // /// let buffer = Buffer{inner: Rope::from("idk\nsome\nshit\n")};
-    // /// let selection = Selection{range: Range{start: 0, end: 3}, direction: ExtensionDirection::Forward, stored_line_offset: None};
-    // /// assert_eq!("idk".to_string(), selection.to_string(&buffer));
-    // ///```
+    //TODO?: does this belong in buffer.rs instead?...
     pub fn to_string(&self, buffer: &Buffer) -> String{
-        //buffer.inner.slice(self.range.start..self.range.end).to_string()
         buffer.slice(self.range.start, self.range.end)
+    }
+
+    #[cfg(test)] pub fn debug_over_buffer_content(&self, buffer: &Buffer, semantics: CursorSemantics) -> String{
+        let mut debug_string = String::new();
+        for (i, char) in buffer.inner.chars().enumerate(){
+            if self.anchor() == i{
+                debug_string.push('|');
+            }
+            if semantics == CursorSemantics::Block && (self.extension_direction == None || self.extension_direction == Some(Direction::Forward)){
+                if self.cursor(buffer, semantics.clone()) == i{
+                    debug_string.push(':');
+                }
+            }
+            if self.head() == i{
+                match self.extension_direction{
+                    None | Some(Direction::Forward) => {
+                        debug_string.push('>');
+                    }
+                    Some(Direction::Backward) => {
+                        debug_string.push('<');
+                    }
+                }
+            }
+            debug_string.push(char);
+        }
+        debug_string
     }
 
     pub fn anchor(&self) -> usize{
@@ -135,8 +152,8 @@ impl Selection{
             return false;
         }
 
-        let start_line = buffer.inner.char_to_line(self.range.start);
-        let end_line = buffer.inner.char_to_line(self.range.end);
+        let start_line = buffer./*inner.*/char_to_line(self.range.start);
+        let end_line = buffer./*inner.*/char_to_line(self.range.end);
 
         // if selection is not extended or is extended on the same line
         if !self.is_extended() || 
@@ -145,7 +162,7 @@ impl Selection{
         }
         // if selection extends to a newline char, but doesn't span multiple lines
         if end_line.saturating_sub(start_line) == 1 && 
-        buffer.inner.line_to_char(end_line) == self.range.end{
+        buffer./*inner.*/line_to_char(end_line) == self.range.end{
             return false;
         }
 
@@ -205,11 +222,11 @@ impl Selection{
 
     /// Translates a [`Selection`] to a [Selection2d].
     #[must_use] pub fn selection_to_selection2d(&self, buffer: &Buffer, semantics: CursorSemantics) -> crate::selection2d::Selection2d{
-        let line_number_head = buffer.inner.char_to_line(self.cursor(buffer, semantics.clone()));
-        let line_number_anchor = buffer.inner.char_to_line(self.anchor());
+        let line_number_head = buffer./*inner.*/char_to_line(self.cursor(buffer, semantics.clone()));
+        let line_number_anchor = buffer./*inner.*/char_to_line(self.anchor());
 
-        let head_line_start_idx = buffer.inner.line_to_char(line_number_head);
-        let anchor_line_start_idx = buffer.inner.line_to_char(line_number_anchor);
+        let head_line_start_idx = buffer./*inner.*/line_to_char(line_number_head);
+        let anchor_line_start_idx = buffer./*inner.*/line_to_char(line_number_anchor);
 
         //let mut column_head = 0;
         //for grapheme in text.slice(head_line_start_idx..self.cursor(semantics)).to_string().graphemes(true){
@@ -341,8 +358,7 @@ impl Selection{
             (CursorSemantics::Block, Movement::Extend) => {
                 let to = Ord::min(to, buffer.previous_grapheme_boundary_index(buffer.len_chars()));
                 let new_anchor = match self.extension_direction{
-                    None|
-                    Some(Direction::Forward) => {
+                    None | Some(Direction::Forward) => {
                         if to < self.anchor(){  //could also do self.range.start
                             //if let Some(char_at_cursor) = buffer.get_char(self.cursor(buffer, semantics.clone())){
                             //    if char_at_cursor == '\n'{self.anchor()}
@@ -382,117 +398,5 @@ impl Selection{
 
         selection.assert_invariants(buffer, semantics.clone());
         Ok(selection)
-    }
-}
-
-#[cfg(test)]
-mod tests{
-    use Range;
-    use super::*;
-    #[should_panic] #[test] fn non_extended_block_cursor_should_panic_if_set_to_extension_direction_forward(){
-        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
-        let semantics = crate::selection::CursorSemantics::Block;
-        let _ = Selection::new_from_range(Range::new(14, 15), Some(Direction::Forward)/*ExtensionDirection::Forward*/, buffer, semantics.clone());
-    }
-    #[should_panic] #[test] fn non_extended_block_cursor_should_panic_if_set_to_extension_direction_backward(){
-        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
-        let semantics = crate::selection::CursorSemantics::Block;
-        let _ = Selection::new_from_range(Range::new(14, 15), Some(Direction::Backward)/*ExtensionDirection::Backward*/, buffer, semantics.clone());
-    }
-    #[should_panic] #[test] fn extended_bar_selection_should_panic_if_set_to_extension_direction_none(){
-        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
-        let semantics = crate::selection::CursorSemantics::Bar;
-        let _ = Selection::new_from_range(Range::new(0, 3), None/*ExtensionDirection::None*/, buffer, semantics.clone());
-    }
-    #[test] #[should_panic] fn zero_width_block_selection_panics(){
-        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
-        let semantics = crate::selection::CursorSemantics::Block;
-        //let _ = crate::selection::Selection::new_from_components(0, 0, None, buffer, semantics.clone());
-        let _ = Selection::new_from_range(Range::new(0, 0), None/*ExtensionDirection::None*/, buffer, semantics);
-    }
-    #[test] #[should_panic] fn index_past_buffer_len_panics_bar_semantics(){
-        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
-        let semantics = crate::selection::CursorSemantics::Bar;
-        //let _ = crate::selection::Selection::new_from_components(15, 15, None, buffer, semantics.clone());
-        let _ = Selection::new_from_range(Range::new(15, 15), None/*ExtensionDirection::None*/, buffer, semantics);
-    }
-    #[test] #[should_panic] fn index_past_buffer_len_panics_block_semantics(){
-        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
-        let semantics = crate::selection::CursorSemantics::Block;
-        //let _ = crate::selection::Selection::new_from_components(15, 16, None, buffer, semantics.clone());
-        let _ = Selection::new_from_range(Range::new(15, 16), None/*ExtensionDirection::None*/, buffer, semantics);
-    }
-    #[test] fn non_extended_bar_semantics(){
-        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
-        let semantics = crate::selection::CursorSemantics::Bar;
-        //let idk = crate::selection::Selection::new_from_components(0, 0, None, buffer, semantics.clone());
-        let idk = Selection::new_from_range(Range::new(0, 0), None/*ExtensionDirection::None*/, buffer, semantics.clone());
-        assert_eq!(0, idk.range.start);
-        assert_eq!(0, idk.range.end);
-        assert_eq!(0, idk.cursor(buffer, semantics.clone()));
-        assert_eq!(None, idk.stored_line_offset);
-        assert_eq!(None/*crate::selection::ExtensionDirection::None*/, idk.extension_direction);
-        //assert_eq!(crate::selection::ExtensionDirection::None, idk.direction(&buffer, semantics.clone()));
-    }
-    #[test] fn non_extended_block_semantics(){
-        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
-        let semantics = crate::selection::CursorSemantics::Block;
-        //let idk = crate::selection::Selection::new_from_components(0, 1, None, buffer, semantics.clone());
-        let idk = Selection::new_from_range(Range::new(0, 1), None/*ExtensionDirection::None*/, buffer, semantics.clone());
-        assert_eq!(0, idk.range.start);
-        assert_eq!(1, idk.range.end);
-        assert_eq!(0, idk.cursor(buffer, semantics.clone()));
-        assert_eq!(None, idk.stored_line_offset);
-        assert_eq!(None/*crate::selection::ExtensionDirection::None*/, idk.extension_direction);
-        //assert_eq!(crate::selection::ExtensionDirection::None, idk.direction(&buffer, semantics));
-    }
-    #[should_panic]
-    #[test] fn backward_extended_bar_semantics(){
-        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
-        let semantics = crate::selection::CursorSemantics::Bar;
-        //let idk = crate::selection::Selection::new_from_components(1, 0, None, buffer, semantics.clone());
-        let idk = Selection::new_from_range(Range::new(1, 0), Some(Direction::Backward)/*ExtensionDirection::None*/, buffer, semantics.clone());
-        assert_eq!(0, idk.range.start);
-        assert_eq!(1, idk.range.end);
-        assert_eq!(0, idk.cursor(buffer, semantics.clone()));
-        assert_eq!(None, idk.stored_line_offset);
-        assert_eq!(Some(Direction::Backward)/*crate::selection::ExtensionDirection::Backward*/, idk.extension_direction);
-        //assert_eq!(crate::selection::ExtensionDirection::Backward, idk.direction(&buffer, semantics));
-    }
-    #[test] fn backward_extended_block_semantics(){
-        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
-        let semantics = crate::selection::CursorSemantics::Block;
-        //let idk = crate::selection::Selection::new_from_components(2, 0, None, buffer, semantics.clone());
-        let idk = Selection::new_from_range(Range::new(0, 2), Some(Direction::Backward)/*ExtensionDirection::Backward*/, buffer, semantics.clone());
-        assert_eq!(0, idk.range.start);
-        assert_eq!(2, idk.range.end);
-        assert_eq!(0, idk.cursor(buffer, semantics.clone()));
-        assert_eq!(None, idk.stored_line_offset);
-        assert_eq!(Some(Direction::Backward)/*crate::selection::ExtensionDirection::Backward*/, idk.extension_direction);
-        //assert_eq!(crate::selection::ExtensionDirection::Backward, idk.direction(&buffer, semantics));
-    }
-    #[test] fn forward_extended_bar_semantics(){
-        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
-        let semantics = crate::selection::CursorSemantics::Bar;
-        //let idk = crate::selection::Selection::new_from_components(0, 1, None, buffer, semantics.clone());
-        let idk = Selection::new_from_range(Range::new(0, 1), Some(Direction::Forward)/*ExtensionDirection::Forward*/, buffer, semantics.clone());
-        assert_eq!(0, idk.range.start);
-        assert_eq!(1, idk.range.end);
-        assert_eq!(1, idk.cursor(buffer, semantics.clone()));
-        assert_eq!(None, idk.stored_line_offset);
-        assert_eq!(Some(Direction::Forward)/*crate::selection::ExtensionDirection::Forward*/, idk.extension_direction);
-        //assert_eq!(crate::selection::ExtensionDirection::Forward, idk.direction(&buffer, semantics));
-    }
-    #[test] fn forward_extended_block_semantics(){
-        let buffer = &Buffer::new("idk\nsome\nshit\n", None, false);
-        let semantics = crate::selection::CursorSemantics::Block;
-        //let idk = crate::selection::Selection::new_from_components(0, 2, None, buffer, semantics.clone());
-        let idk = Selection::new_from_range(Range::new(0, 2), Some(Direction::Forward)/*ExtensionDirection::Forward*/, buffer, semantics.clone());
-        assert_eq!(0, idk.range.start);
-        assert_eq!(2, idk.range.end);
-        assert_eq!(1, idk.cursor(buffer, semantics.clone()));
-        assert_eq!(None, idk.stored_line_offset);
-        assert_eq!(Some(Direction::Forward)/*crate::selection::ExtensionDirection::Forward*/, idk.extension_direction);
-        //assert_eq!(crate::selection::ExtensionDirection::Forward, idk.direction(&buffer, semantics));
     }
 }

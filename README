@@ -24,14 +24,14 @@ Features:
         [x] Toggleable Status Bar
             [x] File name
             [x] Modified Indicator
-            [ ] Read Only Indicator
+            [x] Read Only Indicator
             [x] Mode Indicator/count of modes on mode stack     [Mode: Insert | Stack: 1]
             [x] Selection Indicator(1/1 = primary cursor is the only one, 3/125 = primary cursor is the 3rd selection of 125)
             [x] primary cursor location indicator(line num:column num)
         [ ] Utility Bar(mode specific) (should utils have suggestions/completion?)
             [x] Go to Mode  (should have popup with available commands?...)
                 [x] use input as line number
-                [ ] use input as amount for following relative motion command (up, down, left, right, etc.)
+                [x] use input as amount for following relative motion command (up, down, left, right, etc.)
                 [ ] to matching surround
             [x] Command mode    (should provide list of available commands)
                 [x] built in and custom commands
@@ -123,4 +123,4 @@ to uninstall:
 
 for a tutorial:
     in the directory you cloned the repo to, run:
-        edit -t < EDIT_TRAMPOLINE
+        edit --tutor

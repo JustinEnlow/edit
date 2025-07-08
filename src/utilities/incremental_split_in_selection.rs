@@ -61,7 +61,7 @@ fn selections_impl(selections: &Selections, input: &str, buffer: &crate::buffer:
         let mut start = selection.range.start; //0;
         let mut found_split = false;
         // Iter over each split, and push the retained selection before it, if any...       TODO: test split at start of selection
-        for split in regex.find_iter(&buffer.inner.to_string()[selection.range.start..selection.range.end.min(buffer.len_chars())]){
+        for split in regex.find_iter(&buffer./*inner.*/to_string()[selection.range.start..selection.range.end.min(buffer.len_chars())]){
             found_split = true;
             let selection_range = Range::new(start, split.start().saturating_add(selection.range.start));
             if selection_range.start < selection_range.end{

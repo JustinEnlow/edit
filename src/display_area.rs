@@ -40,12 +40,12 @@ impl DisplayArea{
     //    self.width = width;
     //    self.height = height;
     //}
-    #[must_use] pub fn height(&self) -> usize{
-        self.height
-    }
-    #[must_use] pub fn horizontal_start(&self) -> usize{
-        self.horizontal_start
-    }
+    //#[must_use] pub fn height(&self) -> usize{
+    //    self.height
+    //}
+    //#[must_use] pub fn horizontal_start(&self) -> usize{
+    //    self.horizontal_start
+    //}
 
     /// Returns a `bool` indicating whether the [`View`] should be scrolled or not. If `head` of primary [`Selection2d`]
     /// is outside [`View`] boundaries, [`View`] should be scrolled.
@@ -206,8 +206,8 @@ impl DisplayArea{
         for (y, _) in buffer.inner.lines().enumerate(){
             // only include lines in vertical bounds
             if vertical_range.contains(&y){
-                let line_start = buffer.inner.line_to_char(y);
-                let line_width = buffer.line_width(y, include_newline);//crate::text_util::line_width(line, include_newline);
+                let line_start = buffer./*inner.*/line_to_char(y);
+                let line_width = buffer.line_width(y, include_newline);
                 let line_end = line_start + line_width;
                 
                 let mut view_start = line_start + self.horizontal_start;    //start view at horizontal offset of view

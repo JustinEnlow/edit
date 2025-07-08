@@ -161,26 +161,26 @@ always ensure:
 bug fix:
     [ ] extend selection word boundary forward/backward aren't behaving correctly in certain scenarios
     [x] util_bar interactive text box cursor goes wonky when text inserted past util_bar width      documented at util_bar.rs:141:73
-    [ ] util_bar interactive text box selection gets stuck if extended left from end of line, and try to extend selection right
+    [x] util_bar interactive text box selection gets stuck if extended left from end of line, and try to extend selection right
         //same happens in document when extended left from buffer end...
     [ ] when status bar hidden, with cursor at bottom buffer line in view, if find/split mode(but not goto/command) entered, then exited, the view is moved down
         one line, when it should remain the same...
-    [ ] when upward extended selection from line end extended back down, the resultant selection is wrong
+    [x] when upward extended selection from line end extended back down, the resultant selection is wrong
         put cursor at end of long line, over new line grapheme
         extend selection up
         extend selection back down
         selection in incorrect state
         //this seems to be related to shifting the selection so it cannot encompass the newline
-    [ ] with selection extended to line end(cursor over newline), and move cursor line end called, the selection should be collapsed, not return a same state error
+    [x] with selection extended to line end(cursor over newline), and move cursor line end called, the selection should be collapsed, not return a same state error
     [ ] add selection above/below only copies the primary selection, not any other selections on the same line as primary
 
 
 other:
-    make <enter> the way to exit find mode with matched selections, instead of <esc>
-    make <enter> the way to exit split mode with split selections, instead of <esc>
+    [x] make <enter> the way to exit find mode with matched selections, instead of <esc>
+    [x] make <enter> the way to exit split mode with split selections, instead of <esc>
 
-    combine status bar and util bar
+    [ ] combine status bar and util bar
 
-    make undo/redo work with several subsequent grapheme insertions/deletions, not just single insertion/deletion. (undo/redo typed words)
+    [ ] make undo/redo work with several subsequent grapheme insertions/deletions, not just single insertion/deletion. (undo/redo typed words)
 
-    if file is read only, don't allow edit actions to modify the buffer. selection actions and others should still work...
+    [x] if buffer is read only, don't allow edit actions to modify the buffer. selection actions and others should still work...

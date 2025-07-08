@@ -71,5 +71,3 @@ pub mod scroll_view_right;
 //other
 pub mod copy;
 pub mod save;
-
-#[cfg(test)] pub mod test;

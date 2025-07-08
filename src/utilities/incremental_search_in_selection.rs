@@ -61,7 +61,7 @@ pub fn selections_impl(selections: &Selections, input: &str, buffer: &crate::buf
     //    Err(_) => {}    //return error FailedToParseRegex
     //}
     if let Ok(regex) = Regex::new(input){
-        for search_match in regex.find_iter(&buffer.inner.to_string()[start..selection.range.end.min(buffer.len_chars())]){
+        for search_match in regex.find_iter(&buffer./*inner.*/to_string()[start..selection.range.end.min(buffer.len_chars())]){
             //selections.push(Selection::new(search_match.start().saturating_add(start), search_match.end().saturating_add(start)));
             //selections.push(Selection::new(Range::new(search_match.start().saturating_add(start), search_match.end().saturating_add(start)), Direction::Forward));
             let mut new_selection = selection.clone();
