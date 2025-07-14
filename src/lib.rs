@@ -8,7 +8,6 @@
 //#![warn(unused_results)]
 #![allow(clippy::cast_possible_truncation)]
 
-pub mod cli;
 pub mod application;
 pub mod history;
 pub mod position;

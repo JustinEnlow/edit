@@ -65,12 +65,10 @@ fn selections_impl(selections: &Selections, input: &str, buffer: &crate::buffer:
             found_split = true;
             let selection_range = Range::new(start, split.start().saturating_add(selection.range.start));
             if selection_range.start < selection_range.end{
-                //selections.push(Selection::new(selection_range.start, selection_range.end));
-                //selections.push(Selection::new(Range::new(selection_range.start, selection_range.end), Direction::Forward));
                 let mut new_selection = selection.clone();
                 new_selection.range.start = selection_range.start;
                 new_selection.range.end = selection_range.end;
-                new_selection.extension_direction = Some(Direction::Forward);//ExtensionDirection::Forward;
+                new_selection.extension_direction = Some(Direction::Forward);
                 selections.push(new_selection);
             }
             start = split.end().saturating_add(selection.range.start);
@@ -78,12 +76,10 @@ fn selections_impl(selections: &Selections, input: &str, buffer: &crate::buffer:
         // Handle any remaining text after the last split
         //if split found and end of last split < selection end
         if found_split && start < selection.range.end.min(buffer.len_chars()){
-            //selections.push(Selection::new(start, self.range.end.min(text.len_chars())));
-            //selections.push(Selection::new(Range::new(start, selection.range.end.min(text.len_chars())), Direction::Forward));
             let mut new_selection = selection.clone();
             new_selection.range.start = start;
             new_selection.range.end = selection.range.end.min(buffer.len_chars());
-            new_selection.extension_direction = Some(Direction::Forward);//ExtensionDirection::Forward;
+            new_selection.extension_direction = Some(Direction::Forward);
             selections.push(new_selection);
         }
     }
@@ -93,6 +89,6 @@ fn selections_impl(selections: &Selections, input: &str, buffer: &crate::buffer:
 #[cfg(test)]
 mod tests{
     #[ignore] #[test] fn implement_tests(){
-        unimplemented!()
+        todo!()
     }
 }

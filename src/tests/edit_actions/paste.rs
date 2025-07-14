@@ -1,7 +1,7 @@
 use crate::{
     application::{EditAction::Paste, Mode},
     range::Range,
-    selection::{Selection, CursorSemantics::Block, /*Extension*/Direction},
+    selection::{Selection, CursorSemantics::Block},
     display_area::DisplayArea,
     config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER, INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT, Config}
 };

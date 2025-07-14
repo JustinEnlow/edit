@@ -53,8 +53,11 @@ impl Selections{
     }
 
     #[cfg(test)] fn debug_over_buffer_content(&self, buffer: &Buffer, semantics: CursorSemantics) -> String{
+        use unicode_segmentation::UnicodeSegmentation;
+
         let mut debug_string = String::new();
-        for (i, char) in buffer.inner.chars().enumerate(){
+        //for (i, char) in buffer./*inner.*/chars().enumerate(){
+        for (i, grapheme) in buffer.to_string().graphemes(true).enumerate(){
             for selection in self.iter(){
                 if selection.anchor() == i{
                     debug_string.push('|');
@@ -75,7 +78,8 @@ impl Selections{
                     }
                 }
             }
-            debug_string.push(char);
+            //debug_string.push(char);
+            debug_string.push_str(grapheme);
         }
         debug_string
     }

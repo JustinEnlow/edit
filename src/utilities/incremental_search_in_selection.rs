@@ -51,37 +51,53 @@ pub fn selections_impl(selections: &Selections, input: &str, buffer: &crate::buf
 #[must_use] pub fn selection_impl(selection: &Selection, input: &str, buffer: &crate::buffer::Buffer) -> Vec<Selection>{   //text should be the text within a selection, not the whole document text       //TODO: -> Result<Vec<Selection>>
     let mut selections = Vec::new();
     let start = selection.range.start;
-
-    //match Regex::new(input){
-    //    Ok(regex) => {
-    //        for search_match in regex.find_iter(&text.to_string()[start..self.range.end.min(text.len_chars())]){
-    //            selections.push(Selection::new(search_match.start().saturating_add(start), search_match.end().saturating_add(start)));
-    //        }
-    //    }
-    //    Err(_) => {}    //return error FailedToParseRegex
-    //}
     if let Ok(regex) = Regex::new(input){
-        for search_match in regex.find_iter(&buffer./*inner.*/to_string()[start..selection.range.end.min(buffer.len_chars())]){
-            //selections.push(Selection::new(search_match.start().saturating_add(start), search_match.end().saturating_add(start)));
-            //selections.push(Selection::new(Range::new(search_match.start().saturating_add(start), search_match.end().saturating_add(start)), Direction::Forward));
+        //regex returns byte indices, and the current Selection impl uses char indices...
+        for search_match in regex.find_iter(&buffer.to_string()[start..selection.range.end.min(buffer.len_chars())]){
             let mut new_selection = selection.clone();
-            new_selection.range.start = search_match.start().saturating_add(start);
-            new_selection.range.end = search_match.end().saturating_add(start);
-            new_selection.extension_direction = Some(Direction::Forward);//ExtensionDirection::Forward;
+            //if we used char indexing instead of byte indexing, we could use buffer.byte_to_char(search_match.start()).saturating_add(start)
+            //new_selection.range.start = search_match.start().saturating_add(start);
+            new_selection.range.start = buffer.byte_to_char(search_match.start()).saturating_add(start);
+            //new_selection.range.end = search_match.end().saturating_add(start);
+            new_selection.range.end = buffer.byte_to_char(search_match.end()).saturating_add(start);
+            //new_selection.extension_direction = Some(Direction::Forward);//ExtensionDirection::Forward;
+            new_selection.extension_direction = if buffer.next_grapheme_char_index(new_selection.range.start) == new_selection.range.end{None}
+            else{Some(Direction::Forward)};
             selections.push(new_selection);
         }
     }
-    //else{/*return error FailedToParseRegex*/}
-
-    if selections.is_empty(){
-        //return NoMatch error      //this error is not strictly necessary since caller can just check for an empty return vec
-    }
-    selections
+    //else{/*return error FailedToParseRegex*/} //no match found if regex parse fails
+    selections  //if selections empty, no match found
 }
 
 #[cfg(test)]
 mod tests{
-    #[ignore] #[test] fn implement_tests(){
-        unimplemented!()
+    use crate::{
+        selection::{Selection, Direction},
+        range::Range,
+        buffer::Buffer,
+        utilities::incremental_search_in_selection
+    };
+
+    #[test] fn search_hard_tab(){
+        let buffer_text = "\tidk\nsome\nshit\n";
+        let buffer = Buffer::new(buffer_text, None, false);
+        let selection = Selection::new_unchecked(Range::new(0, buffer.chars().count()), Some(Direction::Forward), None);
+        let expected_selections = vec![
+            //Selection::new_unchecked(Range::new(0, 1), None, None)
+            Selection::new_unchecked(Range::new(0, "\t".chars().count()), None, None)
+        ];
+        assert_eq!(expected_selections, incremental_search_in_selection::selection_impl(&selection, "\t", &buffer));
+    }
+
+    #[test] fn search_multibyte_grapheme(){
+        let buffer_text = "a̐éö̲\r\n";
+        let buffer = Buffer::new(buffer_text, None, false);
+        let selection = Selection::new_unchecked(Range::new(0, buffer_text.chars().count()), Some(Direction::Forward), None);
+        let expected_selections = vec![
+            //Selection::new_unchecked(Range::new(0, 2), None, None)    //a̐ is 2 chars(unicode code points)
+            Selection::new_unchecked(Range::new(0, "a̐".chars().count()), None, None)
+        ];
+        assert_eq!(expected_selections, incremental_search_in_selection::selection_impl(&selection, "a̐", &buffer));
     }
 }

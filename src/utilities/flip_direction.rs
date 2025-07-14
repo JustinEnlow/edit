@@ -12,7 +12,8 @@ use crate::{
 
 pub fn selection_impl(selection: &Selection, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> Result<Selection, SelectionError>{
     //use crate::selection::ExtensionDirection;
-    selection.assert_invariants(buffer, semantics.clone());
+    //selection.assert_invariants(buffer, semantics.clone());
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
     if !selection.is_extended(){return Err(SelectionError::ResultsInSameState)}
     //Ok(
     //    Selection::new(

@@ -30,8 +30,8 @@ pub fn view_impl(view: &DisplayArea, amount: usize, buffer: &crate::buffer::Buff
 
     // TODO: cache longest as a field in [`View`] struct to eliminate having to calculate this on each call
     // Calculate the longest line width in a single pass
-    let longest = buffer.inner.lines().enumerate()
-        .map(|(i, _)| buffer.line_width(i, false))
+    let longest = buffer./*inner.*/lines().enumerate()
+        .map(|(i, _)| buffer.line_width_chars(i, false))
         .max()
         .unwrap_or(0); // Handle the case where there are no lines
 

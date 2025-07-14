@@ -32,7 +32,7 @@ pub struct DisplayArea{
     pub height: usize,
 }
 impl DisplayArea{
-    /// Returns a new instance of [`View`] from provided inputs.
+    /// Returns a new instance of [`DisplayArea`] from provided inputs.
     #[must_use] pub fn new(horizontal_start: usize, vertical_start: usize, width: usize, height: usize) -> Self{
         Self{horizontal_start, vertical_start, width, height}
     }
@@ -47,8 +47,8 @@ impl DisplayArea{
     //    self.horizontal_start
     //}
 
-    /// Returns a `bool` indicating whether the [`View`] should be scrolled or not. If `head` of primary [`Selection2d`]
-    /// is outside [`View`] boundaries, [`View`] should be scrolled.
+    /// Returns a `bool` indicating whether the [`DisplayArea`] should be scrolled or not. If `head` of primary [`Selection2d`]
+    /// is outside [`DisplayArea`] boundaries, [`DisplayArea`] should be scrolled.
     /// # Panics
     /// when `selection` is invalid.
     #[must_use] pub fn should_scroll(&self, selection: &Selection, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> bool{
@@ -64,8 +64,8 @@ impl DisplayArea{
         !(within_vertical_bounds && within_horizontal_bounds)
     }
 
-    /// Returns a new instance of [`View`] with `horizontal_start` and/or `vertical_start` shifted to keep `head` of
-    /// [`Selection`] in [`View`].
+    /// Returns a new instance of [`DisplayArea`] with `horizontal_start` and/or `vertical_start` shifted to keep `head` of
+    /// [`Selection`] in [`DisplayArea`].
     /// Can follow any specified selection, not just primary selection.
     /// # Panics
     /// when `selection` is invalid.
@@ -95,7 +95,7 @@ impl DisplayArea{
         new_view
     }
 
-    /// Returns a `String` containing the text that can be contained within [`View`] boundaries.
+    /// Returns a `String` containing the text that can be contained within [`DisplayArea`] boundaries.
     // TODO: need to handle displaying TAB_WIDTH spaces instead of a "\t" character.
     // TODO: test
     //pub fn text(&self, text: &Rope) -> String{
@@ -142,14 +142,14 @@ impl DisplayArea{
     }
     
 
-    /// Returns a `String` containing the line numbers of the text that can be contained within [`View`] boundaries.
+    /// Returns a `String` containing the line numbers of the text that can be contained within [`DisplayArea`] boundaries.
     #[must_use] pub fn line_numbers(&self, buffer: &crate::buffer::Buffer) -> String{
         //enhance performance by building the string using a vector and then joining it at the end
         let mut line_numbers_vec = Vec::with_capacity(self.height);
 
         let vertical_range = self.vertical_start..self.vertical_start + self.height;
 
-        for (y, _) in buffer.inner.lines().enumerate(){
+        for (y, _) in buffer./*inner.*/lines().enumerate(){
             if vertical_range.contains(&y){
                 line_numbers_vec.push((y + 1).to_string()); // Convert number to string
             }
@@ -157,12 +157,12 @@ impl DisplayArea{
 
         line_numbers_vec.join("\n") // Join with newline
     }
-    /// Returns a `String` containing the line numbers, relative to the primary cursor, of the text that can be contained within [`View`] boundaries.
+    /// Returns a `String` containing the line numbers, relative to the primary cursor, of the text that can be contained within [`DisplayArea`] boundaries.
     #[must_use] pub fn relative_line_numbers(&self, _buffer: &crate::buffer::Buffer) -> String{
         String::new()
     }
 
-    /// Returns a [`Vec`] of [`Selection2d`]s that represent [`Selection`]s with any portion of itself within the boundaries of [`View`].
+    /// Returns a [`Vec`] of [`Selection2d`]s that represent [`Selection`]s with any portion of itself within the boundaries of [`DisplayArea`].
     /// Returned selections should be in screen space coordinates.
     /// Assumes selections are already sorted and merged.
     #[must_use] pub fn selections(&self, selections: &Selections, buffer: &crate::buffer::Buffer) -> Vec<Selection2d>{
@@ -194,7 +194,7 @@ impl DisplayArea{
     //TODO: maybe have fn selection(&self, selection: &Selection, buffer: &Buffer) -> Option<Selection2d>
     //this would be useful for util_bar text_box view, but could also be done for all [Selection]s in selections, to replace fn selections
 
-    /// Maps a [`View`] as a [`Vec`] of [`Range`]s over a text rope.
+    /// Maps a [`DisplayArea`] as a [`Vec`] of [`Range`]s over a text rope.
     /// This transforms the idea of a view from 2d to 1d, one view block per terminal row, and trims excess empty cells from each row.
     // should this include newlines('\n') in its width calculation? maybe pass in include_newline bool?
     // we want to highlight newlines as well
@@ -203,11 +203,11 @@ impl DisplayArea{
         let mut view_blocks = Vec::new();
         let vertical_range = self.vertical_start..self.vertical_start + self.height;
 
-        for (y, _) in buffer.inner.lines().enumerate(){
+        for (y, _) in buffer.lines().enumerate(){
             // only include lines in vertical bounds
             if vertical_range.contains(&y){
-                let line_start = buffer./*inner.*/line_to_char(y);
-                let line_width = buffer.line_width(y, include_newline);
+                let line_start = buffer.line_to_char(y);
+                let line_width = buffer.line_width_chars(y, include_newline);
                 let line_end = line_start + line_width;
                 
                 let mut view_start = line_start + self.horizontal_start;    //start view at horizontal offset of view
@@ -247,12 +247,12 @@ impl DisplayArea{
             None
         }
     }
-    /// Returns [`Position`] of primary cursor if it is within [`View`] boundaries, or None otherwise.
+    /// Returns [`Position`] of primary cursor if it is within [`DisplayArea`] boundaries, or None otherwise.
     #[must_use] pub fn primary_cursor_position(&self, buffer: &crate::buffer::Buffer, selections: &Selections, semantics: CursorSemantics) -> Option<Position>{
         let primary = selections.primary();
         Self::cursor_position(&primary.selection_to_selection2d(buffer, semantics), self)
     }
-    /// Returns [`Position`]s of cursors that are within [`View`] boundaries, or an empty vec otherwise.
+    /// Returns [`Position`]s of cursors that are within [`DisplayArea`] boundaries, or an empty vec otherwise.
     #[must_use] pub fn cursor_positions(&self, buffer: &crate::buffer::Buffer, selections: &Selections, semantics: CursorSemantics) -> Vec<Position>{
         selections.iter()
             .filter_map(|cursor|{

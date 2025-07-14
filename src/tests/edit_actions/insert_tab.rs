@@ -1,7 +1,7 @@
 use crate::{
     application::{EditAction::InsertTab, Mode},
     range::Range,
-    selection::{Selection, CursorSemantics::Block, /*Extension*/Direction},
+    selection::{Selection, CursorSemantics::Block},
     display_area::DisplayArea,
     config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER, USE_HARD_TAB, Config}
 };

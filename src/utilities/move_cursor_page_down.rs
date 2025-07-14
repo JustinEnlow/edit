@@ -18,7 +18,8 @@ pub fn selection_impl(selection: &Selection, count: usize, buffer: &crate::buffe
         Some(client_view) => client_view,
         None => return Err(SelectionError::ResultsInSameState), //maybe need a better error
     };
-    selection.assert_invariants(buffer, semantics.clone());
+    //selection.assert_invariants(buffer, semantics.clone());
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
     if buffer.char_to_line(selection.cursor(buffer, semantics.clone())) == buffer.len_lines().saturating_sub(1){return Err(SelectionError::ResultsInSameState);}
     //selection.move_vertically(client_view.height().saturating_sub(1), buffer, Movement::Move, ExtensionDirection::Forward, semantics)
     selection.move_vertically(

@@ -13,9 +13,8 @@ use crate::{
 //TODO: we should allow collapsing to anchor, or collapse to anchor collapse(&self, text: &Rope, semantics: CursorSemantics, collapse_target: Anchor)
 /// Returns a new instance of [`Selection`] with `anchor` aligned with cursor.
 pub fn selection_impl(selection: &Selection, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> Result<Selection, SelectionError>{
-    selection.assert_invariants(buffer, semantics.clone());
+    //selection.assert_invariants(buffer, semantics.clone());
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
     if !selection.is_extended(){return Err(SelectionError::ResultsInSameState);}
     selection.put_cursor(selection.cursor(buffer, semantics.clone()), buffer, Movement::Move, semantics, true)
-    //if we want collapse to anchor:
-    //self.put_cursor(self.anchor, text, Movement::Move, semantics, true)
 }

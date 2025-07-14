@@ -1,7 +1,7 @@
 use crate::{
     application::{SelectionAction::ClearNonPrimarySelections, Mode},
     range::Range,
-    selection::{Selection, CursorSemantics::Block, /*Extension*/Direction},
+    selection::{Selection, CursorSemantics::Block},
     display_area::DisplayArea,
     config::{DisplayMode, SINGLE_SELECTION_DISPLAY_MODE, SINGLE_SELECTION, Config}
 };

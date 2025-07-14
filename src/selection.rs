@@ -3,6 +3,16 @@ use crate::{
     buffer::Buffer,
 };
 
+#[derive(PartialEq, Debug)] pub enum InvariantError{
+    SelectionAnchorPastBufferEnd,
+    SelectionHeadPastBufferEnd,
+    ExtensionDirectionIsSomeAndShouldBeNone,
+    ExtensionDirectionShouldBeBackward,
+    ExtensionDirectionShouldBeForward,
+    BlockSelectionAnchorSameAsHead,
+    SelectionCursorPastBufferEnd,
+}
+
 #[derive(PartialEq, Clone, Debug)] pub enum Direction{Forward, Backward}
 #[derive(PartialEq)] pub enum Movement{Extend, Move}
 #[derive(PartialEq, Clone)] pub enum CursorSemantics{Bar, Block}   //TODO?: change to SelectionSemantics{Exclusive, Inclusive}
@@ -12,12 +22,13 @@ use crate::{
     SpansMultipleLines,
     DirectionMismatch
 }
-//TODO: should be indices over a collection of bytes. not chars or graphemes
+//TODO: currently indices over collection of chars. should prob be over collection of graphemes
 #[derive(PartialEq, Clone, Debug)]
 pub struct Selection{
-    pub range: Range,
+    pub range: Range,   //TODO?: use std::ops::Range
     pub extension_direction: Option<Direction>,
-    /// byte offset of the cursor from line start
+    /// char offset of the cursor from line start
+    //TODO?: this may need to become stored_visual_offset_from_line_start, where it represents the number of display cells offset from line start(to handle multicell graphemes)
     pub stored_line_offset: Option<usize>,  //TODO: remove Option   //with buffer being passed in to new_from_range, we should be able to always derive stored_line_offset
 }
 impl Selection{
@@ -28,44 +39,74 @@ impl Selection{
     
     pub fn new_from_range(range: Range, extension_direction: Option<Direction>, buffer: &Buffer, semantics: CursorSemantics) -> Self{
         let instance = Self{range, extension_direction, stored_line_offset: None};    //TODO: since we take buffer as an arg, we should determine stored_line_offset
-
-        instance.assert_invariants(buffer, semantics);
-
+        //instance.assert_invariants(buffer, semantics);
+        assert_eq!(Ok(()), instance.invariants_hold(buffer, semantics));
         instance
     }
 
     //TODO: make private, to determine where this is being called unnecessarily and delete calling code
-    pub fn assert_invariants(&self, buffer: &Buffer, semantics: CursorSemantics){
-        //assert!(self.anchor() >= 0);  //already ensured by `usize` type
-        //assert!(self.head() >= 0);    //already ensured by `usize` type
-
+    //pub fn assert_invariants(&self, buffer: &Buffer, semantics: CursorSemantics){
+    //    //assert!(self.anchor() >= 0);  //already ensured by `usize` type
+    //    //assert!(self.head() >= 0);    //already ensured by `usize` type
+    //
+    //    match semantics{
+    //        CursorSemantics::Bar => {
+    //            assert!(self.anchor() <= buffer.len_chars());
+    //            assert!(self.head() <= buffer.len_chars());
+    //            // new. trying this out
+    //            if self.range.start == self.range.end{assert!(self.extension_direction.is_none());}
+    //            else if self.cursor(buffer, semantics.clone()) < self.anchor(){assert!(self.extension_direction == Some(Direction::Backward));}
+    //            else{assert!(self.extension_direction == Some(Direction::Forward));}
+    //            //
+    //        }
+    //        CursorSemantics::Block => {
+    //            if self.is_extended(){
+    //                assert!(self.anchor() <= buffer.len_chars());
+    //                assert!(self.head() <= buffer.len_chars());
+    //            }else{    //cursor can be 1 past text end
+    //                assert!(self.anchor() <= buffer.len_chars().saturating_add(1));
+    //                assert!(self.head() <= buffer.len_chars().saturating_add(1));
+    //            }
+    //            assert!(self.anchor() != self.head());
+    //            // new. trying this out... it did already catch something that was useful... prob keep
+    //            if buffer.next_grapheme_char_index(self.range.start) == self.range.end{assert!(self.extension_direction.is_none());}
+    //            else if self.cursor(buffer, semantics.clone()) < self.anchor(){assert!(self.extension_direction == Some(Direction::Backward));}
+    //            else{assert!(self.extension_direction == Some(Direction::Forward));}
+    //            //
+    //        }
+    //    }
+    //    assert!(self.cursor(buffer, semantics) <= buffer.len_chars());
+    //}
+    //use this instead of assert_invariants, to get failures inside the calling fn
+    pub fn invariants_hold(&self, buffer: &Buffer, semantics: CursorSemantics) -> Result<(), InvariantError>{
         match semantics{
             CursorSemantics::Bar => {
-                assert!(self.anchor() <= buffer.len_chars());
-                assert!(self.head() <= buffer.len_chars());
-                // new. trying this out
-                if self.range.start == self.range.end{assert!(self.extension_direction.is_none());}
-                else if self.cursor(buffer, semantics.clone()) < self.anchor(){assert!(self.extension_direction == Some(Direction::Backward));}
-                else{assert!(self.extension_direction == Some(Direction::Forward));}
+                if self.anchor() > buffer.len_chars(){return Err(InvariantError::SelectionAnchorPastBufferEnd);}
+                if self.head() > buffer.len_chars(){return Err(InvariantError::SelectionHeadPastBufferEnd);}
                 //
+                if self.range.start == self.range.end{if self.extension_direction.is_some(){return Err(InvariantError::ExtensionDirectionIsSomeAndShouldBeNone);}}
+                else if self.cursor(buffer, semantics.clone()) < self.anchor(){if self.extension_direction != Some(Direction::Backward){return Err(InvariantError::ExtensionDirectionShouldBeBackward);}}
+                else{if self.extension_direction != Some(Direction::Forward){return Err(InvariantError::ExtensionDirectionShouldBeForward);}}
             }
             CursorSemantics::Block => {
                 if self.is_extended(){
-                    assert!(self.anchor() <= buffer.len_chars());
-                    assert!(self.head() <= buffer.len_chars());
-                }else{    //cursor can be 1 past text end
-                    assert!(self.anchor() <= buffer.len_chars().saturating_add(1));
-                    assert!(self.head() <= buffer.len_chars().saturating_add(1));
+                    if self.anchor() > buffer.len_chars(){return Err(InvariantError::SelectionAnchorPastBufferEnd);}
+                    if self.head() > buffer.len_chars(){return Err(InvariantError::SelectionHeadPastBufferEnd);}
+                }else{
+                    if self.anchor() > buffer.len_chars().saturating_add(1){return Err(InvariantError::SelectionAnchorPastBufferEnd);}
+                    if self.head() > buffer.len_chars().saturating_add(1){return Err(InvariantError::SelectionHeadPastBufferEnd);}
                 }
-                assert!(self.anchor() != self.head());
-                // new. trying this out... it did already catch something that was useful... prob keep
-                if buffer.next_grapheme_boundary_index(self.range.start) == self.range.end{assert!(self.extension_direction.is_none());}
-                else if self.cursor(buffer, semantics.clone()) < self.anchor(){assert!(self.extension_direction == Some(Direction::Backward));}
-                else{assert!(self.extension_direction == Some(Direction::Forward));}
+                if self.anchor() == self.head(){return Err(InvariantError::BlockSelectionAnchorSameAsHead);}
+                //
+                if buffer.next_grapheme_char_index(self.range.start) == self.range.end{if self.extension_direction.is_some(){return Err(InvariantError::ExtensionDirectionIsSomeAndShouldBeNone);}}
+                else if self.cursor(buffer, semantics.clone()) < self.anchor(){if self.extension_direction != Some(Direction::Backward){return Err(InvariantError::ExtensionDirectionShouldBeBackward);}}
+                else{if self.extension_direction != Some(Direction::Forward){return Err(InvariantError::ExtensionDirectionShouldBeForward);}}
                 //
             }
         }
-        assert!(self.cursor(buffer, semantics) <= buffer.len_chars());
+        if self.cursor(buffer, semantics) > buffer.len_chars(){return Err(InvariantError::SelectionCursorPastBufferEnd);}
+    
+        Ok(())
     }
 
     //TODO?: does this belong in buffer.rs instead?...
@@ -74,8 +115,11 @@ impl Selection{
     }
 
     #[cfg(test)] pub fn debug_over_buffer_content(&self, buffer: &Buffer, semantics: CursorSemantics) -> String{
+        use unicode_segmentation::UnicodeSegmentation;
+
         let mut debug_string = String::new();
-        for (i, char) in buffer.inner.chars().enumerate(){
+        //for (i, char) in buffer./*inner.*/chars().enumerate(){
+        for (i, grapheme) in buffer.to_string().graphemes(true).enumerate(){
             if self.anchor() == i{
                 debug_string.push('|');
             }
@@ -94,7 +138,8 @@ impl Selection{
                     }
                 }
             }
-            debug_string.push(char);
+            //debug_string.push(char);
+            debug_string.push_str(grapheme);
         }
         debug_string
     }
@@ -115,7 +160,7 @@ impl Selection{
         match self.extension_direction{
             None | Some(Direction::Forward) => match semantics{
                 CursorSemantics::Bar => self.head(),
-                CursorSemantics::Block => buffer.previous_grapheme_boundary_index(self.head()),
+                CursorSemantics::Block => buffer.previous_grapheme_char_index(self.head()),
             }
             Some(Direction::Backward) => self.head()
         }
@@ -135,7 +180,7 @@ impl Selection{
                 else{self.extension_direction.clone()}
             }
             CursorSemantics::Block => {
-                if buffer.next_grapheme_boundary_index(self.range.start) == self.range.end{None}
+                if buffer.next_grapheme_char_index(self.range.start) == self.range.end{None}
                 else{self.extension_direction.clone()}
             }
         }
@@ -274,7 +319,7 @@ impl Selection{
         };
 
         let start_of_line = buffer.line_to_char(goal_line_number);
-        let line_width = buffer.line_width(goal_line_number, false);
+        let line_width = buffer.line_width_chars(goal_line_number, false);
     
         // Use the stored line offset or calculate it if None
         let stored_line_offset = self.stored_line_offset.unwrap_or_else(|| {
@@ -301,7 +346,7 @@ impl Selection{
             Direction::Forward => {
                 let mut index = self.cursor(buffer, semantics.clone());
                 for _ in 0..amount{
-                    let next_grapheme_boundary_index = buffer.next_grapheme_boundary_index(index);
+                    let next_grapheme_boundary_index = buffer.next_grapheme_char_index(index);
                     if index == next_grapheme_boundary_index{break;} //break out of loop early if we are already on the last grapheme
                     index = next_grapheme_boundary_index;
                 }
@@ -310,7 +355,7 @@ impl Selection{
             Direction::Backward => {
                 let mut index = self.cursor(buffer, semantics.clone());
                 for _ in 0..amount{
-                    let previous_grapheme_boundary_index = buffer.previous_grapheme_boundary_index(index);
+                    let previous_grapheme_boundary_index = buffer.previous_grapheme_char_index(index);
                     if index == previous_grapheme_boundary_index{break;}    //break out of loop early if we are already on the first grapheme
                     index = previous_grapheme_boundary_index;
                 }
@@ -352,22 +397,22 @@ impl Selection{
                 let to = Ord::min(to, buffer.len_chars());
                 //Selection::new(Range::new(to, buffer.next_grapheme_boundary_index(to).min(buffer.len_chars().saturating_add(1))), ExtensionDirection::None)
                 selection.range.start = to;
-                selection.range.end = Ord::min(buffer.next_grapheme_boundary_index(to), buffer.len_chars().saturating_add(1));
+                selection.range.end = Ord::min(buffer.next_grapheme_char_index(to), buffer.len_chars().saturating_add(1));
                 selection.extension_direction = None;
             }
             (CursorSemantics::Block, Movement::Extend) => {
-                let to = Ord::min(to, buffer.previous_grapheme_boundary_index(buffer.len_chars()));
+                let to = Ord::min(to, buffer.previous_grapheme_char_index(buffer.len_chars()));
                 let new_anchor = match self.extension_direction{
                     None | Some(Direction::Forward) => {
                         if to < self.anchor(){  //could also do self.range.start
                             //if let Some(char_at_cursor) = buffer.get_char(self.cursor(buffer, semantics.clone())){
                             //    if char_at_cursor == '\n'{self.anchor()}
                             //    else{buffer.next_grapheme_boundary_index(self.anchor()).min(buffer.len_chars())}
-                            /*}else{*/buffer.next_grapheme_boundary_index(self.anchor()).min(buffer.len_chars())//}
+                            /*}else{*/buffer.next_grapheme_char_index(self.anchor()).min(buffer.len_chars())//}
                         }else{self.anchor()}
                     }
                     Some(Direction::Backward) => {
-                        if to >= self.anchor(){buffer.previous_grapheme_boundary_index(self.anchor())} //could also do self.range.end
+                        if to >= self.anchor(){buffer.previous_grapheme_char_index(self.anchor())} //could also do self.range.end
                         else{self.anchor()}
                     }
                 };
@@ -375,16 +420,16 @@ impl Selection{
                 if new_anchor <= to{    //allowing one more char past text.len_chars() for block cursor
                     //Selection::new(Range::new(new_anchor, buffer.next_grapheme_boundary_index(to).min(buffer.len_chars().saturating_add(1))), ExtensionDirection::Forward)
                     selection.range.start = new_anchor;
-                    selection.range.end = Ord::min(buffer.next_grapheme_boundary_index(to), buffer.len_chars().saturating_add(1));
+                    selection.range.end = Ord::min(buffer.next_grapheme_char_index(to), buffer.len_chars().saturating_add(1));
                     //selection.direction = ExtensionDirection::Forward;
-                    selection.extension_direction = if buffer.next_grapheme_boundary_index(selection.range.start) == selection.range.end{None}
+                    selection.extension_direction = if buffer.next_grapheme_char_index(selection.range.start) == selection.range.end{None}
                     else{Some(Direction::Forward)}
                 }else{
                     //Selection::new(Range::new(to, new_anchor), ExtensionDirection::Backward)
                     selection.range.start = to;
                     selection.range.end = new_anchor;
                     //selection.direction = ExtensionDirection::Backward;
-                    selection.extension_direction = if buffer.next_grapheme_boundary_index(selection.range.start) == selection.range.end{None}
+                    selection.extension_direction = if buffer.next_grapheme_char_index(selection.range.start) == selection.range.end{None}
                     else{Some(Direction::Backward)}
                 }
             }
@@ -396,7 +441,7 @@ impl Selection{
             self.stored_line_offset
         };
 
-        selection.assert_invariants(buffer, semantics.clone());
+        //selection.assert_invariants(buffer, semantics.clone());   //TODO: invariants_hold fn should be called by caller of this fn...
         Ok(selection)
     }
 }

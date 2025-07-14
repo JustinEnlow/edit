@@ -19,7 +19,8 @@ pub fn selection_impl(selection: &Selection, count: usize, buffer: &crate::buffe
     if count < 1{return Err(SelectionError::ResultsInSameState);}
     assert!(display_area.is_none());
 
-    selection.assert_invariants(buffer, semantics.clone());
+    //selection.assert_invariants(buffer, semantics.clone());
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
     if selection.range.start == buffer.len_chars()
     || selection.range.end == buffer.len_chars()
     || selection.cursor(buffer, semantics.clone()) == buffer.len_chars(){return Err(SelectionError::ResultsInSameState);}
@@ -39,10 +40,10 @@ pub fn selection_impl(selection: &Selection, count: usize, buffer: &crate::buffe
         CursorSemantics::Block => {
             if goal_index == buffer.len_chars(){
                 //self.put_cursor(goal_index, text, Movement::Extend, semantics, true)
-                selection.put_cursor(buffer.previous_grapheme_boundary_index(buffer.len_chars()), buffer, Movement::Extend, semantics, true)
+                selection.put_cursor(buffer.previous_grapheme_char_index(buffer.len_chars()), buffer, Movement::Extend, semantics, true)
             }else{
                 selection.put_cursor(
-                    buffer.previous_grapheme_boundary_index(goal_index), 
+                    buffer.previous_grapheme_char_index(goal_index), 
                     buffer, 
                     Movement::Extend, 
                     semantics, 

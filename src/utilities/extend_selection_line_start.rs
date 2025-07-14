@@ -12,7 +12,8 @@ use crate::{
 
 /// Returns a new instance of [`Selection`] with the [`Selection`] extended to the start of the current line.
 pub fn selection_impl(selection: &Selection, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> Result<Selection, SelectionError>{
-    selection.assert_invariants(buffer, semantics.clone());
+    //selection.assert_invariants(buffer, semantics.clone());
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
     let line_number = buffer.char_to_line(selection.cursor(buffer, semantics.clone()));
     let line_start = buffer.line_to_char(line_number);
 

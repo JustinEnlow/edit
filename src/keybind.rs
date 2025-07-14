@@ -4,383 +4,183 @@ use crossterm::event::{KeyCode, KeyModifiers};
 
 
 pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
-    match (keycode, modifiers){
-        (KeyCode::Char(c), modifiers) => {
-            if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){
-                if c == 'p'{app.selection_action(&SelectionAction::DecrementPrimarySelection, 1);}
-                else if c == 'z'{app.edit_action(&EditAction::Redo);}
-                    //else if c == 'b'{app.mode_push(Mode::AddSurround);}  //this seems to be triggering some mode in my alacritty settings?...  yeah, doesn't seem to be a thing in GNOME terminal...
-                    //else if c == '\\'{app.set_mode(Mode::Pipe);}   //'|' is <shift+\>
-                else{app.no_op_keypress();}
-            }
-            else if modifiers == KeyModifiers::CONTROL{
-                if c == ' '{app.mode_push(Mode::View);}
-                else if c == 'a'{app.selection_action(&SelectionAction::SelectAll, 1);}
-                else if c == 'b'{app.selection_action(&SelectionAction::Surround, 1);}
-                else if c == 'c'{app.copy();}
-                else if c == 'd'{app.mode_push(Mode::AddSurround);}
-                else if c == 'f'{app.selection_action(&SelectionAction::FlipDirection, 1);}
-                else if c == 'g'{app.mode_push(Mode::Goto);}
-                else if c == 'l'{app.selection_action(&SelectionAction::SelectLine, 1);}
-                else if c == 'o'{app.mode_push(Mode::Object);}
-                else if c == 'p'{app.selection_action(&SelectionAction::IncrementPrimarySelection, 1);}
-                else if c == 'q'{app.quit();}
-                else if c == 'r'{app.selection_action(&SelectionAction::RemovePrimarySelection, 1);}
-                else if c == 's'{app.save();}
-                else if c == 't'{Application::open_new_terminal_window();}
-                else if c == 'v'{app.edit_action(&EditAction::Paste);}
-                else if c == 'x'{app.edit_action(&EditAction::Cut);}
-                else if c == 'z'{app.edit_action(&EditAction::Undo);}
-                else if c == '/'{app.mode_push(Mode::Find);}
-                else if c == ','{app.mode_push(Mode::Split);}
-                else if c == ';'{app.mode_push(Mode::Command);}
-                else{app.no_op_keypress();}
-            }
-            else if modifiers == KeyModifiers::SHIFT{app.edit_action(&EditAction::InsertChar(c));}
-            else if modifiers == KeyModifiers::ALT{
-                if c == 'v'{app.view_action(&ViewAction::CenterVerticallyAroundCursor);}
-                else{app.no_op_keypress();}
-            }
-            else if modifiers == KeyModifiers::NONE{app.edit_action(&EditAction::InsertChar(c));}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::PageDown, modifiers) => {
-                //if modifiers == KeyModifiers::SHIFT{app.selection_action(&SelectionAction::ExtendSelectionPageDown);}
-            /*else */if modifiers == KeyModifiers::NONE{app.selection_action(&SelectionAction::MoveCursorPageDown, 1);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::PageUp, modifiers) => {
-                //if modifiers == KeyModifiers::SHIFT{app.selection_action(&SelectionAction::ExtendSelectionPageUp);}
-            /*else */if modifiers == KeyModifiers::NONE{app.selection_action(&SelectionAction::MoveCursorPageUp, 1);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Up, modifiers) => {
-            if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){app.selection_action(&SelectionAction::AddSelectionAbove, 1);}
-            else if modifiers == KeyModifiers::SHIFT{app.selection_action(&SelectionAction::ExtendSelectionUp, 1);}
-            else if modifiers == KeyModifiers::ALT{app.view_action(&ViewAction::ScrollUp);}
-            else if modifiers == KeyModifiers::NONE{app.selection_action(&SelectionAction::MoveCursorUp, 1);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Down, modifiers) => {
-            if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){app.selection_action(&SelectionAction::AddSelectionBelow, 1);}
-            else if modifiers == KeyModifiers::SHIFT{app.selection_action(&SelectionAction::ExtendSelectionDown, 1);}
-            else if modifiers == KeyModifiers::ALT{app.view_action(&ViewAction::ScrollDown);}
-            else if modifiers == KeyModifiers::NONE{app.selection_action(&SelectionAction::MoveCursorDown, 1);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Home, modifiers) => {
-            if modifiers == KeyModifiers::CONTROL{app.selection_action(&SelectionAction::MoveCursorBufferStart, 1);}
-            else if modifiers == KeyModifiers::SHIFT{app.selection_action(&SelectionAction::ExtendSelectionHome, 1);}
-            else if modifiers == KeyModifiers::NONE{app.selection_action(&SelectionAction::MoveCursorHome, 1);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::End, modifiers) => {
-            if modifiers == KeyModifiers::CONTROL{app.selection_action(&SelectionAction::MoveCursorBufferEnd, 1);}
-            else if modifiers == KeyModifiers::SHIFT{app.selection_action(&SelectionAction::ExtendSelectionLineEnd, 1);}
-            else if modifiers == KeyModifiers::NONE{app.selection_action(&SelectionAction::MoveCursorLineEnd, 1);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Right, modifiers) => {
-            if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){app.selection_action(&SelectionAction::ExtendSelectionWordBoundaryForward, 1);}
-            else if modifiers == KeyModifiers::CONTROL{app.selection_action(&SelectionAction::MoveCursorWordBoundaryForward, 1);}
-            else if modifiers == KeyModifiers::SHIFT{app.selection_action(&SelectionAction::ExtendSelectionRight, 1);}
-            else if modifiers == KeyModifiers::ALT{app.view_action(&ViewAction::ScrollRight);}
-            else if modifiers == KeyModifiers::NONE{app.selection_action(&SelectionAction::MoveCursorRight, 1);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Left, modifiers) => {
-            if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){app.selection_action(&SelectionAction::ExtendSelectionWordBoundaryBackward, 1);}
-            else if modifiers == KeyModifiers::CONTROL{app.selection_action(&SelectionAction::MoveCursorWordBoundaryBackward, 1);}
-            else if modifiers == KeyModifiers::SHIFT{app.selection_action(&SelectionAction::ExtendSelectionLeft, 1);}
-            else if modifiers == KeyModifiers::ALT{app.view_action(&ViewAction::ScrollLeft);}
-            else if modifiers == KeyModifiers::NONE{app.selection_action(&SelectionAction::MoveCursorLeft, 1);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Tab, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.edit_action(&EditAction::InsertTab);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Enter, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.edit_action(&EditAction::InsertNewline);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Delete, modifiers) => {
-                //if modifiers == KeyModifiers::CONTROL{app.delete_to_next_word_boundary();}
-            /*else */if modifiers == KeyModifiers::NONE{app.edit_action(&EditAction::Delete);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Backspace, modifiers) => {
-                //if modifiers == KeyModifiers::CONTROL{app.delete_to_previous_word_boundary();}
-            /*else */if modifiers == KeyModifiers::NONE{app.edit_action(&EditAction::Backspace);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Esc, modifiers) => {
-            if modifiers == KeyModifiers::CONTROL{app.selection_action(&SelectionAction::ClearNonPrimarySelections, 1);}
-            else if modifiers == KeyModifiers::SHIFT{app.selection_action(&SelectionAction::CollapseSelectionToAnchor, 1);}
-            else if modifiers == KeyModifiers::NONE{app.selection_action(&SelectionAction::CollapseSelectionToCursor, 1);}
-                //or use this for automatic esc behavior
-                //if modifiers == KeyModifiers::NONE{app.esc_handle();} //how can this be disambiguated as custom behavior vs builtin fn?
-            else{app.no_op_keypress();}
-        }
-        _ => {app.no_op_keypress();}
+    match keycode{
+        KeyCode::Char('p') if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => app.selection_action(&SelectionAction::DecrementPrimarySelection, 1),
+        KeyCode::Char('z') if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => app.edit_action(&EditAction::Redo),
+            //this seems to be triggering some mode in my alacritty settings?...  yeah, doesn't seem to be a thing in GNOME terminal...
+            //KeyCode::Char('b') if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => app.mode_push(Mode::AddSurround),
+            //'|' is <shift+\>
+            //KeyCode::Char('\\') if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => app.mode_push(Mode::Pipe),
+        KeyCode::Char(' ') if modifiers == KeyModifiers::CONTROL => app.mode_push(Mode::View),
+        KeyCode::Char('a') if modifiers == KeyModifiers::CONTROL => app.selection_action(&SelectionAction::SelectAll, 1),
+        KeyCode::Char('b') if modifiers == KeyModifiers::CONTROL => app.selection_action(&SelectionAction::Surround, 1),
+        KeyCode::Char('c') if modifiers == KeyModifiers::CONTROL => app.copy(),
+        KeyCode::Char('d') if modifiers == KeyModifiers::CONTROL => app.mode_push(Mode::AddSurround),
+        KeyCode::Char('f') if modifiers == KeyModifiers::CONTROL => app.selection_action(&SelectionAction::FlipDirection, 1),
+        KeyCode::Char('g') if modifiers == KeyModifiers::CONTROL => app.mode_push(Mode::Goto),
+        KeyCode::Char('l') if modifiers == KeyModifiers::CONTROL => app.selection_action(&SelectionAction::SelectLine, 1),
+        KeyCode::Char('o') if modifiers == KeyModifiers::CONTROL => app.mode_push(Mode::Object),
+        KeyCode::Char('p') if modifiers == KeyModifiers::CONTROL => app.selection_action(&SelectionAction::IncrementPrimarySelection, 1),
+        KeyCode::Char('q') if modifiers == KeyModifiers::CONTROL => app.quit(),
+        KeyCode::Char('r') if modifiers == KeyModifiers::CONTROL => app.selection_action(&SelectionAction::RemovePrimarySelection, 1),
+        KeyCode::Char('s') if modifiers == KeyModifiers::CONTROL => app.save(),
+        KeyCode::Char('t') if modifiers == KeyModifiers::CONTROL => Application::open_new_terminal_window(),
+        KeyCode::Char('v') if modifiers == KeyModifiers::CONTROL => app.edit_action(&EditAction::Paste),
+        KeyCode::Char('x') if modifiers == KeyModifiers::CONTROL => app.edit_action(&EditAction::Cut),
+        KeyCode::Char('z') if modifiers == KeyModifiers::CONTROL => app.edit_action(&EditAction::Undo),
+        KeyCode::Char('/') if modifiers == KeyModifiers::CONTROL => app.mode_push(Mode::Find),
+        KeyCode::Char(',') if modifiers == KeyModifiers::CONTROL => app.mode_push(Mode::Split),
+        KeyCode::Char(';') if modifiers == KeyModifiers::CONTROL => app.mode_push(Mode::Command),
+        KeyCode::Char(c) if modifiers == KeyModifiers::SHIFT => app.edit_action(&EditAction::InsertChar(c)),
+        KeyCode::Char('v') if modifiers == KeyModifiers::ALT => app.view_action(&ViewAction::CenterVerticallyAroundCursor),
+        KeyCode::Char(c) if modifiers == KeyModifiers::NONE => app.edit_action(&EditAction::InsertChar(c)),
+            //KeyCode::PageDown if modifiers == KeyModifiers::SHIFT => app.selection_action(&SelectionAction::ExtendSelectionPageDown, 1),
+        KeyCode::PageDown if modifiers == KeyModifiers::NONE => app.selection_action(&SelectionAction::MoveCursorPageDown, 1),
+            //KeyCode::PageUp if modifiers == KeyModifiers::SHIFT => app.selection_action(&SelectionAction::ExtendSelectionPageUp, 1),
+        KeyCode::PageUp if modifiers == KeyModifiers::NONE => app.selection_action(&SelectionAction::MoveCursorPageUp, 1),
+        KeyCode::Up if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => app.selection_action(&SelectionAction::AddSelectionAbove, 1),
+        KeyCode::Up if modifiers == KeyModifiers::SHIFT => app.selection_action(&SelectionAction::ExtendSelectionUp, 1),
+        KeyCode::Up if modifiers == KeyModifiers::ALT => app.view_action(&ViewAction::ScrollUp),
+        KeyCode::Up if modifiers == KeyModifiers::NONE => app.selection_action(&SelectionAction::MoveCursorUp, 1),
+        KeyCode::Down if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => app.selection_action(&SelectionAction::AddSelectionBelow, 1),
+        KeyCode::Down if modifiers == KeyModifiers::SHIFT => app.selection_action(&SelectionAction::ExtendSelectionDown, 1),
+        KeyCode::Down if modifiers == KeyModifiers::ALT => app.view_action(&ViewAction::ScrollDown),
+        KeyCode::Down if modifiers == KeyModifiers::NONE => app.selection_action(&SelectionAction::MoveCursorDown, 1),
+        KeyCode::Home if modifiers == KeyModifiers::CONTROL => app.selection_action(&SelectionAction::MoveCursorBufferStart, 1),
+        KeyCode::Home if modifiers == KeyModifiers::SHIFT => app.selection_action(&SelectionAction::ExtendSelectionHome, 1),
+        KeyCode::Home if modifiers == KeyModifiers::NONE => app.selection_action(&SelectionAction::MoveCursorHome, 1),
+        KeyCode::End if modifiers == KeyModifiers::CONTROL => app.selection_action(&SelectionAction::MoveCursorBufferEnd, 1),
+        KeyCode::End if modifiers == KeyModifiers::SHIFT => app.selection_action(&SelectionAction::ExtendSelectionLineEnd, 1),
+        KeyCode::End if modifiers == KeyModifiers::NONE => app.selection_action(&SelectionAction::MoveCursorLineEnd, 1),
+        KeyCode::Right if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => app.selection_action(&SelectionAction::ExtendSelectionWordBoundaryForward, 1),
+        KeyCode::Right if modifiers == KeyModifiers::CONTROL => app.selection_action(&SelectionAction::MoveCursorWordBoundaryForward, 1),
+        KeyCode::Right if modifiers == KeyModifiers::SHIFT => app.selection_action(&SelectionAction::ExtendSelectionRight, 1),
+        KeyCode::Right if modifiers == KeyModifiers::ALT => app.view_action(&ViewAction::ScrollRight),
+        KeyCode::Right if modifiers == KeyModifiers::NONE => app.selection_action(&SelectionAction::MoveCursorRight, 1),
+        KeyCode::Left if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => app.selection_action(&SelectionAction::ExtendSelectionWordBoundaryBackward, 1),
+        KeyCode::Left if modifiers == KeyModifiers::CONTROL => app.selection_action(&SelectionAction::MoveCursorWordBoundaryBackward, 1),
+        KeyCode::Left if modifiers == KeyModifiers::SHIFT => app.selection_action(&SelectionAction::ExtendSelectionLeft, 1),
+        KeyCode::Left if modifiers == KeyModifiers::ALT => app.view_action(&ViewAction::ScrollLeft),
+        KeyCode::Left if modifiers == KeyModifiers::NONE => app.selection_action(&SelectionAction::MoveCursorLeft, 1),
+        KeyCode::Tab if modifiers == KeyModifiers::NONE => app.edit_action(&EditAction::InsertTab),
+        KeyCode::Enter if modifiers == KeyModifiers::NONE => app.edit_action(&EditAction::InsertNewline),
+            //KeyCode::Delete if modifiers == KeyModifiers::CONTROL => app.delete_to_next_word_boundary(),
+        KeyCode::Delete if modifiers == KeyModifiers::NONE => app.edit_action(&EditAction::Delete),
+            //KeyCode::Backspace if modifiers == KeyModifiers::CONTROL => app.delete_to_revious_word_boundary(),
+        KeyCode::Backspace if modifiers == KeyModifiers::NONE => app.edit_action(&EditAction::Backspace),
+        KeyCode::Esc if modifiers == KeyModifiers::CONTROL => app.selection_action(&SelectionAction::ClearNonPrimarySelections, 1),
+        KeyCode::Esc if modifiers == KeyModifiers::SHIFT => app.selection_action(&SelectionAction::CollapseSelectionToAnchor, 1),
+        KeyCode::Esc if modifiers == KeyModifiers::NONE => app.selection_action(&SelectionAction::CollapseSelectionToCursor, 1),
+            //or use this for automatic esc behavior    //how can this be disambiguated as custom behavior vs builtin fn?
+            //KeyCode::Esc if modifiers == KeyModifiers::NONE => app.esc_handle(),
+        _ => app.no_op_keypress(),
     }
 }
 
 pub fn handle_view_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
-    match (keycode, modifiers){
-        (KeyCode::Esc, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.mode_pop();}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Char('v'), modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.view_action(&ViewAction::CenterVerticallyAroundCursor);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Up, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.view_action(&ViewAction::ScrollUp);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Down, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.view_action(&ViewAction::ScrollDown);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Left, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.view_action(&ViewAction::ScrollLeft);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Right, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.view_action(&ViewAction::ScrollRight);}
-            else{app.no_op_keypress();}
-        }
-        _ => {app.no_op_keypress();}
+    match keycode{
+        KeyCode::Esc if modifiers == KeyModifiers::NONE => app.mode_pop(),
+        KeyCode::Char('v') if modifiers == KeyModifiers::NONE => app.view_action(&ViewAction::CenterVerticallyAroundCursor),
+        KeyCode::Up if modifiers == KeyModifiers::NONE => app.view_action(&ViewAction::ScrollUp),
+        KeyCode::Down if modifiers == KeyModifiers::NONE => app.view_action(&ViewAction::ScrollDown),
+        KeyCode::Left if modifiers == KeyModifiers::NONE => app.view_action(&ViewAction::ScrollLeft),
+        KeyCode::Right if modifiers == KeyModifiers::NONE => app.view_action(&ViewAction::ScrollRight),
+        _ => app.no_op_keypress(),
     }
 }
 
 pub fn handle_goto_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
-    match (keycode, modifiers){
-        (KeyCode::PageUp, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.goto_mode_selection_action(&SelectionAction::MoveCursorPageUp);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::PageDown, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.goto_mode_selection_action(&SelectionAction::MoveCursorPageDown);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Up, modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.goto_mode_selection_action(&SelectionAction::ExtendSelectionUp);}
-            else if modifiers == KeyModifiers::NONE{app.goto_mode_selection_action(&SelectionAction::MoveCursorUp);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Down, modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.goto_mode_selection_action(&SelectionAction::ExtendSelectionDown);}
-            else if modifiers == KeyModifiers::NONE{app.goto_mode_selection_action(&SelectionAction::MoveCursorDown);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Right, modifiers) => {
-                //if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::ExtendRight);}
-                //else if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::MoveRight);}
-            if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){app.goto_mode_selection_action(&SelectionAction::ExtendSelectionWordBoundaryForward);}
-            else if modifiers == KeyModifiers::CONTROL{app.goto_mode_selection_action(&SelectionAction::MoveCursorWordBoundaryForward);}
-            else if modifiers == KeyModifiers::SHIFT{app.goto_mode_selection_action(&SelectionAction::ExtendSelectionRight);}
-            else if modifiers == KeyModifiers::NONE{app.goto_mode_selection_action(&SelectionAction::MoveCursorRight);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Left, modifiers)  => {
-                //if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::ExtendLeft);}
-                //else if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::MoveLeft);}
-            if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT){app.goto_mode_selection_action(&SelectionAction::ExtendSelectionWordBoundaryBackward);}
-            else if modifiers == KeyModifiers::CONTROL{app.goto_mode_selection_action(&SelectionAction::MoveCursorWordBoundaryBackward);}
-            else if modifiers == KeyModifiers::SHIFT{app.goto_mode_selection_action(&SelectionAction::ExtendSelectionLeft);}
-            else if modifiers == KeyModifiers::NONE{app.goto_mode_selection_action(&SelectionAction::MoveCursorLeft);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Home, modifiers)  => {
-            if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::ExtendHome);}
-            else if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::MoveHome);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::End, modifiers)   => {
-            if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::ExtendEnd);}
-            else if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::MoveEnd);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Esc, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.mode_pop();}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Enter, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.goto_mode_accept();}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Backspace, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::Backspace);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Delete, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::Delete);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Char(c), modifiers) => {
-                //if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::InsertChar(c));}
-                //else if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::InsertChar(c));}
-            if modifiers == KeyModifiers::NONE{
-                if c.is_numeric(){app.util_action(&UtilAction::InsertChar(c));}
-                else{app.no_op_keypress();}
-            }
-            else{app.no_op_keypress();}
-        }
-        _ => {app.no_op_keypress();}
+    match keycode{
+        KeyCode::PageUp if modifiers == KeyModifiers::NONE => app.goto_mode_selection_action(&SelectionAction::MoveCursorPageUp),
+        KeyCode::PageDown if modifiers == KeyModifiers::NONE => app.goto_mode_selection_action(&SelectionAction::MoveCursorPageDown),
+        KeyCode::Up if modifiers == KeyModifiers::SHIFT => app.goto_mode_selection_action(&SelectionAction::ExtendSelectionUp),
+        KeyCode::Up if modifiers == KeyModifiers::NONE => app.goto_mode_selection_action(&SelectionAction::MoveCursorUp),
+        KeyCode::Down if modifiers == KeyModifiers::SHIFT => app.goto_mode_selection_action(&SelectionAction::ExtendSelectionDown),
+        KeyCode::Down if modifiers == KeyModifiers::NONE => app.goto_mode_selection_action(&SelectionAction::MoveCursorDown),
+            //KeyCode::Right if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::ExtendRight),
+            //KeyCode::Right if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::MoveRight),
+        KeyCode::Right if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => app.goto_mode_selection_action(&SelectionAction::ExtendSelectionWordBoundaryForward),
+        KeyCode::Right if modifiers == KeyModifiers::CONTROL => app.goto_mode_selection_action(&SelectionAction::MoveCursorWordBoundaryForward),
+        KeyCode::Right if modifiers == KeyModifiers::SHIFT => app.goto_mode_selection_action(&SelectionAction::ExtendSelectionRight),
+        KeyCode::Right if modifiers == KeyModifiers::NONE => app.goto_mode_selection_action(&SelectionAction::MoveCursorRight),
+            //KeyCode::Left if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::ExtendLeft),
+            //KeyCode::Left if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::MoveLeft),
+        KeyCode::Left if modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => app.goto_mode_selection_action(&SelectionAction::ExtendSelectionWordBoundaryBackward),
+        KeyCode::Left if modifiers == KeyModifiers::CONTROL => app.goto_mode_selection_action(&SelectionAction::MoveCursorWordBoundaryBackward),
+        KeyCode::Left if modifiers == KeyModifiers::SHIFT => app.goto_mode_selection_action(&SelectionAction::ExtendSelectionLeft),
+        KeyCode::Left if modifiers == KeyModifiers::NONE => app.goto_mode_selection_action(&SelectionAction::MoveCursorLeft),
+        KeyCode::Home if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::ExtendHome),
+        KeyCode::Home if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::MoveHome),
+        KeyCode::End if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::ExtendEnd),
+        KeyCode::End if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::MoveEnd),
+        KeyCode::Esc if modifiers == KeyModifiers::NONE => app.mode_pop(),
+        KeyCode::Enter if modifiers == KeyModifiers::NONE => app.goto_mode_accept(),
+        KeyCode::Backspace if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::Backspace),
+        KeyCode::Delete if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::Delete),
+            //KeyCode::Char(c) if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::InsertChar(c)),
+            //KeyCode::Char(c) if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::InsertChar(c)),
+        KeyCode::Char(c) if modifiers == KeyModifiers::NONE && c.is_numeric() => app.util_action(&UtilAction::InsertChar(c)),
+        _ => app.no_op_keypress(),
     }
 }
 
 pub fn handle_find_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
-    match (keycode, modifiers){
-        (KeyCode::Right, modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::ExtendRight);}
-            else if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::MoveRight);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Left, modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::ExtendLeft);}
-            else if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::MoveLeft);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Home, modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::ExtendHome);}
-            else if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::MoveHome);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::End, modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::ExtendEnd);}
-            else if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::MoveEnd);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Char(c), modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::InsertChar(c));}
-            else if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::InsertChar(c));}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Esc, modifiers) => {
-                //if modifiers == KeyModifiers::NONE{app.set_mode(Mode::Insert);}//{app.find_mode_exit();}
-            if modifiers == KeyModifiers::NONE{app.restore_selections_and_exit();}
-            else{app.no_op_keypress();}
-        }
-            //(KeyCode::Up, _modifiers) => {
-            //    //if modifiers == KeyModifiers::NONE{app.find_replace_mode_previous_instance();}
-            //    /*else{*/app.no_op();//}
-            //}
-            //(KeyCode::Down, _modifiers) => {
-            //    //if modifiers == KeyModifiers::NONE{app.find_replace_mode_next_instance();}
-            //    /*else{*/app.no_op();//}
-            //}
-        (KeyCode::Backspace, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::Backspace);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Delete, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::Delete);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Enter, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.mode_pop();}  //TODO: set warning if util text invalid
-            else{app.no_op_keypress();}
-        }
-        _ => {app.no_op_keypress();}
+    match keycode{
+        KeyCode::Right if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::ExtendRight),
+        KeyCode::Right if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::MoveRight),
+        KeyCode::Left if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::ExtendLeft),
+        KeyCode::Left if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::MoveLeft),
+        KeyCode::Home if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::ExtendHome),
+        KeyCode::Home if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::MoveHome),
+        KeyCode::End if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::ExtendEnd),
+        KeyCode::End if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::MoveEnd),
+        KeyCode::Char(c) if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::InsertChar(c)),
+        KeyCode::Char(c) if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::InsertChar(c)),
+        KeyCode::Esc if modifiers == KeyModifiers::NONE => app.restore_selections_and_exit(),
+        KeyCode::Backspace if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::Backspace),
+        KeyCode::Delete if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::Delete),
+        KeyCode::Enter if modifiers == KeyModifiers::NONE => app.mode_pop(),    //TODO: set warning if util text invalid
+        _ => app.no_op_keypress(),
     }
 }
 
 pub fn handle_split_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
-    match (keycode, modifiers){
-        (KeyCode::Right, modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::ExtendRight);}
-            else if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::MoveRight);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Left, modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::ExtendLeft);}
-            else if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::MoveLeft);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Home, modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::ExtendHome);}
-            else if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::MoveHome);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::End, modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::ExtendEnd);}
-            else if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::MoveEnd);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Char(c), modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::InsertChar(c));}
-            else if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::InsertChar(c));}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Esc, modifiers) => {
-                //if modifiers == KeyModifiers::NONE{app.set_mode(Mode::Insert);}//{app.split_mode_exit();}
-            if modifiers == KeyModifiers::NONE{app.restore_selections_and_exit();}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Enter, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.mode_pop();}  //TODO: set warning if util text invalid
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Backspace, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::Backspace);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Delete, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::Delete);}
-            else{app.no_op_keypress();}
-        }
-        _ => {app.no_op_keypress();}
+    match keycode{
+        KeyCode::Right if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::ExtendRight),
+        KeyCode::Right if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::MoveRight),
+        KeyCode::Left if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::ExtendLeft),
+        KeyCode::Left if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::MoveLeft),
+        KeyCode::Home if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::ExtendHome),
+        KeyCode::Home if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::MoveHome),
+        KeyCode::End if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::ExtendEnd),
+        KeyCode::End if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::MoveEnd),
+        KeyCode::Char(c) if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::InsertChar(c)),
+        KeyCode::Char(c) if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::InsertChar(c)),
+        KeyCode::Esc if modifiers == KeyModifiers::NONE => app.restore_selections_and_exit(),
+        KeyCode::Backspace if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::Backspace),
+        KeyCode::Delete if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::Delete),
+        KeyCode::Enter if modifiers == KeyModifiers::NONE => app.mode_pop(),    //TODO: set warning if util text invalid
+        _ => app.no_op_keypress(),
     }
 }
 
 pub fn handle_command_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
-    match (keycode, modifiers){
-        (KeyCode::Char(c), modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::InsertChar(c));}
-            else if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::InsertChar(c));}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Right, modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::ExtendRight);}
-            else if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::MoveRight);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Left, modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::ExtendLeft);}
-            else if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::MoveLeft);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Home, modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::ExtendHome);}
-            else if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::MoveHome);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::End, modifiers) => {
-            if modifiers == KeyModifiers::SHIFT{app.util_action(&UtilAction::ExtendEnd);}
-            else if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::MoveEnd);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Esc, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.mode_pop();}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Enter, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.command_mode_accept();}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Backspace, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::Backspace);}
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Delete, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.util_action(&UtilAction::Delete);}
-            else{app.no_op_keypress();}
-        }
-        _ => {app.no_op_keypress();}
+    match keycode{
+        KeyCode::Right if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::ExtendRight),
+        KeyCode::Right if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::MoveRight),
+        KeyCode::Left if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::ExtendLeft),
+        KeyCode::Left if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::MoveLeft),
+        KeyCode::Home if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::ExtendHome),
+        KeyCode::Home if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::MoveHome),
+        KeyCode::End if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::ExtendEnd),
+        KeyCode::End if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::MoveEnd),
+        KeyCode::Char(c) if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::InsertChar(c)),
+        KeyCode::Char(c) if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::InsertChar(c)),
+        KeyCode::Esc if modifiers == KeyModifiers::NONE => app.mode_pop(),
+        KeyCode::Backspace if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::Backspace),
+        KeyCode::Delete if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::Delete),
+        KeyCode::Enter if modifiers == KeyModifiers::NONE => app.command_mode_accept(),
+        _ => app.no_op_keypress(),
     }
 }
 
@@ -390,40 +190,21 @@ pub fn handle_command_mode_keypress(app: &mut Application, keycode: KeyCode, mod
 pub fn handle_error_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
     //no op keypresses here need to also display in error mode, regardless of UNHANDLED_KEYPRESS_DISPLAY_MODE config.
     //otherwise they could end up in a fallthrough mode, and repeated keypresses would escape error mode(possibly unintentionally)
-    match (keycode, modifiers){
-        (KeyCode::Char('q'), modifiers) => {
-            if modifiers == KeyModifiers::CONTROL{
-                //TODO: should this logic be in its own fn in application.rs?...
-                if app.mode() == Mode::Error(crate::config::FILE_MODIFIED.to_string()){
-                    app.quit_ignoring_changes();
-                }
-                else{app.handle_notification(crate::config::DisplayMode::Error, crate::config::UNHANDLED_KEYPRESS);/*app.no_op_keypress();*/}
-            }
-            else{app.handle_notification(crate::config::DisplayMode::Error, crate::config::UNHANDLED_KEYPRESS);/*app.no_op_keypress();*/}
-        }
-        (KeyCode::Esc, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.mode_pop();}
-            else{app.handle_notification(crate::config::DisplayMode::Error, crate::config::UNHANDLED_KEYPRESS);/*app.no_op_keypress();*/}
-        }
-        _ => {app.handle_notification(crate::config::DisplayMode::Error, crate::config::UNHANDLED_KEYPRESS);/*app.no_op_keypress();*/}
+    match keycode{
+        KeyCode::Char('q') if modifiers == KeyModifiers::CONTROL && app.mode() == Mode::Error(crate::config::FILE_MODIFIED.to_string()) => {
+            app.quit_ignoring_changes()
+        },
+        KeyCode::Esc if modifiers == KeyModifiers::NONE => app.mode_pop(),
+        _ => app.handle_notification(crate::config::DisplayMode::Error, crate::config::UNHANDLED_KEYPRESS),
     }
 }
 
 //TODO: may need to do app.mode_pop() until app.mode() == Mode::Insert, to ensure we are in a good state
 // because this mode falls through to insert mode, and will crash if we pop to any other mode than insert
 pub fn handle_warning_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
-    match (keycode, modifiers){
+    match keycode{
         //handle warning specific key presses, if any
-        (KeyCode::Esc, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.mode_pop();} //only pop once, to return to previous mode
-            //else, have key presses fall through to insert mode
-            else{
-                while app.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
-                    app.mode_pop();
-                }
-                handle_insert_mode_keypress(app, keycode, modifiers);
-            }
-        }
+        KeyCode::Esc if modifiers == KeyModifiers::NONE => app.mode_pop(),  //only pop once, to return to previous mode
         //else, have key presses fall through to insert mode
         _ => {
             while app.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
@@ -437,18 +218,9 @@ pub fn handle_warning_mode_keypress(app: &mut Application, keycode: KeyCode, mod
 //TODO: may need to do app.mode_pop() until app.mode() == Mode::Insert, to ensure we are in a good state
 // because this mode falls through to insert mode, and will crash if we pop to any other mode than insert
 pub fn handle_notify_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
-    match (keycode, modifiers){
-        //handle warning specific key presses, if any
-        (KeyCode::Esc, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.mode_pop();} //only pop once, to return to previous mode
-            //else, have key presses fall through to insert mode
-            else{
-                while app.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
-                    app.mode_pop();
-                }
-                handle_insert_mode_keypress(app, keycode, modifiers);
-            }
-        }
+    match keycode{
+        //handle notify specific key presses, if any
+        KeyCode::Esc if modifiers == KeyModifiers::NONE => app.mode_pop(),  //only pop once, to return to previous mode
         //else, have key presses fall through to insert mode
         _ => {
             while app.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
@@ -462,18 +234,9 @@ pub fn handle_notify_mode_keypress(app: &mut Application, keycode: KeyCode, modi
 //TODO: may need to do app.mode_pop() until app.mode() == Mode::Insert, to ensure we are in a good state
 // because this mode falls through to insert mode, and will crash if we pop to any other mode than insert
 pub fn handle_info_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
-    match (keycode, modifiers){
-        //handle warning specific key presses, if any
-        (KeyCode::Esc, modifiers) => {
-            if modifiers == KeyModifiers::NONE{app.mode_pop();} //only pop once, to return to previous mode
-            //else, have key presses fall through to insert mode
-            else{
-                while app.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
-                    app.mode_pop();
-                }
-                handle_insert_mode_keypress(app, keycode, modifiers);
-            }
-        }
+    match keycode{
+        //handle info specific key presses, if any
+        KeyCode::Esc if modifiers == KeyModifiers::NONE => app.mode_pop(),  //only pop once, to return to previous mode
         //else, have key presses fall through to insert mode
         _ => {
             while app.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
@@ -485,53 +248,29 @@ pub fn handle_info_mode_keypress(app: &mut Application, keycode: KeyCode, modifi
 }
 
 pub fn handle_object_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
-    match (keycode, modifiers){
-        (KeyCode::Char(c), modifiers) => {
-            if modifiers == KeyModifiers::NONE{
-                if c == 'w'{/*app.selection_action(SelectionAction::Word);*/}
-                else if c == 's'{/*app.selection_action(SelectionAction::Sentence*/}
-                else if c == 'p'{/*app.selection_action(SelectionAction::Paragraph*/}
-                else if c == 'b'{app.selection_action(&SelectionAction::SurroundingPair, 1)}
-                    //else if c == 'q'{/*app.selection_action(SelectionAction::QuotePair)*/}
-                else if c == 'e'{/*app.selection_action(SelectionAction::ExclusiveSurroundingPair*/}
-                else if c == 'i'{/*app.selection_action(SelectionAction::InclusiveSurroundingPair*/}
-                else{app.no_op_keypress();}
-            }
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Esc, modifiers) => {
-            if modifiers == KeyModifiers::NONE{
-                app.mode_pop();
-            }
-            else{app.no_op_keypress();}
-        }
-        _ => {app.no_op_keypress();}
+    match keycode{
+            //KeyCode::Char('w') if modifiers == KeyModifiers::NONE => app.selection_action(&SelectionAction::Word),
+            //KeyCode::Char('s') if modifiers == KeyModifiers::NONE => app.selection_action(&SelectionAction::Sentence),
+            //KeyCode::Char('p') if modifiers == KeyModifiers::NONE => app.selection_action(&SelectionAction::Paragraph),
+        KeyCode::Char('b') if modifiers == KeyModifiers::NONE => app.selection_action(&SelectionAction::SurroundingPair, 1),
+            //KeyCode::Char('q') if modifiers == KeyModifiers::NONE => app.selection_action(&SelectionAction::QuotePair),
+            //KeyCode::Char('e') if modifiers == KeyModifiers::NONE => app.selection_action(&SelectionAction::ExclusiveSurroundingPair),
+            //KeyCode::Char('i') if modifiers == KeyModifiers::NONE => app.selection_action(&SelectionAction::InclusiveSurroundingPair),
+        KeyCode::Esc if modifiers == KeyModifiers::NONE => app.mode_pop(),
+        _ => app.no_op_keypress(),
     }
 }
 
 pub fn handle_add_surround_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
-    match (keycode, modifiers){
-        (KeyCode::Char(c), modifiers) => {
-            //if modifiers == KeyModifiers::SHIFT{
-            //    if c == ','{app.edit_action(EditAction::AddSurround('<', '>'));}   //<  //TODO: why is this not working?... says unbound keypress
-            //    else{app.no_op_keypress();}
-            //}
-            /*else */if modifiers == KeyModifiers::NONE{
-                if c == '['{app.edit_action(&EditAction::AddSurround('[', ']'));}
-                else if c == '{'{app.edit_action(&EditAction::AddSurround('{', '}'));}
-                else if c == '('{app.edit_action(&EditAction::AddSurround('(', ')'));}
-                else if c == '<'{app.edit_action(&EditAction::AddSurround('<', '>'));}
-                else{app.no_op_keypress();}
-            }
-            else{app.no_op_keypress();}
-        }
-        (KeyCode::Esc, modifiers) => {
-            if modifiers == KeyModifiers::NONE{
-                app.mode_pop();
-            }
-            else{app.no_op_keypress();}
-        }
-        _ => {app.no_op_keypress();}
+    match keycode{
+            //<  //TODO: why is this not working?... says unbound keypress
+            //KeyCode::Char(',') if modifiers == KeyModifiers::SHIFT => app.edit_action(&EditAction::AddSurround('<', '>')),
+        KeyCode::Char('[') if modifiers == KeyModifiers::NONE => app.edit_action(&EditAction::AddSurround('[', ']')),
+        KeyCode::Char('{') if modifiers == KeyModifiers::NONE => app.edit_action(&EditAction::AddSurround('{', '}')),
+        KeyCode::Char('(') if modifiers == KeyModifiers::NONE => app.edit_action(&EditAction::AddSurround('(', ')')),
+        KeyCode::Char('<') if modifiers == KeyModifiers::NONE => app.edit_action(&EditAction::AddSurround('<', '>')),
+        KeyCode::Esc if modifiers == KeyModifiers::NONE => app.mode_pop(),
+        _ => app.no_op_keypress(),
     }
 }
 

@@ -1,0 +1,26 @@
+always ensure:
+    any input from the user results in some visual response being displayed. never should a user action result in no change...
+    user should be able to negate this by removing code that triggers warning mode in each action fn called, or a config flag
+
+follow documentation style from https://std-dev-guide.rust-lang.org/development/how-to-write-documentation.html
+
+create tests for all functionality
+    if the body of a test is not implemented yet, add todo!() in the test body, and #[ignore] ahead of the function name
+        "cargo test"                                    //run only non ignored tests
+        "cargo test -- --include-ignored"               //run all tests, including ignored
+        "cargo test -- --ignored"                       //run only ignored tests
+    or add #[cfg(feature = "unfinished-tests")] before the unimplemented test
+        "cargo test --no-default-features"              //won't compile tests with that feature
+        "cargo test --features unfinished-tests"        //includes them
+create tests for all todo functionality or known bugs   //trying to get away from using the todo.rs file...
+the test name should be an explanation of the desired functionality or the bug
+
+
+
+use "cargo clippy" to run lints
+use "cargo clippy -- -W clippy::pedantic" to run pedantic lints
+//some specific lints are ignored in lib.rs due to personal taste/preference
+
+
+
+use "cargo doc --open" to view the documentation

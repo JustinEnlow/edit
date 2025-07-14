@@ -21,7 +21,8 @@ pub fn application_impl(app: &mut Application, line_number: usize, semantics: Cu
 
 /// Returns a new instance of [`Selection`] with the cursor set to specified 0-based line number.
 fn selection_impl(selection: &Selection, line_number: usize, buffer: &crate::buffer::Buffer, movement: Movement, semantics: CursorSemantics) -> Result<Selection, SelectionError>{
-    selection.assert_invariants(buffer, semantics.clone());
+    //selection.assert_invariants(buffer, semantics.clone());
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
     assert!(line_number < buffer.len_lines());
 
     if line_number == buffer.char_to_line(selection.cursor(buffer, semantics.clone())){return Err(SelectionError::ResultsInSameState);}

@@ -12,10 +12,16 @@ use crate::{
 
 /// Returns a new instance of [`Selection`] with `cursor` aligned with anchor.
 pub fn selection_impl(selection: &Selection, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> Result<Selection, SelectionError>{
-    selection.assert_invariants(buffer, semantics.clone());
+    //selection.assert_invariants(buffer, semantics.clone());
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
     if !selection.is_extended(){return Err(SelectionError::ResultsInSameState);}
-    //selection.put_cursor(selection.cursor(buffer, semantics.clone()), buffer, Movement::Move, semantics, true)
-    //if we want collapse to anchor:
-    selection.put_cursor(selection.anchor(), buffer, Movement::Move, semantics, true)
+    let result = selection.put_cursor(selection.anchor(), buffer, Movement::Move, semantics.clone(), true);
+    match result{
+        Ok(selection) => {
+            assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
+            Ok(selection)
+        }
+        Err(e) => Err(e)
+    }
 }
 

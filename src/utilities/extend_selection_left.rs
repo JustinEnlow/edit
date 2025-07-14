@@ -17,7 +17,8 @@ pub fn selection_impl(selection: &Selection, count: usize, buffer: &crate::buffe
     assert!(display_area.is_none());
 
 //    let mut selection = selection.clone();
-    selection.assert_invariants(buffer, semantics.clone());
+    //selection.assert_invariants(buffer, semantics.clone());
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
     
     if selection.cursor(buffer, semantics.clone()) == 0{return Err(SelectionError::ResultsInSameState);}
     //if selection.cursor(buffer, semantics.clone()) == buffer.len_chars(){     //possible fix for extend left from buffer end getting stuck bug logged in todo.rs

@@ -12,11 +12,12 @@ use crate::{
 
 /// Returns a new instance of [`Selection`] with cursor moved down.
 pub fn selection_impl(selection: &Selection, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> Result<Selection, SelectionError>{
-    selection.assert_invariants(buffer, semantics.clone());
+    //selection.assert_invariants(buffer, semantics.clone());
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
     
     let line_number = buffer.char_to_line(selection.cursor(buffer, semantics.clone()));
     let line_start = buffer.line_to_char(line_number);
-    let text_start_offset = buffer.first_non_whitespace_character_offset(line_number);
+    let text_start_offset = buffer.first_non_space_char_offset(line_number);
     let text_start = line_start.saturating_add(text_start_offset);  //nth_next_grapheme_index(line_start, text_start_offset, text)?
 
     if selection.cursor(buffer, semantics.clone()) == text_start && !selection.is_extended(){return Err(SelectionError::ResultsInSameState);}    //TODO: test

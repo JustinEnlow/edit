@@ -32,13 +32,13 @@ pub fn selections_impl(selections: &Selections, buffer: &crate::buffer::Buffer, 
     let end_offset = start_offset.saturating_add(selections.primary().range.end.saturating_sub(selections.primary().range.start));  //start_offset + (end char index - start char index)
     let line_below = bottom_selection_line.saturating_add(1);
     let line_start = buffer.line_to_char(line_below);
-    let line_text = buffer.inner.line(line_below);
-    let line_width = buffer.line_width(line_below, false);
-    let line_width_including_newline = buffer.line_width(line_below, true);
+    let line_text = buffer./*inner.*/line(line_below);
+    let line_width = buffer.line_width_chars(line_below, false);
+    let line_width_including_newline = buffer.line_width_chars(line_below, true);
     let (start, end) = if line_text.to_string().is_empty() || line_text == "\n"{    //should be impossible for the text in the line above first selection to be empty. is_empty() check is redundant here...
         match semantics{
             CursorSemantics::Bar => (line_start, line_start),
-            CursorSemantics::Block => (line_start, buffer.next_grapheme_boundary_index(line_start))
+            CursorSemantics::Block => (line_start, buffer.next_grapheme_char_index(line_start))
         }
     }
     else if selections.primary().is_extended(){
@@ -49,14 +49,14 @@ pub fn selections_impl(selections: &Selections, buffer: &crate::buffer::Buffer, 
             // currently same as non extended. this might change...
             match semantics{    //ensure adding the offsets doesn't make this go past line width
                 CursorSemantics::Bar => (line_start.saturating_add(start_offset.min(line_width)), line_start.saturating_add(start_offset.min(line_width))),
-                CursorSemantics::Block => (line_start.saturating_add(start_offset.min(line_width)), buffer.next_grapheme_boundary_index(line_start.saturating_add(start_offset.min(line_width))))
+                CursorSemantics::Block => (line_start.saturating_add(start_offset.min(line_width)), buffer.next_grapheme_char_index(line_start.saturating_add(start_offset.min(line_width))))
             }
         }
     }
     else{  //not extended
         match semantics{    //ensure adding the offsets doesn't make this go past line width
             CursorSemantics::Bar => (line_start.saturating_add(start_offset.min(line_width)), line_start.saturating_add(start_offset.min(line_width))),
-            CursorSemantics::Block => (line_start.saturating_add(start_offset.min(line_width)), buffer.next_grapheme_boundary_index(line_start.saturating_add(start_offset.min(line_width))))
+            CursorSemantics::Block => (line_start.saturating_add(start_offset.min(line_width)), buffer.next_grapheme_char_index(line_start.saturating_add(start_offset.min(line_width))))
         }
     };
 

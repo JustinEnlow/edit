@@ -17,7 +17,8 @@ pub fn selection_impl(selection: &Selection, count: usize, buffer: &crate::buffe
     if count < 1{return Err(SelectionError::ResultsInSameState);}
     assert!(display_area.is_none());
 
-    selection.assert_invariants(buffer, semantics.clone());
+    //selection.assert_invariants(buffer, semantics.clone());
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
     if buffer.char_to_line(selection.cursor(buffer, semantics.clone())) == 0{return Err(SelectionError::ResultsInSameState);}
     selection.move_vertically(count, buffer, Movement::Extend, /*Extension*/Direction::Backward, semantics)
 }

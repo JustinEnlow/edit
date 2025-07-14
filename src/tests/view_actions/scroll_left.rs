@@ -1,7 +1,7 @@
 use crate::{
     application::{ViewAction::ScrollLeft, Mode},
     range::Range,
-    selection::{Selection, CursorSemantics::Block, Direction},
+    selection::{Selection, CursorSemantics::Block},
     display_area::DisplayArea,
     config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE, Config}
 };

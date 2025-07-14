@@ -17,7 +17,8 @@ pub fn selection_impl(selection: &Selection, count: usize, buffer: &crate::buffe
     if count < 1{return Err(SelectionError::ResultsInSameState);}
     assert!(display_area.is_none());
 
-    selection.assert_invariants(buffer, semantics.clone());
+    //selection.assert_invariants(buffer, semantics.clone());
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
     let last_line = buffer.len_lines().saturating_sub(1);
     if buffer.char_to_line(selection.range.start) == last_line
     || buffer.char_to_line(selection.range.end) == last_line

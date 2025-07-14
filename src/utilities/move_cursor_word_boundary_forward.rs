@@ -17,7 +17,8 @@ pub fn selection_impl(selection: &Selection, count: usize, buffer: &crate::buffe
     if count < 1{return Err(SelectionError::ResultsInSameState);}
     assert!(display_area.is_none());
 
-    selection.assert_invariants(buffer, semantics.clone());
+    //selection.assert_invariants(buffer, semantics.clone());
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
     if selection.cursor(buffer, semantics.clone()) == buffer.len_chars(){return Err(SelectionError::ResultsInSameState);}
     
     //let goal_index = buffer.next_word_boundary(selection.head());
@@ -36,7 +37,7 @@ pub fn selection_impl(selection: &Selection, count: usize, buffer: &crate::buffe
             if goal_index == buffer.len_chars(){
                 selection.put_cursor(goal_index, buffer, Movement::Move, semantics, true)
             }else{
-                selection.put_cursor(buffer.previous_grapheme_boundary_index(goal_index), buffer, Movement::Move, semantics, true)
+                selection.put_cursor(buffer.previous_grapheme_char_index(goal_index), buffer, Movement::Move, semantics, true)
             }
         }
     }

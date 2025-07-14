@@ -54,14 +54,14 @@ pub fn selections_impl(selections: &Selections, buffer: &crate::buffer::Buffer, 
 #[must_use] fn selection_impl(selection: &Selection, buffer: &crate::buffer::Buffer) -> Vec<Selection>{
     let mut rev_search_index = selection.range.start;
     'outer: loop{
-        let current_char = buffer.inner.char(rev_search_index);
+        let current_char = buffer./*inner.*/char(rev_search_index);
         if is_opening_bracket(current_char){
             let opening_char = current_char;
             let closing_char = get_matching_closing_bracket(opening_char);
             let mut match_stack = Vec::new();
             let mut search_index = rev_search_index;
             'inner: loop{
-                let current_char = buffer.inner.char(search_index);
+                let current_char = buffer./*inner.*/char(search_index);
                 if opening_char == closing_char{  //search before cursor for previous instance of char, then after cursor for next instance. ignore hierarchy because i'm not sure we can parse that...
                     if current_char == closing_char{
                         if match_stack.is_empty(){
@@ -70,12 +70,12 @@ pub fn selections_impl(selections: &Selections, buffer: &crate::buffer::Buffer, 
                         else{
                             let mut first_selection = selection.clone();
                             first_selection.range.start = rev_search_index;
-                            first_selection.range.end = buffer.next_grapheme_boundary_index(rev_search_index);
+                            first_selection.range.end = buffer.next_grapheme_char_index(rev_search_index);
                             first_selection.extension_direction = None;//crate::selection::ExtensionDirection::None;
 
                             let mut second_selection = selection.clone();
                             second_selection.range.start = search_index;
-                            second_selection.range.end = buffer.next_grapheme_boundary_index(search_index);
+                            second_selection.range.end = buffer.next_grapheme_char_index(search_index);
                             second_selection.extension_direction = None;//crate::selection::ExtensionDirection::None;
                             return vec![
                                 //Selection::new(Range::new(rev_search_index, text_util::next_grapheme_index(rev_search_index, text)), Direction::Forward),
@@ -97,12 +97,12 @@ pub fn selections_impl(selections: &Selections, buffer: &crate::buffer::Buffer, 
                             if search_index >= selection.range.start{
                                 let mut first_selection = selection.clone();
                                 first_selection.range.start = rev_search_index;
-                                first_selection.range.end = buffer.next_grapheme_boundary_index(rev_search_index);
+                                first_selection.range.end = buffer.next_grapheme_char_index(rev_search_index);
                                 first_selection.extension_direction = None;//crate::selection::ExtensionDirection::None;
 
                                 let mut second_selection = selection.clone();
                                 second_selection.range.start = search_index;
-                                second_selection.range.end = buffer.next_grapheme_boundary_index(search_index);
+                                second_selection.range.end = buffer.next_grapheme_char_index(search_index);
                                 second_selection.extension_direction = None;//crate::selection::ExtensionDirection::None;
                                 return vec![
                                     //Selection::new(Range::new(rev_search_index, text_util::next_grapheme_index(rev_search_index, text)), Direction::Forward),

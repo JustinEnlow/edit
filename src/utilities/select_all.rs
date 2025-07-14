@@ -12,7 +12,8 @@ use crate::{
 
 /// Returns a new instance of [`Selection`] with [`Selection`] extended to encompass all text.
 pub fn selection_impl(selection: &Selection, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> Result<Selection, SelectionError>{  //TODO: ensure this can't extend past doc text end
-    selection.assert_invariants(buffer, semantics.clone());
+    //selection.assert_invariants(buffer, semantics.clone());
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
     if selection.range.start == 0 
     && (
         selection.range.end == buffer.len_chars() || 
@@ -23,7 +24,7 @@ pub fn selection_impl(selection: &Selection, buffer: &crate::buffer::Buffer, sem
     selection.put_cursor(
         match semantics{
             CursorSemantics::Bar => buffer.len_chars(), 
-            CursorSemantics::Block => buffer.previous_grapheme_boundary_index(buffer.len_chars())
+            CursorSemantics::Block => buffer.previous_grapheme_char_index(buffer.len_chars())
         }, 
         buffer, 
         Movement::Extend, 

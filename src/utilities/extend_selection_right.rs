@@ -17,7 +17,8 @@ pub fn selection_impl(selection: &Selection, count: usize, buffer: &crate::buffe
     assert!(display_area.is_none());
 
 //    let mut selection = selection.clone();
-    selection.assert_invariants(buffer, semantics.clone());
+    //selection.assert_invariants(buffer, semantics.clone());
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
 
     // i d k \n s o m e \n s h i t \n
     // block            // block            // bar

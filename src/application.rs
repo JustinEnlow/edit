@@ -209,9 +209,9 @@ pub struct Application{
     pub buffer_vertical_start: usize,
 
 //these will be server constructs when client/server architecture impled...
-    pub config: Config,
+    config: Config,
     pub buffer: Buffer, 
-    pub preserved_selections: Option<Selections>, 
+    preserved_selections: Option<Selections>, 
     pub undo_stack: Vec<ChangeSet>,   //maybe have separate buffer and selections undo/redo stacks?...
     pub redo_stack: Vec<ChangeSet>,
     pub selections: Selections,
@@ -248,7 +248,7 @@ impl Application{
                     Selection::new_from_range(
                         match config.semantics.clone(){
                             CursorSemantics::Bar => Range::new(0, 0),
-                            CursorSemantics::Block => Range::new(0, buffer.next_grapheme_boundary_index(0))
+                            CursorSemantics::Block => Range::new(0, buffer.next_grapheme_char_index(0))
                         },
                         None, 
                         &buffer, 
@@ -295,8 +295,6 @@ impl Application{
         
         //self.ui.document_viewport.document_widget.doc_length = self.buffer.len_lines();
         
-        //self.ui.update_layouts(&self.mode());
-        //crate::ui::update_layouts(self);
         self.update_layouts();
 
         // prefer this over scroll_and_update, even when response fns are the same, because it saves us from unnecessarily reassigning the view
@@ -623,7 +621,7 @@ impl Application{
                         if string == FILE_MODIFIED{
                             if SHOW_CONTEXTUAL_KEYBINDS{
                                 frame.render_widget(ratatui::widgets::Clear, self.ui.popups.modified_error.rect);
-                                render_popup(self.ui.popups.error.text.clone(), self.ui.popups.error.title.clone(), self.ui.popups.error.rect, Color::Black, Color::Yellow, frame);
+                                render_popup(self.ui.popups.modified_error.text.clone(), self.ui.popups.modified_error.title.clone(), self.ui.popups.modified_error.rect, Color::Black, Color::Yellow, frame);
                             }
                         }
                         else{
@@ -690,7 +688,7 @@ impl Application{
         //
         if self.config.show_cursor_column{
             for y in area.top()..area.height{
-                if let Some(primary_cursor_position) = &primary_cursor{//self.primary_cursor.clone(){
+                if let Some(primary_cursor_position) = &primary_cursor{
                     if let Some(cell) = buf.cell_mut((area.left() + primary_cursor_position.x as u16, y)){
                         cell.set_style(
                             Style::default()
@@ -703,7 +701,7 @@ impl Application{
         }
         if self.config.show_cursor_line{
             for x in area.left()..(area.width + area.left()){
-                if let Some(primary_cursor_position) = &primary_cursor{//self.primary_cursor.clone(){
+                if let Some(primary_cursor_position) = &primary_cursor{
                     if let Some(cell) = buf.cell_mut((x, area.top() + primary_cursor_position.y as u16)){
                         cell.set_style(
                             Style::default()
@@ -715,14 +713,11 @@ impl Application{
             }
         }
     
-        //if let Some(selections) = self.selections{  //selection not rendering properly on last empty line following previous newline, when cursor rendering below is not drawn there. maybe this is correct, because there is technically no content there...
-        //if !self.selections.is_empty(){
         if !selections.is_empty(){
-            for selection in selections{//&self.selections{  //self.selections.iter(){   //change suggested by clippy lint
+            for selection in selections{
                 if selection.head().x - selection.anchor().x == 0{continue;}    //should this use start and end instead?
                 for col in selection.anchor().x../*=*/selection.head().x{
                     let x_pos = area.left() + (col as u16);
-                    //let y_pos = selection.head().y as u16;
                     let y_pos = area.top() + (selection.head().y as u16);
         
                     if let Some(cell) = buf.cell_mut((x_pos, y_pos)){
@@ -736,9 +731,8 @@ impl Application{
         }
     
         //render cursors for all selections
-        //if !self.cursors.is_empty(){
         if !cursors.is_empty(){
-            for cursor in cursors{//self.cursors{
+            for cursor in cursors{
                 if let Some(cell) = buf.cell_mut((area.left() + (cursor.x as u16), area.top() + (cursor.y as u16))){
                     cell.set_style(Style::default()
                         .bg(CURSOR_BACKGROUND_COLOR)
@@ -749,7 +743,7 @@ impl Application{
         }
     
         // render primary cursor
-        if let Some(cursor) = &primary_cursor{//self.primary_cursor{
+        if let Some(cursor) = &primary_cursor{
             if let Some(cell) = buf.cell_mut((area.left() + (cursor.x as u16), area.top() + (cursor.y as u16))){
                 cell.set_style(Style::default()
                     .bg(PRIMARY_CURSOR_BACKGROUND_COLOR)
@@ -773,11 +767,10 @@ impl Application{
         let cursor = self.ui.util_bar.highlighter.cursor.clone();
     
         //render selection
-        if let Some(selection) = selection{//self.selection{
+        if let Some(selection) = selection{
             if selection.head().x - selection.anchor().x > 0{   //if selection extended
                 for col in selection.anchor().x..selection.head().x{
                     let x_pos = area.left() + (col as u16);
-                    //let y_pos = area.top();
                     let y_pos = area.top() + (selection.head().y as u16);
                     //assert_eq!(0, y_pos, "util bar text should be guaranteed to be one line");    //this seems to be causing issues when moving from end of line...
         
@@ -792,7 +785,7 @@ impl Application{
         }
     
         // render cursor
-        if let Some(cursor) = cursor{//self.cursor{
+        if let Some(cursor) = cursor{
             assert_eq!(0, cursor.y, "util bar text should be guaranteed to be one line");
             if let Some(cell) = buf.cell_mut((area.left() + (cursor.x as u16), area.top() + (cursor.y as u16))){
                 cell.set_style(Style::default()
@@ -917,8 +910,6 @@ impl Application{
 
         //handle exit behavior
         if update_layouts_and_document{
-            //self.ui.update_layouts(&self.mode());
-            //crate::ui::update_layouts(self);
             self.update_layouts();
             self.update_ui_data_document();
         }
@@ -927,7 +918,6 @@ impl Application{
             self.update_ui_data_util_bar();
         }
         if clear_saved_selections{
-            //self.ui.util_bar.utility_widget.preserved_selections = None;
             self.preserved_selections = None;
         }
 
@@ -970,12 +960,9 @@ impl Application{
 
             //handle entry behavior
             if save_selections{
-                //self.ui.util_bar.utility_widget.preserved_selections = Some(self.selections.clone());
                 self.preserved_selections = Some(self.selections.clone());
             }
             if update_layouts_and_document{
-                //self.ui.update_layouts(&self.mode());
-                //crate::ui::update_layouts(self);
                 self.update_layouts();
                 self.update_ui_data_document();
             }
@@ -1112,8 +1099,6 @@ impl Application{
     }
     pub fn resize(&mut self, x: u16, y: u16){
         self.ui.set_terminal_size(x, y);
-        //self.ui.update_layouts(&self.mode());
-        //crate::ui::update_layouts(self);
         self.update_layouts();
         self.update_ui_data_util_bar(); //TODO: can this be called later in fn impl?
         // scrolling so cursor is in a reasonable place, and updating so any ui changes render correctly
@@ -1426,7 +1411,7 @@ impl Application{
     pub fn goto_mode_accept(&mut self){
         assert!(self.mode() == Mode::Goto);
         let mut show_warning = false;
-        if let Ok(line_number) = self.ui.util_bar.utility_widget.text_box.buffer./*inner.*/to_string().parse::<usize>(){
+        if let Ok(line_number) = self.ui.util_bar.utility_widget.text_box.buffer.to_string().parse::<usize>(){
             if line_number == 0{show_warning = true;}   //we have no line number 0, so this is invalid
             else{
                 let line_number = line_number.saturating_sub(1);    // make line number 0 based for interfacing correctly with backend impl
@@ -1443,7 +1428,7 @@ impl Application{
     //TODO: can this be accomplished in edit_core instead?...
     pub fn goto_mode_selection_action(&mut self, action: &SelectionAction){  //TODO: this is pretty slow when user enters a large number into util text box
         assert!(self.mode() == Mode::Goto);
-        if let Ok(count) = self.ui.util_bar.utility_widget.text_box.buffer./*inner.*/to_string().parse::<usize>(){
+        if let Ok(count) = self.ui.util_bar.utility_widget.text_box.buffer.to_string().parse::<usize>(){
             self.mode_pop();
             assert!(self.mode() == Mode::Insert);
             self.selection_action(action, count);
@@ -1454,10 +1439,10 @@ impl Application{
         assert!(self.mode() == Mode::Goto);
         // run text validity check
         let mut is_numeric = true;
-        for grapheme in self.ui.util_bar.utility_widget.text_box.buffer.inner.chars(){ // .graphemes(true)?
-            if !grapheme.is_ascii_digit(){is_numeric = false;}
+        for char in self.ui.util_bar.utility_widget.text_box.buffer.chars(){
+            if !char.is_ascii_digit(){is_numeric = false;}
         }
-        let exceeds_doc_length = match self.ui.util_bar.utility_widget.text_box.buffer./*inner.*/to_string().parse::<usize>(){
+        let exceeds_doc_length = match self.ui.util_bar.utility_widget.text_box.buffer.to_string().parse::<usize>(){
             Ok(line_number) => {line_number > self.buffer.len_lines()}
             Err(_) => false //TODO: very large numeric input strings aren't parseable to usize, thus set exceeds_doc_length to false...
         };
@@ -1466,13 +1451,13 @@ impl Application{
 
     pub fn restore_selections_and_exit(&mut self){
         self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
-        self.selections = self.preserved_selections.clone().unwrap();//self.ui.util_bar.utility_widget.preserved_selections.clone().unwrap();    //shouldn't be called unless this value is Some()
+        self.selections = self.preserved_selections.clone().unwrap();   //shouldn't be called unless this value is Some()
         self.checked_scroll_and_update(&self.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
         self.mode_pop();
     }
     fn incremental_search(&mut self){   //this def doesn't work correctly with utf-8 yet
-        let preserved_selections = self.preserved_selections.clone();//self.ui.util_bar.utility_widget.preserved_selections.clone();
-        let search_text = self.ui.util_bar.utility_widget.text_box.buffer./*inner.*/to_string().clone();
+        let preserved_selections = self.preserved_selections.clone();
+        let search_text = self.ui.util_bar.utility_widget.text_box.buffer.to_string().clone();
         match preserved_selections{
             Some(preserved_selections) => {
                 match crate::utilities::incremental_search_in_selection::application_impl(self, &search_text, &preserved_selections, self.config.semantics.clone()){
@@ -1484,8 +1469,8 @@ impl Application{
         }
     }
     fn incremental_split(&mut self){
-        let preserved_selections = self.preserved_selections.clone();//self.ui.util_bar.utility_widget.preserved_selections.clone();
-        let split_text = self.ui.util_bar.utility_widget.text_box.buffer./*inner.*/to_string().clone();
+        let preserved_selections = self.preserved_selections.clone();
+        let split_text = self.ui.util_bar.utility_widget.text_box.buffer.to_string().clone();
         match preserved_selections{
             Some(preserved_selections) => {
                 match crate::utilities::incremental_split_in_selection::application_impl(self, &split_text, &preserved_selections, self.config.semantics.clone()){
@@ -1501,8 +1486,6 @@ impl Application{
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
         self.ui.document_viewport.line_number_widget.show = !self.ui.document_viewport.line_number_widget.show;
                 
-        //self.ui.update_layouts(&self.mode());
-        //crate::ui::update_layouts(self);
         self.update_layouts();
         self.update_ui_data_document();
     }
@@ -1510,8 +1493,6 @@ impl Application{
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
         self.ui.status_bar.show = !self.ui.status_bar.show;
                 
-        //self.ui.update_layouts(&self.mode());
-        //crate::ui::update_layouts(self);
         self.update_layouts();
         self.update_ui_data_document();
     }
@@ -1528,7 +1509,7 @@ impl Application{
     pub fn command_mode_accept(&mut self){
         assert!(self.mode() == Mode::Command);
         let mut warn = false;
-        match self.ui.util_bar.utility_widget.text_box.buffer./*inner.*/to_string().as_str(){
+        match self.ui.util_bar.utility_widget.text_box.buffer.to_string().as_str(){
             "term" | "t" => {Application::open_new_terminal_window();}
             "toggle_line_numbers" | "ln" => {self.toggle_line_numbers();}
             "toggle_status_bar" | "sb" => {self.toggle_status_bar();}
@@ -1632,7 +1613,8 @@ impl Application{
         };
 
         let change_text = original_text.slice(start, end);
-        buffer.remove(start..end);
+        //buffer.remove(start..end);
+        buffer.remove(start, end);
         if let Ok(new_selection) = selection.put_cursor(new_cursor, &original_text, crate::selection::Movement::Move, semantics, true){
             *selection = new_selection;
         }

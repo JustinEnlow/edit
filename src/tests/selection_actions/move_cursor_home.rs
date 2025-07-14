@@ -1,7 +1,7 @@
 use crate::{
     application::{SelectionAction::MoveCursorHome, Mode},
     range::Range,
-    selection::{Selection, CursorSemantics::Block, /*Extension*/Direction},
+    selection::{Selection, CursorSemantics::Block},
     display_area::DisplayArea,
     config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE, Config}
 };

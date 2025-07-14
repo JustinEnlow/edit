@@ -27,7 +27,7 @@ impl Default for InteractiveTextBox{
             buffer: buffer.clone(),
             text_is_valid: false,
             selection: Selection::new_from_range(
-                Range::new(0, /*1*/buffer.next_grapheme_boundary_index(0)), 
+                Range::new(0, /*1*/buffer.next_grapheme_char_index(0)), 
                 None,//ExtensionDirection::None, 
                 &buffer, 
                 CURSOR_SEMANTICS
@@ -62,17 +62,20 @@ impl InteractiveTextBox{
     
         match self.selection.cursor(&text, CURSOR_SEMANTICS).cmp(&self.selection.anchor()){
             Ordering::Less => {
-                new_text.remove(self.selection.head()..self.selection.anchor());
+                //new_text.remove(self.selection.head()..self.selection.anchor());
+                new_text.remove(self.selection.head(), self.selection.anchor());
                 if let Ok(new_selection) = self.selection.put_cursor(self.selection.cursor(&text, CURSOR_SEMANTICS), &text, Movement::Move, CURSOR_SEMANTICS, true){
                     self.selection = new_selection;
                 }
             }
             Ordering::Greater => {
                 if self.selection.cursor(&text, CURSOR_SEMANTICS) == text.len_chars(){
-                    new_text.remove(self.selection.anchor()..self.selection.cursor(&text, CURSOR_SEMANTICS));
+                    //new_text.remove(self.selection.anchor()..self.selection.cursor(&text, CURSOR_SEMANTICS));
+                    new_text.remove(self.selection.anchor(), self.selection.cursor(&text, CURSOR_SEMANTICS));
                 }
                 else{
-                    new_text.remove(self.selection.anchor()..self.selection.head());
+                    //new_text.remove(self.selection.anchor()..self.selection.head());
+                    new_text.remove(self.selection.anchor(), self.selection.head());
                 }
                 if let Ok(new_selection) = self.selection.put_cursor(self.selection.anchor(), &text, Movement::Move, CURSOR_SEMANTICS, true){
                     self.selection = new_selection;
@@ -81,7 +84,8 @@ impl InteractiveTextBox{
             Ordering::Equal => {
                 if self.selection.cursor(&text, CURSOR_SEMANTICS) == text.len_chars(){}    //do nothing
                 else{
-                    new_text.remove(self.selection.anchor()..self.selection.head());
+                    //new_text.remove(self.selection.anchor()..self.selection.head());
+                    new_text.remove(self.selection.anchor(), self.selection.head());
                     if let Ok(new_selection) = self.selection.put_cursor(self.selection.anchor(), &text, Movement::Move, CURSOR_SEMANTICS, true){
                         self.selection = new_selection;
                     }

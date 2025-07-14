@@ -112,3 +112,21 @@ use crate::{
     assert_eq!(Some(Direction::Forward), idk.direction(buffer, semantics.clone()));
     assert_eq!(true, idk.is_extended());
 }
+
+
+
+//utf-8
+//#[test] fn utf_8_non_extended_block_semantics(){
+//    let buffer = &Buffer::new("→idk\nsome\nshit\n", None, false);
+//    let semantics = crate::selection::CursorSemantics::Block;
+//    let idk = Selection::new_from_range(Range::new(0, 3), None, buffer, semantics.clone());
+//    assert_eq!(0, idk.range.start);
+//    assert_eq!(0, idk.anchor());
+//    assert_eq!(3, idk.range.end);
+//    assert_eq!(3, idk.head());
+//    assert_eq!(0, idk.cursor(buffer, semantics.clone()), "cursor");
+//    assert_eq!(None, idk.stored_line_offset);
+//    assert_eq!(None, idk.extension_direction);
+//    assert_eq!(None, idk.direction(buffer, semantics.clone()));
+//    assert_eq!(false, idk.is_extended());
+//}
