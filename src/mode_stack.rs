@@ -1,4 +1,4 @@
-use crate::application::Mode;
+use crate::mode::Mode;
 
 /// Guarantees at least one element on stack
 pub struct ModeStack{
@@ -37,7 +37,7 @@ impl Default for ModeStack{
 
 #[cfg(test)]
 mod tests{
-    use crate::application::Mode;
+    use crate::mode::Mode;
     use crate::mode_stack::ModeStack;
 
     #[test] fn default_mode_stack_is_insert(){

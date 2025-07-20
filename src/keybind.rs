@@ -1,7 +1,36 @@
-use crate::application::{Application, Mode, UtilAction, ViewAction, EditAction, SelectionAction};
-use crossterm::event::{KeyCode, KeyModifiers};
+use crate::{
+    mode::Mode,
+    application::{Application, UtilAction, ViewAction, EditAction, SelectionAction},
+};
+use crossterm::event::{KeyCode, KeyModifiers, KeyEvent};
 
 
+
+pub fn handle_key_event(app: &mut Application, key_event: KeyEvent){
+    match app.mode(){
+        Mode::Insert => {handle_insert_mode_keypress(app, key_event.code, key_event.modifiers);}
+        Mode::View => {handle_view_mode_keypress(app, key_event.code, key_event.modifiers);}
+        Mode::Goto => {handle_goto_mode_keypress(app, key_event.code, key_event.modifiers);}
+        Mode::Find => {handle_find_mode_keypress(app, key_event.code, key_event.modifiers);}
+        Mode::Command => {handle_command_mode_keypress(app, key_event.code, key_event.modifiers);}
+        Mode::Error(_) => {handle_error_mode_keypress(app, key_event.code, key_event.modifiers);}
+        Mode::Warning(_) => {
+            //unhandled keybinds in warning mode fall through to insert mode //TODO: do the same for suggestions mode(not impled yet)
+            handle_warning_mode_keypress(app, key_event.code, key_event.modifiers);
+        }
+        Mode::Notify(_) => {
+            //unhandled keybinds in notify mode fall through to insert mode //TODO: do the same for suggestions mode(not impled yet)
+            handle_notify_mode_keypress(app, key_event.code, key_event.modifiers);
+        }
+        Mode::Info(_) => {
+            //unhandled keybinds in info mode fall through to insert mode //TODO: do the same for suggestions mode(not impled yet)
+            handle_info_mode_keypress(app, key_event.code, key_event.modifiers);
+        }
+        Mode::Split => {handle_split_mode_keypress(app, key_event.code, key_event.modifiers);}
+        Mode::Object => {handle_object_mode_keypress(app, key_event.code, key_event.modifiers);}
+        Mode::AddSurround => {handle_add_surround_mode_keypress(app, key_event.code, key_event.modifiers);}
+    }
+}
 
 pub fn handle_insert_mode_keypress(app: &mut Application, keycode: KeyCode, modifiers: KeyModifiers){
     match keycode{
@@ -134,6 +163,11 @@ pub fn handle_find_mode_keypress(app: &mut Application, keycode: KeyCode, modifi
         KeyCode::Home if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::MoveHome),
         KeyCode::End if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::ExtendEnd),
         KeyCode::End if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::MoveEnd),
+        //
+        KeyCode::Char('x') if modifiers == KeyModifiers::CONTROL => app.util_action(&UtilAction::Cut),
+        KeyCode::Char('c') if modifiers == KeyModifiers::CONTROL => app.util_action(&UtilAction::Copy),
+        KeyCode::Char('v') if modifiers == KeyModifiers::CONTROL => app.util_action(&UtilAction::Paste),
+        //
         KeyCode::Char(c) if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::InsertChar(c)),
         KeyCode::Char(c) if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::InsertChar(c)),
         KeyCode::Esc if modifiers == KeyModifiers::NONE => app.restore_selections_and_exit(),
@@ -154,6 +188,11 @@ pub fn handle_split_mode_keypress(app: &mut Application, keycode: KeyCode, modif
         KeyCode::Home if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::MoveHome),
         KeyCode::End if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::ExtendEnd),
         KeyCode::End if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::MoveEnd),
+        //
+        KeyCode::Char('x') if modifiers == KeyModifiers::CONTROL => app.util_action(&UtilAction::Cut),
+        KeyCode::Char('c') if modifiers == KeyModifiers::CONTROL => app.util_action(&UtilAction::Copy),
+        KeyCode::Char('v') if modifiers == KeyModifiers::CONTROL => app.util_action(&UtilAction::Paste),
+        //
         KeyCode::Char(c) if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::InsertChar(c)),
         KeyCode::Char(c) if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::InsertChar(c)),
         KeyCode::Esc if modifiers == KeyModifiers::NONE => app.restore_selections_and_exit(),
@@ -174,6 +213,11 @@ pub fn handle_command_mode_keypress(app: &mut Application, keycode: KeyCode, mod
         KeyCode::Home if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::MoveHome),
         KeyCode::End if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::ExtendEnd),
         KeyCode::End if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::MoveEnd),
+        //
+        KeyCode::Char('x') if modifiers == KeyModifiers::CONTROL => app.util_action(&UtilAction::Cut),
+        KeyCode::Char('c') if modifiers == KeyModifiers::CONTROL => app.util_action(&UtilAction::Copy),
+        KeyCode::Char('v') if modifiers == KeyModifiers::CONTROL => app.util_action(&UtilAction::Paste),
+        //
         KeyCode::Char(c) if modifiers == KeyModifiers::SHIFT => app.util_action(&UtilAction::InsertChar(c)),
         KeyCode::Char(c) if modifiers == KeyModifiers::NONE => app.util_action(&UtilAction::InsertChar(c)),
         KeyCode::Esc if modifiers == KeyModifiers::NONE => app.mode_pop(),

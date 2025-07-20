@@ -1,6 +1,12 @@
 use unicode_segmentation::UnicodeSegmentation;
 use std::path::PathBuf;
 use ropey::Rope;
+//
+use crate::{
+    selection::{Selection, CursorSemantics},
+    history::{Change, Operation},
+};
+//
 
 /// Abstraction over a stringy data type, to allow for the underlying data type to be changed as desired
 // passing this structure as a reference has no added cost compared to passing inner as a reference. they are both just the architecture pointer size
@@ -79,12 +85,12 @@ impl Buffer{
     pub fn line_to_char(&self, line_idx: usize) -> usize{
         self.inner.line_to_char(line_idx)
     }
-    pub fn insert(&mut self, char_idx: usize, insert_text: &str){
-        self.inner.insert(char_idx, insert_text);
-    }
-    pub fn remove(&mut self, start_char_idx: usize, exclusive_end_char_idx: usize){
-        self.inner.remove(start_char_idx..exclusive_end_char_idx);
-    }
+    //pub fn insert(&mut self, char_idx: usize, insert_text: &str){
+    //    self.inner.insert(char_idx, insert_text);
+    //}
+    //pub fn remove(&mut self, start_char_idx: usize, exclusive_end_char_idx: usize){
+    //    self.inner.remove(start_char_idx..exclusive_end_char_idx);
+    //}
     pub fn slice(&self, start: usize, end: usize) -> String{    //this really prob ought to be &str, which is a slice
         self.inner.slice(start..end).to_string()
     }
@@ -280,5 +286,103 @@ impl Buffer{
         }else{
             0
         }
+    }
+
+
+    // TODO: test. should test rope is edited correctly and selection is moved correctly, not necessarily the returned change. behavior, not impl
+    pub fn apply_replace(
+        &mut self, 
+        replacement_text: &str, 
+        selection: &mut Selection, 
+        semantics: CursorSemantics
+    ) -> Change{ //TODO: Error if replacement_text is empty(or if selection empty? is this possible?)
+        let old_selection = selection.clone();
+        let delete_change = self.apply_delete(selection, semantics.clone());
+        let replaced_text = if let Operation::Insert{inserted_text} = delete_change.inverse(){inserted_text}else{unreachable!();};  // inverse of delete change should always be insert
+        let _ = self.apply_insert(replacement_text, selection, semantics.clone());   //intentionally discard returned Change
+
+        Change::new(
+            Operation::Replace{replacement_text: replacement_text.to_string()}, 
+            old_selection, 
+            selection.clone(), 
+            Operation::Replace{replacement_text: replaced_text}
+        )
+    }
+    // TODO: test. should test rope is edited correctly and selection is moved correctly, not necessarily the returned change. behavior, not impl
+    pub fn apply_insert(
+        &mut self, 
+        string: &str, 
+        selection: &mut Selection, 
+        semantics: CursorSemantics
+    ) -> Change{    //TODO: Error if string is empty
+        let old_selection = selection.clone();
+        //self.insert(selection.cursor(self, semantics.clone()), string);
+        self.inner.insert(selection.cursor(self, semantics.clone()), string);
+        for _ in 0..string.len(){
+            if let Ok(new_selection) = crate::utilities::move_cursor_right::selection_impl(selection, 1, self, None, semantics.clone()){
+                *selection = new_selection;
+            }
+        }
+
+        Change::new(
+            Operation::Insert{inserted_text: string.to_string()}, 
+            old_selection, 
+            selection.clone(), 
+            Operation::Delete
+        )
+    }
+    // TODO: test. should test rope is edited correctly and selection is moved correctly, not necessarily the returned change. behavior, not impl
+    pub fn apply_delete(
+        &mut self, 
+        selection: &mut Selection, 
+        semantics: CursorSemantics
+    ) -> Change{  //TODO: Error if cursor and anchor at end of text
+        use std::cmp::Ordering;
+        
+        let old_selection = selection.clone();
+        let original_text = self.clone();
+
+        let (start, end, new_cursor) = match selection.cursor(self, semantics.clone()).cmp(&selection.anchor()){
+            Ordering::Less => {(selection.head(), selection.anchor(), selection.cursor(self, semantics.clone()))}
+            Ordering::Greater => {
+                match semantics{
+                    CursorSemantics::Bar => {(selection.anchor(), selection.head(), selection.anchor())}
+                    CursorSemantics::Block => {
+                        if selection.cursor(self, semantics.clone()) == self.len_chars(){(selection.anchor(), selection.cursor(self, semantics.clone()), selection.anchor())}
+                        else{(selection.anchor(), selection.head(), selection.anchor())}
+                    }
+                }
+            }
+            Ordering::Equal => {
+                if selection.cursor(self, semantics.clone()) == self.len_chars(){ //do nothing    //or preferrably return error   //could have condition check in calling fn
+                    return Change::new(
+                        Operation::Delete, 
+                        old_selection, 
+                        selection.clone(), 
+                        Operation::Insert{inserted_text: String::new()}
+                    );   //change suggested by clippy lint
+                }
+                
+                match semantics.clone(){
+                    CursorSemantics::Bar => {(selection.head(), selection.head().saturating_add(1), selection.anchor())}
+                    CursorSemantics::Block => {(selection.anchor(), selection.head(), selection.anchor())}
+                }
+            }
+        };
+
+        let change_text = original_text.slice(start, end);
+        //buffer.remove(start..end);
+        //self.remove(start, end);
+        self.inner.remove(start..end);
+        if let Ok(new_selection) = selection.put_cursor(new_cursor, &original_text, crate::selection::Movement::Move, semantics, true){
+            *selection = new_selection;
+        }
+
+        Change::new(
+            Operation::Delete, 
+            old_selection, 
+            selection.clone(), 
+            Operation::Insert{inserted_text: change_text.to_string()}
+        )
     }
 }

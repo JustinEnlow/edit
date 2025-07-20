@@ -20,7 +20,8 @@ pub fn application_impl(app: &mut Application, semantics: CursorSemantics) -> Re
             changes.push(change);
         }
         else{   //apply the delete
-            let change = Application::apply_delete(&mut app.buffer, selection, semantics.clone());
+            //let change = Application::apply_delete(&mut app.buffer, selection, semantics.clone());
+            let change = app.buffer.apply_delete(selection, semantics.clone());
             if let Operation::Insert{inserted_text} = change.inverse(){
                 app.selections.shift_subsequent_selections_backward(i, inserted_text.len());
             }

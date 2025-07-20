@@ -1,5 +1,6 @@
 use crate::{
-    application::{SelectionAction::ClearNonPrimarySelections, Mode},
+    application::SelectionAction::ClearNonPrimarySelections,
+    mode::Mode,
     range::Range,
     selection::{Selection, CursorSemantics::Block},
     display_area::DisplayArea,

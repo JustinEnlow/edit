@@ -19,12 +19,14 @@ pub fn application_impl(app: &mut Application, semantics: CursorSemantics) -> Re
             match change.operation(){
                 Operation::Insert{inserted_text} => {
                     selection.shift_and_extend(inserted_text.len(), &app.buffer, semantics.clone());
-                    let _ = Application::apply_delete(&mut app.buffer, selection, semantics.clone());
+                    //let _ = Application::apply_delete(&mut app.buffer, selection, semantics.clone());
+                    let _ = app.buffer.apply_delete(selection, semantics.clone());
                     app.selections.shift_subsequent_selections_backward(i, inserted_text.len());
                 }
                 Operation::Delete => {
                     if let Operation::Insert{inserted_text} = change.inverse(){
-                        let _ = Application::apply_insert(&mut app.buffer, &inserted_text, selection, semantics.clone());   //apply inverse operation
+                        //let _ = Application::apply_insert(&mut app.buffer, &inserted_text, selection, semantics.clone());   //apply inverse operation
+                        let _ = app.buffer.apply_insert(&inserted_text, selection, semantics.clone());  //apply inverse operation
                         app.selections.shift_subsequent_selections_forward(i, inserted_text.len());
                     }
                 }
@@ -32,7 +34,8 @@ pub fn application_impl(app: &mut Application, semantics: CursorSemantics) -> Re
                     let inserted_text = replacement_text;
                     if let Operation::Replace{replacement_text} = change.inverse(){
                         selection.shift_and_extend(inserted_text.len(), &app.buffer, semantics.clone());
-                        let _ = Application::apply_replace(&mut app.buffer, &replacement_text, selection, semantics.clone());
+                        //let _ = Application::apply_replace(&mut app.buffer, &replacement_text, selection, semantics.clone());
+                        let _ = app.buffer.apply_replace(&replacement_text, selection, semantics.clone());
                         match inserted_text.len().cmp(&replacement_text.len()){    //old selected text vs new text
                             Ordering::Greater => {app.selections.shift_subsequent_selections_backward(i, inserted_text.len().saturating_sub(replacement_text.len()));}
                             Ordering::Less => {app.selections.shift_subsequent_selections_forward(i, replacement_text.len().saturating_sub(inserted_text.len()));}

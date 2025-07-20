@@ -1,26 +1,26 @@
 use crate::{
-    application::{Application, ApplicationError},
+    //application::{Application, ApplicationError},
     selection::{Selection, SelectionError, /*Extension*/Direction, CursorSemantics, Movement},
-    selections::SelectionsError
+    //selections::SelectionsError
 };
 
 //front end converts to zero-based
-pub fn application_impl(app: &mut Application, line_number: usize, semantics: CursorSemantics) -> Result<(), ApplicationError>{
-    //assert!(line_number > 0);
-    //let line_number = line_number.saturating_sub(1);    //convert to zero based //should this conversion really be happening on the back end?
-    if line_number >= app.buffer.len_lines(){return Err(ApplicationError::InvalidInput);}
-    
-    //if let Ok(()) = document.clear_non_primary_selections(){};
-    if let Ok(()) = crate::utilities::clear_non_primary_selections::application_impl(app){};
-    match selection_impl(app.selections.primary(), line_number, &app.buffer, Movement::Move, semantics){
-        Ok(new_selection) => {*app.selections.primary_mut() = new_selection;}
-        Err(_) => {return Err(ApplicationError::SelectionsError(SelectionsError::ResultsInSameState));}    //should be same state error
-    }
-    Ok(())
-}
+//pub fn application_impl(app: &mut Application, line_number: usize, semantics: CursorSemantics) -> Result<(), ApplicationError>{
+//    //assert!(line_number > 0);
+//    //let line_number = line_number.saturating_sub(1);    //convert to zero based //should this conversion really be happening on the back end?
+//    if line_number >= app.buffer.len_lines(){return Err(ApplicationError::InvalidInput);}
+//    
+//    //if let Ok(()) = document.clear_non_primary_selections(){};
+//    if let Ok(()) = crate::utilities::clear_non_primary_selections::application_impl(app){};
+//    match selection_impl(app.selections.primary(), line_number, &app.buffer, Movement::Move, semantics){
+//        Ok(new_selection) => {*app.selections.primary_mut() = new_selection;}
+//        Err(_) => {return Err(ApplicationError::SelectionsError(SelectionsError::ResultsInSameState));}    //should be same state error
+//    }
+//    Ok(())
+//}
 
 /// Returns a new instance of [`Selection`] with the cursor set to specified 0-based line number.
-fn selection_impl(selection: &Selection, line_number: usize, buffer: &crate::buffer::Buffer, movement: Movement, semantics: CursorSemantics) -> Result<Selection, SelectionError>{
+pub fn selection_impl(selection: &Selection, line_number: usize, buffer: &crate::buffer::Buffer, movement: Movement, semantics: CursorSemantics) -> Result<Selection, SelectionError>{
     //selection.assert_invariants(buffer, semantics.clone());
     assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
     assert!(line_number < buffer.len_lines());

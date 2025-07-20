@@ -1,6 +1,7 @@
 use crate::{
     config::Config,
-    application::{SelectionAction, Mode},
+    application::SelectionAction,
+    mode::Mode,
     selection::Selection,
     display_area::DisplayArea,
 };

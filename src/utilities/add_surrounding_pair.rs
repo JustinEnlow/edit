@@ -30,7 +30,8 @@ pub fn application_impl(app: &mut Application, leading_char: char, trailing_char
             let mut contents = selection.to_string(&app.buffer);
             contents.insert(0, leading_char);
             contents.push(trailing_char);
-            let change = Application::apply_replace(&mut app.buffer, &contents, selection, CursorSemantics::Block);
+            //let change = Application::apply_replace(&mut app.buffer, &contents, selection, CursorSemantics::Block);
+            let change = app.buffer.apply_replace(&contents, selection, semantics.clone());
             changes.push(change);
             app.selections.shift_subsequent_selections_forward(i, 2);  //TODO: could this be handled inside apply_replace and similar functions?...
         }

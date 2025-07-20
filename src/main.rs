@@ -103,6 +103,9 @@ fn main() -> Result<(), String>{
             //anything else will always be interpreted as a file path...
             path => {
                 if let Ok(_file_path) = std::path::PathBuf::from(path).canonicalize(){
+                    if _file_path.is_dir(){
+                        return pre_terminal_setup_error("path must be to a file, not a directory");
+                    }
                     file_path = Some(_file_path);
                 }else{return pre_terminal_setup_error("invalid file path");}
             }

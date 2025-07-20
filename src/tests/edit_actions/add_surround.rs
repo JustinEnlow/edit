@@ -1,5 +1,6 @@
 use crate::{
-    application::{EditAction::AddSurround, Mode},
+    application::EditAction::AddSurround,
+    mode::Mode,
     range::Range,
     selection::{Selection, CursorSemantics::Block, /*Extension*/Direction},
     display_area::DisplayArea,

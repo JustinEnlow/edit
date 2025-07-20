@@ -9,6 +9,8 @@
 #![allow(clippy::cast_possible_truncation)]
 
 pub mod application;
+pub mod mode;
+pub mod action;
 pub mod history;
 pub mod position;
 pub mod buffer;

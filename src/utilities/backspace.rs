@@ -20,7 +20,8 @@ pub fn application_impl(app: &mut Application, use_hard_tab: bool, tab_width: us
     for i in 0..app.selections.count(){
         let selection = app.selections.nth_mut(i);
         if selection.is_extended(){
-            let change = Application::apply_delete(&mut app.buffer, selection, semantics.clone());
+            //let change = Application::apply_delete(&mut app.buffer, selection, semantics.clone());
+            let change = app.buffer.apply_delete(selection, semantics.clone());
             if let Operation::Insert{inserted_text} = change.inverse(){
                 app.selections.shift_subsequent_selections_backward(i, inserted_text.len());
             }
@@ -42,7 +43,8 @@ pub fn application_impl(app: &mut Application, use_hard_tab: bool, tab_width: us
 
                 if is_deletable_soft_tab{
                     selection.shift_and_extend(tab_width, &app.buffer, semantics.clone());
-                    changes.push(Application::apply_delete(&mut app.buffer, selection, semantics.clone()));
+                    //changes.push(Application::apply_delete(&mut app.buffer, selection, semantics.clone()));
+                    changes.push(app.buffer.apply_delete(selection, semantics.clone()));
                     app.selections.shift_subsequent_selections_backward(i, tab_width);
                 }
                 else{
@@ -50,7 +52,8 @@ pub fn application_impl(app: &mut Application, use_hard_tab: bool, tab_width: us
                     if let Ok(new_selection) = crate::utilities::move_cursor_left::selection_impl(selection, 1, &app.buffer, None, semantics.clone()){
                         *selection = new_selection;
                     }   //TODO: handle error    //first for loop guarantees no selection is at doc bounds, so this should be ok to ignore...
-                    changes.push(Application::apply_delete(&mut app.buffer, selection, semantics.clone()));
+                    //changes.push(Application::apply_delete(&mut app.buffer, selection, semantics.clone()));
+                    changes.push(app.buffer.apply_delete(selection, semantics.clone()));
                     app.selections.shift_subsequent_selections_backward(i, 1);
                 }
             }

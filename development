@@ -24,3 +24,15 @@ use "cargo clippy -- -W clippy::pedantic" to run pedantic lints
 
 
 use "cargo doc --open" to view the documentation
+
+
+how to debug:   //this was taken from 'edit_core'. may not reflect actual use with 'edit'
+type:
+    "rust-gdb ./target/debug/deps/edit_core-ee4" then 'tab' to complete the hash
+inside gdb
+    "break <module-name>::<sub-module-name>::tests::<full-unit-test-name>"
+    "run <module-name>::<sub-module-name>::tests::<full-unit-test-name>"
+then hit <ctrl-x> then a, to enter tui mode with test source        or type "layout src", apparently
+hit <ctrl-l> to repaint screen, if ncurses prints some funky shit in the tui
+and <ctrl-p> to redo a command in the history, since the tui source code window hijacks the <up> arrow
+

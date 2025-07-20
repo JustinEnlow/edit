@@ -37,6 +37,7 @@ use ratatui::{
 use crate::{
     config::*,
     keybind,
+    mode::Mode,
     range::Range,
     buffer::Buffer,
     display_area::{DisplayArea, DisplayAreaError},
@@ -44,7 +45,7 @@ use crate::{
     selection::{Selection, CursorSemantics},
     selections::{Selections, SelectionsError},
     ui::{UserInterface, util_bar::*},
-    history::{Change, ChangeSet, Operation},
+    history::ChangeSet,
 };
 
 
@@ -61,6 +62,11 @@ pub enum UtilAction{
     MoveHome,
     MoveLeft,
     MoveRight,
+        //TODO: Accept
+        //TODO: Exit
+    Cut,
+    Copy,
+    Paste,
 }
 pub enum ViewAction{
     CenterVerticallyAroundCursor,
@@ -129,65 +135,6 @@ pub enum SelectionAction{   //TODO?: have (all?) selection actions take an amoun
     SurroundingPair,  //TODO: this may benefit from using a count. would select the 'count'th surrounding pair
     FlipDirection,
         //TODO: SplitSelectionLines,    //split current selection into a selection for each line. error if single line
-}
-
-#[derive(Clone, PartialEq, Debug)]
-pub enum Mode{
-    /// for editing text and moving/extending selections
-    Insert,
-    
-    /// for display of errors in the use of the editor(such as invalid input)
-    /// should block input until mode exited
-    /// to be displayed in ERROR_MODE_BACKGROUND_COLOR and ERROR_MODE_FOREGROUND_COLOR
-    Error(String),   //maybe same state warnings should be in notify, so they don't block
-    
-    /// for display of warnings(such as same state)
-    /// unhandled keybinds should fall through to Insert mode, clearing util bar
-    /// to be displayed in WARNING_MODE_BACKGROUND_COLOR and WARNING_MODE_FOREGROUND_COLOR
-    Warning(String), 
-    
-    /// for display of notifications(such as text copied indicator, or "action performed outside of view" for non-visible actions)
-    /// unhandled keybinds should fall through to Insert mode, clearing util bar
-    /// to be displayed in NOTIFY_MODE_BACKGROUND_COLOR and NOTIFY_MODE_FOREGROUND_COLOR
-    Notify(String),
-    
-    /// for display of any information(such as resolved command variables)
-    /// unhandled keybinds should fall through to Insert mode, clearing util bar
-    /// to be displayed in INFO_MODE_BACKGROUND_COLOR and INFO_MODE_FOREGROUND_COLOR
-    /// for example, the command: info %{file_name} , should display the file name or None in the util bar
-    /// or info date    , should display the current date in the util bar
-    Info(String),
-    
-    /// for adjusting the visible area of text
-    View,
-    
-    /// for jumping to specified line number    //potentially more in the future...
-    Goto,
-    
-    /// for issuing editor commands
-    Command,
-    
-    /// for selecting any matching regex from inside selections
-    Find,
-    
-    /// for retaining everything within selections that isn't a matching regex pattern
-    Split,
-    
-    /// for selecting text objects
-    Object,
-    
-    /// for inserting bracket pairs around selection(s) contents
-    AddSurround,    //maybe change to AddSurroundingPair or AddBracketPair
-
-    // NOTE: may not ever implement the following, but good to think about...
-    //select the next occurring instance of a search pattern
-    //SearchNextAhead,
-    //select the prev occurring instance of a search pattern
-    //SearchPrevBehind
-    //select until the next occuring instance of a search pattern
-    //SelectUntilNext,
-    //select until the prev occuring instance of a search pattern
-    //SelectUntilPrev,
 }
 
 
@@ -682,13 +629,9 @@ impl Application{
         let area = self.ui.document_viewport.document_widget.rect;
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     
-        let primary_cursor = self.ui.document_viewport.highlighter.primary_cursor.clone();
-        let cursors = self.ui.document_viewport.highlighter.cursors.clone();
-        let selections = self.ui.document_viewport.highlighter.selections.clone();
-        //
         if self.config.show_cursor_column{
             for y in area.top()..area.height{
-                if let Some(primary_cursor_position) = &primary_cursor{
+                if let Some(primary_cursor_position) = &self.ui.document_viewport.highlighter.primary_cursor{
                     if let Some(cell) = buf.cell_mut((area.left() + primary_cursor_position.x as u16, y)){
                         cell.set_style(
                             Style::default()
@@ -701,7 +644,7 @@ impl Application{
         }
         if self.config.show_cursor_line{
             for x in area.left()..(area.width + area.left()){
-                if let Some(primary_cursor_position) = &primary_cursor{
+                if let Some(primary_cursor_position) = &self.ui.document_viewport.highlighter.primary_cursor{
                     if let Some(cell) = buf.cell_mut((x, area.top() + primary_cursor_position.y as u16)){
                         cell.set_style(
                             Style::default()
@@ -713,8 +656,8 @@ impl Application{
             }
         }
     
-        if !selections.is_empty(){
-            for selection in selections{
+        if !self.ui.document_viewport.highlighter.selections.is_empty(){
+            for selection in &self.ui.document_viewport.highlighter.selections{
                 if selection.head().x - selection.anchor().x == 0{continue;}    //should this use start and end instead?
                 for col in selection.anchor().x../*=*/selection.head().x{
                     let x_pos = area.left() + (col as u16);
@@ -731,8 +674,8 @@ impl Application{
         }
     
         //render cursors for all selections
-        if !cursors.is_empty(){
-            for cursor in cursors{
+        if !self.ui.document_viewport.highlighter.cursors.is_empty(){
+            for cursor in &self.ui.document_viewport.highlighter.cursors{
                 if let Some(cell) = buf.cell_mut((area.left() + (cursor.x as u16), area.top() + (cursor.y as u16))){
                     cell.set_style(Style::default()
                         .bg(CURSOR_BACKGROUND_COLOR)
@@ -743,7 +686,7 @@ impl Application{
         }
     
         // render primary cursor
-        if let Some(cursor) = &primary_cursor{
+        if let Some(cursor) = &self.ui.document_viewport.highlighter.primary_cursor{
             if let Some(cell) = buf.cell_mut((area.left() + (cursor.x as u16), area.top() + (cursor.y as u16))){
                 cell.set_style(Style::default()
                     .bg(PRIMARY_CURSOR_BACKGROUND_COLOR)
@@ -763,11 +706,8 @@ impl Application{
     fn render_util_bar_highlights(&self, buf: &mut ratatui::prelude::Buffer){
         let area = self.ui.util_bar.utility_widget.rect;
     
-        let selection = self.ui.util_bar.highlighter.selection.clone();
-        let cursor = self.ui.util_bar.highlighter.cursor.clone();
-    
         //render selection
-        if let Some(selection) = selection{
+        if let Some(selection) = &self.ui.util_bar.highlighter.selection{
             if selection.head().x - selection.anchor().x > 0{   //if selection extended
                 for col in selection.anchor().x..selection.head().x{
                     let x_pos = area.left() + (col as u16);
@@ -785,7 +725,7 @@ impl Application{
         }
     
         // render cursor
-        if let Some(cursor) = cursor{
+        if let Some(cursor) = &self.ui.util_bar.highlighter.cursor{
             assert_eq!(0, cursor.y, "util bar text should be guaranteed to be one line");
             if let Some(cell) = buf.cell_mut((area.left() + (cursor.x as u16), area.top() + (cursor.y as u16))){
                 cell.set_style(Style::default()
@@ -808,33 +748,7 @@ impl Application{
         match event::read(){
             Ok(event) => {
                 match event{
-                    //TODO: handle_keypress fns could take a mode as context, then mode specific functionality wouldn't need to be in separate fns...
-                    //that context could also be used to fill available commands in mode specific popup menus
-                    event::Event::Key(key_event) => {
-                        match self.mode(){
-                            Mode::Insert => {keybind::handle_insert_mode_keypress(self, key_event.code, key_event.modifiers);}
-                            Mode::View => {keybind::handle_view_mode_keypress(self, key_event.code, key_event.modifiers);}
-                            Mode::Goto => {keybind::handle_goto_mode_keypress(self, key_event.code, key_event.modifiers);}
-                            Mode::Find => {keybind::handle_find_mode_keypress(self, key_event.code, key_event.modifiers);}
-                            Mode::Command => {keybind::handle_command_mode_keypress(self, key_event.code, key_event.modifiers);}
-                            Mode::Error(_) => {keybind::handle_error_mode_keypress(self, key_event.code, key_event.modifiers);}
-                            Mode::Warning(_) => {
-                                //unhandled keybinds in warning mode fall through to insert mode //TODO: do the same for suggestions mode(not impled yet)
-                                keybind::handle_warning_mode_keypress(self, key_event.code, key_event.modifiers);
-                            }
-                            Mode::Notify(_) => {
-                                //unhandled keybinds in notify mode fall through to insert mode //TODO: do the same for suggestions mode(not impled yet)
-                                keybind::handle_notify_mode_keypress(self, key_event.code, key_event.modifiers);
-                            }
-                            Mode::Info(_) => {
-                                //unhandled keybinds in info mode fall through to insert mode //TODO: do the same for suggestions mode(not impled yet)
-                                keybind::handle_info_mode_keypress(self, key_event.code, key_event.modifiers);
-                            }
-                            Mode::Split => {keybind::handle_split_mode_keypress(self, key_event.code, key_event.modifiers);}
-                            Mode::Object => {keybind::handle_object_mode_keypress(self, key_event.code, key_event.modifiers);}
-                            Mode::AddSurround => {keybind::handle_add_surround_mode_keypress(self, key_event.code, key_event.modifiers);}
-                        }
-                    },
+                    event::Event::Key(key_event) => {keybind::handle_key_event(self, key_event);},
                     event::Event::Mouse(idk) => {
                         //TODO: maybe mode specific mouse handling...
                         match idk.kind{
@@ -1370,6 +1284,20 @@ impl Application{
             UtilAction::MoveHome => text_box.move_cursor_line_start(),
             UtilAction::MoveLeft => text_box.move_cursor_left(),
             UtilAction::MoveRight => text_box.move_cursor_right(),
+            UtilAction::Cut => {
+                self.clipboard = text_box.buffer.slice(text_box.selection.range.start, text_box.selection.range.end).to_string();
+                text_box.delete();
+            },
+            UtilAction::Copy => {
+                self.clipboard = text_box.buffer.slice(text_box.selection.range.start, text_box.selection.range.end).to_string();
+            }
+            UtilAction::Paste => {
+                if text_box.selection.is_extended(){
+                    text_box.buffer.apply_replace(&self.clipboard, &mut text_box.selection, CURSOR_SEMANTICS);
+                }else{
+                    text_box.buffer.apply_insert(&self.clipboard, &mut text_box.selection, CURSOR_SEMANTICS);
+                }
+            }
         }
         self.update_ui_data_util_bar();
 
@@ -1406,23 +1334,39 @@ impl Application{
         }
     }
 
-    //TODO: entering current line number should be a same state warning, not invalid input error
     //TODO: entering a very large number switches util bar text color to the valid state instead of the error state for some reason
     pub fn goto_mode_accept(&mut self){
         assert!(self.mode() == Mode::Goto);
-        let mut show_warning = false;
+        //parse 1-based line number
         if let Ok(line_number) = self.ui.util_bar.utility_widget.text_box.buffer.to_string().parse::<usize>(){
-            if line_number == 0{show_warning = true;}   //we have no line number 0, so this is invalid
-            else{
-                let line_number = line_number.saturating_sub(1);    // make line number 0 based for interfacing correctly with backend impl
-                match crate::utilities::move_to_line_number::application_impl(self, line_number, self.config.semantics.clone()){
-                    Ok(()) => {self.checked_scroll_and_update(&self.selections.primary().clone(), Application::update_ui_data_selections, Application::update_ui_data_selections);}  //TODO: pretty sure one of these should be update_ui_data_document
-                    Err(_) => {show_warning = true;}    //TODO: match error and handle
+            if line_number > 0{
+                // make line number 0 based for interfacing correctly with backend impl
+                let line_number = line_number.saturating_sub(1);
+                if line_number < self.buffer.len_lines(){
+                    if self.selections.count() > 1{
+                        if let Ok(new_selections) = crate::utilities::clear_non_primary_selections::selections_impl(&self.selections){self.selections = new_selections;}    //intentionally ignoring any errors
+                    }
+                    match crate::utilities::move_to_line_number::selection_impl(self.selections.primary(), line_number, &self.buffer, crate::selection::Movement::Move, self.config.semantics.clone()){
+                        Ok(new_selection) => {
+                            *self.selections.primary_mut() = new_selection;
+                            self.checked_scroll_and_update(
+                                &self.selections.primary().clone(), 
+                                Application::update_ui_data_selections, 
+                                Application::update_ui_data_selections
+                            ); //TODO: pretty sure one of these should be update_ui_data_document
+                            self.mode_pop();
+                        }
+                        Err(_) => {self.handle_notification(SAME_STATE_DISPLAY_MODE, SAME_STATE);}
+                    }
                 }
+                //line number >= len lines
+                else{self.handle_notification(INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}
             }
-        }else{show_warning = true;}
-        if show_warning{self.handle_notification(INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}
-        else{self.mode_pop()}
+            //line number <= 0
+            else{self.handle_notification(INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}
+        }
+        //line number not parseable
+        else{self.handle_notification(INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}
     }
     //TODO: add go to matching surrounding char(curly, square, paren, single quote, double quote, etc)
     //TODO: can this be accomplished in edit_core instead?...
@@ -1452,30 +1396,52 @@ impl Application{
     pub fn restore_selections_and_exit(&mut self){
         self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
         self.selections = self.preserved_selections.clone().unwrap();   //shouldn't be called unless this value is Some()
-        self.checked_scroll_and_update(&self.selections.primary().clone(), Application::update_ui_data_document, Application::update_ui_data_selections);
+        self.checked_scroll_and_update(
+            &self.selections.primary().clone(), 
+            Application::update_ui_data_document, 
+            Application::update_ui_data_selections
+        );
         self.mode_pop();
     }
     fn incremental_search(&mut self){   //this def doesn't work correctly with utf-8 yet
-        let preserved_selections = self.preserved_selections.clone();
-        let search_text = self.ui.util_bar.utility_widget.text_box.buffer.to_string().clone();
-        match preserved_selections{
-            Some(preserved_selections) => {
-                match crate::utilities::incremental_search_in_selection::application_impl(self, &search_text, &preserved_selections, self.config.semantics.clone()){
-                    Ok(()) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = true;}
-                    Err(_) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = false;}
+        match &self.preserved_selections{
+            Some(selections_before_search) => {
+                match crate::utilities::incremental_search_in_selection::selections_impl(
+                    selections_before_search, 
+                    &self.ui.util_bar.utility_widget.text_box.buffer.to_string(),
+                    &self.buffer, 
+                    self.config.semantics.clone()
+                ){
+                    Ok(new_selections) => {
+                        self.selections = new_selections;
+                        self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
+                    }
+                    Err(_) => {
+                        self.selections = selections_before_search.clone();
+                        self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
+                    }
                 }
             }
             None => {/* maybe error?... */unreachable!()}
         }
     }
     fn incremental_split(&mut self){
-        let preserved_selections = self.preserved_selections.clone();
-        let split_text = self.ui.util_bar.utility_widget.text_box.buffer.to_string().clone();
-        match preserved_selections{
-            Some(preserved_selections) => {
-                match crate::utilities::incremental_split_in_selection::application_impl(self, &split_text, &preserved_selections, self.config.semantics.clone()){
-                    Ok(()) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = true;}
-                    Err(_) => {self.ui.util_bar.utility_widget.text_box.text_is_valid = false;}
+        match &self.preserved_selections{
+            Some(selections_before_split) => {
+                match crate::utilities::incremental_split_in_selection::selections_impl(
+                    selections_before_split, 
+                    &self.ui.util_bar.utility_widget.text_box.buffer.to_string(),
+                    &self.buffer, 
+                    self.config.semantics.clone()
+                ){
+                    Ok(new_selections) => {
+                        self.selections = new_selections;
+                        self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
+                    }
+                    Err(_) => {
+                        self.selections = selections_before_split.clone();
+                        self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
+                    }
                 }
             }
             None => {/* maybe error?... */unreachable!()}
@@ -1529,102 +1495,6 @@ impl Application{
         }
         if warn{self.handle_notification(COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);}
         else{self.mode_pop()}
-    }
-
-
-    // TODO: test. should test rope is edited correctly and selection is moved correctly, not necessarily the returned change. behavior, not impl
-    pub fn apply_replace(
-        buffer: &mut Buffer, 
-        replacement_text: &str, 
-        selection: &mut Selection, 
-        semantics: CursorSemantics
-    ) -> Change{ //TODO: Error if replacement_text is empty(or if selection empty? is this possible?)
-        let old_selection = selection.clone();
-        let delete_change = Application::apply_delete(buffer, selection, semantics.clone());
-        let replaced_text = if let Operation::Insert{inserted_text} = delete_change.inverse(){inserted_text}else{unreachable!();};  // inverse of delete change should always be insert
-        let _ = Application::apply_insert(buffer, replacement_text, selection, semantics.clone());   //intentionally discard returned Change
-
-        Change::new(
-            Operation::Replace{replacement_text: replacement_text.to_string()}, 
-            old_selection, 
-            selection.clone(), 
-            Operation::Replace{replacement_text: replaced_text}
-        )
-    }
-    // TODO: test. should test rope is edited correctly and selection is moved correctly, not necessarily the returned change. behavior, not impl
-    pub fn apply_insert(
-        buffer: &mut Buffer, 
-        string: &str, 
-        selection: &mut Selection, 
-        semantics: CursorSemantics
-    ) -> Change{    //TODO: Error if string is empty
-        let old_selection = selection.clone();
-        buffer.insert(selection.cursor(buffer, semantics.clone()), string);
-        for _ in 0..string.len(){
-            if let Ok(new_selection) = crate::utilities::move_cursor_right::selection_impl(selection, 1, buffer, None, semantics.clone()){
-                *selection = new_selection;
-            }
-        }
-
-        Change::new(
-            Operation::Insert{inserted_text: string.to_string()}, 
-            old_selection, 
-            selection.clone(), 
-            Operation::Delete
-        )
-    }
-    // TODO: test. should test rope is edited correctly and selection is moved correctly, not necessarily the returned change. behavior, not impl
-    pub fn apply_delete(
-        buffer: &mut Buffer, 
-        selection: &mut Selection, 
-        semantics: CursorSemantics
-    ) -> Change{  //TODO: Error if cursor and anchor at end of text
-        use std::cmp::Ordering;
-        
-        let old_selection = selection.clone();
-        let original_text = buffer.clone();
-
-        let (start, end, new_cursor) = match selection.cursor(buffer, semantics.clone()).cmp(&selection.anchor()){
-            Ordering::Less => {(selection.head(), selection.anchor(), selection.cursor(buffer, semantics.clone()))}
-            Ordering::Greater => {
-                match semantics{
-                    CursorSemantics::Bar => {(selection.anchor(), selection.head(), selection.anchor())}
-                    CursorSemantics::Block => {
-                        if selection.cursor(buffer, semantics.clone()) == buffer.len_chars(){(selection.anchor(), selection.cursor(buffer, semantics.clone()), selection.anchor())}
-                        else{(selection.anchor(), selection.head(), selection.anchor())}
-                    }
-                }
-            }
-            Ordering::Equal => {
-                if selection.cursor(buffer, semantics.clone()) == buffer.len_chars(){ //do nothing    //or preferrably return error   //could have condition check in calling fn
-                    return Change::new(
-                        Operation::Delete, 
-                        old_selection, 
-                        selection.clone(), 
-                        Operation::Insert{inserted_text: String::new()}
-                    );   //change suggested by clippy lint
-                }
-                
-                match semantics.clone(){
-                    CursorSemantics::Bar => {(selection.head(), selection.head().saturating_add(1), selection.anchor())}
-                    CursorSemantics::Block => {(selection.anchor(), selection.head(), selection.anchor())}
-                }
-            }
-        };
-
-        let change_text = original_text.slice(start, end);
-        //buffer.remove(start..end);
-        buffer.remove(start, end);
-        if let Ok(new_selection) = selection.put_cursor(new_cursor, &original_text, crate::selection::Movement::Move, semantics, true){
-            *selection = new_selection;
-        }
-
-        Change::new(
-            Operation::Delete, 
-            old_selection, 
-            selection.clone(), 
-            Operation::Insert{inserted_text: change_text.to_string()}
-        )
     }
 }
 

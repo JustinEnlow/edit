@@ -1,22 +1,22 @@
 use crate::{
-    application::{Application, ApplicationError},
+    //application::{Application, ApplicationError},
     selections::{Selections, SelectionsError},
     selection::{Selection, /*Extension*/Direction, CursorSemantics},
 };
 use regex::Regex;
 
-pub fn application_impl(app: &mut Application, search_text: &str, selections_before_search: &Selections, semantics: CursorSemantics) -> Result<(), ApplicationError>{
-    match selections_impl(selections_before_search, search_text, &app.buffer, semantics){
-        Ok(new_selections) => {
-            app.selections = new_selections;
-            Ok(())
-        }
-        Err(_) => {
-            app.selections = selections_before_search.clone();
-            Err(ApplicationError::InvalidInput)
-        }
-    }
-}
+//pub fn application_impl(app: &mut Application, search_text: &str, selections_before_search: &Selections, semantics: CursorSemantics) -> Result<(), ApplicationError>{
+//    match selections_impl(selections_before_search, search_text, &app.buffer, semantics){
+//        Ok(new_selections) => {
+//            app.selections = new_selections;
+//            Ok(())
+//        }
+//        Err(_) => {
+//            app.selections = selections_before_search.clone();
+//            Err(ApplicationError::InvalidInput)
+//        }
+//    }
+//}
 
 //TODO: maybe. if no selection extended, search whole text
 /// 

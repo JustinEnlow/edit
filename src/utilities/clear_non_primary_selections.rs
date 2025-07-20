@@ -1,15 +1,15 @@
 use crate::{
-    application::{Application, ApplicationError},
+    //application::{Application, ApplicationError},
     selections::{Selections, SelectionsError}
 };
 
-pub fn application_impl(app: &mut Application) -> Result<(), ApplicationError>{
-    match selections_impl(&app.selections){
-        Ok(new_selections) => {app.selections = new_selections;}
-        Err(e) => {return Err(ApplicationError::SelectionsError(e))}
-    }
-    Ok(())
-}
+//pub fn application_impl(app: &mut Application) -> Result<(), ApplicationError>{
+//    match selections_impl(&app.selections){
+//        Ok(new_selections) => {app.selections = new_selections;}
+//        Err(e) => {return Err(ApplicationError::SelectionsError(e))}
+//    }
+//    Ok(())
+//}
 
 /// Removes all [`Selection`]s except [`Selection`] at `primary_selection_index`.
 /// Errors if [`Selections`] has only 1 [`Selection`].

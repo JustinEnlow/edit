@@ -1,5 +1,6 @@
 use crate::{
-    application::{EditAction::InsertTab, Mode},
+    application::EditAction::InsertTab,
+    mode::Mode,
     range::Range,
     selection::{Selection, CursorSemantics::Block},
     display_area::DisplayArea,

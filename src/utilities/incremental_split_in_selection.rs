@@ -1,26 +1,26 @@
 use crate::{
-    application::{Application, ApplicationError},
+    //application::{Application, ApplicationError},
     selections::{Selections, SelectionsError},
     selection::{Selection, /*Extension*/Direction, CursorSemantics},
     range::Range,
 };
 use regex::Regex;
 
-pub fn application_impl(app: &mut Application, search_text: &str, selections_before_search: &Selections, semantics: CursorSemantics) -> Result<(), ApplicationError>{
-    match selections_impl(selections_before_search, search_text, &app.buffer, semantics){
-        Ok(new_selections) => {
-            app.selections = new_selections;
-            Ok(())
-        }
-        Err(_) => {
-            app.selections = selections_before_search.clone();
-            Err(ApplicationError::InvalidInput)
-        }
-    }
-}
+//pub fn application_impl(app: &mut Application, search_text: &str, selections_before_search: &Selections, semantics: CursorSemantics) -> Result<(), ApplicationError>{
+//    match selections_impl(selections_before_search, search_text, &app.buffer, semantics){
+//        Ok(new_selections) => {
+//            app.selections = new_selections;
+//            Ok(())
+//        }
+//        Err(_) => {
+//            app.selections = selections_before_search.clone();
+//            Err(ApplicationError::InvalidInput)
+//        }
+//    }
+//}
 
 //TODO: impl tests in src/selections_tests
-fn selections_impl(selections: &Selections, input: &str, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> Result<Selections, SelectionsError>{
+pub fn selections_impl(selections: &Selections, input: &str, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> Result<Selections, SelectionsError>{
     if input.is_empty(){return Err(SelectionsError::NoSearchMatches);}
     let mut new_selections = Vec::new();
     let mut num_pushed: usize = 0;

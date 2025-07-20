@@ -1,5 +1,6 @@
 use crate::{
-    application::{EditAction::Paste, Mode},
+    application::EditAction::Paste,
+    mode::Mode,
     range::Range,
     selection::{Selection, CursorSemantics::Block},
     display_area::DisplayArea,

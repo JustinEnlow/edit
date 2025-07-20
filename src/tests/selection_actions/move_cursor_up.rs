@@ -1,5 +1,6 @@
 use crate::{
-    application::{SelectionAction::MoveCursorUp, Mode},
+    application::SelectionAction::MoveCursorUp,
+    mode::Mode,
     range::Range,
     selection::{Selection, CursorSemantics::Block, /*Extension*/Direction},
     display_area::DisplayArea,

@@ -6,10 +6,10 @@
 
 use crate::{
     range::Range,
-    selection::{Movement, Selection, /*ExtensionDirection*/}, 
+    selection::{/*Movement, */Selection, /*ExtensionDirection*/}, 
     config::CURSOR_SEMANTICS
 };
-use std::cmp::Ordering;
+//use std::cmp::Ordering;
 
 
 
@@ -45,55 +45,95 @@ impl InteractiveTextBox{
         *self = Self::default();
     }
     pub fn insert_char(&mut self, char: char){
+        //if self.selection.is_extended(){
+        //    self.delete();    
+        //}
+        //let text = self.buffer.clone();
+        //let mut new_text = text.clone();
+        //new_text.insert(self.selection.cursor(&text, CURSOR_SEMANTICS), &char.to_string());
+        //self.buffer = new_text;
+        //if let Ok(new_selection) = crate::utilities::move_cursor_right::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
+        //    self.selection = new_selection;
+        //}
+
+        // figure out how to use buffer.apply_insert/replace here...
         if self.selection.is_extended(){
-            self.delete();
+            self.buffer.apply_replace(&char.to_string(), &mut self.selection, CURSOR_SEMANTICS);
+        }else{
+            self.buffer.apply_insert(&char.to_string(), &mut self.selection, CURSOR_SEMANTICS);
         }
-        let text = self.buffer.clone();
-        let mut new_text = text.clone();
-        new_text.insert(self.selection.cursor(&text, CURSOR_SEMANTICS), &char.to_string());
-        self.buffer = new_text;
-        if let Ok(new_selection) = crate::utilities::move_cursor_right::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
-            self.selection = new_selection;
-        }
+        //
     }
     pub fn delete(&mut self){
-        let text = self.buffer.clone();
-        let mut new_text = self.buffer.clone();
-    
-        match self.selection.cursor(&text, CURSOR_SEMANTICS).cmp(&self.selection.anchor()){
-            Ordering::Less => {
-                //new_text.remove(self.selection.head()..self.selection.anchor());
-                new_text.remove(self.selection.head(), self.selection.anchor());
-                if let Ok(new_selection) = self.selection.put_cursor(self.selection.cursor(&text, CURSOR_SEMANTICS), &text, Movement::Move, CURSOR_SEMANTICS, true){
-                    self.selection = new_selection;
-                }
-            }
-            Ordering::Greater => {
-                if self.selection.cursor(&text, CURSOR_SEMANTICS) == text.len_chars(){
-                    //new_text.remove(self.selection.anchor()..self.selection.cursor(&text, CURSOR_SEMANTICS));
-                    new_text.remove(self.selection.anchor(), self.selection.cursor(&text, CURSOR_SEMANTICS));
-                }
-                else{
-                    //new_text.remove(self.selection.anchor()..self.selection.head());
-                    new_text.remove(self.selection.anchor(), self.selection.head());
-                }
-                if let Ok(new_selection) = self.selection.put_cursor(self.selection.anchor(), &text, Movement::Move, CURSOR_SEMANTICS, true){
-                    self.selection = new_selection;
-                }
-            }
-            Ordering::Equal => {
-                if self.selection.cursor(&text, CURSOR_SEMANTICS) == text.len_chars(){}    //do nothing
-                else{
-                    //new_text.remove(self.selection.anchor()..self.selection.head());
-                    new_text.remove(self.selection.anchor(), self.selection.head());
-                    if let Ok(new_selection) = self.selection.put_cursor(self.selection.anchor(), &text, Movement::Move, CURSOR_SEMANTICS, true){
-                        self.selection = new_selection;
-                    }
-                }
-            }
-        }
-    
-        self.buffer = new_text;
+        //let text = self.buffer.clone();
+        //let mut new_text = self.buffer.clone();
+    //
+        //match self.selection.cursor(&text, CURSOR_SEMANTICS).cmp(&self.selection.anchor()){
+        //    Ordering::Less => {
+        //        //new_text.remove(self.selection.head()..self.selection.anchor());
+        //        new_text.remove(self.selection.head(), self.selection.anchor());
+        //        if let Ok(new_selection) = self.selection.put_cursor(self.selection.cursor(&text, CURSOR_SEMANTICS), &text, Movement::Move, CURSOR_SEMANTICS, true){
+        //            self.selection = new_selection;
+        //        }
+        //    }
+        //    Ordering::Greater => {
+        //        if self.selection.cursor(&text, CURSOR_SEMANTICS) == text.len_chars(){
+        //            //new_text.remove(self.selection.anchor()..self.selection.cursor(&text, CURSOR_SEMANTICS));
+        //            new_text.remove(self.selection.anchor(), self.selection.cursor(&text, CURSOR_SEMANTICS));
+        //        }
+        //        else{
+        //            //new_text.remove(self.selection.anchor()..self.selection.head());
+        //            new_text.remove(self.selection.anchor(), self.selection.head());
+        //        }
+        //        if let Ok(new_selection) = self.selection.put_cursor(self.selection.anchor(), &text, Movement::Move, CURSOR_SEMANTICS, true){
+        //            self.selection = new_selection;
+        //        }
+        //    }
+        //    Ordering::Equal => {
+        //        if self.selection.cursor(&text, CURSOR_SEMANTICS) == text.len_chars(){}    //do nothing
+        //        else{
+        //            //new_text.remove(self.selection.anchor()..self.selection.head());
+        //            new_text.remove(self.selection.anchor(), self.selection.head());
+        //            if let Ok(new_selection) = self.selection.put_cursor(self.selection.anchor(), &text, Movement::Move, CURSOR_SEMANTICS, true){
+        //                self.selection = new_selection;
+        //            }
+        //        }
+        //    }
+        //}
+    //
+        //self.buffer = new_text;
+
+        // figure out how to use buffer.apply_delete here...
+        //match self.selection.cursor(&self.buffer, CURSOR_SEMANTICS).cmp(&self.selection.anchor()){
+        //    Ordering::Less => {
+        //        self.buffer.apply_delete(&mut self.selection, CURSOR_SEMANTICS);
+        //        //if let Ok(new_selection) = self.selection.put_cursor(self.selection.cursor(&self.buffer, CURSOR_SEMANTICS), &self.buffer, Movement::Move, CURSOR_SEMANTICS, true){
+        //        //    self.selection = new_selection;
+        //        //}
+        //    }
+        //    Ordering::Greater => {
+        //        if self.selection.cursor(&self.buffer, CURSOR_SEMANTICS) == self.buffer.len_chars(){
+        //            self.buffer.apply_delete(&mut self.selection, CURSOR_SEMANTICS);
+        //        }
+        //        else{
+        //            self.buffer.apply_delete(&mut self.selection, CURSOR_SEMANTICS);
+        //        }
+        //        //if let Ok(new_selection) = self.selection.put_cursor(self.selection.anchor(), &self.buffer, Movement::Move, CURSOR_SEMANTICS, true){
+        //        //    self.selection = new_selection;
+        //        //}
+        //    }
+        //    Ordering::Equal => {
+        //        if self.selection.cursor(&self.buffer, CURSOR_SEMANTICS) == self.buffer.len_chars(){}    //do nothing
+        //        else{
+        //            self.buffer.apply_delete(&mut self.selection, CURSOR_SEMANTICS);
+        //            //if let Ok(new_selection) = self.selection.put_cursor(self.selection.anchor(), &self.buffer, Movement::Move, CURSOR_SEMANTICS, true){
+        //            //    self.selection = new_selection;
+        //            //}
+        //        }
+        //    }
+        //}
+        self.buffer.apply_delete(&mut self.selection, CURSOR_SEMANTICS);
+        //
     }
     #[allow(clippy::collapsible_else_if)]
     pub fn backspace(&mut self){

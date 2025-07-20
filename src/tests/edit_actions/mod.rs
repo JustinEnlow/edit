@@ -1,6 +1,7 @@
 use crate::{
     config::Config,
-    application::{EditAction, Mode},
+    application::EditAction,
+    mode::Mode,
     buffer::Buffer,
     selection::Selection,
     display_area::DisplayArea,

@@ -1,5 +1,6 @@
 use crate::{
-    application::{EditAction::Backspace, Mode},
+    application::EditAction::Backspace,
+    mode::Mode,
     range::Range,
     selection::{Selection, CursorSemantics::Block, /*Extension*/Direction},
     display_area::DisplayArea,
