@@ -117,10 +117,10 @@ pub const SHOW_CURSOR_LINE: bool = true;//false;
     pub const SAME_STATE_DISPLAY_MODE: DisplayMode = DisplayMode::Warning;
     
     pub const UNHANDLED_KEYPRESS: &str = "Unbound key pressed";
-    pub const UNHANDLED_KEYPRESS_DISPLAY_MODE: DisplayMode = DisplayMode::Warning;
+    pub const UNHANDLED_KEYPRESS_DISPLAY_MODE: DisplayMode = DisplayMode::Warning;//Error;
     
     pub const UNHANDLED_EVENT: &str = "Unhandled event occurred";
-    pub const UNHANDLED_EVENT_DISPLAY_MODE: DisplayMode = DisplayMode::Warning;
+    pub const UNHANDLED_EVENT_DISPLAY_MODE: DisplayMode = DisplayMode::Warning;//Error;
 
     pub const READ_ONLY_BUFFER: &str = "Buffer is read only";
     pub const READ_ONLY_BUFFER_DISPLAY_MODE: DisplayMode = DisplayMode::Warning;

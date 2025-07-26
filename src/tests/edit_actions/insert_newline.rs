@@ -1,5 +1,5 @@
 use crate::{
-    application::EditAction::InsertNewline,
+    action::EditAction::InsertNewline,
     mode::Mode,
     range::Range,
     selection::{Selection, CursorSemantics::Block},

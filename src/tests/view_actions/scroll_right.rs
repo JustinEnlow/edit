@@ -1,5 +1,5 @@
 use crate::{
-    application::ViewAction::ScrollRight,
+    action::ViewAction::ScrollRight,
     mode::Mode,
     range::Range,
     selection::{Selection, CursorSemantics::Block},

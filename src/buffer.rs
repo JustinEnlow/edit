@@ -1,3 +1,5 @@
+// This should probably use a zed editor style rope, built on a sum_tree
+
 use unicode_segmentation::UnicodeSegmentation;
 use std::path::PathBuf;
 use ropey::Rope;
@@ -36,18 +38,20 @@ impl Buffer{
     }
 
     pub fn file_path(&self) -> Option<String>{
-        match &self.file_path{
-            Some(path) => {Some(path.to_string_lossy().to_string())}
-            None => None
-        }
+        //match &self.file_path{
+        //    Some(path) => {Some(path.to_string_lossy().to_string())}
+        //    None => None
+        //}
+        self.file_path.as_ref().map(|path| path.to_string_lossy().to_string())
     }
     pub fn file_name(&self) -> Option<String>{
         match &self.file_path{
             Some(path) => {
-                match path.file_name(){
-                    Some(file_name) => {Some(file_name.to_string_lossy().to_string())}
-                    None => None
-                }
+                //match path.file_name(){
+                //    Some(file_name) => {Some(file_name.to_string_lossy().to_string())}
+                //    None => None
+                //}
+                path.file_name().map(|file_name| file_name.to_string_lossy().to_string())
             }
             None => None
         }
@@ -384,5 +388,15 @@ impl Buffer{
             selection.clone(), 
             Operation::Insert{inserted_text: change_text.to_string()}
         )
+    }
+}
+
+
+#[cfg(test)]
+mod tests{
+    use unicode_width::UnicodeWidthStr;
+    #[test] fn verify_unicode_width_behaves_as_expected(){
+        assert_eq!(1, "a̐".width());
+        assert_eq!(1, "\r\n".width());
     }
 }

@@ -1,5 +1,5 @@
 use crate::{
-    application::EditAction::Delete,
+    action::EditAction::Delete,
     mode::Mode,
     range::Range,
     selection::{Selection, CursorSemantics::Block, /*Extension*/Direction},

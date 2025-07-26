@@ -28,6 +28,27 @@
 // as a built in feature...
 // we should prob support switching to other open buffers within a session inside the editor, though
 
+////////////////////////////////////////////////////////////////////////////
+//pub fn insert(&mut self, new_text: &str){
+//    //create pending changeset
+//    //for each selection
+//        //insert new_text at/replacing selection (depends on selection extension)
+//        //handle hook behavior
+//            //if new_text multichar
+//                //extend selection to encompass new_text (extension direction could be input language dependent(like arabic could be backwards))
+//            //else if new_text single char
+//                //move cursor (movement direction could be input language dependent(like arabic could be backwards))
+//            //update subsequent selection positions to reflect new changes
+//            //add change to pending changeset (figure out how to group related subsequent changes(like typing each char in a word) in to one single changeset)
+//}
+//pub fn remove(&mut self){
+//
+//}
+//pub fn replace(&mut self, new_text: &str){
+//
+//}
+////////////////////////////////////////////////////////////////////////////
+
 use std::path::PathBuf;
 use crossterm::event;
 use ratatui::{
@@ -38,6 +59,7 @@ use crate::{
     config::*,
     keybind,
     mode::Mode,
+    action::{Action, EditorAction, SelectionAction, EditAction, ViewAction, UtilAction},
     range::Range,
     buffer::Buffer,
     display_area::{DisplayArea, DisplayAreaError},
@@ -48,96 +70,7 @@ use crate::{
     history::ChangeSet,
 };
 
-
-
-pub enum UtilAction{
-    Backspace,
-    Delete,
-    InsertChar(char),
-    ExtendEnd,
-    ExtendHome,
-    ExtendLeft,
-    ExtendRight,
-    MoveEnd,
-    MoveHome,
-    MoveLeft,
-    MoveRight,
-        //TODO: Accept
-        //TODO: Exit
-    Cut,
-    Copy,
-    Paste,
-}
-pub enum ViewAction{
-    CenterVerticallyAroundCursor,
-        //TODO: CenterHorizontallyAroundCursor,
-        //TODO: AlignWithCursorAtTop,
-        //TODO: AlignWithCursorAtBottom,    
-    ScrollUp,
-    ScrollDown,
-    ScrollLeft,
-    ScrollRight,
-}
-pub enum EditAction{
-        //TODO: AlignSelectedTextVertically,
-    InsertChar(char),
-    InsertNewline,
-    InsertTab,
-    Delete,
-        //TODO: DeleteToNextWordBoundary,
-        //TODO: DeleteToPrevWordBoundary,
-    Backspace,
-    Cut,
-    Paste,
-    Undo,
-    Redo,
-        //TODO: SwapUp,   (if text selected, swap selected text with line above. if no selection, swap current line with line above)
-        //TODO: SwapDown, (if text selected, swap selected text with line below. if no selection, swap current line with line below)
-        //TODO: RotateTextInSelections,
-    AddSurround(char, char),
-}
-pub enum SelectionAction{   //TODO?: have (all?) selection actions take an amount, for action repetition. MoveCursorDown(2) would move the cursor down two lines, if possible, or saturate at buffer end otherwise, and error if already at buffer end
-    MoveCursorUp,
-    MoveCursorDown,
-    MoveCursorLeft,
-    MoveCursorRight,
-    MoveCursorWordBoundaryForward,  //TODO: this isn't working with count, for some reason. check move_cursor_word_boundary_backward impl to determine cause...
-    MoveCursorWordBoundaryBackward, //TODO: this isn't working with count, for some reason. check move_cursor_word_boundary_forward impl to determine cause...
-    MoveCursorLineEnd,
-    MoveCursorHome,
-    MoveCursorBufferStart,
-    MoveCursorBufferEnd,
-    MoveCursorPageUp,
-    MoveCursorPageDown,
-    ExtendSelectionUp,
-    ExtendSelectionDown,
-    ExtendSelectionLeft,
-    ExtendSelectionRight,
-    ExtendSelectionWordBoundaryBackward,    //TODO: this isn't working with count, for some reason. check extend_selection_word_boundary_backward impl to determine cause...
-    ExtendSelectionWordBoundaryForward,     //TODO: this isn't working with count, for some reason. check extend_selection_word_boundary_forward impl to determine cause...
-    ExtendSelectionLineEnd,
-    ExtendSelectionHome,
-        //TODO: ExtendSelectionBufferStart,
-        //TODO: ExtendSelectionBufferEnd,
-        //TODO: ExtendSelectionPageUp,
-        //TODO: ExtendSelectionPageDown,
-    SelectLine,           //TODO: this may benefit from using a count. would the next count # of lines including current
-    SelectAll,
-    CollapseSelectionToAnchor,
-    CollapseSelectionToCursor,
-    ClearNonPrimarySelections,
-    AddSelectionAbove,    //TODO: this may benefit from using a count. would add count # of selections
-    AddSelectionBelow,    //TODO: this may benefit from using a count. would add count # of selections
-    RemovePrimarySelection,
-    IncrementPrimarySelection,  //TODO: this may benefit from using a count. would increment primary selection index by 'count'
-    DecrementPrimarySelection,  //TODO: this may benefit from using a count. would decrement primary selection index by 'count'
-    Surround,         //this would not benefit from using a count. use existing selection primitives to select text to surround
-    SurroundingPair,  //TODO: this may benefit from using a count. would select the 'count'th surrounding pair
-    FlipDirection,
-        //TODO: SplitSelectionLines,    //split current selection into a selection for each line. error if single line
-}
-
-
+//TODO: maybe Mode, ModeStack, and Action + related actually do belong in this file...
 
 pub enum ApplicationError{
     ReadOnlyBuffer,
@@ -148,14 +81,13 @@ pub enum ApplicationError{
     SelectionsError(SelectionsError),
 }
 pub struct Application{
-//these will be client constructs when client/server arichitecture impled...
+    //these will be client constructs when client/server arichitecture impled...
     should_quit: bool,
     mode_stack: ModeStack,
     pub ui: UserInterface, 
     pub buffer_horizontal_start: usize,
     pub buffer_vertical_start: usize,
-
-//these will be server constructs when client/server architecture impled...
+    //these will be server constructs when client/server architecture impled...
     config: Config,
     pub buffer: Buffer, 
     preserved_selections: Option<Selections>, 
@@ -254,15 +186,10 @@ impl Application{
     }
 
     pub fn run(&mut self, terminal: &mut Terminal<impl Backend>) -> Result<(), String>{
-        //TODO?: run setup() //set inital ui state  //or is this better left being called from new()?
         while !self.should_quit{
-            // could we get terminal size here, and store it in Application, so that we don't have to calculate it in update_layouts, or have an explicit set size?
-            // i don't think so, because some functions call update layouts in between run cycles, so size may be outdated...
-
             //derive User Interface from Application state
-            self.update_layouts();
-            self.render(terminal)?;
-            
+            self.update_layouts();  //TODO: does update_layouts always need to be called, or can this be called only from actions that require it?...
+            self.render(terminal)?;            
             //update Application state
             self.handle_event()?;
         }
@@ -492,30 +419,29 @@ impl Application{
             )
             .split(rect)
     }
-
     pub fn render(&self, terminal: &mut Terminal<impl Backend>) -> Result<(), String>{
         match terminal.draw(
             |frame| {
                 // always render
-                render_widget(self.ui.document_viewport.document_widget.text.clone(), self.ui.document_viewport.document_widget.rect, Alignment::Left, false, DOCUMENT_BACKGROUND_COLOR, DOCUMENT_FOREGROUND_COLOR, frame);
+                frame.render_widget(generate_widget(&self.ui.document_viewport.document_widget.text, Alignment::Left, false, DOCUMENT_BACKGROUND_COLOR, DOCUMENT_FOREGROUND_COLOR), self.ui.document_viewport.document_widget.rect);
                 self.render_buffer_highlights(frame.buffer_mut());
                 
                 // conditionally render
                 if self.ui.document_viewport.line_number_widget.show{
-                    render_widget(self.ui.document_viewport.line_number_widget.text.clone(), self.ui.document_viewport.line_number_widget.rect, Alignment::Right, false, LINE_NUMBER_BACKGROUND_COLOR, LINE_NUMBER_FOREGROUND_COLOR, frame);
-                    render_widget(String::new(), self.ui.document_viewport.padding.rect, Alignment::Center, false, LINE_NUMBER_BACKGROUND_COLOR, LINE_NUMBER_BACKGROUND_COLOR, frame);
+                    frame.render_widget(generate_widget(&self.ui.document_viewport.line_number_widget.text, Alignment::Right, false, LINE_NUMBER_BACKGROUND_COLOR, LINE_NUMBER_FOREGROUND_COLOR), self.ui.document_viewport.line_number_widget.rect);
+                    frame.render_widget(generate_widget(&String::new(), Alignment::Center, false, LINE_NUMBER_BACKGROUND_COLOR, LINE_NUMBER_BACKGROUND_COLOR), self.ui.document_viewport.padding.rect);
                 }
                 if self.ui.status_bar.show{
                     //instead of read_only_widget.text, we could do: if app.buffer.read_only{"ReadOnly"}else{String::new()}
-                    render_widget(self.ui.status_bar.read_only_widget.text.clone(), self.ui.status_bar.read_only_widget.rect, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, READ_ONLY_WIDGET_FOREGROUND_COLOR, frame);
-                    render_widget(String::new(), self.ui.status_bar.padding_1.rect, Alignment::Center, false, STATUS_BAR_BACKGROUND_COLOR, Color::Red, frame);
-                    render_widget(self.ui.status_bar.file_name_widget.text.clone(), self.ui.status_bar.file_name_widget.rect, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, FILE_NAME_WIDGET_FOREGROUND_COLOR, frame);
-                    render_widget(String::new(), self.ui.status_bar.padding_2.rect, Alignment::Center, false, STATUS_BAR_BACKGROUND_COLOR, Color::Red, frame);
-                    render_widget(self.ui.status_bar.modified_widget.text.clone(), self.ui.status_bar.modified_widget.rect, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, MODIFIED_WIDGET_FOREGROUND_COLOR, frame);
-                    render_widget(self.ui.status_bar.selections_widget.text.clone(), self.ui.status_bar.selections_widget.rect, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, SELECTIONS_WIDGET_FOREGROUND_COLOR, frame);
-                    render_widget(self.ui.status_bar.cursor_position_widget.text.clone(), self.ui.status_bar.cursor_position_widget.rect, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, CURSOR_POSITION_WIDGET_FOREGROUND_COLOR, frame);
-                    render_widget(String::new(), self.ui.status_bar.padding_3.rect, Alignment::Center, false, STATUS_BAR_BACKGROUND_COLOR, Color::Red, frame);
-                    render_widget(self.ui.status_bar.mode_widget.text.clone(), self.ui.status_bar.mode_widget.rect, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, MODE_WIDGET_FOREGROUND_COLOR, frame);
+                    frame.render_widget(generate_widget(&self.ui.status_bar.read_only_widget.text, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, READ_ONLY_WIDGET_FOREGROUND_COLOR), self.ui.status_bar.read_only_widget.rect);
+                    frame.render_widget(generate_widget(&String::new(), Alignment::Center, false, STATUS_BAR_BACKGROUND_COLOR, Color::Red), self.ui.status_bar.padding_1.rect);
+                    frame.render_widget(generate_widget(&self.ui.status_bar.file_name_widget.text, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, FILE_NAME_WIDGET_FOREGROUND_COLOR), self.ui.status_bar.file_name_widget.rect);
+                    frame.render_widget(generate_widget(&String::new(), Alignment::Center, false, STATUS_BAR_BACKGROUND_COLOR, Color::Red), self.ui.status_bar.padding_2.rect);
+                    frame.render_widget(generate_widget(&self.ui.status_bar.modified_widget.text, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, MODIFIED_WIDGET_FOREGROUND_COLOR), self.ui.status_bar.modified_widget.rect);
+                    frame.render_widget(generate_widget(&self.ui.status_bar.selections_widget.text, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, SELECTIONS_WIDGET_FOREGROUND_COLOR), self.ui.status_bar.selections_widget.rect);
+                    frame.render_widget(generate_widget(&self.ui.status_bar.cursor_position_widget.text, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, CURSOR_POSITION_WIDGET_FOREGROUND_COLOR), self.ui.status_bar.cursor_position_widget.rect);
+                    frame.render_widget(generate_widget(&String::new(), Alignment::Center, false, STATUS_BAR_BACKGROUND_COLOR, Color::Red), self.ui.status_bar.padding_3.rect);
+                    frame.render_widget(generate_widget(&self.ui.status_bar.mode_widget.text, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, MODE_WIDGET_FOREGROUND_COLOR), self.ui.status_bar.mode_widget.rect);
                 }
     
                 // render according to mode
@@ -528,93 +454,93 @@ impl Application{
                         // ))
                     }
                     Mode::Goto => {
-                        render_widget(GOTO_PROMPT.to_string(), self.ui.util_bar.prompt.rect, Alignment::Center, false, UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR, frame);
-                        render_widget(self.text_box_display_area().text(&self.ui.util_bar.utility_widget.text_box.buffer), self.ui.util_bar.utility_widget.rect, Alignment::Left, false, UTIL_BAR_BACKGROUND_COLOR, if self.ui.util_bar.utility_widget.text_box.text_is_valid{UTIL_BAR_FOREGROUND_COLOR}else{UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR}, frame);
+                        frame.render_widget(generate_widget(GOTO_PROMPT, Alignment::Center, false, UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR), self.ui.util_bar.prompt.rect);
+                        frame.render_widget(generate_widget(&self.text_box_display_area().text(&self.ui.util_bar.utility_widget.text_box.buffer), Alignment::Left, false, UTIL_BAR_BACKGROUND_COLOR, if self.ui.util_bar.utility_widget.text_box.text_is_valid{UTIL_BAR_FOREGROUND_COLOR}else{UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR}), self.ui.util_bar.utility_widget.rect);
                         self.render_util_bar_highlights(frame.buffer_mut());
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.goto.rect);
-                            render_popup(self.ui.popups.goto.text.clone(), self.ui.popups.goto.title.clone(), self.ui.popups.goto.rect, Color::Black, Color::Yellow, frame);
+                            frame.render_widget(generate_popup(&self.ui.popups.goto.text, &self.ui.popups.goto.title, Color::Black, Color::Yellow), self.ui.popups.goto.rect);
                         }
                     }
                     Mode::Command => {
-                        render_widget(COMMAND_PROMPT.to_string(), self.ui.util_bar.prompt.rect, Alignment::Center, false, UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR, frame);
-                        render_widget(self.text_box_display_area().text(&self.ui.util_bar.utility_widget.text_box.buffer), self.ui.util_bar.utility_widget.rect, Alignment::Left, false, UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR, frame);
+                        frame.render_widget(generate_widget(COMMAND_PROMPT, Alignment::Center, false, UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR), self.ui.util_bar.prompt.rect);
+                        frame.render_widget(generate_widget(&self.text_box_display_area().text(&self.ui.util_bar.utility_widget.text_box.buffer), Alignment::Left, false, UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
                         self.render_util_bar_highlights(frame.buffer_mut());
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.command.rect);
-                            render_popup(self.ui.popups.command.text.clone(), self.ui.popups.command.title.clone(), self.ui.popups.command.rect, Color::Black, Color::Yellow, frame);
+                            frame.render_widget(generate_popup(&self.ui.popups.command.text, &self.ui.popups.command.title, Color::Black, Color::Yellow), self.ui.popups.command.rect);
                         }
                     }
                     Mode::Find => {
-                        render_widget(FIND_PROMPT.to_string(), self.ui.util_bar.prompt.rect, Alignment::Center, false, UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR, frame);
-                        render_widget(self.text_box_display_area().text(&self.ui.util_bar.utility_widget.text_box.buffer), self.ui.util_bar.utility_widget.rect, Alignment::Left, false, UTIL_BAR_BACKGROUND_COLOR, if self.ui.util_bar.utility_widget.text_box.text_is_valid{UTIL_BAR_FOREGROUND_COLOR}else{UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR}, frame);
+                        frame.render_widget(generate_widget(FIND_PROMPT, Alignment::Center, false, UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR), self.ui.util_bar.prompt.rect);
+                        frame.render_widget(generate_widget(&self.text_box_display_area().text(&self.ui.util_bar.utility_widget.text_box.buffer), Alignment::Left, false, UTIL_BAR_BACKGROUND_COLOR, if self.ui.util_bar.utility_widget.text_box.text_is_valid{UTIL_BAR_FOREGROUND_COLOR}else{UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR}), self.ui.util_bar.utility_widget.rect);
                         self.render_util_bar_highlights(frame.buffer_mut());
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.find.rect);
-                            render_popup(self.ui.popups.find.text.clone(), self.ui.popups.find.title.clone(), self.ui.popups.find.rect, Color::Black, Color::Yellow, frame);
+                            frame.render_widget(generate_popup(&self.ui.popups.find.text, &self.ui.popups.find.title, Color::Black, Color::Yellow), self.ui.popups.find.rect);
                         }
                     }
                     Mode::Split => {
-                        render_widget(SPLIT_PROMPT.to_string(), self.ui.util_bar.prompt.rect, Alignment::Center, false, UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR, frame);
-                        render_widget(self.text_box_display_area().text(&self.ui.util_bar.utility_widget.text_box.buffer), self.ui.util_bar.utility_widget.rect, Alignment::Left, false, UTIL_BAR_BACKGROUND_COLOR, if self.ui.util_bar.utility_widget.text_box.text_is_valid{UTIL_BAR_FOREGROUND_COLOR}else{UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR}, frame);
+                        frame.render_widget(generate_widget(SPLIT_PROMPT, Alignment::Center, false, UTIL_BAR_BACKGROUND_COLOR, UTIL_BAR_FOREGROUND_COLOR), self.ui.util_bar.prompt.rect);
+                        frame.render_widget(generate_widget(&self.text_box_display_area().text(&self.ui.util_bar.utility_widget.text_box.buffer), Alignment::Left, false, UTIL_BAR_BACKGROUND_COLOR, if self.ui.util_bar.utility_widget.text_box.text_is_valid{UTIL_BAR_FOREGROUND_COLOR}else{UTIL_BAR_INVALID_TEXT_FOREGROUND_COLOR}), self.ui.util_bar.utility_widget.rect);
                         self.render_util_bar_highlights(frame.buffer_mut());
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.split.rect);
-                            render_popup(self.ui.popups.split.text.clone(), self.ui.popups.split.title.clone(), self.ui.popups.split.rect, Color::Black, Color::Yellow, frame);
+                            frame.render_widget(generate_popup(&self.ui.popups.split.text, &self.ui.popups.split.title, Color::Black, Color::Yellow), self.ui.popups.split.rect);
                         }
                     }
                     Mode::Error(string) => {
-                        render_widget(string.clone(), self.ui.util_bar.utility_widget.rect, Alignment::Center, true, ERROR_BACKGROUND_COLOR, ERROR_FOREGROUND_COLOR, frame);
+                        frame.render_widget(generate_widget(&string, Alignment::Center, true, ERROR_BACKGROUND_COLOR, ERROR_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
                         if string == FILE_MODIFIED{
                             if SHOW_CONTEXTUAL_KEYBINDS{
                                 frame.render_widget(ratatui::widgets::Clear, self.ui.popups.modified_error.rect);
-                                render_popup(self.ui.popups.modified_error.text.clone(), self.ui.popups.modified_error.title.clone(), self.ui.popups.modified_error.rect, Color::Black, Color::Yellow, frame);
+                                frame.render_widget(generate_popup(&self.ui.popups.modified_error.text, &self.ui.popups.modified_error.title, Color::Black, Color::Yellow), self.ui.popups.modified_error.rect);
                             }
                         }
                         else{
                             if SHOW_CONTEXTUAL_KEYBINDS{
                                 frame.render_widget(ratatui::widgets::Clear, self.ui.popups.error.rect);
-                                render_popup(self.ui.popups.error.text.clone(), self.ui.popups.error.title.clone(), self.ui.popups.error.rect, Color::Black, Color::Yellow, frame);
+                                frame.render_widget(generate_popup(&self.ui.popups.error.text, &self.ui.popups.error.title, Color::Black, Color::Yellow), self.ui.popups.error.rect);
                             }
                         }
                     }
                     Mode::Warning(string) => {
-                        render_widget(string.clone(), self.ui.util_bar.utility_widget.rect, Alignment::Center, true, WARNING_BACKGROUND_COLOR, WARNING_FOREGROUND_COLOR, frame);
+                        frame.render_widget(generate_widget(&string, Alignment::Center, true, WARNING_BACKGROUND_COLOR, WARNING_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.warning.rect);
-                            render_popup(self.ui.popups.warning.text.clone(), self.ui.popups.warning.title.clone(), self.ui.popups.warning.rect, Color::Black, Color::Yellow, frame);
+                            frame.render_widget(generate_popup(&self.ui.popups.warning.text, &self.ui.popups.warning.title, Color::Black, Color::Yellow), self.ui.popups.warning.rect);
                         }
                     }
                     Mode::Notify(string) => {
-                        render_widget(string.clone(), self.ui.util_bar.utility_widget.rect, Alignment::Center, true, NOTIFY_BACKGROUND_COLOR, NOTIFY_FOREGROUND_COLOR, frame);
+                        frame.render_widget(generate_widget(&string, Alignment::Center, true, NOTIFY_BACKGROUND_COLOR, NOTIFY_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.notify.rect);
-                            render_popup(self.ui.popups.notify.text.clone(), self.ui.popups.notify.title.clone(), self.ui.popups.notify.rect, Color::Black, Color::Yellow, frame);
+                            frame.render_widget(generate_popup(&self.ui.popups.notify.text, &self.ui.popups.notify.title, Color::Black, Color::Yellow), self.ui.popups.notify.rect);
                         }
                     }
                     Mode::Info(string) => {
-                        render_widget(string.clone(), self.ui.util_bar.utility_widget.rect, Alignment::Center, true, INFO_BACKGROUND_COLOR, INFO_FOREGROUND_COLOR, frame);
+                        frame.render_widget(generate_widget(&string, Alignment::Center, true, INFO_BACKGROUND_COLOR, INFO_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.info.rect);
-                            render_popup(self.ui.popups.info.text.clone(), self.ui.popups.info.title.clone(), self.ui.popups.info.rect, Color::Black, Color::Yellow, frame);
+                            frame.render_widget(generate_popup(&self.ui.popups.info.text, &self.ui.popups.info.title, Color::Black, Color::Yellow), self.ui.popups.info.rect);
                         }
                     }
                     Mode::View => {
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.view.rect);
-                            render_popup(self.ui.popups.view.text.clone(), self.ui.popups.view.title.clone(), self.ui.popups.view.rect, Color::Black, Color::Yellow, frame);
+                            frame.render_widget(generate_popup(&self.ui.popups.view.text, &self.ui.popups.view.title, Color::Black, Color::Yellow), self.ui.popups.view.rect);
                         }
                     }
                     Mode::Object => {
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.object.rect);
-                            render_popup(self.ui.popups.object.text.clone(), self.ui.popups.object.title.clone(), self.ui.popups.object.rect, Color::Black, Color::Yellow, frame);
+                            frame.render_widget(generate_popup(&self.ui.popups.object.text, &self.ui.popups.object.title, Color::Black, Color::Yellow), self.ui.popups.object.rect);
                         }
                     }
                     Mode::AddSurround => {
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.add_surround.rect);
-                            render_popup(self.ui.popups.add_surround.text.clone(), self.ui.popups.add_surround.title.clone(), self.ui.popups.add_surround.rect, Color::Black, Color::Yellow, frame);
+                            frame.render_widget(generate_popup(&self.ui.popups.add_surround.text, &self.ui.popups.add_surround.title, Color::Black, Color::Yellow), self.ui.popups.add_surround.rect);
                         }
                     }
                 }
@@ -748,24 +674,16 @@ impl Application{
         match event::read(){
             Ok(event) => {
                 match event{
-                    event::Event::Key(key_event) => {keybind::handle_key_event(self, key_event);},
-                    event::Event::Mouse(idk) => {
-                        //TODO: maybe mode specific mouse handling...
-                        match idk.kind{
-                            event::MouseEventKind::Down(_) => {/*self.no_op_event();*/}
-                            event::MouseEventKind::Up(_) => {/*self.no_op_event();*/}
-                            event::MouseEventKind::Drag(_) => {/*self.no_op_event();*/}
-                            event::MouseEventKind::Moved => {/*self.no_op_event();*/}
-                            event::MouseEventKind::ScrollDown => {/*self.no_op_event();*/}
-                            event::MouseEventKind::ScrollUp => {/*self.no_op_event();*/}
-                        }
-                    }
-                    event::Event::Resize(x, y) => self.resize(x, y),
-                    event::Event::FocusLost => {/*do nothing*/} //maybe quit displaying cursor(s)/selection(s)?...
-                    event::Event::FocusGained => {/*do nothing*/}   //display cursor(s)/selection(s)?...
-                    event::Event::Paste(_) => {self.no_op_event();}
+                    event::Event::Key(key_event) => {
+                        let action = keybind::handle_key_event(self, key_event);
+                        self.action(action);
+                    },
+                    event::Event::Mouse(_mouse_event) => {}
+                    event::Event::Resize(width, height) => self.action(Action::EditorAction(EditorAction::Resize(width, height))),
+                    event::Event::FocusLost => {} //maybe quit displaying cursor(s)/selection(s)?...
+                    event::Event::FocusGained => {}   //display cursor(s)/selection(s)?...
+                    event::Event::Paste(_) => {self.action(Action::EditorAction(EditorAction::NoOpEvent));}
                 }
-
                 Ok(())
             }
             Err(e) => Err(format!("{e}"))
@@ -788,134 +706,14 @@ impl Application{
             self.ui.util_bar.utility_widget.rect.height as usize
         )
     }
-
     pub fn mode(&self) -> Mode{
         self.mode_stack.top().clone()
     }
-    pub fn mode_pop(&mut self){
-        //set any mode specific exit behavior
-        let mut update_layouts_and_document = false;
-        let mut clear_util_bar_text = false;
-        let mut clear_saved_selections = false;
-        match self.mode(){
-            Mode::Command | Mode::Goto => {
-                update_layouts_and_document = true;
-                clear_util_bar_text = true;
-            }
-            Mode::Find | Mode::Split => {
-                update_layouts_and_document = true;
-                clear_util_bar_text = true;
-                clear_saved_selections = true;
-            }
-            Mode::Object | 
-            Mode::View | 
-            Mode::Error(_) | 
-            Mode::Warning(_) | 
-            Mode::Notify(_) | 
-            Mode::Info(_) | 
-            Mode::AddSurround => {/* do nothing */}
-            Mode::Insert => {self.handle_notification(INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}
-        }
-
-        //remove current mode from stack
-        if self.mode_stack.pop().is_err(){
-            self.handle_notification(SAME_STATE_DISPLAY_MODE, SAME_STATE);
-        }
-
-        //handle exit behavior
-        if update_layouts_and_document{
-            self.update_layouts();
-            self.update_ui_data_document();
-        }
-        if clear_util_bar_text{
-            self.ui.util_bar.utility_widget.text_box.clear();
-            self.update_ui_data_util_bar();
-        }
-        if clear_saved_selections{
-            self.preserved_selections = None;
-        }
-
-        //does this belong here, or in ui.rs?...
-        self.update_ui_data_mode();
-    }
-    pub fn mode_push(&mut self, to_mode: Mode){
-        if self.mode() == to_mode{/*do nothing*/}   //don't push mode to stack because we are already there
-        else{
-            //set any mode specific entry behavior
-            let mut save_selections = false;
-            let mut update_util_bar = false;
-            let mut update_layouts_and_document = false;
-            match to_mode{
-                Mode::Find | Mode::Split => {
-                    save_selections = true;
-                    if !self.ui.status_bar.show{ // potential fix for status bar bug in todo.rs
-                        update_util_bar = true;
-                        update_layouts_and_document = true;
-                    }
-                }
-                Mode::Command | Mode::Goto => {
-                    if !self.ui.status_bar.show{ // potential fix for status bar bug in todo.rs
-                        update_util_bar = true;
-                        update_layouts_and_document = true;
-                    }
-                }
-                Mode::Object | 
-                Mode::Insert | 
-                Mode::View | 
-                Mode::Error(_) | 
-                Mode::Warning(_) | 
-                Mode::Notify(_) | 
-                Mode::Info(_) | 
-                Mode::AddSurround => {/* do nothing */}
-            }
-
-            //add mode to top of stack
-            self.mode_stack.push(to_mode);
-
-            //handle entry behavior
-            if save_selections{
-                self.preserved_selections = Some(self.selections.clone());
-            }
-            if update_layouts_and_document{
-                self.update_layouts();
-                self.update_ui_data_document();
-            }
-            if update_util_bar{
-                self.update_ui_data_util_bar();
-            }
-
-            //does this belong here, or in ui.rs?...
-            self.update_ui_data_mode();
-        }
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
-    //pub fn insert(&mut self, new_text: &str){
-    //    //create pending changeset
-    //    //for each selection
-    //        //insert new_text at/replacing selection (depends on selection extension)
-    //        //handle hook behavior
-    //            //if new_text multichar
-    //                //extend selection to encompass new_text (extension direction could be input language dependent(like arabic could be backwards))
-    //            //else if new_text single char
-    //                //move cursor (movement direction could be input language dependent(like arabic could be backwards))
-    //            //update subsequent selection positions to reflect new changes
-    //            //add change to pending changeset (figure out how to group related subsequent changes(like typing each char in a word) in to one single changeset)
-    //}
-    //pub fn remove(&mut self){
-    //
-    //}
-    //pub fn replace(&mut self, new_text: &str){
-    //
-    //}
-    ////////////////////////////////////////////////////////////////////////////
 
     /// Set all data related to document viewport UI.
     pub fn update_ui_data_document(&mut self){
-        let buffer = &self.buffer;
-        
-        self.ui.document_viewport.document_widget.text = self.buffer_display_area().text(buffer);
-        self.ui.document_viewport.line_number_widget.text = self.buffer_display_area().line_numbers(buffer);
+        self.ui.document_viewport.document_widget.text = self.buffer_display_area().text(&self.buffer);
+        self.ui.document_viewport.line_number_widget.text = self.buffer_display_area().line_numbers(&self.buffer);
         self.update_ui_data_selections();
         //TODO?: this may be better to have in the main loop, in case the file is modified underneath us while the buffer is open...
         if self.buffer.is_modified(){
@@ -928,14 +726,11 @@ impl Application{
     }
     /// Set only data related to selections in document viewport UI.
     pub fn update_ui_data_selections(&mut self){
-        let buffer = &self.buffer;
-        let selections = &self.selections;
-        
-        self.ui.document_viewport.highlighter.primary_cursor = self.buffer_display_area().primary_cursor_position(buffer, selections, self.config.semantics.clone());
-        self.ui.document_viewport.highlighter.cursors = self.buffer_display_area().cursor_positions(buffer, selections, self.config.semantics.clone());
-        self.ui.document_viewport.highlighter.selections = self.buffer_display_area().selections(selections, buffer);
-        self.ui.status_bar.selections_widget.text = format!("selections: {}/{}", selections.primary_selection_index + 1, selections.count());
-        let cursor_position = selections.primary().selection_to_selection2d(buffer, self.config.semantics.clone()).head().clone();
+        self.ui.document_viewport.highlighter.primary_cursor = self.buffer_display_area().primary_cursor_position(&self.buffer, &self.selections, self.config.semantics.clone());
+        self.ui.document_viewport.highlighter.cursors = self.buffer_display_area().cursor_positions(&self.buffer, &self.selections, self.config.semantics.clone());
+        self.ui.document_viewport.highlighter.selections = self.buffer_display_area().selections(&self.selections, &self.buffer);
+        self.ui.status_bar.selections_widget.text = format!("selections: {}/{}", &self.selections.primary_selection_index + 1, &self.selections.count());
+        let cursor_position = &self.selections.primary().selection_to_selection2d(&self.buffer, self.config.semantics.clone()).head().clone();
         self.ui.status_bar.cursor_position_widget.text = format!("cursor: {}:{}", cursor_position.y + 1, cursor_position.x + 1)
     }
     pub fn update_ui_data_mode(&mut self){
@@ -995,71 +790,13 @@ impl Application{
     }
 
     //TODO: think of a better name for this...
-    pub fn handle_notification(&mut self, display_mode: DisplayMode, message: &'static str){
+    fn handle_notification(&mut self, display_mode: DisplayMode, message: &'static str){
         match display_mode{
-            DisplayMode::Error => {self.mode_push(Mode::Error(message.to_string()))}
-            DisplayMode::Warning => {self.mode_push(Mode::Warning(message.to_string()));}
-            DisplayMode::Notify => {self.mode_push(Mode::Notify(message.to_string()));}
-            DisplayMode::Info => {self.mode_push(Mode::Info(message.to_string()));}
+            DisplayMode::Error => {self.action(Action::EditorAction(EditorAction::ModePush(Mode::Error(message.to_string()))));}
+            DisplayMode::Warning => {self.action(Action::EditorAction(EditorAction::ModePush(Mode::Warning(message.to_string()))));}
+            DisplayMode::Notify => {self.action(Action::EditorAction(EditorAction::ModePush(Mode::Notify(message.to_string()))));}
+            DisplayMode::Info => {self.action(Action::EditorAction(EditorAction::ModePush(Mode::Info(message.to_string()))));}
             DisplayMode::Ignore => {/* do nothing */}
-        }
-    }
-
-    pub fn no_op_keypress(&mut self){
-        self.handle_notification(UNHANDLED_KEYPRESS_DISPLAY_MODE, UNHANDLED_KEYPRESS);
-    }
-    pub fn no_op_event(&mut self){
-        self.handle_notification(UNHANDLED_EVENT_DISPLAY_MODE, UNHANDLED_EVENT);
-    }
-    pub fn resize(&mut self, x: u16, y: u16){
-        self.ui.set_terminal_size(x, y);
-        self.update_layouts();
-        self.update_ui_data_util_bar(); //TODO: can this be called later in fn impl?
-        // scrolling so cursor is in a reasonable place, and updating so any ui changes render correctly
-        self.checked_scroll_and_update(
-            &self.selections.primary().clone(),
-            Application::update_ui_data_document, 
-            Application::update_ui_data_document
-        );
-    }
-
-    pub fn esc_handle(&mut self){
-        assert!(self.mode() == Mode::Insert);
-        //TODO: if lsp suggestions displaying(currently unimplemented), exit that display   //lsp suggestions could be a separate mode with keybind fallthrough to insert...
-        /*else */if self.selections.count() > 1{
-            self.selection_action(&SelectionAction::ClearNonPrimarySelections, 1);
-        }
-        else if self.selections.primary().is_extended(){
-            self.selection_action(&SelectionAction::CollapseSelectionToCursor, 1);
-        }
-        else{
-            self.handle_notification(SAME_STATE_DISPLAY_MODE, SAME_STATE);
-        }
-    }
-
-    pub fn quit(&mut self){
-        assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
-        if self.buffer.is_modified(){
-            self.handle_notification(DisplayMode::Error, FILE_MODIFIED);
-        }
-        else{self.should_quit = true;}
-    }
-    pub fn quit_ignoring_changes(&mut self){
-        assert!(self.mode() == Mode::Error(FILE_MODIFIED.to_string()) || self.mode() == Mode::Command);
-        self.should_quit = true;
-    }
-
-    pub fn save(&mut self){
-        assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
-        if self.buffer.file_path.is_none(){self.handle_notification(DisplayMode::Error, "cannot save unnamed buffer");}
-        else if self.buffer.read_only{self.handle_notification(READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER);}
-        else{
-            match crate::utilities::save::application_impl(self){
-                Ok(()) => {self.update_ui_data_document();}
-                Err(_) => {     //this could maybe benefit from passing the io error up to this fn...
-                    self.handle_notification(FILE_SAVE_FAILED_DISPLAY_MODE, FILE_SAVE_FAILED);
-                }
-            }
         }
     }
     fn handle_application_error(&mut self, e: ApplicationError){
@@ -1084,69 +821,153 @@ impl Application{
             }
         }
     }
-    pub fn copy(&mut self){
-        assert!(self.mode() == Mode::Insert);
-        match crate::utilities::copy::application_impl(self){
-            Ok(()) => {
-                self.handle_notification(COPIED_TEXT_DISPLAY_MODE, COPIED_TEXT);
-                self.update_ui_data_document(); //TODO: is this really needed for something?...
-            }
-            Err(e) => {
-                self.handle_application_error(e);
-            }
+
+    pub fn action(&mut self, action: Action){
+        match action{
+            Action::EditorAction(editor_action) => {self.editor_action(editor_action);}
+            Action::SelectionAction(selection_action, count) => {self.selection_action(selection_action, count);}
+            Action::EditAction(edit_action) => {self.edit_action(edit_action);}
+            Action::ViewAction(view_action) => {self.view_action(view_action);}
+            Action::UtilAction(util_action) => {self.util_action(util_action);}
         }
     }
-    //TODO: impl application_impl here, instead of in utilities...
-    pub fn edit_action(&mut self, action: &EditAction){
-        use crate::utilities::*;
-        assert!(self.mode() == Mode::Insert || self.mode() == Mode::AddSurround);
-        
-        if self.buffer.read_only{self.handle_notification(READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER);}
-        else{
-            //let len = self.buffer.len_lines();
-            let result = match action{
-                EditAction::InsertChar(c) => insert_string::application_impl(self, &c.to_string(), self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
-                EditAction::InsertNewline => insert_string::application_impl(self, "\n", self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
-                EditAction::InsertTab => insert_string::application_impl(self, "\t", self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
-                EditAction::Delete => delete::application_impl(self, self.config.semantics.clone()),
-                EditAction::Backspace => backspace::application_impl(self, self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
-                EditAction::Cut => cut::application_impl(self, self.config.semantics.clone()),
-                EditAction::Paste => paste::application_impl(self, self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
-                EditAction::Undo => undo::application_impl(self, self.config.semantics.clone()),   // TODO: undo takes a long time to undo when whole text deleted. see if this can be improved
-                EditAction::Redo => redo::application_impl(self, self.config.semantics.clone()),
-                EditAction::AddSurround(l, t) => add_surrounding_pair::application_impl(self, *l, *t, self.config.semantics.clone()),
-            };
-            match result{
-                Ok(()) => {
-                    if self.mode() != Mode::Insert{self.mode_pop();}
-                    
-                    self.checked_scroll_and_update(
-                        &self.selections.primary().clone(), 
-                        Application::update_ui_data_document, 
-                        Application::update_ui_data_document
-                    );
-                    //if len != self.buffer.len_lines(){self.ui.document_viewport.document_widget.doc_length = self.buffer.len_lines();}
 
-                    // check if any selection is outside of view
-                    let mut selection_out_of_view = false;
-                    for selection in self.selections.iter(){
-                        if self.buffer_display_area().should_scroll(selection, &self.buffer, self.config.semantics.clone()){
-                            selection_out_of_view = true;
+    fn editor_action(&mut self, editor_action: EditorAction){
+        match editor_action{
+            EditorAction::ModePop => {
+                //remove current mode from stack
+                if let Ok(popped_mode) = self.mode_stack.pop(){
+                    if popped_mode == self.mode(){
+                        //continue popping until self.mode() is something else (this would clean up repeated error messages/etc.)
+                        self.action(Action::EditorAction(EditorAction::ModePop));
+                        return;
+                    }
+                    fn perform_shared_behavior(app: &mut Application){
+                        //update layouts and document
+                        app.update_layouts();
+                        app.update_ui_data_document();
+                        // clear util bar text
+                        app.ui.util_bar.utility_widget.text_box.clear();
+                        app.update_ui_data_util_bar();
+                    }
+                    match popped_mode{
+                        Mode::Command | Mode::Goto => {perform_shared_behavior(self);}
+                        Mode::Find | Mode::Split => {
+                            perform_shared_behavior(self);
+                            self.preserved_selections = None;   //clear saved selections
+                        }
+                        Mode::Object | Mode::View | Mode::Error(_) | Mode::Warning(_) | Mode::Notify(_) | 
+                        Mode::Info(_) | Mode::AddSurround | Mode::Insert => {/* do nothing */}  //could early return here, if we didn't need to update mode data
+                    }
+                    //does this belong here, or in ui.rs?...    //by calling here, we only perform this calculation as needed, not on every editor run cycle
+                    self.update_ui_data_mode();
+                }else{self.handle_notification(SAME_STATE_DISPLAY_MODE, SAME_STATE);}
+            }
+            EditorAction::ModePush(to_mode) => {
+                //add mode to top of stack
+                self.mode_stack.push(to_mode.clone());
+                fn perform_shared_behavior(app: &mut Application){
+                    //update layouts and document
+                    app.update_layouts();
+                    app.update_ui_data_document();
+                    //update util bar
+                    app.update_ui_data_util_bar();
+                }
+                match to_mode{
+                    Mode::Find | Mode::Split => {
+                        self.preserved_selections = Some(self.selections.clone());  //save selections
+                        if !self.ui.status_bar.show{ // potential fix for status bar bug in todo.rs
+                            perform_shared_behavior(self);
                         }
                     }
-                    if selection_out_of_view{
-                        self.handle_notification(EDIT_ACTION_DISPLAY_MODE, EDIT_ACTION_OUT_OF_VIEW);
+                    Mode::Command | Mode::Goto => {
+                        if !self.ui.status_bar.show{ // potential fix for status bar bug in todo.rs
+                            perform_shared_behavior(self);
+                        }
                     }
-                    //
+                    Mode::Object | Mode::Insert | Mode::View | Mode::Error(_) | Mode::Warning(_) | Mode::Notify(_) | 
+                    Mode::Info(_) | Mode::AddSurround => {/* do nothing */}
                 }
-                Err(e) => {
-                    self.handle_application_error(e);
+                //does this belong here, or in ui.rs?...    //by calling here, we only perform this calculation as needed, not on every editor run cycle
+                self.update_ui_data_mode();
+            }
+            EditorAction::Resize(width, height) => {
+                self.ui.set_terminal_size(width, height);
+                self.update_layouts();
+                self.update_ui_data_util_bar(); //TODO: can this be called later in fn impl?
+                // scrolling so cursor is in a reasonable place, and updating so any ui changes render correctly
+                self.checked_scroll_and_update(
+                    &self.selections.primary().clone(),
+                    Application::update_ui_data_document, 
+                    Application::update_ui_data_document
+                );
+            }
+            EditorAction::NoOpKeypress => {self.handle_notification(UNHANDLED_KEYPRESS_DISPLAY_MODE, UNHANDLED_KEYPRESS);}
+            EditorAction::NoOpEvent => {self.handle_notification(UNHANDLED_EVENT_DISPLAY_MODE, UNHANDLED_EVENT);}
+            EditorAction::Quit => {
+                //assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
+                if self.buffer.is_modified(){
+                    if self.mode() == Mode::Error(FILE_MODIFIED.to_string()){
+                        self.action(Action::EditorAction(EditorAction::QuitIgnoringChanges));
+                    }
+                    else{
+                        self.handle_notification(DisplayMode::Error, FILE_MODIFIED);
+                    }
                 }
+                else{self.should_quit = true;}
+            }
+            EditorAction::QuitIgnoringChanges => {
+                assert!(self.mode() == Mode::Error(FILE_MODIFIED.to_string()) || self.mode() == Mode::Command);
+                self.should_quit = true;
+            }
+            EditorAction::Save => {
+                assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
+                if self.buffer.file_path.is_none(){self.handle_notification(DisplayMode::Error, "cannot save unnamed buffer");}
+                else if self.buffer.read_only{self.handle_notification(READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER);}
+                else{
+                    match crate::utilities::save::application_impl(self){
+                        Ok(()) => {self.update_ui_data_document();}
+                        //this could maybe benefit from passing the io error up to this fn...
+                        Err(_) => {self.handle_notification(FILE_SAVE_FAILED_DISPLAY_MODE, FILE_SAVE_FAILED);}
+                    }
+                }
+            }
+            EditorAction::Copy => {
+                assert!(self.mode() == Mode::Insert);
+                match crate::utilities::copy::application_impl(self){
+                    Ok(()) => {
+                        self.handle_notification(COPIED_TEXT_DISPLAY_MODE, COPIED_TEXT);
+                        self.update_ui_data_document(); //TODO: is this really needed for something?...
+                    }
+                    Err(e) => {
+                        self.handle_application_error(e);
+                    }
+                }
+            }
+            EditorAction::OpenNewTerminalWindow => {
+                let _ = std::process::Command::new("alacritty")     //TODO: have user define TERMINAL const in config.rs   //or check env vars for $TERM?
+                    //.arg("msg")     // these extra commands just make new instances use the same backend(daemon?)
+                    //.arg("create-window")
+                    //.current_dir(std::env::current_dir().unwrap())    //not needed here, because term spawned here defaults to this directory, but good to know
+                    .spawn()
+                    .expect("failed to spawn new terminal at current directory");
+            }
+            EditorAction::ToggleLineNumbers => {
+                assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
+                self.ui.document_viewport.line_number_widget.show = !self.ui.document_viewport.line_number_widget.show;
+                self.update_layouts();
+                self.update_ui_data_document();
+            }
+            EditorAction::ToggleStatusBar => {
+                assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
+                self.ui.status_bar.show = !self.ui.status_bar.show;
+                self.update_layouts();
+                self.update_ui_data_document();
             }
         }
     }
 
-    pub fn selection_action(&mut self, action: &SelectionAction, count: usize){
+    fn selection_action(&mut self, action: SelectionAction, count: usize){
         use crate::utilities::*;
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::Object);
         enum SelectionToFollow{Primary,First,Last}
@@ -1204,17 +1025,17 @@ impl Application{
                 self.selections = new_selections;
 
                 //maybe.    so far, only needed for selection actions called from object mode
-                if self.mode() != Mode::Insert{self.mode_pop();}
+                if self.mode() != Mode::Insert{self.action(Action::EditorAction(EditorAction::ModePop));}
                 //
                 
-                let primary_selection = self.selections.primary().clone();
-                let first_selection = self.selections.first().clone();
-                let last_selection = self.selections.last().clone();
+                let primary_selection = &self.selections.primary().clone();
+                let first_selection = &self.selections.first().clone();
+                let last_selection = &self.selections.last().clone();
                 self.checked_scroll_and_update(
                     match selection_to_follow{
-                        SelectionToFollow::Primary => &primary_selection,
-                        SelectionToFollow::First => &first_selection,
-                        SelectionToFollow::Last => &last_selection,
+                        SelectionToFollow::Primary => primary_selection,
+                        SelectionToFollow::First => first_selection,
+                        SelectionToFollow::Last => last_selection,
                     },
                     Application::update_ui_data_document, 
                     Application::update_ui_data_selections
@@ -1236,7 +1057,57 @@ impl Application{
         }
     }
 
-    pub fn view_action(&mut self, action: &ViewAction){ //TODO: make sure this can still be called from insert, so users can assign a direct keybind if desired
+    //TODO: impl application_impl here, instead of in utilities...
+    fn edit_action(&mut self, action: EditAction){
+        use crate::utilities::*;
+        assert!(self.mode() == Mode::Insert || self.mode() == Mode::AddSurround);
+        
+        if self.buffer.read_only{self.handle_notification(READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER);}
+        else{
+            //let len = self.buffer.len_lines();
+            let result = match action{
+                EditAction::InsertChar(c) => insert_string::application_impl(self, &c.to_string(), self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
+                EditAction::InsertNewline => insert_string::application_impl(self, "\n", self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
+                EditAction::InsertTab => insert_string::application_impl(self, "\t", self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
+                EditAction::Delete => delete::application_impl(self, self.config.semantics.clone()),
+                EditAction::Backspace => backspace::application_impl(self, self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
+                EditAction::Cut => cut::application_impl(self, self.config.semantics.clone()),
+                EditAction::Paste => paste::application_impl(self, self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
+                EditAction::Undo => undo::application_impl(self, self.config.semantics.clone()),   // TODO: undo takes a long time to undo when whole text deleted. see if this can be improved
+                EditAction::Redo => redo::application_impl(self, self.config.semantics.clone()),
+                EditAction::AddSurround(l, t) => add_surrounding_pair::application_impl(self, l, t, self.config.semantics.clone()),
+            };
+            match result{
+                Ok(()) => {
+                    if self.mode() != Mode::Insert{self.action(Action::EditorAction(EditorAction::ModePop));}
+                    
+                    self.checked_scroll_and_update(
+                        &self.selections.primary().clone(), 
+                        Application::update_ui_data_document, 
+                        Application::update_ui_data_document
+                    );
+                    //if len != self.buffer.len_lines(){self.ui.document_viewport.document_widget.doc_length = self.buffer.len_lines();}
+
+                    // check if any selection is outside of view
+                    let mut selection_out_of_view = false;
+                    for selection in self.selections.iter(){
+                        if self.buffer_display_area().should_scroll(selection, &self.buffer, self.config.semantics.clone()){
+                            selection_out_of_view = true;
+                        }
+                    }
+                    if selection_out_of_view{
+                        self.handle_notification(EDIT_ACTION_DISPLAY_MODE, EDIT_ACTION_OUT_OF_VIEW);
+                    }
+                    //
+                }
+                Err(e) => {
+                    self.handle_application_error(e);
+                }
+            }
+        }
+    }
+
+    pub fn view_action(&mut self, action: ViewAction){ //TODO: make sure this can still be called from insert, so users can assign a direct keybind if desired
         use crate::utilities::*;
         assert!(self.mode() == Mode::Insert || self.mode() == Mode::View);
 
@@ -1259,7 +1130,7 @@ impl Application{
                 self.buffer_vertical_start = vertical_start;
 
                 self.update_ui_data_document();
-                if self.mode() != Mode::Insert && should_exit{self.mode_pop();}
+                if self.mode() != Mode::Insert && should_exit{self.action(Action::EditorAction(EditorAction::ModePop));}
             }
             Err(e) => {
                 match e{
@@ -1270,12 +1141,13 @@ impl Application{
         }
     }
 
-    pub fn util_action(&mut self, action: &UtilAction){
+    fn util_action(&mut self, action: UtilAction){
         let text_box = &mut self.ui.util_bar.utility_widget.text_box;
+        let mut perform_follow_up_behavior = true;
         match action{
             UtilAction::Backspace => text_box.backspace(),
             UtilAction::Delete => text_box.delete(),
-            UtilAction::InsertChar(c) => text_box.insert_char(*c),
+            UtilAction::InsertChar(c) => text_box.insert_char(c),
             UtilAction::ExtendEnd => text_box.extend_selection_end(),
             UtilAction::ExtendHome => text_box.extend_selection_home(),
             UtilAction::ExtendLeft => text_box.extend_selection_left(),
@@ -1287,10 +1159,8 @@ impl Application{
             UtilAction::Cut => {
                 self.clipboard = text_box.buffer.slice(text_box.selection.range.start, text_box.selection.range.end).to_string();
                 text_box.delete();
-            },
-            UtilAction::Copy => {
-                self.clipboard = text_box.buffer.slice(text_box.selection.range.start, text_box.selection.range.end).to_string();
             }
+            UtilAction::Copy => {self.clipboard = text_box.buffer.slice(text_box.selection.range.start, text_box.selection.range.end).to_string();}
             UtilAction::Paste => {
                 if text_box.selection.is_extended(){
                     text_box.buffer.apply_replace(&self.clipboard, &mut text_box.selection, CURSOR_SEMANTICS);
@@ -1298,240 +1168,224 @@ impl Application{
                     text_box.buffer.apply_insert(&self.clipboard, &mut text_box.selection, CURSOR_SEMANTICS);
                 }
             }
-        }
-        self.update_ui_data_util_bar();
-
-        //perform any mode specific follow up actions   //shouldn't need to call these if action was a selection action instead of an edit action
-        match self.mode(){
-            Mode::Object |
-            Mode::Insert |
-            Mode::View |
-            Mode::Error(_) |
-            Mode::Warning(_) |
-            Mode::Notify(_) |
-            Mode::Info(_) |
-            Mode::AddSurround => {/*do nothing*/}
-            Mode::Goto => {
-                self.goto_mode_text_validity_check();
-            }
-            Mode::Find => {
-                self.incremental_search();
-                self.checked_scroll_and_update(
-                    &self.selections.primary().clone(), 
-                    Application::update_ui_data_document, 
-                    Application::update_ui_data_selections
-                );
-            }
-            Mode::Split => {
-                self.incremental_split();
-                self.checked_scroll_and_update(
-                    &self.selections.primary().clone(), 
-                    Application::update_ui_data_document, 
-                    Application::update_ui_data_selections
-                );
-            }
-            Mode::Command => {/*do nothing*/}
-        }
-    }
-
-    //TODO: entering a very large number switches util bar text color to the valid state instead of the error state for some reason
-    pub fn goto_mode_accept(&mut self){
-        assert!(self.mode() == Mode::Goto);
-        //parse 1-based line number
-        if let Ok(line_number) = self.ui.util_bar.utility_widget.text_box.buffer.to_string().parse::<usize>(){
-            if line_number > 0{
-                // make line number 0 based for interfacing correctly with backend impl
-                let line_number = line_number.saturating_sub(1);
-                if line_number < self.buffer.len_lines(){
-                    if self.selections.count() > 1{
-                        if let Ok(new_selections) = crate::utilities::clear_non_primary_selections::selections_impl(&self.selections){self.selections = new_selections;}    //intentionally ignoring any errors
-                    }
-                    match crate::utilities::move_to_line_number::selection_impl(self.selections.primary(), line_number, &self.buffer, crate::selection::Movement::Move, self.config.semantics.clone()){
-                        Ok(new_selection) => {
-                            *self.selections.primary_mut() = new_selection;
-                            self.checked_scroll_and_update(
-                                &self.selections.primary().clone(), 
-                                Application::update_ui_data_selections, 
-                                Application::update_ui_data_selections
-                            ); //TODO: pretty sure one of these should be update_ui_data_document
-                            self.mode_pop();
+            UtilAction::Accept => {
+                match self.mode(){
+                    Mode::Goto => { //TODO: entering a very large number switches util bar text color to the valid state instead of the error state for some reason
+                        //parse 1-based line number
+                        if let Ok(line_number) = self.ui.util_bar.utility_widget.text_box.buffer.to_string().parse::<usize>(){
+                            if line_number > 0{
+                                // make line number 0 based for interfacing correctly with backend impl
+                                let line_number = line_number.saturating_sub(1);
+                                if line_number < self.buffer.len_lines(){
+                                    if self.selections.count() > 1{
+                                        if let Ok(new_selections) = crate::utilities::clear_non_primary_selections::selections_impl(&self.selections){self.selections = new_selections;}    //intentionally ignoring any errors
+                                    }
+                                    match crate::utilities::move_to_line_number::selection_impl(self.selections.primary(), line_number, &self.buffer, crate::selection::Movement::Move, self.config.semantics.clone()){
+                                        Ok(new_selection) => {
+                                            *self.selections.primary_mut() = new_selection;
+                                            self.checked_scroll_and_update(
+                                                &self.selections.primary().clone(), 
+                                                Application::update_ui_data_selections, 
+                                                Application::update_ui_data_selections
+                                            ); //TODO: pretty sure one of these should be update_ui_data_document
+                                            self.action(Action::EditorAction(EditorAction::ModePop));
+                                        }
+                                        Err(_) => {self.handle_notification(SAME_STATE_DISPLAY_MODE, SAME_STATE);}
+                                    }
+                                }
+                                //line number >= len lines
+                                else{self.handle_notification(INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}
+                            }
+                            //line number <= 0
+                            else{self.handle_notification(INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}
                         }
-                        Err(_) => {self.handle_notification(SAME_STATE_DISPLAY_MODE, SAME_STATE);}
+                        //line number not parseable
+                        else{self.handle_notification(INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}
                     }
+                    Mode::Command => {
+                        //should command parsing be implemented in edit_core?...
+                        //TODO: command mode should have completion suggestions
+                        let mut warn = false;
+                        match self.ui.util_bar.utility_widget.text_box.buffer.to_string().as_str(){
+                            "term" | "t" => {self.action(Action::EditorAction(EditorAction::OpenNewTerminalWindow));}
+                            "toggle_line_numbers" | "ln" => {self.action(Action::EditorAction(EditorAction::ToggleLineNumbers));}
+                            "toggle_status_bar" | "sb" => {self.action(Action::EditorAction(EditorAction::ToggleStatusBar));}
+                            "quit" | "q" => {
+                                self.action(Action::EditorAction(EditorAction::Quit));
+                                return; //needed so app can quit without running the rest of the code in this fn
+                            }
+                            "quit!" | "q!" => {
+                                self.action(Action::EditorAction(EditorAction::QuitIgnoringChanges));
+                                return;
+                            }
+                            //write buffer contents to file //should this optionally take a filepath to save to? then we don't need to implement save as    //would have to split util bar text on ' ' into separate args
+                            "write" | "w" => {self.action(Action::EditorAction(EditorAction::Save));}
+                            _ => {warn = true;}
+                        }
+                        if warn{self.handle_notification(COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);}
+                        else{self.action(Action::EditorAction(EditorAction::ModePop));}
+                    }
+                    Mode::Find | Mode::Split => self.action(Action::EditorAction(EditorAction::ModePop)),
+                    _ => {}
                 }
-                //line number >= len lines
-                else{self.handle_notification(INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}
+                perform_follow_up_behavior = false;
             }
-            //line number <= 0
-            else{self.handle_notification(INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}
+            UtilAction::Exit => {
+                match self.mode(){
+                    Mode::Find | Mode::Split => {
+                        self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
+                        self.selections = self.preserved_selections.clone().unwrap();   //shouldn't be called unless this value is Some()
+                        self.checked_scroll_and_update(
+                            &self.selections.primary().clone(), 
+                            Application::update_ui_data_document, 
+                            Application::update_ui_data_selections
+                        );
+                        self.action(Action::EditorAction(EditorAction::ModePop));//self.mode_pop();
+                    }
+                    _ => {self.action(Action::EditorAction(EditorAction::ModePop));}
+                }
+                perform_follow_up_behavior = false;
+            }
+            UtilAction::GotoModeSelectionAction(selection_action) => {
+                //TODO: this is pretty slow when user enters a large number into util text box
+                //TODO: add go to matching surrounding char(curly, square, paren, single quote, double quote, etc)
+                //TODO: can this be accomplished in edit_core instead?...
+                assert!(self.mode() == Mode::Goto);
+                if let Ok(count) = self.ui.util_bar.utility_widget.text_box.buffer.to_string().parse::<usize>(){
+                    self.action(Action::EditorAction(EditorAction::ModePop));//self.mode_pop();
+                    assert!(self.mode() == Mode::Insert);
+                    self.selection_action(selection_action, count);
+                }else{self.handle_notification(INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}  //TODO: this may benefit from a specific error, maybe stating why the input is invalid...empty/non number input string...//"action requires non-empty, numeric input string"
+                //also, this doesn't work with goto_mode_text_validity_check
+                perform_follow_up_behavior = false;
+            }
         }
-        //line number not parseable
-        else{self.handle_notification(INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}
-    }
-    //TODO: add go to matching surrounding char(curly, square, paren, single quote, double quote, etc)
-    //TODO: can this be accomplished in edit_core instead?...
-    pub fn goto_mode_selection_action(&mut self, action: &SelectionAction){  //TODO: this is pretty slow when user enters a large number into util text box
-        assert!(self.mode() == Mode::Goto);
-        if let Ok(count) = self.ui.util_bar.utility_widget.text_box.buffer.to_string().parse::<usize>(){
-            self.mode_pop();
-            assert!(self.mode() == Mode::Insert);
-            self.selection_action(action, count);
-        }else{self.handle_notification(INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}  //TODO: this may benefit from a specific error, maybe stating why the input is invalid...empty/non number input string...//"action requires non-empty, numeric input string"
-        //also, this doesn't work with goto_mode_text_validity_check
-    }
-    pub fn goto_mode_text_validity_check(&mut self){
-        assert!(self.mode() == Mode::Goto);
-        // run text validity check
-        let mut is_numeric = true;
-        for char in self.ui.util_bar.utility_widget.text_box.buffer.chars(){
-            if !char.is_ascii_digit(){is_numeric = false;}
+        if perform_follow_up_behavior{
+            self.update_ui_data_util_bar();
+            //perform any mode specific follow up actions   //shouldn't need to call these if action was a selection action instead of an edit action
+            match self.mode(){
+                Mode::Object |
+                Mode::Insert |
+                Mode::View |
+                Mode::Error(_) |
+                Mode::Warning(_) |
+                Mode::Notify(_) |
+                Mode::Info(_) |
+                Mode::AddSurround => {/*do nothing*/}
+                Mode::Goto => {
+                    // run text validity check
+                    let mut is_numeric = true;
+                    for char in self.ui.util_bar.utility_widget.text_box.buffer.chars(){
+                        if !char.is_ascii_digit(){is_numeric = false;}
+                    }
+                    let exceeds_doc_length = match self.ui.util_bar.utility_widget.text_box.buffer.to_string().parse::<usize>(){
+                        Ok(line_number) => {line_number > self.buffer.len_lines()}
+                        Err(_) => false //TODO: very large numeric input strings aren't parseable to usize, thus set exceeds_doc_length to false...
+                    };
+                    self.ui.util_bar.utility_widget.text_box.text_is_valid = is_numeric && !exceeds_doc_length;
+                }
+                Mode::Find => {
+                    match &self.preserved_selections{
+                        Some(selections_before_search) => {
+                            match crate::utilities::incremental_search_in_selection::selections_impl(
+                                selections_before_search, 
+                                &self.ui.util_bar.utility_widget.text_box.buffer.to_string(),
+                                &self.buffer, 
+                                self.config.semantics.clone()
+                            ){
+                                Ok(new_selections) => {
+                                    self.selections = new_selections;
+                                    self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
+                                }
+                                Err(_) => {
+                                    self.selections = selections_before_search.clone();
+                                    self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
+                                }
+                            }
+                        }
+                        None => {/* maybe error?... */unreachable!()}
+                    }
+                    self.checked_scroll_and_update(
+                        &self.selections.primary().clone(), 
+                        Application::update_ui_data_document, 
+                        Application::update_ui_data_selections
+                    );
+                }
+                Mode::Split => {
+                    match &self.preserved_selections{
+                        Some(selections_before_split) => {
+                            match crate::utilities::incremental_split_in_selection::selections_impl(
+                                selections_before_split, 
+                                &self.ui.util_bar.utility_widget.text_box.buffer.to_string(),
+                                &self.buffer, 
+                                self.config.semantics.clone()
+                            ){
+                                Ok(new_selections) => {
+                                    self.selections = new_selections;
+                                    self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
+                                }
+                                Err(_) => {
+                                    self.selections = selections_before_split.clone();
+                                    self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
+                                }
+                            }
+                        }
+                        None => {/* maybe error?... */unreachable!()}
+                    }
+                    self.checked_scroll_and_update(
+                        &self.selections.primary().clone(), 
+                        Application::update_ui_data_document, 
+                        Application::update_ui_data_selections
+                    );
+                }
+                Mode::Command => {/*do nothing*/}
+            }
         }
-        let exceeds_doc_length = match self.ui.util_bar.utility_widget.text_box.buffer.to_string().parse::<usize>(){
-            Ok(line_number) => {line_number > self.buffer.len_lines()}
-            Err(_) => false //TODO: very large numeric input strings aren't parseable to usize, thus set exceeds_doc_length to false...
-        };
-        self.ui.util_bar.utility_widget.text_box.text_is_valid = is_numeric && !exceeds_doc_length;
     }
 
-    pub fn restore_selections_and_exit(&mut self){
-        self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
-        self.selections = self.preserved_selections.clone().unwrap();   //shouldn't be called unless this value is Some()
-        self.checked_scroll_and_update(
-            &self.selections.primary().clone(), 
-            Application::update_ui_data_document, 
-            Application::update_ui_data_selections
-        );
-        self.mode_pop();
-    }
-    fn incremental_search(&mut self){   //this def doesn't work correctly with utf-8 yet
-        match &self.preserved_selections{
-            Some(selections_before_search) => {
-                match crate::utilities::incremental_search_in_selection::selections_impl(
-                    selections_before_search, 
-                    &self.ui.util_bar.utility_widget.text_box.buffer.to_string(),
-                    &self.buffer, 
-                    self.config.semantics.clone()
-                ){
-                    Ok(new_selections) => {
-                        self.selections = new_selections;
-                        self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
-                    }
-                    Err(_) => {
-                        self.selections = selections_before_search.clone();
-                        self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
-                    }
-                }
-            }
-            None => {/* maybe error?... */unreachable!()}
+    pub fn esc_handle(&mut self){
+        assert!(self.mode() == Mode::Insert);
+        //TODO: if lsp suggestions displaying(currently unimplemented), exit that display   //lsp suggestions could be a separate mode with keybind fallthrough to insert...
+        /*else */if self.selections.count() > 1{
+            self.selection_action(SelectionAction::ClearNonPrimarySelections, 1);
         }
-    }
-    fn incremental_split(&mut self){
-        match &self.preserved_selections{
-            Some(selections_before_split) => {
-                match crate::utilities::incremental_split_in_selection::selections_impl(
-                    selections_before_split, 
-                    &self.ui.util_bar.utility_widget.text_box.buffer.to_string(),
-                    &self.buffer, 
-                    self.config.semantics.clone()
-                ){
-                    Ok(new_selections) => {
-                        self.selections = new_selections;
-                        self.ui.util_bar.utility_widget.text_box.text_is_valid = true;
-                    }
-                    Err(_) => {
-                        self.selections = selections_before_split.clone();
-                        self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
-                    }
-                }
-            }
-            None => {/* maybe error?... */unreachable!()}
+        else if self.selections.primary().is_extended(){
+            self.selection_action(SelectionAction::CollapseSelectionToCursor, 1);
         }
-    }
-
-    pub fn toggle_line_numbers(&mut self){
-        assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
-        self.ui.document_viewport.line_number_widget.show = !self.ui.document_viewport.line_number_widget.show;
-                
-        self.update_layouts();
-        self.update_ui_data_document();
-    }
-    pub fn toggle_status_bar(&mut self){
-        assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
-        self.ui.status_bar.show = !self.ui.status_bar.show;
-                
-        self.update_layouts();
-        self.update_ui_data_document();
-    }
-    pub fn open_new_terminal_window(){
-        let _ = std::process::Command::new("alacritty")     //TODO: have user define TERMINAL const in config.rs   //or check env vars for $TERM?
-            //.arg("msg")     // these extra commands just make new instances use the same backend(daemon?)
-            //.arg("create-window")
-            //.current_dir(std::env::current_dir().unwrap())    //not needed here, because term spawned here defaults to this directory, but good to know
-            .spawn()
-            .expect("failed to spawn new terminal at current directory");
-    }
-    //should command parsing be implemented in edit_core?...
-    //TODO: command mode should have completion suggestions
-    pub fn command_mode_accept(&mut self){
-        assert!(self.mode() == Mode::Command);
-        let mut warn = false;
-        match self.ui.util_bar.utility_widget.text_box.buffer.to_string().as_str(){
-            "term" | "t" => {Application::open_new_terminal_window();}
-            "toggle_line_numbers" | "ln" => {self.toggle_line_numbers();}
-            "toggle_status_bar" | "sb" => {self.toggle_status_bar();}
-            "quit" | "q" => {
-                self.quit();
-                return; //needed so app can quit without running the rest of the code in this fn
-            }
-            "quit!" | "q!" => {
-                self.quit_ignoring_changes();
-                return;
-            }
-            //write buffer contents to file //should this optionally take a filepath to save to? then we don't need to implement save as    //would have to split util bar text on ' ' into separate args
-            "write" | "w" => {
-                self.save();
-            }
-            _ => {warn = true;}
+        else{
+            self.handle_notification(SAME_STATE_DISPLAY_MODE, SAME_STATE);
         }
-        if warn{self.handle_notification(COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);}
-        else{self.mode_pop()}
     }
 }
 
-fn render_widget(text: String, area: Rect, alignment: Alignment, bold: bool, background_color: Color, foreground_color: Color, frame: &mut Frame<'_>){
-    frame.render_widget(
-        if bold{
-            Paragraph::new(text)
-            .style(
-                Style::default()
-                    .bg(background_color)
-                    .fg(foreground_color)
-            )
-            .alignment(alignment)
-            .bold()
-        }else{
-            Paragraph::new(text)
-            .style(
-                Style::default()
-                    .bg(background_color)
-                    .fg(foreground_color)
-            )
-            .alignment(alignment)
-        }, 
-        area
-    );
-}
-fn render_popup(text: String, title: String, area: Rect, background_color: Color, foreground_color: Color, frame: &mut Frame<'_>){
-    frame.render_widget(
+fn generate_widget<'a>(text: &'a str, alignment: Alignment, bold: bool, background_color: Color, foreground_color: Color) -> ratatui::widgets::Paragraph<'a>{
+    if bold{
         Paragraph::new(text)
-            .block(ratatui::widgets::Block::default()
-                .borders(ratatui::widgets::Borders::all())
-                .title(title))
-            .style(
-                Style::new()
-                    .bg(background_color)
-                    .fg(foreground_color)
-            ),
-        area
-    );
+        .style(
+            Style::default()
+                .bg(background_color)
+                .fg(foreground_color)
+        )
+        .alignment(alignment)
+        .bold()
+    }else{
+        Paragraph::new(text)
+        .style(
+            Style::default()
+                .bg(background_color)
+                .fg(foreground_color)
+        )
+        .alignment(alignment)
+    }
+}
+fn generate_popup<'a>(text: &'a str, title: &'a str, background_color: Color, foreground_color: Color) -> Paragraph<'a>{
+    Paragraph::new(text)
+        .block(ratatui::widgets::Block::default()
+            .borders(ratatui::widgets::Borders::all())
+            .title(title))
+        .style(
+            Style::new()
+                .bg(background_color)
+                .fg(foreground_color)
+        )
 }

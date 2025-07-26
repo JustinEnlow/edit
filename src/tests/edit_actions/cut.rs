@@ -1,5 +1,5 @@
 use crate::{
-    application::EditAction::Cut,
+    action::EditAction::Cut,
     mode::Mode,
     range::Range,
     selection::{Selection, CursorSemantics::Block, /*Extension*/Direction},

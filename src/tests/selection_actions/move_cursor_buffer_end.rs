@@ -1,5 +1,5 @@
 use crate::{
-    application::SelectionAction::MoveCursorBufferEnd,
+    action::SelectionAction::MoveCursorBufferEnd,
     mode::Mode,
     range::Range,
     selection::{Selection, CursorSemantics::Block},

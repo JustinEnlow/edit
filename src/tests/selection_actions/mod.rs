@@ -1,6 +1,6 @@
 use crate::{
     config::Config,
-    application::SelectionAction,
+    action::SelectionAction,
     mode::Mode,
     selection::Selection,
     display_area::DisplayArea,
@@ -77,7 +77,8 @@ pub fn test_selection_action(
             
             app.selections = selections;
             //call action specific test(selection/view/edit/etc)
-            app.selection_action(&selection_action, count);
+            //app.selection_action(&selection_action, count);
+            app.action(crate::action::Action::SelectionAction(selection_action, count));
             
             assert_eq!(expected_mode, app.mode());
             assert_eq!(expected_selections, app.selections);

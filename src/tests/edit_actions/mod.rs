@@ -1,6 +1,6 @@
 use crate::{
     config::Config,
-    application::EditAction,
+    action::EditAction,
     mode::Mode,
     buffer::Buffer,
     selection::Selection,
@@ -57,7 +57,8 @@ pub fn test_edit_action(
             app.clipboard = clipboard.to_string();
             app.selections = selections;
             //call action specific test(selection/view/edit/etc)
-            app.edit_action(&edit_action);
+            //app.edit_action(&edit_action);
+            app.action(crate::action::Action::EditAction(edit_action));
 
             assert_eq!(expected_mode, app.mode());
             assert_eq!(expected_selections, app.selections);

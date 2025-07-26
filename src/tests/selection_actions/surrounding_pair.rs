@@ -1,7 +1,7 @@
 //TODO: rename to NearestSurroundingPair?...
 
 use crate::{
-    application::SelectionAction::SurroundingPair,
+    action::SelectionAction::SurroundingPair,
     mode::Mode,
     range::Range,
     selection::{Selection, CursorSemantics::Block},

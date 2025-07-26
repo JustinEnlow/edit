@@ -8,44 +8,101 @@ pub enum EditorAction{
     QuitIgnoringChanges,
     Save,
     Copy,
-    //ToggleLineNumbers,
-    //ToggleStatusBar,
-    //OpenNewTerminalWindow,
+    ToggleLineNumbers,
+    ToggleStatusBar,
+    OpenNewTerminalWindow,
+}
+pub enum SelectionAction{   //TODO?: have (all?) selection actions take an amount, for action repetition. MoveCursorDown(2) would move the cursor down two lines, if possible, or saturate at buffer end otherwise, and error if already at buffer end
+    MoveCursorUp,
+    MoveCursorDown,
+    MoveCursorLeft,
+    MoveCursorRight,
+    MoveCursorWordBoundaryForward,  //TODO: this isn't working with count, for some reason. check move_cursor_word_boundary_backward impl to determine cause...
+    MoveCursorWordBoundaryBackward, //TODO: this isn't working with count, for some reason. check move_cursor_word_boundary_forward impl to determine cause...
+    MoveCursorLineEnd,
+    MoveCursorHome,
+    MoveCursorBufferStart,
+    MoveCursorBufferEnd,
+    MoveCursorPageUp,
+    MoveCursorPageDown,
+    ExtendSelectionUp,
+    ExtendSelectionDown,
+    ExtendSelectionLeft,
+    ExtendSelectionRight,
+    ExtendSelectionWordBoundaryBackward,    //TODO: this isn't working with count, for some reason. check extend_selection_word_boundary_backward impl to determine cause...
+    ExtendSelectionWordBoundaryForward,     //TODO: this isn't working with count, for some reason. check extend_selection_word_boundary_forward impl to determine cause...
+    ExtendSelectionLineEnd,
+    ExtendSelectionHome,
+        //TODO: ExtendSelectionBufferStart,
+        //TODO: ExtendSelectionBufferEnd,
+        //TODO: ExtendSelectionPageUp,
+        //TODO: ExtendSelectionPageDown,
+    SelectLine,           //TODO: this may benefit from using a count. would the next count # of lines including current
+    SelectAll,
+    CollapseSelectionToAnchor,
+    CollapseSelectionToCursor,
+    ClearNonPrimarySelections,
+    AddSelectionAbove,    //TODO: this may benefit from using a count. would add count # of selections
+    AddSelectionBelow,    //TODO: this may benefit from using a count. would add count # of selections
+    RemovePrimarySelection,
+    IncrementPrimarySelection,  //TODO: this may benefit from using a count. would increment primary selection index by 'count'
+    DecrementPrimarySelection,  //TODO: this may benefit from using a count. would decrement primary selection index by 'count'
+    Surround,         //this would not benefit from using a count. use existing selection primitives to select text to surround
+    SurroundingPair,  //TODO: this may benefit from using a count. would select the 'count'th surrounding pair
+    FlipDirection,
+        //TODO: SplitSelectionLines,    //split current selection into a selection for each line. error if single line
+}
+pub enum EditAction{
+        //TODO: AlignSelectedTextVertically,
+    InsertChar(char),
+    InsertNewline,
+    InsertTab,
+    Delete,
+        //TODO: DeleteToNextWordBoundary,
+        //TODO: DeleteToPrevWordBoundary,
+    Backspace,
+    Cut,
+    Paste,
+    Undo,
+    Redo,
+        //TODO: SwapUp,   (if text selected, swap selected text with line above. if no selection, swap current line with line above)
+        //TODO: SwapDown, (if text selected, swap selected text with line below. if no selection, swap current line with line below)
+        //TODO: RotateTextInSelections,
+    AddSurround(char, char),
+}
+pub enum ViewAction{
+    CenterVerticallyAroundCursor,
+        //TODO: CenterHorizontallyAroundCursor,
+        //TODO: AlignWithCursorAtTop,
+        //TODO: AlignWithCursorAtBottom,    
+    ScrollUp,
+    ScrollDown,
+    ScrollLeft,
+    ScrollRight,
+}
+pub enum UtilAction{
+    Backspace,
+    Delete,
+    InsertChar(char),
+    ExtendEnd,
+    ExtendHome,
+    ExtendLeft,
+    ExtendRight,
+    MoveEnd,
+    MoveHome,
+    MoveLeft,
+    MoveRight,
+    Cut,
+    Copy,
+    Paste,
+    Accept,
+    Exit,
+    GotoModeSelectionAction(SelectionAction),
 }
 pub enum Action{
     EditorAction(EditorAction),
-    SelectionAction(crate::application::SelectionAction, usize),
-    EditAction(crate::application::EditAction),
-    ViewAction(crate::application::ViewAction),
-    UtilAction(crate::application::UtilAction)
-}
-
-fn perform_action(app: &mut crate::application::Application, action: Action){
-    match action{
-        Action::EditorAction(editor_action) => {
-            match editor_action{
-                EditorAction::ModePop => {app.mode_pop();}
-                EditorAction::ModePush(to_mode) => {app.mode_push(to_mode);}
-                EditorAction::Resize(width, height) => {app.resize(width, height);}
-                EditorAction::NoOpKeypress => {}
-                EditorAction::NoOpEvent => {}
-                EditorAction::Quit => {}
-                EditorAction::QuitIgnoringChanges => {}
-                EditorAction::Save => {}
-                EditorAction::Copy => {}
-            }
-        }
-        Action::SelectionAction(selection_action, count) => {
-            app.selection_action(&selection_action, count);
-        }
-        Action::EditAction(edit_action) => {
-            app.edit_action(&edit_action);
-        }
-        Action::ViewAction(view_action) => {
-            app.view_action(&view_action);
-        }
-        Action::UtilAction(util_action) => {
-            app.util_action(&util_action);
-        }
-    }
+    SelectionAction(SelectionAction, usize),
+    EditAction(EditAction),
+    ViewAction(ViewAction),
+    UtilAction(UtilAction)
 }

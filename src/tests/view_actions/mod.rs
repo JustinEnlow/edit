@@ -1,6 +1,6 @@
 use crate::{
     config::Config,
-    application::ViewAction,
+    action::ViewAction,
     mode::Mode,
     selection::Selection,
     display_area::DisplayArea,
@@ -45,11 +45,13 @@ pub fn test_view_action(
             app.selections = selections;
             //app.mode_push(Mode::View);
             if starting_mode != Mode::Insert{
-                app.mode_push(starting_mode);
+                //app.mode_push(starting_mode);
+                app.action(crate::action::Action::EditorAction(crate::action::EditorAction::ModePush(starting_mode)));
             }
 
             //call action specific test(selection/view/edit/etc)
-            app.view_action(&view_action);
+            //app.view_action(&view_action);
+            app.action(crate::action::Action::ViewAction(view_action));
             
             assert_eq!(expected_mode, app.mode());
             assert_eq!(expected_buffer_display_area_text, app.buffer_display_area().text(&app.buffer));

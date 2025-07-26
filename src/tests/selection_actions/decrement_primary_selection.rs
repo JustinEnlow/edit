@@ -1,5 +1,5 @@
 use crate::{
-    application::SelectionAction::DecrementPrimarySelection,
+    action::SelectionAction::DecrementPrimarySelection,
     mode::Mode,
     range::Range,
     selection::{Selection, CursorSemantics::Block},
