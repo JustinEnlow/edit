@@ -21,6 +21,10 @@ pub struct UserInterface{
     pub status_bar: StatusBar,
     pub util_bar: UtilBar,
     pub popups: Popups,
+    pub error_mode_text: String,
+    pub warning_mode_text: String,
+    pub notify_mode_text: String,
+    pub info_mode_text: String,
 }
 impl UserInterface{
     pub fn new(terminal_size: Rect) -> Self{
@@ -30,6 +34,10 @@ impl UserInterface{
             status_bar: StatusBar::default(),
             util_bar: UtilBar::default(),
             popups: Popups::new(),
+            error_mode_text: String::new(),
+            warning_mode_text: String::new(),
+            notify_mode_text: String::new(),
+            info_mode_text: String::new(),
         }
     }
     //TODO: this can prob be removed if terminal.size() called in update_layouts...

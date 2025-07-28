@@ -6,7 +6,7 @@
 
 //TODO: implement desired kakoune/sam/acme features here first, then design edit with client/server architecture with filesystem ipc...
 
-//TODO: if error message displayed in scratch buffer, select filename and error location, trigger goto command(acme mouse right click, not the built-in goto-mode...).
+//TODO: if error message displayed in scratch buffer, select filename and error location, trigger plumb command(acme mouse right click).
 // ex: file_name.rs:10:22
 // if the buffer with filename is open in session, and is the active buffer for this client, go to that location in the buffer
 // if the buffer with filename is open in session, but is not the active buffer for this client, set it as the active buffer for this client, and go to that location in the buffer
@@ -57,7 +57,6 @@ use ratatui::{
 };
 use crate::{
     config::*,
-    keybind,
     mode::Mode,
     action::{Action, EditorAction, SelectionAction, EditAction, ViewAction, UtilAction},
     range::Range,
@@ -258,10 +257,10 @@ impl Application{
                     // util(goto/find/command) bar rect height
                     Constraint::Length(
                         match &self.mode(){
-                            Mode::Error(_) | 
-                            Mode::Warning(_) | 
-                            Mode::Notify(_) | 
-                            Mode::Info(_) | 
+                            Mode::Error | 
+                            Mode::Warning | 
+                            Mode::Notify | 
+                            Mode::Info | 
                             Mode::Command | 
                             Mode::Find | 
                             Mode::Goto | 
@@ -384,10 +383,10 @@ impl Application{
                             Mode::Find => FIND_PROMPT.len() as u16,
                             Mode::Split => SPLIT_PROMPT.len() as u16,
                             Mode::Command => COMMAND_PROMPT.len() as u16,
-                            Mode::Error(_)
-                            | Mode::Warning(_)
-                            | Mode::Notify(_)
-                            | Mode::Info(_)
+                            Mode::Error
+                            | Mode::Warning
+                            | Mode::Notify
+                            | Mode::Info
                             | Mode::Insert
                             | Mode::Object
                             | Mode::View 
@@ -402,10 +401,10 @@ impl Application{
                             Mode::Insert
                             | Mode::Object
                             | Mode::View
-                            | Mode::Error(_) 
-                            | Mode::Warning(_)
-                            | Mode::Notify(_)
-                            | Mode::Info(_)
+                            | Mode::Error
+                            | Mode::Warning
+                            | Mode::Notify
+                            | Mode::Info
                             | Mode::AddSurround => rect.width,
                             Mode::Goto => rect.width - GOTO_PROMPT.len() as u16,
                             Mode::Command => rect.width - COMMAND_PROMPT.len() as u16,
@@ -429,18 +428,18 @@ impl Application{
                 // conditionally render
                 if self.ui.document_viewport.line_number_widget.show{
                     frame.render_widget(generate_widget(&self.ui.document_viewport.line_number_widget.text, Alignment::Right, false, LINE_NUMBER_BACKGROUND_COLOR, LINE_NUMBER_FOREGROUND_COLOR), self.ui.document_viewport.line_number_widget.rect);
-                    frame.render_widget(generate_widget(&String::new(), Alignment::Center, false, LINE_NUMBER_BACKGROUND_COLOR, LINE_NUMBER_BACKGROUND_COLOR), self.ui.document_viewport.padding.rect);
+                    frame.render_widget(generate_widget("", Alignment::Center, false, LINE_NUMBER_BACKGROUND_COLOR, LINE_NUMBER_BACKGROUND_COLOR), self.ui.document_viewport.padding.rect);
                 }
                 if self.ui.status_bar.show{
                     //instead of read_only_widget.text, we could do: if app.buffer.read_only{"ReadOnly"}else{String::new()}
                     frame.render_widget(generate_widget(&self.ui.status_bar.read_only_widget.text, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, READ_ONLY_WIDGET_FOREGROUND_COLOR), self.ui.status_bar.read_only_widget.rect);
-                    frame.render_widget(generate_widget(&String::new(), Alignment::Center, false, STATUS_BAR_BACKGROUND_COLOR, Color::Red), self.ui.status_bar.padding_1.rect);
+                    frame.render_widget(generate_widget("", Alignment::Center, false, STATUS_BAR_BACKGROUND_COLOR, Color::Red), self.ui.status_bar.padding_1.rect);
                     frame.render_widget(generate_widget(&self.ui.status_bar.file_name_widget.text, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, FILE_NAME_WIDGET_FOREGROUND_COLOR), self.ui.status_bar.file_name_widget.rect);
-                    frame.render_widget(generate_widget(&String::new(), Alignment::Center, false, STATUS_BAR_BACKGROUND_COLOR, Color::Red), self.ui.status_bar.padding_2.rect);
+                    frame.render_widget(generate_widget("", Alignment::Center, false, STATUS_BAR_BACKGROUND_COLOR, Color::Red), self.ui.status_bar.padding_2.rect);
                     frame.render_widget(generate_widget(&self.ui.status_bar.modified_widget.text, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, MODIFIED_WIDGET_FOREGROUND_COLOR), self.ui.status_bar.modified_widget.rect);
                     frame.render_widget(generate_widget(&self.ui.status_bar.selections_widget.text, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, SELECTIONS_WIDGET_FOREGROUND_COLOR), self.ui.status_bar.selections_widget.rect);
                     frame.render_widget(generate_widget(&self.ui.status_bar.cursor_position_widget.text, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, CURSOR_POSITION_WIDGET_FOREGROUND_COLOR), self.ui.status_bar.cursor_position_widget.rect);
-                    frame.render_widget(generate_widget(&String::new(), Alignment::Center, false, STATUS_BAR_BACKGROUND_COLOR, Color::Red), self.ui.status_bar.padding_3.rect);
+                    frame.render_widget(generate_widget("", Alignment::Center, false, STATUS_BAR_BACKGROUND_COLOR, Color::Red), self.ui.status_bar.padding_3.rect);
                     frame.render_widget(generate_widget(&self.ui.status_bar.mode_widget.text, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, MODE_WIDGET_FOREGROUND_COLOR), self.ui.status_bar.mode_widget.rect);
                 }
     
@@ -489,9 +488,9 @@ impl Application{
                             frame.render_widget(generate_popup(&self.ui.popups.split.text, &self.ui.popups.split.title, Color::Black, Color::Yellow), self.ui.popups.split.rect);
                         }
                     }
-                    Mode::Error(string) => {
-                        frame.render_widget(generate_widget(&string, Alignment::Center, true, ERROR_BACKGROUND_COLOR, ERROR_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
-                        if string == FILE_MODIFIED{
+                    Mode::Error => {
+                        frame.render_widget(generate_widget(&self.ui.error_mode_text, Alignment::Center, true, ERROR_BACKGROUND_COLOR, ERROR_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
+                        if self.ui.error_mode_text == FILE_MODIFIED{
                             if SHOW_CONTEXTUAL_KEYBINDS{
                                 frame.render_widget(ratatui::widgets::Clear, self.ui.popups.modified_error.rect);
                                 frame.render_widget(generate_popup(&self.ui.popups.modified_error.text, &self.ui.popups.modified_error.title, Color::Black, Color::Yellow), self.ui.popups.modified_error.rect);
@@ -504,22 +503,22 @@ impl Application{
                             }
                         }
                     }
-                    Mode::Warning(string) => {
-                        frame.render_widget(generate_widget(&string, Alignment::Center, true, WARNING_BACKGROUND_COLOR, WARNING_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
+                    Mode::Warning => {
+                        frame.render_widget(generate_widget(&self.ui.warning_mode_text, Alignment::Center, true, WARNING_BACKGROUND_COLOR, WARNING_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.warning.rect);
                             frame.render_widget(generate_popup(&self.ui.popups.warning.text, &self.ui.popups.warning.title, Color::Black, Color::Yellow), self.ui.popups.warning.rect);
                         }
                     }
-                    Mode::Notify(string) => {
-                        frame.render_widget(generate_widget(&string, Alignment::Center, true, NOTIFY_BACKGROUND_COLOR, NOTIFY_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
+                    Mode::Notify => {
+                        frame.render_widget(generate_widget(&self.ui.notify_mode_text, Alignment::Center, true, NOTIFY_BACKGROUND_COLOR, NOTIFY_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.notify.rect);
                             frame.render_widget(generate_popup(&self.ui.popups.notify.text, &self.ui.popups.notify.title, Color::Black, Color::Yellow), self.ui.popups.notify.rect);
                         }
                     }
-                    Mode::Info(string) => {
-                        frame.render_widget(generate_widget(&string, Alignment::Center, true, INFO_BACKGROUND_COLOR, INFO_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
+                    Mode::Info => {
+                        frame.render_widget(generate_widget(&self.ui.info_mode_text, Alignment::Center, true, INFO_BACKGROUND_COLOR, INFO_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.info.rect);
                             frame.render_widget(generate_popup(&self.ui.popups.info.text, &self.ui.popups.info.title, Color::Black, Color::Yellow), self.ui.popups.info.rect);
@@ -670,12 +669,74 @@ impl Application{
         //}
     }
 
+    // This is needed because generic keypresses apparently cannot be inserted into a hashmap
+    fn handle_char_insert(mode: Mode, key_event: crossterm::event::KeyEvent) -> Action{
+        use crossterm::event::{KeyCode, KeyModifiers};
+        match mode{
+            Mode::Insert => {
+                match (key_event.code, key_event.modifiers){
+                    (KeyCode::Char(c), KeyModifiers::SHIFT) => {Action::EditAction(EditAction::InsertChar(c))}
+                    (KeyCode::Char(c), KeyModifiers::NONE) => {Action::EditAction(EditAction::InsertChar(c))}
+                    _ => Action::EditorAction(EditorAction::NoOpKeypress)
+                }
+            }
+            Mode::Goto => {
+                match (key_event.code, key_event.modifiers){
+                    (KeyCode::Char(c), KeyModifiers::NONE) if c.is_numeric() => {Action::UtilAction(UtilAction::InsertChar(c))}
+                    _ => Action::EditorAction(EditorAction::NoOpKeypress)
+                }
+            }
+            Mode::Find => {
+                match (key_event.code, key_event.modifiers){
+                    (KeyCode::Char(c), KeyModifiers::SHIFT) => {Action::UtilAction(UtilAction::InsertChar(c))}
+                    (KeyCode::Char(c), KeyModifiers::NONE) => {Action::UtilAction(UtilAction::InsertChar(c))}
+                    _ => Action::EditorAction(EditorAction::NoOpKeypress)
+                }
+            }
+            Mode::Split => {
+                match (key_event.code, key_event.modifiers){
+                    (KeyCode::Char(c), KeyModifiers::SHIFT) => {Action::UtilAction(UtilAction::InsertChar(c))}
+                    (KeyCode::Char(c), KeyModifiers::NONE) => {Action::UtilAction(UtilAction::InsertChar(c))}
+                    _ => Action::EditorAction(EditorAction::NoOpKeypress)
+                }
+            }
+            Mode::Command => {
+                match (key_event.code, key_event.modifiers){
+                    (KeyCode::Char(c), KeyModifiers::SHIFT) => {Action::UtilAction(UtilAction::InsertChar(c))}
+                    (KeyCode::Char(c), KeyModifiers::NONE) => {Action::UtilAction(UtilAction::InsertChar(c))}
+                    _ => Action::EditorAction(EditorAction::NoOpKeypress)
+                }
+            }
+            _ => Action::EditorAction(EditorAction::NoOpKeypress)
+        }
+    }
     fn handle_event(&mut self) -> Result<(), String>{
         match event::read(){
             Ok(event) => {
                 match event{
                     event::Event::Key(key_event) => {
-                        let action = keybind::handle_key_event(self, key_event);
+                        let action = match self.config.keybinds.get(&(self.mode(), key_event)).cloned(){
+                            Some(action) => action,
+                            None => {
+                                match self.mode(){
+                                    //unbound key presses for these modes fall through to insert mode
+                                    Mode::Warning | Mode::Notify | Mode::Info => {
+                                        //spoofing our mode as insert, to handle fall through
+                                        match self.config.keybinds.get(&(Mode::Insert, key_event)).cloned(){
+                                            //TODO: some actions may need to be modified to pop until insert mode, because we aren't actually in insert yet
+                                            //currently, the application will panic/misbehave because of this...
+                                            //such as ModePush. enter command mode, enter invalid command, accept, press anything that enters warning mode, then trigger Goto mode.
+                                            //command mode text is still in util bar buffer
+                                            //issuing new command from this mode puts mode stack in invalid state
+                                            //probably more problems yet to be discovered...
+                                            Some(insert_action) => insert_action,
+                                            None => Self::handle_char_insert(Mode::Insert, key_event)
+                                        }
+                                    }
+                                    _ => Self::handle_char_insert(self.mode(), key_event)
+                                }
+                            }
+                        };
                         self.action(action);
                     },
                     event::Event::Mouse(_mouse_event) => {}
@@ -738,16 +799,16 @@ impl Application{
         self.ui.status_bar.mode_widget.text = match self.mode(){
             Mode::AddSurround => format!("AddSurround: {:#?}", self.mode_stack.len()),
             Mode::Command => format!("Command: {:#?}", self.mode_stack.len()),
-            Mode::Error(_) => format!("Error: {:#?}", self.mode_stack.len()),
+            Mode::Error => format!("Error: {:#?}", self.mode_stack.len()),
             Mode::Find => format!("Find: {:#?}", self.mode_stack.len()),
             Mode::Goto => format!("Goto: {:#?}", self.mode_stack.len()),
-            Mode::Info(_) => format!("Info: {:#?}", self.mode_stack.len()),
+            Mode::Info => format!("Info: {:#?}", self.mode_stack.len()),
             Mode::Insert => format!("Insert: {:#?}", self.mode_stack.len()),
-            Mode::Notify(_) => format!("Notify: {:#?}", self.mode_stack.len()),
+            Mode::Notify => format!("Notify: {:#?}", self.mode_stack.len()),
             Mode::Object => format!("Object: {:#?}", self.mode_stack.len()),
             Mode::Split => format!("Split: {:#?}", self.mode_stack.len()),
             Mode::View => format!("View: {:#?}", self.mode_stack.len()),
-            Mode::Warning(_) => format!("Warning: {:#?}", self.mode_stack.len()),
+            Mode::Warning => format!("Warning: {:#?}", self.mode_stack.len()),
         };
     }
     pub fn update_ui_data_util_bar(&mut self){
@@ -792,10 +853,22 @@ impl Application{
     //TODO: think of a better name for this...
     fn handle_notification(&mut self, display_mode: DisplayMode, message: &'static str){
         match display_mode{
-            DisplayMode::Error => {self.action(Action::EditorAction(EditorAction::ModePush(Mode::Error(message.to_string()))));}
-            DisplayMode::Warning => {self.action(Action::EditorAction(EditorAction::ModePush(Mode::Warning(message.to_string()))));}
-            DisplayMode::Notify => {self.action(Action::EditorAction(EditorAction::ModePush(Mode::Notify(message.to_string()))));}
-            DisplayMode::Info => {self.action(Action::EditorAction(EditorAction::ModePush(Mode::Info(message.to_string()))));}
+            DisplayMode::Error => {
+                self.ui.error_mode_text = message.to_string();
+                self.action(Action::EditorAction(EditorAction::ModePush(Mode::Error)));
+            }
+            DisplayMode::Warning => {
+                self.ui.warning_mode_text = message.to_string();
+                self.action(Action::EditorAction(EditorAction::ModePush(Mode::Warning)));
+            }
+            DisplayMode::Notify => {
+                self.ui.notify_mode_text = message.to_string();
+                self.action(Action::EditorAction(EditorAction::ModePush(Mode::Notify)));
+            }
+            DisplayMode::Info => {
+                self.ui.info_mode_text = message.to_string();
+                self.action(Action::EditorAction(EditorAction::ModePush(Mode::Info)));
+            }
             DisplayMode::Ignore => {/* do nothing */}
         }
     }
@@ -839,8 +912,9 @@ impl Application{
                 if let Ok(popped_mode) = self.mode_stack.pop(){
                     if popped_mode == self.mode(){
                         //continue popping until self.mode() is something else (this would clean up repeated error messages/etc.)
+                        //should run only if error/warning/notify/info_mode_text the same, if in those modes...
                         self.action(Action::EditorAction(EditorAction::ModePop));
-                        return;
+                        return; //only the final ModePop should run any follow up code
                     }
                     fn perform_shared_behavior(app: &mut Application){
                         //update layouts and document
@@ -856,8 +930,8 @@ impl Application{
                             perform_shared_behavior(self);
                             self.preserved_selections = None;   //clear saved selections
                         }
-                        Mode::Object | Mode::View | Mode::Error(_) | Mode::Warning(_) | Mode::Notify(_) | 
-                        Mode::Info(_) | Mode::AddSurround | Mode::Insert => {/* do nothing */}  //could early return here, if we didn't need to update mode data
+                        Mode::Object | Mode::View | Mode::Error | Mode::Warning | Mode::Notify | Mode::Info | Mode::AddSurround | 
+                        Mode::Insert => {/* do nothing */}  //could early return here, if we didn't need to update mode data
                     }
                     //does this belong here, or in ui.rs?...    //by calling here, we only perform this calculation as needed, not on every editor run cycle
                     self.update_ui_data_mode();
@@ -865,7 +939,7 @@ impl Application{
             }
             EditorAction::ModePush(to_mode) => {
                 //add mode to top of stack
-                self.mode_stack.push(to_mode.clone());
+                //self.mode_stack.push(to_mode.clone());
                 fn perform_shared_behavior(app: &mut Application){
                     //update layouts and document
                     app.update_layouts();
@@ -875,18 +949,32 @@ impl Application{
                 }
                 match to_mode{
                     Mode::Find | Mode::Split => {
+                        while self.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
+                            self.action(Action::EditorAction(EditorAction::ModePop));
+                        }
+                        self.mode_stack.push(to_mode.clone());
                         self.preserved_selections = Some(self.selections.clone());  //save selections
                         if !self.ui.status_bar.show{ // potential fix for status bar bug in todo.rs
                             perform_shared_behavior(self);
                         }
                     }
                     Mode::Command | Mode::Goto => {
+                        while self.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
+                            self.action(Action::EditorAction(EditorAction::ModePop));
+                        }
+                        self.mode_stack.push(to_mode.clone());
                         if !self.ui.status_bar.show{ // potential fix for status bar bug in todo.rs
                             perform_shared_behavior(self);
                         }
                     }
-                    Mode::Object | Mode::Insert | Mode::View | Mode::Error(_) | Mode::Warning(_) | Mode::Notify(_) | 
-                    Mode::Info(_) | Mode::AddSurround => {/* do nothing */}
+                    Mode::Object | Mode::AddSurround | Mode::View => {
+                        while self.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
+                            self.action(Action::EditorAction(EditorAction::ModePop));
+                        }
+                        self.mode_stack.push(to_mode.clone());
+                    }
+                    Mode::Error | Mode::Warning | Mode::Notify | Mode::Info => {self.mode_stack.push(to_mode.clone());}
+                    Mode::Insert => {unreachable!()}    //should always pop to Insert, never push to Insert
                 }
                 //does this belong here, or in ui.rs?...    //by calling here, we only perform this calculation as needed, not on every editor run cycle
                 self.update_ui_data_mode();
@@ -905,9 +993,11 @@ impl Application{
             EditorAction::NoOpKeypress => {self.handle_notification(UNHANDLED_KEYPRESS_DISPLAY_MODE, UNHANDLED_KEYPRESS);}
             EditorAction::NoOpEvent => {self.handle_notification(UNHANDLED_EVENT_DISPLAY_MODE, UNHANDLED_EVENT);}
             EditorAction::Quit => {
-                //assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
+                //possible modes are Insert and Command + any mode with fallthrough to insert
+                assert!(matches!(self.mode(), Mode::Insert | Mode::Command | Mode::Warning | Mode::Notify | Mode::Info));
                 if self.buffer.is_modified(){
-                    if self.mode() == Mode::Error(FILE_MODIFIED.to_string()){
+                    //if self.mode() == Mode::Error(FILE_MODIFIED.to_string()){
+                    if self.mode() == Mode::Error && self.ui.error_mode_text == FILE_MODIFIED{
                         self.action(Action::EditorAction(EditorAction::QuitIgnoringChanges));
                     }
                     else{
@@ -917,25 +1007,49 @@ impl Application{
                 else{self.should_quit = true;}
             }
             EditorAction::QuitIgnoringChanges => {
-                assert!(self.mode() == Mode::Error(FILE_MODIFIED.to_string()) || self.mode() == Mode::Command);
+                assert!(
+                    self.mode() == Mode::Error && self.ui.error_mode_text == FILE_MODIFIED ||
+                    self.mode() == Mode::Command
+                );
                 self.should_quit = true;
             }
             EditorAction::Save => {
-                assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
-                if self.buffer.file_path.is_none(){self.handle_notification(DisplayMode::Error, "cannot save unnamed buffer");}
-                else if self.buffer.read_only{self.handle_notification(READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER);}
+                //possible modes are Insert and Command + any mode with fallthrough to insert
+                assert!(matches!(self.mode(), Mode::Insert | Mode::Command | Mode::Warning | Mode::Notify | Mode::Info));
+                if self.buffer.file_path.is_none(){
+                    while self.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
+                        self.action(Action::EditorAction(EditorAction::ModePop));
+                    }
+                    self.handle_notification(DisplayMode::Error, "cannot save unnamed buffer");
+                }
+                else if self.buffer.read_only{
+                    while self.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
+                        self.action(Action::EditorAction(EditorAction::ModePop));
+                    }
+                    self.handle_notification(READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER);
+                }
                 else{
                     match crate::utilities::save::application_impl(self){
-                        Ok(()) => {self.update_ui_data_document();}
+                        Ok(()) => {
+                            while self.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
+                                self.action(Action::EditorAction(EditorAction::ModePop));
+                            }
+                            self.update_ui_data_document();
+                        }
                         //this could maybe benefit from passing the io error up to this fn...
                         Err(_) => {self.handle_notification(FILE_SAVE_FAILED_DISPLAY_MODE, FILE_SAVE_FAILED);}
                     }
                 }
             }
             EditorAction::Copy => {
-                assert!(self.mode() == Mode::Insert);
+                //assert!(self.mode() == Mode::Insert);
+                //possible modes are Insert + any mode with fallthrough to insert
+                assert!(matches!(self.mode(), Mode::Insert | Mode::Warning | Mode::Notify | Mode::Info));
                 match crate::utilities::copy::application_impl(self){
                     Ok(()) => {
+                        while self.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
+                            self.action(Action::EditorAction(EditorAction::ModePop));
+                        }
                         self.handle_notification(COPIED_TEXT_DISPLAY_MODE, COPIED_TEXT);
                         self.update_ui_data_document(); //TODO: is this really needed for something?...
                     }
@@ -945,6 +1059,9 @@ impl Application{
                 }
             }
             EditorAction::OpenNewTerminalWindow => {
+                while self.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
+                    self.action(Action::EditorAction(EditorAction::ModePop));
+                }
                 let _ = std::process::Command::new("alacritty")     //TODO: have user define TERMINAL const in config.rs   //or check env vars for $TERM?
                     //.arg("msg")     // these extra commands just make new instances use the same backend(daemon?)
                     //.arg("create-window")
@@ -953,12 +1070,14 @@ impl Application{
                     .expect("failed to spawn new terminal at current directory");
             }
             EditorAction::ToggleLineNumbers => {
+                //TODO: this may need to handle insert fallthrough
                 assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
                 self.ui.document_viewport.line_number_widget.show = !self.ui.document_viewport.line_number_widget.show;
                 self.update_layouts();
                 self.update_ui_data_document();
             }
             EditorAction::ToggleStatusBar => {
+                //TODO: this may need to handle insert fallthrough
                 assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
                 self.ui.status_bar.show = !self.ui.status_bar.show;
                 self.update_layouts();
@@ -969,7 +1088,8 @@ impl Application{
 
     fn selection_action(&mut self, action: SelectionAction, count: usize){
         use crate::utilities::*;
-        assert!(self.mode() == Mode::Insert || self.mode() == Mode::Object);
+        //possible modes are Insert and Object + any mode with fallthrough to insert
+        assert!(matches!(self.mode(), Mode::Insert | Mode::Object | Mode::Warning | Mode::Notify | Mode::Info));
         enum SelectionToFollow{Primary,First,Last}
         
         let (result, selection_to_follow) = match action{
@@ -1025,7 +1145,10 @@ impl Application{
                 self.selections = new_selections;
 
                 //maybe.    so far, only needed for selection actions called from object mode
-                if self.mode() != Mode::Insert{self.action(Action::EditorAction(EditorAction::ModePop));}
+                //if self.mode() != Mode::Insert{self.action(Action::EditorAction(EditorAction::ModePop));}
+                while self.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
+                    self.action(Action::EditorAction(EditorAction::ModePop));
+                }
                 //
                 
                 let primary_selection = &self.selections.primary().clone();
@@ -1060,7 +1183,8 @@ impl Application{
     //TODO: impl application_impl here, instead of in utilities...
     fn edit_action(&mut self, action: EditAction){
         use crate::utilities::*;
-        assert!(self.mode() == Mode::Insert || self.mode() == Mode::AddSurround);
+        //possible modes are Insert and AddSurround + any mode with fallthrough to insert
+        assert!(matches!(self.mode(), Mode::Insert | Mode::AddSurround | Mode::Warning | Mode::Notify | Mode::Info));
         
         if self.buffer.read_only{self.handle_notification(READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER);}
         else{
@@ -1079,7 +1203,10 @@ impl Application{
             };
             match result{
                 Ok(()) => {
-                    if self.mode() != Mode::Insert{self.action(Action::EditorAction(EditorAction::ModePop));}
+                    //if self.mode() != Mode::Insert{self.action(Action::EditorAction(EditorAction::ModePop));}
+                    while self.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
+                        self.action(Action::EditorAction(EditorAction::ModePop));
+                    }
                     
                     self.checked_scroll_and_update(
                         &self.selections.primary().clone(), 
@@ -1107,9 +1234,11 @@ impl Application{
         }
     }
 
-    pub fn view_action(&mut self, action: ViewAction){ //TODO: make sure this can still be called from insert, so users can assign a direct keybind if desired
+    pub fn view_action(&mut self, action: ViewAction){
         use crate::utilities::*;
-        assert!(self.mode() == Mode::Insert || self.mode() == Mode::View);
+        //assert!(self.mode() == Mode::Insert || self.mode() == Mode::View);
+        //possible modes are Insert and View + any mode with fallthrough to insert
+        assert!(matches!(self.mode(), Mode::Insert | Mode::View | Mode::Warning | Mode::Notify | Mode::Info));
 
         let mut should_exit = false;
         let result = match action{
@@ -1125,12 +1254,17 @@ impl Application{
 
         match result{
             Ok(view) => {
+                if self.mode() != Mode::View && self.mode() != Mode::Insert{
+                    while self.mode() != Mode::Insert{   //pop until insert mode, because of fallthrough
+                        self.action(Action::EditorAction(EditorAction::ModePop));
+                    }
+                }
                 let DisplayArea{horizontal_start, vertical_start, width: _width, height: _height} = view;
                 self.buffer_horizontal_start = horizontal_start;
                 self.buffer_vertical_start = vertical_start;
 
                 self.update_ui_data_document();
-                if self.mode() != Mode::Insert && should_exit{self.action(Action::EditorAction(EditorAction::ModePop));}
+                if self.mode() == Mode::View && should_exit{self.action(Action::EditorAction(EditorAction::ModePop));}
             }
             Err(e) => {
                 match e{
@@ -1267,10 +1401,10 @@ impl Application{
                 Mode::Object |
                 Mode::Insert |
                 Mode::View |
-                Mode::Error(_) |
-                Mode::Warning(_) |
-                Mode::Notify(_) |
-                Mode::Info(_) |
+                Mode::Error |
+                Mode::Warning |
+                Mode::Notify |
+                Mode::Info |
                 Mode::AddSurround => {/*do nothing*/}
                 Mode::Goto => {
                     // run text validity check
@@ -1358,7 +1492,7 @@ impl Application{
     }
 }
 
-fn generate_widget<'a>(text: &'a str, alignment: Alignment, bold: bool, background_color: Color, foreground_color: Color) -> ratatui::widgets::Paragraph<'a>{
+fn generate_widget(text: &str, alignment: Alignment, bold: bool, background_color: Color, foreground_color: Color) -> ratatui::widgets::Paragraph<'_>{
     if bold{
         Paragraph::new(text)
         .style(

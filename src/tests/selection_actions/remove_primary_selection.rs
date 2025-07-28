@@ -4,7 +4,8 @@ use crate::{
     range::Range,
     selection::{Selection, CursorSemantics::Block},
     display_area::DisplayArea,
-    config::{DisplayMode, SINGLE_SELECTION_DISPLAY_MODE, SINGLE_SELECTION, Config}
+    config::{DisplayMode, SINGLE_SELECTION_DISPLAY_MODE, /*SINGLE_SELECTION, */Config},
+    keybind::default_keybinds
 };
 use crate::tests::selection_actions::test_selection_action;
 
@@ -19,7 +20,8 @@ use crate::tests::selection_actions::test_selection_action;
             tab_width: 4, 
             view_scroll_amount: 1, 
             show_cursor_column: false, 
-            show_cursor_line: false
+            show_cursor_line: false,
+            keybinds: default_keybinds()
         },
         RemovePrimarySelection, 
         //Block, 
@@ -52,7 +54,8 @@ use crate::tests::selection_actions::test_selection_action;
             tab_width: 4, 
             view_scroll_amount: 1, 
             show_cursor_column: false, 
-            show_cursor_line: false
+            show_cursor_line: false,
+            keybinds: default_keybinds()
         },
         RemovePrimarySelection, 
         //Block, 
@@ -86,7 +89,8 @@ use crate::tests::selection_actions::test_selection_action;
             tab_width: 4, 
             view_scroll_amount: 1, 
             show_cursor_column: false, 
-            show_cursor_line: false
+            show_cursor_line: false,
+            keybinds: default_keybinds()
         },
         RemovePrimarySelection, 
         //Block, 
@@ -101,10 +105,10 @@ use crate::tests::selection_actions::test_selection_action;
         0, 
         1, 
         match SINGLE_SELECTION_DISPLAY_MODE{
-            DisplayMode::Error => {Mode::Error(SINGLE_SELECTION.to_string())},
-            DisplayMode::Warning => {Mode::Warning(SINGLE_SELECTION.to_string())},
-            DisplayMode::Notify => {Mode::Notify(SINGLE_SELECTION.to_string())},
-            DisplayMode::Info => {Mode::Info(SINGLE_SELECTION.to_string())},
+            DisplayMode::Error => {Mode::Error/*(SINGLE_SELECTION.to_string())*/},
+            DisplayMode::Warning => {Mode::Warning/*(SINGLE_SELECTION.to_string())*/},
+            DisplayMode::Notify => {Mode::Notify/*(SINGLE_SELECTION.to_string())*/},
+            DisplayMode::Info => {Mode::Info/*(SINGLE_SELECTION.to_string())*/},
             DisplayMode::Ignore => {Mode::Insert},
         }, 
         vec![

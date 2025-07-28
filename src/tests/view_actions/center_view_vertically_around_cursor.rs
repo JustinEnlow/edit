@@ -4,7 +4,8 @@ use crate::{
     range::Range,
     selection::{Selection, CursorSemantics::Block},
     display_area::DisplayArea,
-    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE, Config}
+    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, /*SAME_STATE, */Config},
+    keybind::default_keybinds
 };
 use crate::tests::view_actions::test_view_action;
 
@@ -25,7 +26,8 @@ use crate::tests::view_actions::test_view_action;
             tab_width: 4, 
             view_scroll_amount: 1, 
             show_cursor_column: false, 
-            show_cursor_line: false
+            show_cursor_line: false,
+            keybinds: default_keybinds()
         },
         ViewAction::CenterVerticallyAroundCursor, 
         //CursorSemantics::Block, 
@@ -81,7 +83,8 @@ use crate::tests::view_actions::test_view_action;
             tab_width: 4, 
             view_scroll_amount: 1, 
             show_cursor_column: false, 
-            show_cursor_line: false
+            show_cursor_line: false,
+            keybinds: default_keybinds()
         },
         ViewAction::CenterVerticallyAroundCursor, 
         //CursorSemantics::Block, 
@@ -115,7 +118,8 @@ use crate::tests::view_actions::test_view_action;
             tab_width: 4, 
             view_scroll_amount: 1, 
             show_cursor_column: false, 
-            show_cursor_line: false
+            show_cursor_line: false,
+            keybinds: default_keybinds()
         },
         ViewAction::CenterVerticallyAroundCursor, 
         //CursorSemantics::Block, 
@@ -130,10 +134,10 @@ use crate::tests::view_actions::test_view_action;
         ], 
         0, 
         match SAME_STATE_DISPLAY_MODE{
-            DisplayMode::Error => Mode::Error(SAME_STATE.to_string()),
-            DisplayMode::Warning => Mode::Warning(SAME_STATE.to_string()),
-            DisplayMode::Notify => Mode::Notify(SAME_STATE.to_string()),
-            DisplayMode::Info => Mode::Info(SAME_STATE.to_string()),
+            DisplayMode::Error => Mode::Error/*(SAME_STATE.to_string())*/,
+            DisplayMode::Warning => Mode::Warning/*(SAME_STATE.to_string())*/,
+            DisplayMode::Notify => Mode::Notify/*(SAME_STATE.to_string())*/,
+            DisplayMode::Info => Mode::Info/*(SAME_STATE.to_string())*/,
             DisplayMode::Ignore => Mode::Insert,
         },
         "idk\nsom\nmor\n", 
@@ -155,7 +159,8 @@ use crate::tests::view_actions::test_view_action;
             tab_width: 4, 
             view_scroll_amount: 1, 
             show_cursor_column: false, 
-            show_cursor_line: false
+            show_cursor_line: false,
+            keybinds: default_keybinds()
         },
         ViewAction::CenterVerticallyAroundCursor, 
         //CursorSemantics::Block, 
@@ -170,10 +175,10 @@ use crate::tests::view_actions::test_view_action;
         ], 
         0, 
         match SAME_STATE_DISPLAY_MODE{
-            DisplayMode::Error => Mode::Error(SAME_STATE.to_string()),
-            DisplayMode::Warning => Mode::Warning(SAME_STATE.to_string()),
-            DisplayMode::Notify => Mode::Notify(SAME_STATE.to_string()),
-            DisplayMode::Info => Mode::Info(SAME_STATE.to_string()),
+            DisplayMode::Error => Mode::Error/*(SAME_STATE.to_string())*/,
+            DisplayMode::Warning => Mode::Warning/*(SAME_STATE.to_string())*/,
+            DisplayMode::Notify => Mode::Notify/*(SAME_STATE.to_string())*/,
+            DisplayMode::Info => Mode::Info/*(SAME_STATE.to_string())*/,
             DisplayMode::Ignore => Mode::Insert,
         },
         "mor\noth\nshi\n", 
@@ -195,7 +200,8 @@ use crate::tests::view_actions::test_view_action;
             tab_width: 4, 
             view_scroll_amount: 1, 
             show_cursor_column: false, 
-            show_cursor_line: false
+            show_cursor_line: false,
+            keybinds: default_keybinds()
         },
         ViewAction::CenterVerticallyAroundCursor, 
         //CursorSemantics::Block, 
@@ -210,10 +216,10 @@ use crate::tests::view_actions::test_view_action;
         ], 
         0, 
         match SAME_STATE_DISPLAY_MODE{
-            DisplayMode::Error => Mode::Error(SAME_STATE.to_string()),
-            DisplayMode::Warning => Mode::Warning(SAME_STATE.to_string()),
-            DisplayMode::Notify => Mode::Notify(SAME_STATE.to_string()),
-            DisplayMode::Info => Mode::Info(SAME_STATE.to_string()),
+            DisplayMode::Error => Mode::Error/*(SAME_STATE.to_string())*/,
+            DisplayMode::Warning => Mode::Warning/*(SAME_STATE.to_string())*/,
+            DisplayMode::Notify => Mode::Notify/*(SAME_STATE.to_string())*/,
+            DisplayMode::Info => Mode::Info/*(SAME_STATE.to_string())*/,
             DisplayMode::Ignore => Mode::Insert,
         },
         "som\nmor\noth\n", 
@@ -235,7 +241,8 @@ use crate::tests::view_actions::test_view_action;
             tab_width: 4, 
             view_scroll_amount: 1, 
             show_cursor_column: false, 
-            show_cursor_line: false
+            show_cursor_line: false,
+            keybinds: default_keybinds()
         },
         ViewAction::CenterVerticallyAroundCursor, 
         //CursorSemantics::Block, 
@@ -250,10 +257,10 @@ use crate::tests::view_actions::test_view_action;
         ], 
         0, 
         match SAME_STATE_DISPLAY_MODE{
-            DisplayMode::Error => Mode::Error(SAME_STATE.to_string()),
-            DisplayMode::Warning => Mode::Warning(SAME_STATE.to_string()),
-            DisplayMode::Notify => Mode::Notify(SAME_STATE.to_string()),
-            DisplayMode::Info => Mode::Info(SAME_STATE.to_string()),
+            DisplayMode::Error => Mode::Error/*(SAME_STATE.to_string())*/,
+            DisplayMode::Warning => Mode::Warning/*(SAME_STATE.to_string())*/,
+            DisplayMode::Notify => Mode::Notify/*(SAME_STATE.to_string())*/,
+            DisplayMode::Info => Mode::Info/*(SAME_STATE.to_string())*/,
             DisplayMode::Ignore => Mode::Insert,
         },
         "yet\nsom\nmor\noth\n", 
@@ -275,7 +282,8 @@ use crate::tests::view_actions::test_view_action;
             tab_width: 4, 
             view_scroll_amount: 1, 
             show_cursor_column: false, 
-            show_cursor_line: false
+            show_cursor_line: false,
+            keybinds: default_keybinds()
         },
         ViewAction::CenterVerticallyAroundCursor, 
         //CursorSemantics::Block, 
@@ -290,10 +298,10 @@ use crate::tests::view_actions::test_view_action;
         ], 
         0, 
         match SAME_STATE_DISPLAY_MODE{
-            DisplayMode::Error => Mode::Error(SAME_STATE.to_string()),
-            DisplayMode::Warning => Mode::Warning(SAME_STATE.to_string()),
-            DisplayMode::Notify => Mode::Notify(SAME_STATE.to_string()),
-            DisplayMode::Info => Mode::Info(SAME_STATE.to_string()),
+            DisplayMode::Error => Mode::Error/*(SAME_STATE.to_string())*/,
+            DisplayMode::Warning => Mode::Warning/*(SAME_STATE.to_string())*/,
+            DisplayMode::Notify => Mode::Notify/*(SAME_STATE.to_string())*/,
+            DisplayMode::Info => Mode::Info/*(SAME_STATE.to_string())*/,
             DisplayMode::Ignore => Mode::Insert,
         },
         "yet\nsom\nmor\noth\n", 

@@ -1,9 +1,18 @@
 use crate::mode::Mode;
 
+//TODO
+//could we hold a mode related text, that could be pushed/popped with the mode  (intended for error/warning/notify/info mode text)
+pub struct StackMember{
+    pub mode: Mode,
+    //pub text: Option<String>
+}
+
 /// Guarantees at least one element on stack
 pub struct ModeStack{
-    stack: Vec<Mode>,   //could this be an array, if our stack will only ever be a certain amount of modes. //current worst case is Insert, SomeUtilMode, Error, Warning
-    top: Mode
+    //could this be an array, if our stack will only ever be a certain amount of modes. //current worst case is Insert, SomeUtilMode, Error, Warning
+    stack: Vec<Mode>,   //stack: (Vec<Mode>, Option<String>)
+    top: Mode   //top: (Mode, Option<String>)
+    //could we hold a mode related text, that could be pushed/popped with the mode  (intended for error/warning/notify/info mode text)
 }
 impl ModeStack{
     pub fn push(&mut self, new_top: Mode){

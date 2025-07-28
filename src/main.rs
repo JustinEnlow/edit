@@ -151,7 +151,8 @@ fn run_app(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, termi
             tab_width: edit::config::TAB_WIDTH,
             view_scroll_amount: edit::config::VIEW_SCROLL_AMOUNT,
             show_cursor_column: edit::config::SHOW_CURSOR_COLUMN,
-            show_cursor_line: edit::config::SHOW_CURSOR_LINE
+            show_cursor_line: edit::config::SHOW_CURSOR_LINE,
+            keybinds: edit::keybind::default_keybinds()
     };
     let display_line_numbers_on_startup = edit::config::DISPLAY_LINE_NUMBERS_ON_STARTUP;
     let display_status_bar_on_startup = edit::config::DISPLAY_STATUS_BAR_ON_STARTUP;

@@ -1,4 +1,4 @@
-pub enum EditorAction{
+#[derive(Clone)] pub enum EditorAction{
     ModePop,
     ModePush(crate::mode::Mode),
     Resize(u16, u16),
@@ -12,7 +12,7 @@ pub enum EditorAction{
     ToggleStatusBar,
     OpenNewTerminalWindow,
 }
-pub enum SelectionAction{   //TODO?: have (all?) selection actions take an amount, for action repetition. MoveCursorDown(2) would move the cursor down two lines, if possible, or saturate at buffer end otherwise, and error if already at buffer end
+#[derive(Clone)] pub enum SelectionAction{   //TODO?: have (all?) selection actions take an amount, for action repetition. MoveCursorDown(2) would move the cursor down two lines, if possible, or saturate at buffer end otherwise, and error if already at buffer end
     MoveCursorUp,
     MoveCursorDown,
     MoveCursorLeft,
@@ -52,7 +52,7 @@ pub enum SelectionAction{   //TODO?: have (all?) selection actions take an amoun
     FlipDirection,
         //TODO: SplitSelectionLines,    //split current selection into a selection for each line. error if single line
 }
-pub enum EditAction{
+#[derive(Clone)] pub enum EditAction{
         //TODO: AlignSelectedTextVertically,
     InsertChar(char),
     InsertNewline,
@@ -70,7 +70,7 @@ pub enum EditAction{
         //TODO: RotateTextInSelections,
     AddSurround(char, char),
 }
-pub enum ViewAction{
+#[derive(Clone)] pub enum ViewAction{
     CenterVerticallyAroundCursor,
         //TODO: CenterHorizontallyAroundCursor,
         //TODO: AlignWithCursorAtTop,
@@ -80,7 +80,7 @@ pub enum ViewAction{
     ScrollLeft,
     ScrollRight,
 }
-pub enum UtilAction{
+#[derive(Clone)] pub enum UtilAction{
     Backspace,
     Delete,
     InsertChar(char),
@@ -99,7 +99,7 @@ pub enum UtilAction{
     Exit,
     GotoModeSelectionAction(SelectionAction),
 }
-pub enum Action{
+#[derive(Clone)] pub enum Action{
     EditorAction(EditorAction),
     SelectionAction(SelectionAction, usize),
     EditAction(EditAction),

@@ -4,7 +4,8 @@ use crate::{
     range::Range,
     selection::{Selection, CursorSemantics::Block, /*Extension*/Direction},
     display_area::DisplayArea,
-    config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER, MULTIPLE_SELECTIONS_DISPLAY_MODE, MULTIPLE_SELECTIONS, Config}
+    config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, /*READ_ONLY_BUFFER, */MULTIPLE_SELECTIONS_DISPLAY_MODE, /*MULTIPLE_SELECTIONS, */Config},
+    keybind::default_keybinds
 };
 use crate::tests::edit_actions::test_edit_action;
 
@@ -17,7 +18,8 @@ use crate::tests::edit_actions::test_edit_action;
             tab_width: 4, 
             view_scroll_amount: 1, 
             show_cursor_column: false, 
-            show_cursor_line: false
+            show_cursor_line: false,
+            keybinds: default_keybinds()
         },
         Cut, 
         //Block, 
@@ -52,7 +54,8 @@ use crate::tests::edit_actions::test_edit_action;
             tab_width: 4, 
             view_scroll_amount: 1, 
             show_cursor_column: false, 
-            show_cursor_line: false
+            show_cursor_line: false,
+            keybinds: default_keybinds()
         },
         Cut, 
         //Block, 
@@ -87,7 +90,8 @@ use crate::tests::edit_actions::test_edit_action;
             tab_width: 4, 
             view_scroll_amount: 1, 
             show_cursor_column: false, 
-            show_cursor_line: false
+            show_cursor_line: false,
+            keybinds: default_keybinds()
         },
         Cut, 
         //Block, 
@@ -106,10 +110,10 @@ use crate::tests::edit_actions::test_edit_action;
         "",
         "idk\nsome\nshit\n", 
         match MULTIPLE_SELECTIONS_DISPLAY_MODE{
-            DisplayMode::Error => {Mode::Error(MULTIPLE_SELECTIONS.to_string())}
-            DisplayMode::Warning => {Mode::Warning(MULTIPLE_SELECTIONS.to_string())}
-            DisplayMode::Notify => {Mode::Notify(MULTIPLE_SELECTIONS.to_string())}
-            DisplayMode::Info => {Mode::Info(MULTIPLE_SELECTIONS.to_string())}
+            DisplayMode::Error => {Mode::Error/*(MULTIPLE_SELECTIONS.to_string())*/}
+            DisplayMode::Warning => {Mode::Warning/*(MULTIPLE_SELECTIONS.to_string())*/}
+            DisplayMode::Notify => {Mode::Notify/*(MULTIPLE_SELECTIONS.to_string())*/}
+            DisplayMode::Info => {Mode::Info/*(MULTIPLE_SELECTIONS.to_string())*/}
             DisplayMode::Ignore => {Mode::Insert}
         }, 
         vec![
@@ -132,7 +136,8 @@ use crate::tests::edit_actions::test_edit_action;
             tab_width: 4, 
             view_scroll_amount: 1, 
             show_cursor_column: false, 
-            show_cursor_line: false
+            show_cursor_line: false,
+            keybinds: default_keybinds()
         },
         Cut, 
         //Block, 
@@ -151,10 +156,10 @@ use crate::tests::edit_actions::test_edit_action;
         "",
         "some\nshit\n", 
         match READ_ONLY_BUFFER_DISPLAY_MODE{
-            DisplayMode::Error => {Mode::Error(READ_ONLY_BUFFER.to_string())}
-            DisplayMode::Warning => {Mode::Warning(READ_ONLY_BUFFER.to_string())}
-            DisplayMode::Notify => {Mode::Notify(READ_ONLY_BUFFER.to_string())}
-            DisplayMode::Info => {Mode::Info(READ_ONLY_BUFFER.to_string())}
+            DisplayMode::Error => {Mode::Error/*(READ_ONLY_BUFFER.to_string())*/}
+            DisplayMode::Warning => {Mode::Warning/*(READ_ONLY_BUFFER.to_string())*/}
+            DisplayMode::Notify => {Mode::Notify/*(READ_ONLY_BUFFER.to_string())*/}
+            DisplayMode::Info => {Mode::Info/*(READ_ONLY_BUFFER.to_string())*/}
             DisplayMode::Ignore => {Mode::Insert}
         }, 
         vec![

@@ -4,7 +4,8 @@ use crate::{
     range::Range,
     selection::{Selection, CursorSemantics::Block, /*Extension*/Direction},
     display_area::DisplayArea,
-    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SAME_STATE, SPANS_MULTIPLE_LINES_DISPLAY_MODE, SPANS_MULTIPLE_LINES, Config}
+    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, /*SAME_STATE, */SPANS_MULTIPLE_LINES_DISPLAY_MODE, /*SPANS_MULTIPLE_LINES, */Config},
+    keybind::default_keybinds
 };
 use crate::tests::selection_actions::test_selection_action;
 
@@ -19,7 +20,8 @@ use crate::tests::selection_actions::test_selection_action;
             tab_width: 4, 
             view_scroll_amount: 1, 
             show_cursor_column: false, 
-            show_cursor_line: false
+            show_cursor_line: false,
+            keybinds: default_keybinds()
         },
         SelectLine, 
         //Block, 
@@ -54,7 +56,8 @@ use crate::tests::selection_actions::test_selection_action;
             tab_width: 4, 
             view_scroll_amount: 1, 
             show_cursor_column: false, 
-            show_cursor_line: false
+            show_cursor_line: false,
+            keybinds: default_keybinds()
         },
         SelectLine, 
         //Block, 
@@ -90,7 +93,8 @@ use crate::tests::selection_actions::test_selection_action;
             tab_width: 4, 
             view_scroll_amount: 1, 
             show_cursor_column: false, 
-            show_cursor_line: false
+            show_cursor_line: false,
+            keybinds: default_keybinds()
         },
         SelectLine, 
         //Block, 
@@ -105,10 +109,10 @@ use crate::tests::selection_actions::test_selection_action;
         0, 
         1, 
         match SPANS_MULTIPLE_LINES_DISPLAY_MODE{
-            DisplayMode::Error => {Mode::Error(SPANS_MULTIPLE_LINES.to_string())},
-            DisplayMode::Warning => {Mode::Warning(SPANS_MULTIPLE_LINES.to_string())},
-            DisplayMode::Notify => {Mode::Notify(SPANS_MULTIPLE_LINES.to_string())},
-            DisplayMode::Info => {Mode::Info(SPANS_MULTIPLE_LINES.to_string())},
+            DisplayMode::Error => {Mode::Error/*(SPANS_MULTIPLE_LINES.to_string())*/},
+            DisplayMode::Warning => {Mode::Warning/*(SPANS_MULTIPLE_LINES.to_string())*/},
+            DisplayMode::Notify => {Mode::Notify/*(SPANS_MULTIPLE_LINES.to_string())*/},
+            DisplayMode::Info => {Mode::Info/*(SPANS_MULTIPLE_LINES.to_string())*/},
             DisplayMode::Ignore => {Mode::Insert},
         }, 
         vec![
@@ -129,7 +133,8 @@ use crate::tests::selection_actions::test_selection_action;
             tab_width: 4, 
             view_scroll_amount: 1, 
             show_cursor_column: false, 
-            show_cursor_line: false
+            show_cursor_line: false,
+            keybinds: default_keybinds()
         },
         SelectLine, 
         //Block, 
@@ -144,10 +149,10 @@ use crate::tests::selection_actions::test_selection_action;
         0, 
         1, 
         match SAME_STATE_DISPLAY_MODE{
-            DisplayMode::Error => {Mode::Error(SAME_STATE.to_string())},
-            DisplayMode::Warning => {Mode::Warning(SAME_STATE.to_string())},
-            DisplayMode::Notify => {Mode::Notify(SAME_STATE.to_string())},
-            DisplayMode::Info => {Mode::Info(SAME_STATE.to_string())},
+            DisplayMode::Error => {Mode::Error/*(SAME_STATE.to_string())*/},
+            DisplayMode::Warning => {Mode::Warning/*(SAME_STATE.to_string())*/},
+            DisplayMode::Notify => {Mode::Notify/*(SAME_STATE.to_string())*/},
+            DisplayMode::Info => {Mode::Info/*(SAME_STATE.to_string())*/},
             DisplayMode::Ignore => {Mode::Insert},
         }, 
         vec![
@@ -168,7 +173,8 @@ use crate::tests::selection_actions::test_selection_action;
             tab_width: 4, 
             view_scroll_amount: 1, 
             show_cursor_column: false, 
-            show_cursor_line: false
+            show_cursor_line: false,
+            keybinds: default_keybinds()
         },
         SelectLine, 
         //Block, 
@@ -183,10 +189,10 @@ use crate::tests::selection_actions::test_selection_action;
         0, 
         1, 
         match SAME_STATE_DISPLAY_MODE{
-            DisplayMode::Error => {Mode::Error(SAME_STATE.to_string())},
-            DisplayMode::Warning => {Mode::Warning(SAME_STATE.to_string())},
-            DisplayMode::Notify => {Mode::Notify(SAME_STATE.to_string())},
-            DisplayMode::Info => {Mode::Info(SAME_STATE.to_string())},
+            DisplayMode::Error => {Mode::Error/*(SAME_STATE.to_string())*/},
+            DisplayMode::Warning => {Mode::Warning/*(SAME_STATE.to_string())*/},
+            DisplayMode::Notify => {Mode::Notify/*(SAME_STATE.to_string())*/},
+            DisplayMode::Info => {Mode::Info/*(SAME_STATE.to_string())*/},
             DisplayMode::Ignore => {Mode::Insert},
         }, 
         vec![

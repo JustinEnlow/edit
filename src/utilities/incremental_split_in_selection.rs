@@ -68,7 +68,9 @@ pub fn selections_impl(selections: &Selections, input: &str, buffer: &crate::buf
                 let mut new_selection = selection.clone();
                 new_selection.range.start = selection_range.start;
                 new_selection.range.end = selection_range.end;
-                new_selection.extension_direction = Some(Direction::Forward);
+                //new_selection.extension_direction = Some(Direction::Forward);
+                new_selection.extension_direction = if buffer.next_grapheme_char_index(new_selection.range.start) == new_selection.range.end{None}
+                else{Some(Direction::Forward)};
                 selections.push(new_selection);
             }
             start = split.end().saturating_add(selection.range.start);
@@ -79,7 +81,9 @@ pub fn selections_impl(selections: &Selections, input: &str, buffer: &crate::buf
             let mut new_selection = selection.clone();
             new_selection.range.start = start;
             new_selection.range.end = selection.range.end.min(buffer.len_chars());
-            new_selection.extension_direction = Some(Direction::Forward);
+            //new_selection.extension_direction = Some(Direction::Forward);
+            new_selection.extension_direction = if buffer.next_grapheme_char_index(new_selection.range.start) == new_selection.range.end{None}
+            else{Some(Direction::Forward)};
             selections.push(new_selection);
         }
     }
