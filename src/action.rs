@@ -1,6 +1,6 @@
 #[derive(Clone)] pub enum EditorAction{
     ModePop,
-    ModePush(crate::mode::Mode),
+    ModePush(crate::mode_stack::StackMember),
     Resize(u16, u16),
     NoOpKeypress,
     NoOpEvent,

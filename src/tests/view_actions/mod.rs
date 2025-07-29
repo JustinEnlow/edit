@@ -46,7 +46,7 @@ pub fn test_view_action(
             //app.mode_push(Mode::View);
             if starting_mode != Mode::Insert{
                 //app.mode_push(starting_mode);
-                app.action(crate::action::Action::EditorAction(crate::action::EditorAction::ModePush(starting_mode)));
+                app.action(crate::action::Action::EditorAction(crate::action::EditorAction::ModePush(/*starting_mode*/crate::mode_stack::StackMember{mode: starting_mode, text: None})));
             }
 
             //call action specific test(selection/view/edit/etc)

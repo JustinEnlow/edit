@@ -1,28 +1,31 @@
 use crate::mode::Mode;
 
-//TODO
-//could we hold a mode related text, that could be pushed/popped with the mode  (intended for error/warning/notify/info mode text)
-pub struct StackMember{
+#[derive(Clone, PartialEq, Debug)] pub struct StackMember{
     pub mode: Mode,
-    //pub text: Option<String>
+    pub text: Option<String>
 }
 
 /// Guarantees at least one element on stack
 pub struct ModeStack{
-    //could this be an array, if our stack will only ever be a certain amount of modes. //current worst case is Insert, SomeUtilMode, Error, Warning
-    stack: Vec<Mode>,   //stack: (Vec<Mode>, Option<String>)
-    top: Mode   //top: (Mode, Option<String>)
-    //could we hold a mode related text, that could be pushed/popped with the mode  (intended for error/warning/notify/info mode text)
+    stack: Vec<StackMember>,
+    top: StackMember
 }
 impl ModeStack{
-    pub fn push(&mut self, new_top: Mode){
+    pub fn push(&mut self, new_top: StackMember){
         self.stack.push(self.top.clone());
         self.top = new_top;
     }
-    pub fn pop(&mut self) -> Result<Mode, String>{
+    pub fn pop(&mut self) -> Result<StackMember, String>{
         match self.stack.pop(){
             Some(new_top) => {
                 let old_top = self.top.clone();
+                //
+                if matches!(old_top.mode, Mode::Error | Mode::Warning | Mode::Notify | Mode::Info){
+                    assert!(old_top.text.is_some());
+                }else{
+                    assert!(old_top.text.is_none());
+                }
+                //
                 self.top = new_top;
                 Ok(old_top)
             }
@@ -31,7 +34,7 @@ impl ModeStack{
             }
         }
     }
-    pub fn top(&self) -> Mode{
+    pub fn top(&self) -> StackMember{
         self.top.clone()
     }
     pub fn len(&self) -> usize{
@@ -40,25 +43,25 @@ impl ModeStack{
 }
 impl Default for ModeStack{
     fn default() -> Self{
-        ModeStack{stack: Vec::new(), top: Mode::Insert}
+        ModeStack{stack: Vec::new(), top: StackMember{mode: Mode::Insert, text: None}}
     }
 }
 
 #[cfg(test)]
 mod tests{
     use crate::mode::Mode;
-    use crate::mode_stack::ModeStack;
+    use crate::mode_stack::{ModeStack, StackMember};
 
     #[test] fn default_mode_stack_is_insert(){
         let mode_stack = ModeStack::default();
-        assert_eq!(Mode::Insert, mode_stack.top);
+        assert_eq!(StackMember{mode: Mode::Insert, text: None}, mode_stack.top);
         assert!(mode_stack.stack.is_empty());
     }
 
     #[test] fn push_and_pop(){
         let mut mode_stack = ModeStack::default();
-        mode_stack.push(Mode::Goto);
-        assert_eq!(Ok(Mode::Goto), mode_stack.pop());
+        mode_stack.push(StackMember{mode: Mode::Goto, text: None});
+        assert_eq!(Ok(StackMember{mode: Mode::Goto, text: None}), mode_stack.pop());
         assert!(mode_stack.pop().is_err());
     }
 
