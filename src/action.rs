@@ -12,7 +12,26 @@
     ToggleStatusBar,
     OpenNewTerminalWindow,
 }
-#[derive(Clone)] pub enum SelectionAction{   //TODO?: have (all?) selection actions take an amount, for action repetition. MoveCursorDown(2) would move the cursor down two lines, if possible, or saturate at buffer end otherwise, and error if already at buffer end
+impl EditorAction{
+    fn action_name(&self) -> String{
+        let name = match self{
+            EditorAction::Copy => "copy",
+            EditorAction::ModePop => "exit mode",
+            EditorAction::ModePush(mode) => &format!("push {:?} to mode stack", mode),
+            EditorAction::NoOpEvent => "no op event",
+            EditorAction::NoOpKeypress => "no op keypress",
+            EditorAction::OpenNewTerminalWindow => "open new terminal window",
+            EditorAction::Quit => "quit",
+            EditorAction::QuitIgnoringChanges => "force quit",
+            EditorAction::Resize(x, y) => &format!("resize to {},{}", x, y),
+            EditorAction::Save => "save",
+            EditorAction::ToggleLineNumbers => "toggle line numbers",
+            EditorAction::ToggleStatusBar => "toggle status bar"
+        };
+        name.to_string()
+    }
+}
+#[derive(Clone, Debug)] pub enum SelectionAction{   //TODO?: have (all?) selection actions take an amount, for action repetition. MoveCursorDown(2) would move the cursor down two lines, if possible, or saturate at buffer end otherwise, and error if already at buffer end
     MoveCursorUp,
     MoveCursorDown,
     MoveCursorLeft,
@@ -52,6 +71,46 @@
     FlipDirection,
         //TODO: SplitSelectionLines,    //split current selection into a selection for each line. error if single line
 }
+impl SelectionAction{
+    fn action_name(&self) -> String{
+        let name = match self{
+            SelectionAction::AddSelectionAbove => "add selection above",
+            SelectionAction::AddSelectionBelow => "add selection below",
+            SelectionAction::ClearNonPrimarySelections => "clear non primary selections",
+            SelectionAction::CollapseSelectionToAnchor => "collapse selection to anchor",
+            SelectionAction::CollapseSelectionToCursor => "collapse selection to cursor",
+            SelectionAction::DecrementPrimarySelection => "decrement primary selection",
+            SelectionAction::ExtendSelectionDown => "extend selection down",
+            SelectionAction::ExtendSelectionHome => "extend selection home",
+            SelectionAction::ExtendSelectionLeft => "extend selection left",
+            SelectionAction::ExtendSelectionLineEnd => "extend selection to line end",
+            SelectionAction::ExtendSelectionRight => "extend selection right",
+            SelectionAction::ExtendSelectionUp => "extend selection up",
+            SelectionAction::ExtendSelectionWordBoundaryBackward => "extend selection word boundary backward",
+            SelectionAction::ExtendSelectionWordBoundaryForward => "extend selection word boundary forward",
+            SelectionAction::FlipDirection => "flip direction",
+            SelectionAction::IncrementPrimarySelection => "increment primary selection",
+            SelectionAction::MoveCursorBufferEnd => "move cursor buffer end",
+            SelectionAction::MoveCursorBufferStart => "move cursor buffer start",
+            SelectionAction::MoveCursorDown => "move cursor down",
+            SelectionAction::MoveCursorHome => "move cursor home",
+            SelectionAction::MoveCursorLeft => "move cursor left",
+            SelectionAction::MoveCursorLineEnd => "move cursor to line end",
+            SelectionAction::MoveCursorPageDown => "move cursor page down",
+            SelectionAction::MoveCursorPageUp => "move cursor page up",
+            SelectionAction::MoveCursorRight => "move cursor right",
+            SelectionAction::MoveCursorUp => "move cursor up",
+            SelectionAction::MoveCursorWordBoundaryBackward => "move cursor word boundary backward",
+            SelectionAction::MoveCursorWordBoundaryForward => "move cursor word boundary forward",
+            SelectionAction::RemovePrimarySelection => "remove primary selection",
+            SelectionAction::SelectAll => "select all",
+            SelectionAction::SelectLine => "select line",
+            SelectionAction::Surround => "surround",
+            SelectionAction::SurroundingPair => "select nearest surrounding bracket pair",
+        };
+        name.to_string()
+    }
+}
 #[derive(Clone)] pub enum EditAction{
         //TODO: AlignSelectedTextVertically,
     InsertChar(char),
@@ -80,6 +139,18 @@
     ScrollLeft,
     ScrollRight,
 }
+impl ViewAction{
+    fn action_name(&self) -> String{
+        let name = match self{
+            ViewAction::CenterVerticallyAroundCursor => "center vertically around primary cursor",
+            ViewAction::ScrollDown => "scroll down",
+            ViewAction::ScrollLeft => "scroll left",
+            ViewAction::ScrollRight => "scroll right",
+            ViewAction::ScrollUp => "scroll up"
+        };
+        name.to_string()
+    }
+}
 #[derive(Clone)] pub enum UtilAction{
     Backspace,
     Delete,
@@ -99,10 +170,53 @@
     Exit,
     GotoModeSelectionAction(SelectionAction),
 }
+impl UtilAction{
+    fn action_name(&self) -> String{
+        let name = match self{
+            UtilAction::Accept => "accept",
+            UtilAction::Backspace => "backspace",
+            UtilAction::Copy => "copy",
+            UtilAction::Cut => "cut",
+            UtilAction::Delete => "delete",
+            UtilAction::Exit => "exit mode",
+            UtilAction::ExtendEnd => "extend selection to text end",
+            UtilAction::ExtendHome => "extend selection home",
+            UtilAction::ExtendLeft => "extend selection left",
+            UtilAction::ExtendRight => "extend selection right",
+            UtilAction::GotoModeSelectionAction(selection_action) => &selection_action.action_name(),
+            UtilAction::InsertChar(c) => &format!("insert char {}", c),
+            UtilAction::MoveEnd => "move cursor text end",
+            UtilAction::MoveHome => "move cursor home",
+            UtilAction::MoveLeft => "move cursor left",
+            UtilAction::MoveRight => "move cursor right",
+            UtilAction::Paste => "paste"
+        };
+        name.to_string()
+    }
+}
 #[derive(Clone)] pub enum Action{
     EditorAction(EditorAction),
     SelectionAction(SelectionAction, usize),
     EditAction(EditAction),
     ViewAction(ViewAction),
     UtilAction(UtilAction)
+}
+impl Action{
+    pub fn command_name(&self) -> String{
+        let command_name = match self{
+            Action::EditorAction(editor_action) => {&editor_action.action_name()}
+            Action::SelectionAction(selection_action, _) => {&selection_action.action_name()}
+            Action::EditAction(_edit_action) => "unimplemented",
+            Action::ViewAction(view_action) => {&view_action.action_name()}
+            Action::UtilAction(util_action) => {&util_action.action_name()}
+        };
+        command_name.to_string()
+    }
+    pub fn command_source(&self) -> String{
+        let command_source = match self{
+            Action::EditorAction(_) | Action::ViewAction(_) | Action::UtilAction(_) => "(edit cli)",
+            Action::SelectionAction(_, _) | Action::EditAction(_) => "(edit core)",
+        };
+        command_source.to_string()
+    }
 }

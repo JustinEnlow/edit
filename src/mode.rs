@@ -55,4 +55,7 @@ pub enum Mode{
     //SelectUntilNext,
     //select until the prev occuring instance of a search pattern
     //SelectUntilPrev,
+
+    //ReplaceSelectionWithShellCommandOutputNoContext,
+    //ReplaceSelectionWithShellCommandOutputWithContext,
 }

@@ -23,13 +23,13 @@ pub struct UserInterface{
     pub popups: Popups,
 }
 impl UserInterface{
-    pub fn new(terminal_size: Rect) -> Self{
+    pub fn new(terminal_size: Rect, keybinds: &std::collections::HashMap<(crate::mode::Mode, crossterm::event::KeyEvent), crate::action::Action>) -> Self{
         Self{
             terminal_size,  //TODO: this can prob be removed if terminal.size() called in update_layouts...
             document_viewport: DocumentViewport::default(),
             status_bar: StatusBar::default(),
             util_bar: UtilBar::default(),
-            popups: Popups::new(),
+            popups: Popups::new(keybinds),
         }
     }
     //TODO: this can prob be removed if terminal.size() called in update_layouts...

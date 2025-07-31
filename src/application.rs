@@ -49,6 +49,16 @@
 //}
 ////////////////////////////////////////////////////////////////////////////
 
+// could certain actions be accomplished with a built in command?
+// add-highlighter  //line/column/rope offset/range based?...    //pre virtual text or post?     //only single cell or vec of cells?...
+    //let user decide which coordinate scheme to use, but it should always resolve to a rope offset
+    //this will be pre virtual text, and accounted for in edit core/server before conversion to display coordinates
+    //all buffer highlights should be listed in offset coordinates and served at buffer/highlights
+    //visible buffer highlights should be listed in display coordinates and served at display_area/highlights
+// add-virtual-text //line/column or rope offset?...    //should this have an associated color for highlighting?...
+// add-command <name> <command>     //add-comand open_terminal "alacritty &"
+// add-keybind <scope> <mode> <keybind> <command>
+
 use std::path::PathBuf;
 use crossterm::event;
 use ratatui::{
@@ -116,7 +126,7 @@ impl Application{
         let mut instance = Self{
             should_quit: false,
             mode_stack: ModeStack::default(),
-        ui: UserInterface::new(terminal_rect),
+        ui: UserInterface::new(terminal_rect, &config.keybinds),
             config: config.clone(),
             buffer: buffer.clone(),
             preserved_selections: None,
@@ -762,20 +772,21 @@ impl Application{
     }
     pub fn update_ui_data_mode(&mut self){
         //does this belong here, or in ui.rs?...
-        self.ui.status_bar.mode_widget.text = match self.mode(){
-            Mode::AddSurround => format!("AddSurround: {:#?}", self.mode_stack.len()),
-            Mode::Command => format!("Command: {:#?}", self.mode_stack.len()),
-            Mode::Error => format!("Error: {:#?}", self.mode_stack.len()),
-            Mode::Find => format!("Find: {:#?}", self.mode_stack.len()),
-            Mode::Goto => format!("Goto: {:#?}", self.mode_stack.len()),
-            Mode::Info => format!("Info: {:#?}", self.mode_stack.len()),
-            Mode::Insert => format!("Insert: {:#?}", self.mode_stack.len()),
-            Mode::Notify => format!("Notify: {:#?}", self.mode_stack.len()),
-            Mode::Object => format!("Object: {:#?}", self.mode_stack.len()),
-            Mode::Split => format!("Split: {:#?}", self.mode_stack.len()),
-            Mode::View => format!("View: {:#?}", self.mode_stack.len()),
-            Mode::Warning => format!("Warning: {:#?}", self.mode_stack.len()),
-        };
+        //self.ui.status_bar.mode_widget.text = match self.mode(){
+        //    Mode::AddSurround => format!("AddSurround: {:#?}", self.mode_stack.len()),
+        //    Mode::Command => format!("Command: {:#?}", self.mode_stack.len()),
+        //    Mode::Error => format!("Error: {:#?}", self.mode_stack.len()),
+        //    Mode::Find => format!("Find: {:#?}", self.mode_stack.len()),
+        //    Mode::Goto => format!("Goto: {:#?}", self.mode_stack.len()),
+        //    Mode::Info => format!("Info: {:#?}", self.mode_stack.len()),
+        //    Mode::Insert => format!("Insert: {:#?}", self.mode_stack.len()),
+        //    Mode::Notify => format!("Notify: {:#?}", self.mode_stack.len()),
+        //    Mode::Object => format!("Object: {:#?}", self.mode_stack.len()),
+        //    Mode::Split => format!("Split: {:#?}", self.mode_stack.len()),
+        //    Mode::View => format!("View: {:#?}", self.mode_stack.len()),
+        //    Mode::Warning => format!("Warning: {:#?}", self.mode_stack.len()),
+        //};
+        self.ui.status_bar.mode_widget.text = format!("{:?}: {:#?}", self.mode(), self.mode_stack.len());
     }
     pub fn update_ui_data_util_bar(&mut self){
         let text_box = &self.ui.util_bar.utility_widget.text_box;
@@ -938,7 +949,7 @@ impl Application{
             EditorAction::NoOpEvent => {self.handle_notification(UNHANDLED_EVENT_DISPLAY_MODE, UNHANDLED_EVENT);}
             EditorAction::Quit => {
                 //possible modes are Insert and Command + any mode with fallthrough to insert
-                assert!(matches!(self.mode(), Mode::Insert | Mode::Command | Mode::Warning | Mode::Notify | Mode::Info));
+                assert!(matches!(self.mode(), Mode::Insert | Mode::Command | Mode::Error | Mode::Warning | Mode::Notify | Mode::Info));
                 if self.buffer.is_modified(){
                     if self.mode() == Mode::Error && self.mode_stack.top().text.unwrap() == FILE_MODIFIED{
                         self.action(Action::EditorAction(EditorAction::QuitIgnoringChanges));
@@ -947,12 +958,16 @@ impl Application{
                         self.handle_notification(DisplayMode::Error, FILE_MODIFIED);
                     }
                 }
-                else{self.should_quit = true;}
+                else{
+                    if self.mode() == Mode::Error{self.action(Action::EditorAction(EditorAction::NoOpKeypress));}
+                    else{self.should_quit = true;}
+                }
             }
             EditorAction::QuitIgnoringChanges => {
                 assert!(
                     self.mode() == Mode::Error && self.mode_stack.top().text.unwrap() == FILE_MODIFIED ||
-                    self.mode() == Mode::Command
+                    self.mode() == Mode::Command ||
+                    self.mode() == Mode::Insert
                 );
                 self.should_quit = true;
             }
@@ -1283,7 +1298,7 @@ impl Application{
                         else{self.action(Action::EditorAction(EditorAction::ModePop));}
                     }
                     Mode::Find | Mode::Split => self.action(Action::EditorAction(EditorAction::ModePop)),
-                    _ => {}
+                    Mode::AddSurround | Mode::Insert | Mode::Object | Mode::View | Mode::Error | Mode::Warning | Mode::Notify | Mode::Info => {unreachable!()}
                 }
                 perform_follow_up_behavior = false;
             }

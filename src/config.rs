@@ -142,8 +142,8 @@ pub const SHOW_CURSOR_LINE: bool = true;//false;
 // whether to display a popup menu showing mode specific keybinds   //TODO: need to add status bar Mode indicator, for when this is set to false, so user can see what mode they are in
 pub const SHOW_CONTEXTUAL_KEYBINDS: bool = true;    //may break these up into per mode toggles
 // whether popup menus should display the source(edit_core or name of external utility that provides command functionality) for each command
-pub const SHOW_COMMAND_SOURCES_IN_POPUP_MENUS: bool = false;
-// whether key binds in popup menus should be represented as a symbol or text
-pub const SHOW_SYMBOLIC_MENU_KEYS: bool = true;
+pub const SHOW_COMMAND_SOURCES_IN_POPUP_MENUS: bool = true;
+    // whether key binds in popup menus should be represented as a symbol or text
+    //pub const SHOW_SYMBOLIC_MENU_KEYS: bool = false;  //maybe let user define a string per keycode/modifier in config instead...
 //
 pub const SHOW_POPUP_MENU_COLUMN_HEADERS: bool = true;

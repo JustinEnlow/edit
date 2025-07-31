@@ -16,6 +16,7 @@ use std::collections::HashMap;
 pub fn default_keybinds() -> HashMap<(Mode, KeyEvent), Action>{
     let mut keybinds = HashMap::new();
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('p'), KeyModifiers::CONTROL | KeyModifiers::SHIFT)), Action::SelectionAction(SelectionAction::DecrementPrimarySelection, 1));
+    //keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('q'), KeyModifiers::CONTROL | KeyModifiers::SHIFT)), Action::EditorAction(EditorAction::QuitIgnoringChanges));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL | KeyModifiers::SHIFT)), Action::EditAction(EditAction::Redo));
         //this seems to be triggering some mode in my alacritty settings?...  yeah, doesn't seem to be a thing in GNOME terminal...
         //keybinds.insert((Mode::Insert, KeyEvent::new_with_kind(KeyCode::Char('b'), KeyModifiers::CONTROL | KeyModifiers::SHIFT, KeyEventKind::Press)), Action::EditorAction(EditorAction::ModePush(Mode::AddSurround)));
@@ -181,6 +182,12 @@ pub fn default_keybinds() -> HashMap<(Mode, KeyEvent), Action>{
     //TODO: set warning if util text invalid
     keybinds.insert((Mode::Command, KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Accept));
 
+    //TODO: could all keys take an extra condition param that, if populated, must match
+    //so call would look like: match self.config.keybinds.get(&(self.mode(), key_event, Some(self.mode_stack.top().text.unwrap()))).cloned(){
+    //and popup menu creation would look like: for ((mode, key_event, condition), action) in keybinds{
+    //(Mode::Error, KeyEvent::new(KeyCode::Char('q'), KeyModifiers::Control), Some(FILE_MODIFIED))
+    //or for match with not condition: match self.config.keybinds.get(&(self.mode(), key_event, None)).cloned(){
+    //(Mode::Error, KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE, None))
     keybinds.insert((Mode::Error, KeyEvent::new(KeyCode::Char('q'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::Quit));
     keybinds.insert((Mode::Error, KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)), Action::EditorAction(EditorAction::ModePop));
 
