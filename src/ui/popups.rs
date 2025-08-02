@@ -126,6 +126,9 @@ pub struct Popups{
     pub add_surround: PopupMenu,
 }
 impl Popups{
+    //TODO: popup text should probably be set in ModePush, so that keybinds added at run time can be included...
+    //currently, popup text is only being set at start up
+    //or maybe reload whenev user adds a new keybind/command, because reloading every mode_push may be unnecessary
     pub fn new(keybinds: &std::collections::HashMap<(crate::mode::Mode, KeyEvent), crate::action::Action>) -> Self{
         //the hashmap seems to have no set order. every time the editor runs, the order of menu items changes.
         //is there some way to force it to stay the same?...
@@ -195,12 +198,12 @@ impl Popups{
 use crossterm::event::{KeyEvent, KeyCode, KeyModifiers};
 fn modifiers(key_event: &KeyEvent) -> String{
     let mut modifiers = String::new();
-    if key_event.modifiers.contains(KeyModifiers::META){modifiers.push_str(&format!("{}{}", "meta", "+"));}
-    if key_event.modifiers.contains(KeyModifiers::SUPER){modifiers.push_str(&format!("{}{}", "super", "+"));}
-    if key_event.modifiers.contains(KeyModifiers::HYPER){modifiers.push_str(&format!("{}{}", "hyper", "+"));}
-    if key_event.modifiers.contains(KeyModifiers::CONTROL){modifiers.push_str(&format!("{}{}", "control", "+"));}
-    if key_event.modifiers.contains(KeyModifiers::ALT){modifiers.push_str(&format!("{}{}", "alt", "+"));}
-    if key_event.modifiers.contains(KeyModifiers::SHIFT){modifiers.push_str(&format!("{}{}", "shift", "+"));}
+    if key_event.modifiers.contains(KeyModifiers::META)   {modifiers.push_str(&format!("{}{}", "meta",  "+"));}
+    if key_event.modifiers.contains(KeyModifiers::SUPER)  {modifiers.push_str(&format!("{}{}", "super", "+"));}
+    if key_event.modifiers.contains(KeyModifiers::HYPER)  {modifiers.push_str(&format!("{}{}", "hyper", "+"));}
+    if key_event.modifiers.contains(KeyModifiers::CONTROL){modifiers.push_str(&format!("{}{}", "ctrl",  "+"));}
+    if key_event.modifiers.contains(KeyModifiers::ALT)    {modifiers.push_str(&format!("{}{}", "alt",   "+"));}
+    if key_event.modifiers.contains(KeyModifiers::SHIFT)  {modifiers.push_str(&format!("{}{}", "shift", "+"));}
     //if key_event.modifiers.contains(KeyModifiers::NONE){/* do nothing*/}
     modifiers
 }

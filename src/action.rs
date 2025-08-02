@@ -174,22 +174,22 @@ impl UtilAction{
     fn action_name(&self) -> String{
         let name = match self{
             UtilAction::Accept => "accept",
-            UtilAction::Backspace => "backspace",
-            UtilAction::Copy => "copy",
-            UtilAction::Cut => "cut",
-            UtilAction::Delete => "delete",
+            UtilAction::Backspace => "util text box backspace",
+            UtilAction::Copy => "util text box copy",
+            UtilAction::Cut => "util text box cut",
+            UtilAction::Delete => "util text box delete",
             UtilAction::Exit => "exit mode",
-            UtilAction::ExtendEnd => "extend selection to text end",
-            UtilAction::ExtendHome => "extend selection home",
-            UtilAction::ExtendLeft => "extend selection left",
-            UtilAction::ExtendRight => "extend selection right",
+            UtilAction::ExtendEnd => "util text box extend selection to text end",
+            UtilAction::ExtendHome => "util text box extend selection home",
+            UtilAction::ExtendLeft => "util text box extend selection left",
+            UtilAction::ExtendRight => "util text box extend selection right",
             UtilAction::GotoModeSelectionAction(selection_action) => &selection_action.action_name(),
-            UtilAction::InsertChar(c) => &format!("insert char {}", c),
-            UtilAction::MoveEnd => "move cursor text end",
-            UtilAction::MoveHome => "move cursor home",
-            UtilAction::MoveLeft => "move cursor left",
-            UtilAction::MoveRight => "move cursor right",
-            UtilAction::Paste => "paste"
+            UtilAction::InsertChar(c) => &format!("util text box insert char {}", c),
+            UtilAction::MoveEnd => "util text box move cursor text end",
+            UtilAction::MoveHome => "util text box move cursor home",
+            UtilAction::MoveLeft => "util text box move cursor left",
+            UtilAction::MoveRight => "util text box move cursor right",
+            UtilAction::Paste => "util text box paste"
         };
         name.to_string()
     }

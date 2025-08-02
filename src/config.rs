@@ -96,7 +96,7 @@ pub const SHOW_CURSOR_LINE: bool = true;//false;
     pub enum DisplayMode{Error, Warning, Notify, Info, Ignore}  //should Info really be a part of this?...
 
     pub const FILE_MODIFIED: &str = "Buffer has unsaved changes";
-    //maybe this should always be error mode, since we match against this to handle quitting...(although that quit behavior may be deprecated)
+    //maybe this should always be error mode, since we match against this to handle quitting...
     //pub const FILE_MODIFIED_DISPLAY_MODE: DisplayMode = DisplayMode::Error;
 
     pub const FILE_SAVE_FAILED: &str = "Buffer could not be saved to file";
@@ -118,7 +118,7 @@ pub const SHOW_CURSOR_LINE: bool = true;//false;
     pub const SAME_STATE_DISPLAY_MODE: DisplayMode = DisplayMode::Warning;
     
     pub const UNHANDLED_KEYPRESS: &str = "Unbound key pressed";
-    pub const UNHANDLED_KEYPRESS_DISPLAY_MODE: DisplayMode = DisplayMode::Warning;//Error;
+    pub const UNHANDLED_KEYPRESS_DISPLAY_MODE: DisplayMode = DisplayMode::Error;
     
     pub const UNHANDLED_EVENT: &str = "Unhandled event occurred";
     pub const UNHANDLED_EVENT_DISPLAY_MODE: DisplayMode = DisplayMode::Ignore;//Warning;//Error;

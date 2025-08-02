@@ -3,7 +3,7 @@ use popups::Popups;
 use util_bar::UtilBar;
 use status_bar::StatusBar;
 use ratatui::layout::Rect;
-use ratatui::layout::{Direction, Layout, Constraint};
+//use ratatui::layout::{Direction, Layout, Constraint};
 
 
 
@@ -66,44 +66,3 @@ impl UserInterface{
 //        )
 //        .split(popup_layout[1])[1]
 //}
-
-pub fn sized_centered_rect(x: u16, y: u16, r: Rect) -> Rect{
-    let padding_height = r.height.saturating_sub(y) / 2;
-    let popup_layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(
-            [
-                Constraint::Length(padding_height.saturating_sub(1)),
-                Constraint::Length(y),
-                Constraint::Length(padding_height.saturating_sub(1)),
-            ]
-            .as_ref()
-        )
-        .split(r);
-
-    let padding_width = r.width.saturating_sub(x) / 2;
-    Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints(
-            [
-                Constraint::Length(padding_width.saturating_sub(1)),
-                Constraint::Length(x),
-                Constraint::Length(padding_width.saturating_sub(1)),
-            ]
-        )
-        .split(popup_layout[1])[1]
-}
-
-pub fn count_digits(mut n: usize) -> u16{
-    if n == 0{
-        return 1;
-    }
-
-    let mut count = 0;
-    while n > 0{
-        count += 1;
-        n /= 10;
-    }
-
-    count
-}
