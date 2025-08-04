@@ -21,6 +21,10 @@ pub mod extend_selection_up;
 pub mod extend_selection_word_boundary_backward;
 pub mod extend_selection_word_boundary_forward;
 pub mod extend_selection_home;
+pub mod extend_selection_buffer_start;
+pub mod extend_selection_buffer_end;
+pub mod extend_selection_page_up;
+pub mod extend_selection_page_down;
 pub mod extend_selection_line_end;  //may rename to extend_selection_line_text_end
 pub mod extend_selection_line_start;
 pub mod extend_selection_line_text_start;

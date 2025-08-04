@@ -1,4 +1,5 @@
-edit: composable terminal text editor for linux
+edit aims to be the generic text editing component of a computing system, 
+that allows for composability with other components to extend its abilities/usability.
 
 This is a reference TUI frontend implementation using the edit_core backend.
 Edit is intended to be used inside a terminal that supports keyboard enhancement(tested with alacritty).

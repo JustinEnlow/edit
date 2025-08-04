@@ -129,6 +129,8 @@ impl Popups{
     //TODO: popup text should probably be set in ModePush, so that keybinds added at run time can be included...
     //currently, popup text is only being set at start up
     //or maybe reload whenev user adds a new keybind/command, because reloading every mode_push may be unnecessary
+    //TODO: menus are not ordered when using HashMap. try BTreeMap(although, i think this may be more related to sorting), 
+    //or the indexmap crate to retain insert order
     pub fn new(keybinds: &std::collections::HashMap<(crate::mode::Mode, KeyEvent), crate::action::Action>) -> Self{
         //the hashmap seems to have no set order. every time the editor runs, the order of menu items changes.
         //is there some way to force it to stay the same?...

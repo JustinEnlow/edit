@@ -47,9 +47,9 @@ pub fn default_keybinds() -> HashMap<(Mode, KeyEvent), Action>{
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('v'), KeyModifiers::ALT)), Action::ViewAction(ViewAction::CenterVerticallyAroundCursor));
         //handled in Application::handle_event()
         //keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE)), Action::EditAction(EditAction::InsertChar(c)));
-            //keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::PageDown, KeyModifiers::SHIFT)), Action::SelectionAction(SelectionAction::ExtendSelectionPageDown, 1));
+    keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::PageDown, KeyModifiers::SHIFT)), Action::SelectionAction(SelectionAction::ExtendSelectionPageDown, 1));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::PageDown, KeyModifiers::NONE)), Action::SelectionAction(SelectionAction::MoveCursorPageDown, 1));
-            //keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::PageUp, KeyModifiers::SHIFT)), Action::SelectionAction(SelectionAction::ExtendSelectionPageUp, 1));
+    keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::PageUp, KeyModifiers::SHIFT)), Action::SelectionAction(SelectionAction::ExtendSelectionPageUp, 1));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::PageUp, KeyModifiers::NONE)), Action::SelectionAction(SelectionAction::MoveCursorPageUp, 1));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Up, KeyModifiers::CONTROL | KeyModifiers::SHIFT)), Action::SelectionAction(SelectionAction::AddSelectionAbove, 1));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Up, KeyModifiers::SHIFT)), Action::SelectionAction(SelectionAction::ExtendSelectionUp, 1));
@@ -59,9 +59,11 @@ pub fn default_keybinds() -> HashMap<(Mode, KeyEvent), Action>{
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Down, KeyModifiers::SHIFT)), Action::SelectionAction(SelectionAction::ExtendSelectionDown, 1));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Down, KeyModifiers::ALT)), Action::ViewAction(ViewAction::ScrollDown));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Down, KeyModifiers::NONE)), Action::SelectionAction(SelectionAction::MoveCursorDown, 1));
+    keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Home, KeyModifiers::CONTROL | KeyModifiers::SHIFT)), Action::SelectionAction(SelectionAction::ExtendSelectionBufferStart, 1));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Home, KeyModifiers::CONTROL)), Action::SelectionAction(SelectionAction::MoveCursorBufferStart, 1));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Home, KeyModifiers::SHIFT)), Action::SelectionAction(SelectionAction::ExtendSelectionHome, 1));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Home, KeyModifiers::NONE)), Action::SelectionAction(SelectionAction::MoveCursorHome, 1));
+    keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::End, KeyModifiers::CONTROL | KeyModifiers::SHIFT)), Action::SelectionAction(SelectionAction::ExtendSelectionBufferEnd, 1));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::End, KeyModifiers::CONTROL)), Action::SelectionAction(SelectionAction::MoveCursorBufferEnd, 1));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::End, KeyModifiers::SHIFT)), Action::SelectionAction(SelectionAction::ExtendSelectionLineEnd, 1));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::End, KeyModifiers::NONE)), Action::SelectionAction(SelectionAction::MoveCursorLineEnd, 1));

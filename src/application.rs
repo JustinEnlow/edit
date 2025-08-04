@@ -62,7 +62,19 @@
 // menu     //for contextual popup menus
 // prompt   //for util text box
 
+// client could tokenize command string, and maybe have separate client specific commands, which the client would resolve before sending
+// command tokens to server
+// ex: add-keybind
+// ex: %sh{idk_bar -display !val{mode}}     //mode is expanded in client, shell command expanded and called in server
+// menu and prompt would have to be intercepted by the client side parser as well
+// maybe we wouldn't need separate %val{} and !val{}. client can just determine what is it's responsibility to expand, and do so...
+
 //maybe add Mode::User(mode_name) to let user add custom modes...
+
+//would it be possible to allow layout(and contents) to be defined using commands?
+// add-widget text --start (0, 0) --dimensions (10, 20) --content %val{line_numbers} --bg Rgb(0, 0, 0) --fg(255, 255, 255) --name line_number_widget
+// add-sub-widget scrollbar --parent file_text_buffer (+whatever other info would be needed)
+//how could this be made to change dynamically(like during resize)
 
 use std::path::PathBuf;
 use crossterm::event;
@@ -989,19 +1001,19 @@ impl Application{
                                 handle_message(self, COPIED_TEXT_DISPLAY_MODE, COPIED_TEXT);
                                 self.update_ui_data_document(); //TODO: is this really needed for something?...
                             }
-                            Err(e) => {
-                                handle_application_error(self, e);
-                            }
+                            Err(e) => {handle_application_error(self, e);}
                         }
                     }
                     EditorAction::OpenNewTerminalWindow => {
-                        pop_to_insert(self);
-                        let _ = std::process::Command::new("alacritty")     //TODO: have user define TERMINAL const in config.rs   //or check env vars for $TERM?
+                        assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
+                        //pop_to_insert(self);
+                        let result = std::process::Command::new("alacritty")     //TODO: have user define TERMINAL const in config.rs   //or check env vars for $TERM?
                             //.arg("msg")     // these extra commands just make new instances use the same backend(daemon?)
                             //.arg("create-window")
                             //.current_dir(std::env::current_dir().unwrap())    //not needed here, because term spawned here defaults to this directory, but good to know
-                            .spawn()
-                            .expect("failed to spawn new terminal at current directory");
+                            .spawn();
+                            //.expect("failed to spawn new terminal at current directory");
+                        if let Err(e) = result{handle_message(self, DisplayMode::Error, &format!("{e}"));}
                     }
                     EditorAction::ToggleLineNumbers => {
                         //TODO: this may need to handle insert fallthrough
@@ -1045,11 +1057,11 @@ impl Application{
                     SelectionAction::ExtendSelectionWordBoundaryBackward => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), extend_selection_word_boundary_backward::selection_impl), SelectionToFollow::Primary)}
                     SelectionAction::ExtendSelectionWordBoundaryForward => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), extend_selection_word_boundary_forward::selection_impl), SelectionToFollow::Primary)}
                     SelectionAction::ExtendSelectionLineEnd => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), extend_selection_line_end::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionHome => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), extend_selection_home::selection_impl), SelectionToFollow::Primary)}
-                        //SelectionAction::ExtendSelectionDocumentStart => {self.document.extend_selection_document_start(CURSOR_SEMANTICS)}
-                        //SelectionAction::ExtendSelectionDocumentEnd => {self.document.extend_selection_document_end(CURSOR_SEMANTICS)}
-                        //SelectionAction::ExtendSelectionPageUp => {self.document.extend_selection_page_up(CURSOR_SEMANTICS)}
-                        //SelectionAction::ExtendSelectionPageDown => {self.document.extend_selection_page_down(CURSOR_SEMANTICS)}
+                    SelectionAction::ExtendSelectionHome => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), extend_selection_home::selection_impl), SelectionToFollow::Primary)}                    
+                    SelectionAction::ExtendSelectionBufferStart => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), extend_selection_buffer_start::selection_impl), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionBufferEnd => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), extend_selection_buffer_end::selection_impl), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionPageUp => {(self.selections.move_selection(count, &self.buffer, Some(&self.buffer_display_area()), self.config.semantics.clone(), extend_selection_page_up::selection_impl), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionPageDown => {(self.selections.move_selection(count, &self.buffer, Some(&self.buffer_display_area()), self.config.semantics.clone(), extend_selection_page_down::selection_impl), SelectionToFollow::Primary)}                    
                     SelectionAction::SelectLine => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), select_line::selection_impl), SelectionToFollow::Primary)}
                     SelectionAction::SelectAll => {(self.selections.move_cursor_clearing_non_primary(&self.buffer, self.config.semantics.clone(), select_all::selection_impl), SelectionToFollow::Primary)}
                     SelectionAction::CollapseSelectionToAnchor => {(self.selections.move_cursor_non_overlapping(&self.buffer, self.config.semantics.clone(), collapse_selections_to_anchor::selection_impl), SelectionToFollow::Primary)}
