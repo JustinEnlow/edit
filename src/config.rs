@@ -11,7 +11,7 @@ pub struct Config{
     pub view_scroll_amount: usize,
     pub show_cursor_column: bool,
     pub show_cursor_line: bool,
-    pub keybinds: std::collections::HashMap<(crate::mode::Mode, crossterm::event::KeyEvent), crate::action::Action>,
+    pub keybinds: /*std::collections::HashMap*/indexmap::IndexMap<(crate::mode::Mode, crossterm::event::KeyEvent), crate::action::Action>,
     //maybe message display modes?...
     //maybe others...
 }

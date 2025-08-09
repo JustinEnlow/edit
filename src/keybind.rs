@@ -4,7 +4,8 @@ use crate::{
     action::{Action, EditorAction, SelectionAction, EditAction, ViewAction, UtilAction}
 };
 use crossterm::event::{KeyCode, KeyModifiers, KeyEvent};
-use std::collections::HashMap;
+//use std::collections::HashMap;
+use indexmap::IndexMap;
 
 
 
@@ -13,8 +14,9 @@ use std::collections::HashMap;
 //would action have to be a string for user to define their own?...
 //maybe define EditorAction::Custom(user_action_string) that performs a user defined set of commands
 
-pub fn default_keybinds() -> HashMap<(Mode, KeyEvent), Action>{
-    let mut keybinds = HashMap::new();
+pub fn default_keybinds() -> /*HashMap*/IndexMap<(Mode, KeyEvent), Action>{
+    //let mut keybinds = HashMap::new();
+    let mut keybinds = IndexMap::new();
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('p'), KeyModifiers::CONTROL | KeyModifiers::SHIFT)), Action::SelectionAction(SelectionAction::DecrementPrimarySelection, 1));
     //keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('q'), KeyModifiers::CONTROL | KeyModifiers::SHIFT)), Action::EditorAction(EditorAction::QuitIgnoringChanges));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL | KeyModifiers::SHIFT)), Action::EditAction(EditAction::Redo));
@@ -90,13 +92,14 @@ pub fn default_keybinds() -> HashMap<(Mode, KeyEvent), Action>{
             //or use this for automatic esc behavior    //how can this be disambiguated as custom behavior vs builtin fn?
             //keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)), Action::SelectionAction(SelectionAction::AutoEsc, 1));   //app.esc_handle()
 
-    keybinds.insert((Mode::View, KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)), Action::EditorAction(EditorAction::ModePop));
     keybinds.insert((Mode::View, KeyEvent::new(KeyCode::Char('v'), KeyModifiers::NONE)), Action::ViewAction(ViewAction::CenterVerticallyAroundCursor));
     keybinds.insert((Mode::View, KeyEvent::new(KeyCode::Up, KeyModifiers::NONE)), Action::ViewAction(ViewAction::ScrollUp));
     keybinds.insert((Mode::View, KeyEvent::new(KeyCode::Down, KeyModifiers::NONE)), Action::ViewAction(ViewAction::ScrollDown));
     keybinds.insert((Mode::View, KeyEvent::new(KeyCode::Left, KeyModifiers::NONE)), Action::ViewAction(ViewAction::ScrollLeft));
     keybinds.insert((Mode::View, KeyEvent::new(KeyCode::Right, KeyModifiers::NONE)), Action::ViewAction(ViewAction::ScrollRight));
+    keybinds.insert((Mode::View, KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)), Action::EditorAction(EditorAction::ModePop));
 
+    keybinds.insert((Mode::Goto, KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Accept));
     keybinds.insert((Mode::Goto, KeyEvent::new(KeyCode::PageUp, KeyModifiers::NONE)), Action::UtilAction(UtilAction::GotoModeSelectionAction(SelectionAction::MoveCursorPageUp)));
     keybinds.insert((Mode::Goto, KeyEvent::new(KeyCode::PageDown, KeyModifiers::NONE)), Action::UtilAction(UtilAction::GotoModeSelectionAction(SelectionAction::MoveCursorPageDown)));
     keybinds.insert((Mode::Goto, KeyEvent::new(KeyCode::Up, KeyModifiers::SHIFT)), Action::UtilAction(UtilAction::GotoModeSelectionAction(SelectionAction::ExtendSelectionUp)));
@@ -119,14 +122,15 @@ pub fn default_keybinds() -> HashMap<(Mode, KeyEvent), Action>{
     keybinds.insert((Mode::Goto, KeyEvent::new(KeyCode::Home, KeyModifiers::NONE)), Action::UtilAction(UtilAction::MoveHome));
     keybinds.insert((Mode::Goto, KeyEvent::new(KeyCode::End, KeyModifiers::SHIFT)), Action::UtilAction(UtilAction::ExtendEnd));
     keybinds.insert((Mode::Goto, KeyEvent::new(KeyCode::End, KeyModifiers::NONE)), Action::UtilAction(UtilAction::MoveEnd));
-    keybinds.insert((Mode::Goto, KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Exit));
-    keybinds.insert((Mode::Goto, KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Accept));
     keybinds.insert((Mode::Goto, KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Backspace));
     keybinds.insert((Mode::Goto, KeyEvent::new(KeyCode::Delete, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Delete));
+    keybinds.insert((Mode::Goto, KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Exit));
         //handled in Application::handle_event()
         //keybinds.insert((Mode::Goto, KeyEvent::new(KeyCode::Char(c), KeyModifiers::SHIFT)), Action::UtilAction(UtilAction::InsertChar(c)));
         //keybinds.insert((Mode::Goto, KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE)), Action::UtilAction(UtilAction::InsertChar(c)));
 
+    //TODO: set warning if util text invalid
+    keybinds.insert((Mode::Find, KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Accept));
     keybinds.insert((Mode::Find, KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT)), Action::UtilAction(UtilAction::ExtendRight));
     keybinds.insert((Mode::Find, KeyEvent::new(KeyCode::Right, KeyModifiers::NONE)), Action::UtilAction(UtilAction::MoveRight));
     keybinds.insert((Mode::Find, KeyEvent::new(KeyCode::Left, KeyModifiers::SHIFT)), Action::UtilAction(UtilAction::ExtendLeft));
@@ -141,12 +145,12 @@ pub fn default_keybinds() -> HashMap<(Mode, KeyEvent), Action>{
         //handled in Application::handle_event()
         //keybinds.insert((Mode::Find, KeyEvent::new(KeyCode::Char(c), KeyModifiers::SHIFT)), Action::UtilAction(UtilAction::InsertChar(c)));
         //keybinds.insert((Mode::Find, KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE)), Action::UtilAction(UtilAction::InsertChar(c)));
-    keybinds.insert((Mode::Find, KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Exit));
     keybinds.insert((Mode::Find, KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Backspace));
     keybinds.insert((Mode::Find, KeyEvent::new(KeyCode::Delete, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Delete));
-    //TODO: set warning if util text invalid
-    keybinds.insert((Mode::Find, KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Accept));
+    keybinds.insert((Mode::Find, KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Exit));
 
+    //TODO: set warning if util text invalid
+    keybinds.insert((Mode::Split, KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Accept));
     keybinds.insert((Mode::Split, KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT)), Action::UtilAction(UtilAction::ExtendRight));
     keybinds.insert((Mode::Split, KeyEvent::new(KeyCode::Right, KeyModifiers::NONE)), Action::UtilAction(UtilAction::MoveRight));
     keybinds.insert((Mode::Split, KeyEvent::new(KeyCode::Left, KeyModifiers::SHIFT)), Action::UtilAction(UtilAction::ExtendLeft));
@@ -161,12 +165,12 @@ pub fn default_keybinds() -> HashMap<(Mode, KeyEvent), Action>{
         //handled in Application::handle_event()
         //keybinds.insert((Mode::Split, KeyEvent::new(KeyCode::Char(c), KeyModifiers::SHIFT)), Action::UtilAction(UtilAction::InsertChar(c)));
         //keybinds.insert((Mode::Split, KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE)), Action::UtilAction(UtilAction::InsertChar(c)));
-    keybinds.insert((Mode::Split, KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Exit));
     keybinds.insert((Mode::Split, KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Backspace));
     keybinds.insert((Mode::Split, KeyEvent::new(KeyCode::Delete, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Delete));
-    //TODO: set warning if util text invalid
-    keybinds.insert((Mode::Split, KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Accept));
+    keybinds.insert((Mode::Split, KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Exit));
 
+    //TODO: set warning if util text invalid
+    keybinds.insert((Mode::Command, KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Accept));
     keybinds.insert((Mode::Command, KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT)), Action::UtilAction(UtilAction::ExtendRight));
     keybinds.insert((Mode::Command, KeyEvent::new(KeyCode::Right, KeyModifiers::NONE)), Action::UtilAction(UtilAction::MoveRight));
     keybinds.insert((Mode::Command, KeyEvent::new(KeyCode::Left, KeyModifiers::SHIFT)), Action::UtilAction(UtilAction::ExtendLeft));
@@ -181,11 +185,9 @@ pub fn default_keybinds() -> HashMap<(Mode, KeyEvent), Action>{
         //handled in Application::handle_event()
         //keybinds.insert((Mode::Command, KeyEvent::new(KeyCode::Char(c), KeyModifiers::SHIFT)), Action::UtilAction(UtilAction::InsertChar(c)));
         //keybinds.insert((Mode::Command, KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE)), Action::UtilAction(UtilAction::InsertChar(c)));
-    keybinds.insert((Mode::Command, KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Exit));
     keybinds.insert((Mode::Command, KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Backspace));
     keybinds.insert((Mode::Command, KeyEvent::new(KeyCode::Delete, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Delete));
-    //TODO: set warning if util text invalid
-    keybinds.insert((Mode::Command, KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Accept));
+    keybinds.insert((Mode::Command, KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)), Action::UtilAction(UtilAction::Exit));
 
     //TODO: could all keys take an extra condition param that, if populated, must match
     //so call would look like: match self.config.keybinds.get(&(self.mode(), key_event, Some(self.mode_stack.top().text.unwrap()))).cloned(){
