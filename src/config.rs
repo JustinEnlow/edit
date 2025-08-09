@@ -102,7 +102,7 @@ pub const SHOW_CURSOR_LINE: bool = true;//false;
     pub const FILE_SAVE_FAILED: &str = "Buffer could not be saved to file";
     pub const FILE_SAVE_FAILED_DISPLAY_MODE: DisplayMode = DisplayMode::Error;
 
-    pub const COMMAND_PARSE_FAILED: &str = "Failed to parse command. Command may be undefined";
+    pub const COMMAND_PARSE_FAILED: &str = "Failed to parse command. Command may be undefined or malformed";
     pub const COMMAND_PARSE_FAILED_DISPLAY_MODE: DisplayMode = DisplayMode::Error;
 
     pub const SINGLE_SELECTION: &str = "Requested action cannot be performed on single selection";

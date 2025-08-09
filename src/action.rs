@@ -11,6 +11,7 @@
     ToggleLineNumbers,
     ToggleStatusBar,
     OpenNewTerminalWindow,
+    EvaluateSelectionAsCommand,
 }
 impl EditorAction{
     fn action_name(&self) -> String{
@@ -26,7 +27,8 @@ impl EditorAction{
             EditorAction::Resize(x, y) => &format!("resize to {},{}", x, y),
             EditorAction::Save => "save",
             EditorAction::ToggleLineNumbers => "toggle line numbers",
-            EditorAction::ToggleStatusBar => "toggle status bar"
+            EditorAction::ToggleStatusBar => "toggle status bar",
+            EditorAction::EvaluateSelectionAsCommand => "evaluate selection as command"
         };
         name.to_string()
     }

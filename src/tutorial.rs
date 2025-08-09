@@ -40,7 +40,7 @@ const EDIT_ASCII: &str = "\
 ";
 //TODO: building the tutorial text at runtime could allow for getting keybinds 
 //from config and populating tutorial text with those, to always reflect user's 
-//current keybinds, or to buid the tutorial text in sections
+//current keybinds, or to build the tutorial text in sections
 pub fn tutorial_text() -> String{
     let x = "tutorial";
     format!("\

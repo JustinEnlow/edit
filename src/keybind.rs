@@ -27,6 +27,9 @@ pub fn default_keybinds() -> HashMap<(Mode, KeyEvent), Action>{
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('b'), KeyModifiers::CONTROL)), Action::SelectionAction(SelectionAction::Surround, 1));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::Copy));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::ModePush(StackMember{mode: Mode::AddSurround, text: None})));
+    //
+    keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('e'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::EvaluateSelectionAsCommand));
+    //
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL)), Action::SelectionAction(SelectionAction::FlipDirection, 1));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('g'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::ModePush(StackMember{mode: Mode::Goto, text: None})));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('l'), KeyModifiers::CONTROL)), Action::SelectionAction(SelectionAction::SelectLine, 1));

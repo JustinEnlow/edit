@@ -866,6 +866,36 @@ impl Application{
                 }
             }
         }
+        //at the extreme, i think every action could end up being a command
+        //in that sense, the editor is just a command parser, with command specific response behavior
+        fn parse_command(app: &mut Application, command_string: String) -> Result<(), ()>{
+            //let commands: Vec<&str> = command_string.trim().split_whitespace().collect();
+            //or
+            //let tokens = tokenize(command_string);
+            match command_string.as_str(){
+                //TODO: this should be a user defined command instead of built in
+                //add-command --name "open new alacritty window" --alias "term" --alias "t" --command "alacritty msg create-window"
+                //UserCommand{
+                //  name: String,
+                //  aliases: Option<Vec<String>>,
+                //  command_body: String
+                //}
+                //and would have to match on user defined commands
+                //user defined commands may need to be quoted "if spaces are used"...
+                "term" | "t" => app.action(Action::EditorAction(EditorAction::OpenNewTerminalWindow)),
+                "toggle_line_numbers" | "ln" => app.action(Action::EditorAction(EditorAction::ToggleLineNumbers)),
+                "toggle_status_bar" | "sb" => app.action(Action::EditorAction(EditorAction::ToggleStatusBar)),
+                "quit" | "q" => app.action(Action::EditorAction(EditorAction::Quit)),
+                "quit!" | "q!" => app.action(Action::EditorAction(EditorAction::QuitIgnoringChanges)),
+                //write buffer contents to file //should this optionally take a filepath to save to? then we don't need to implement save as    //would have to split util bar text on ' ' into separate args
+                "write" | "w" => app.action(Action::EditorAction(EditorAction::Save)),
+                _ => {
+                    //TODO: check if command_string matches user defined command
+                    return Err(());
+                }
+            }
+            Ok(())
+        }
         match action{
             Action::EditorAction(editor_action) => {
                 match editor_action{
@@ -1004,9 +1034,10 @@ impl Application{
                             Err(e) => {handle_application_error(self, e);}
                         }
                     }
+                    //TODO: remove this in favor of a user defined command
                     EditorAction::OpenNewTerminalWindow => {
-                        assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
-                        //pop_to_insert(self);
+                        assert!(matches!(self.mode(), Mode::Insert | Mode::Command | Mode::Warning | Mode::Notify | Mode::Info));
+                        //if matches!(self.mode(), Mode::Warning | Mode::Notify | Mode::Info){pop_to_insert(self);}   //handle insert fallthrough
                         let result = std::process::Command::new("alacritty")     //TODO: have user define TERMINAL const in config.rs   //or check env vars for $TERM?
                             //.arg("msg")     // these extra commands just make new instances use the same backend(daemon?)
                             //.arg("create-window")
@@ -1028,6 +1059,17 @@ impl Application{
                         self.ui.status_bar.show = !self.ui.status_bar.show;
                         self.update_layouts();
                         self.update_ui_data_document();
+                    }
+                    EditorAction::EvaluateSelectionAsCommand => {
+                        if self.mode() != Mode::Insert{pop_to_insert(self);}    //handle insert fallthrough
+                        //TODO: figure out best way to handle multiple selections...
+                        if self.selections.count() > 1{
+                            handle_application_error(self, ApplicationError::SelectionsError(SelectionsError::MultipleSelections));
+                        }else{
+                            if let Err(_) = parse_command(self, self.selections.primary().to_string(&self.buffer)){
+                                handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);
+                            }
+                        }
                     }
                 }
             }
@@ -1064,6 +1106,8 @@ impl Application{
                     SelectionAction::ExtendSelectionPageDown => {(self.selections.move_selection(count, &self.buffer, Some(&self.buffer_display_area()), self.config.semantics.clone(), extend_selection_page_down::selection_impl), SelectionToFollow::Primary)}                    
                     SelectionAction::SelectLine => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), select_line::selection_impl), SelectionToFollow::Primary)}
                     SelectionAction::SelectAll => {(self.selections.move_cursor_clearing_non_primary(&self.buffer, self.config.semantics.clone(), select_all::selection_impl), SelectionToFollow::Primary)}
+                    //TODO: bug fix: if selection extended vertically(up/page up/maybe others), then collapsed to anchor, the resultant cursor is 1 grapheme right from where it should be
+                    //TODO: this also happens if selection extended backwards horizontally
                     SelectionAction::CollapseSelectionToAnchor => {(self.selections.move_cursor_non_overlapping(&self.buffer, self.config.semantics.clone(), collapse_selections_to_anchor::selection_impl), SelectionToFollow::Primary)}
                     SelectionAction::CollapseSelectionToCursor => {(self.selections.move_cursor_non_overlapping(&self.buffer, self.config.semantics.clone(), collapse_selections_to_cursor::selection_impl), SelectionToFollow::Primary)}
                     SelectionAction::ClearNonPrimarySelections => {(clear_non_primary_selections::selections_impl(&self.selections), SelectionToFollow::Primary)}
@@ -1265,30 +1309,10 @@ impl Application{
                                 else{handle_message(self, INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}
                             }
                             Mode::Command => {
-                                //should command parsing be implemented in edit_core?...
-                                //TODO: command mode should have completion suggestions
-                                let mut warn = false;
-                                match self.ui.util_bar.utility_widget.text_box.buffer.to_string().as_str(){
-                                    "term" | "t" => {self.action(Action::EditorAction(EditorAction::OpenNewTerminalWindow));}
-                                    "toggle_line_numbers" | "ln" => {self.action(Action::EditorAction(EditorAction::ToggleLineNumbers));}
-                                    "toggle_status_bar" | "sb" => {self.action(Action::EditorAction(EditorAction::ToggleStatusBar));}
-                                    "quit" | "q" => {
-                                        self.action(Action::EditorAction(EditorAction::Quit));
-                                        return; //needed so app can quit without running the rest of the code in this fn
-                                    }
-                                    "quit!" | "q!" => {
-                                        self.action(Action::EditorAction(EditorAction::QuitIgnoringChanges));
-                                        return;
-                                    }
-                                    //write buffer contents to file //should this optionally take a filepath to save to? then we don't need to implement save as    //would have to split util bar text on ' ' into separate args
-                                    "write" | "w" => {
-                                        self.action(Action::EditorAction(EditorAction::Save));
-                                        return;
-                                    }
-                                    _ => {warn = true;}
-                                }
-                                if warn{handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);}
-                                else{self.action(Action::EditorAction(EditorAction::ModePop));}
+                                if let Ok(_) = parse_command(self, self.ui.util_bar.utility_widget.text_box.buffer.to_string()){
+                                    //only checking command mode because parsed resultant fn may need to enter error/warning/notify/info mode, and user should see that
+                                    if self.mode() == Mode::Command{pop_to_insert(self);}
+                                }else{handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);}
                             }
                             Mode::Find | Mode::Split => self.action(Action::EditorAction(EditorAction::ModePop)),
                             Mode::AddSurround | Mode::Insert | Mode::Object | Mode::View | Mode::Error | Mode::Warning | Mode::Notify | Mode::Info => {unreachable!()}
