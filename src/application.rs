@@ -1,10 +1,26 @@
+//goal features:
+//  edit is a file server. serves readable files for exposure of internal data, and writeable files for integration with external utilities(for example, integrate with plan9 style plumber via plumbing rules)
+//  controllable through a custom command language, with command extensibility, executable from within the text buffer
+//  enable commands to be associated with event hooks, to enable synchronous integration(file read/write would be for asynchronous?...)
+//  enable ui customization with custom layouts/widgets + content
+//  modal agnostic
+//  reduce the set of built in features to only those that cannot be built using external utilities or from combining existing commands
+//  always give user some visual response to input(this may not be possible with only a text buffer ui widget)
+
+
+//simplest impl would be just a text buffer, and the ability to eval commands from within buffer, and assign commands to keybinds
+
+
+//integrate with external plumb utility
+    //%sh{cat /mnt/edit/$pid/selection/content | plumb}     //send content of primary selection to plumb utility    //response behavior is determined by predefined plumb rules
+    //%sh{cat $selection | plumb}
+
+
 //TODO: figure out how to launch another terminal session, start another edit session, and pass it text via stdin
     //let _ = std::process::Command::new("alacritty")
     //                    .args(&["-e", "bash", "-c", "<program to run>"])
     //                    .spawn()
     //                    .expect("Failed to launch Alacritty");
-
-//TODO: implement desired kakoune/sam/acme features here first, then design edit with client/server architecture with filesystem ipc...
 
 //TODO: if error message displayed in scratch buffer, select filename and error location, trigger plumb command(acme mouse right click).
 // ex: file_name.rs:10:22
@@ -55,12 +71,16 @@
     //this will be pre virtual text, and accounted for in edit core/server before conversion to display coordinates
     //all buffer highlights should be listed in offset coordinates and served at buffer/highlights
     //visible buffer highlights should be listed in display coordinates and served at display_area/highlights
+    //highlighters may need a group parameter, so that a group can be cleared, if needed, and the rest left alone
 // add-virtual-text //line/column or rope offset?...    //should this have an associated color for highlighting?...
 // add-command <name> <command>     //add-comand open_terminal "alacritty &"    //if command ends in '&', spawn instead of status/output
 // add-keybind <scope> <mode> <keybind> <command>   //does this need to be handled separately from other commands, since keybinds are a frontend only concept?...
 // add-fold     //line or selection_range     //pre virtual text/highlighting or post?
 // menu     //for contextual popup menus
 // prompt   //for util text box
+// command aliases could be accomplished by defining a new command  //add-command <alias> <aliased-command>
+// search <regex>   //non interactive search within selections  //could interactive search be accomplished by integrating external utility instead of being built in?...
+// split <regex>    //non interactive split within selections   //could interactive split be accomplished by integrating external utility instead of being built in?...
 
 // client could tokenize command string, and maybe have separate client specific commands, which the client would resolve before sending
 // command tokens to server
@@ -75,6 +95,30 @@
 // add-widget text --start (0, 0) --dimensions (10, 20) --content %val{line_numbers} --bg Rgb(0, 0, 0) --fg(255, 255, 255) --name line_number_widget
 // add-sub-widget scrollbar --parent file_text_buffer (+whatever other info would be needed)
 //how could this be made to change dynamically(like during resize)
+
+//Config could be populated from an rc(run command) file, instead of deserializing from some config format
+//the rc file would contain a list of whitespace separated commands to run(from top to bottom) at startup, to set up necessary data structures
+//such as default keybinds:
+//bind <mode> <keybind> <command>   //command could be a built-in, or one defined earlier in the rc...
+    //it may be a good idea to allow for comments in the rc file. how could this be accomplished
+//or to set up options:
+//set-option <option> <value>   //set-option use_full_file_path false
+
+
+//9p file system
+// command file     //on write, edit performs commands
+//%sh{ cat date > $buffer }      //write date to buffer file, which inserts date's output at every selection(replacing selection content if extended)
+// write to /mnt/edit/id/buffer would insert/replace at/in place of the currently selected text for all selections
+// write to /mnt/edit/id/selections/selection_num would insert/replace at/in place of the selected text for that selection only
+// /mnt/edit/id/selections/leading/selection_num, /mnt/edit/id/selections/primary, /mnt/edit/id/selections/trailing/selection_num if using alternate selections impl
+// selection_num files would only be served if that selection number exists
+
+
+//notification modes could be set through a command
+//echo --error <message>
+//echo --warn <message>
+//echo --notify <message>
+//echo --info <message>     //same as echo <message>
 
 use std::path::PathBuf;
 use crossterm::event;
@@ -166,7 +210,7 @@ impl Application{
             ),
             buffer_horizontal_start: 0,
             buffer_vertical_start: 0,
-            clipboard: String::new()
+            clipboard: String::new(),
         };
 
         instance.setup(display_line_numbers_on_startup, display_status_bar_on_startup);
@@ -869,12 +913,17 @@ impl Application{
         //at the extreme, i think every action could end up being a command
         //in that sense, the editor is just a command parser, with command specific response behavior
         fn parse_command(app: &mut Application, command_string: String) -> Result<(), ()>{
-            //let commands: Vec<&str> = command_string.trim().split_whitespace().collect();
-            //or
-            //let tokens = tokenize(command_string);
-            match command_string.as_str(){
+            //TODO: split commands on any '\n' or ';' outside of quote strings
+            //TODO: loop through each separate command string, and perform
+            //TODO: consider how to handle a failed command in a list of commands. should we just error on first failed command?...
+            let command: Vec<&str> = command_string.split(' ').collect();
+            match /*command_string.as_str()*/*command.first().unwrap(){    //maybe command.get(0)...
                 //TODO: this should be a user defined command instead of built in
-                //add-command --name "open new alacritty window" --alias "term" --alias "t" --command "alacritty msg create-window"
+                //push-command <name_string> <command_string>
+                //push-command "open new alacritty window" %sh{alacritty msg create-window}
+                //push-command term "open new alacritty window"  //this is effectively an alias
+                //push-command t term                            //this is effectively an alias
+                //pop-command <name_string> //remove a user defined command
                 //UserCommand{
                 //  name: String,
                 //  aliases: Option<Vec<String>>,
@@ -883,12 +932,57 @@ impl Application{
                 //and would have to match on user defined commands
                 //user defined commands may need to be quoted "if spaces are used"...
                 "term" | "t" => app.action(Action::EditorAction(EditorAction::OpenNewTerminalWindow)),
-                "toggle_line_numbers" | "ln" => app.action(Action::EditorAction(EditorAction::ToggleLineNumbers)),
-                "toggle_status_bar" | "sb" => app.action(Action::EditorAction(EditorAction::ToggleStatusBar)),
+                "toggle_line_numbers" | "ln" => app.action(Action::EditorAction(EditorAction::ToggleLineNumbers)),  //these will prob end up using set-option command...
+                "toggle_status_bar" | "sb" => app.action(Action::EditorAction(EditorAction::ToggleStatusBar)),      //these will prob end up using set-option command...
                 "quit" | "q" => app.action(Action::EditorAction(EditorAction::Quit)),
                 "quit!" | "q!" => app.action(Action::EditorAction(EditorAction::QuitIgnoringChanges)),
                 //write buffer contents to file //should this optionally take a filepath to save to? then we don't need to implement save as    //would have to split util bar text on ' ' into separate args
                 "write" | "w" => app.action(Action::EditorAction(EditorAction::Save)),
+                "search" => {
+                    match crate::utilities::incremental_search_in_selection::selections_impl(
+                        &app.selections, 
+                        command.get(1).unwrap(),
+                        &app.buffer, 
+                        app.config.semantics.clone()
+                    ){
+                        Ok(new_selections) => {
+                            app.selections = new_selections;
+                            app.checked_scroll_and_update(
+                                &app.selections.primary().clone(), 
+                                Application::update_ui_data_document, 
+                                Application::update_ui_data_selections
+                            );
+                        }
+                        Err(_) => {
+                            //self.selections = selections_before_search.clone();
+                            handle_message(app, DisplayMode::Error, "not matching regex");
+                        }
+                    }
+                }
+                //"\"idk some shit\"" => handle_message(app, DisplayMode::Error, "idk some shit"),  //commands with whitespace can be handled this way
+                //add_command <command_name> <command>
+                //"add_command" => {/* match positional args and, if command name available, insert into command list */}
+                //remove_command <command_name>
+                //add_keybind <mode> <keybind> <command>
+                "add_keybind" => {
+                    let mode = Mode::Insert;    //get mode from positional args
+                    let keycode = crossterm::event::KeyCode::Char('w'); //get mode from positional args
+                    let modifiers = crossterm::event::KeyModifiers::CONTROL;    //get mode from positional args
+                    let key_event = crossterm::event::KeyEvent::new(keycode, modifiers);
+                    let _command = "idk some shit".to_string();  //get mode from positional args
+                    if app.config.keybinds.contains_key(&(mode, key_event)){
+                        //error
+                    }else{
+                        //app.config.keybinds.insert((mode, key_event), Action::EditorAction(EditorAction::EvalCommand(command)));
+                        handle_message(app, DisplayMode::Info, "keybind added");
+                    }
+                }
+                //remove_keybind <keybind>
+                //add_option <name> <type>
+                //remove_option <name>
+                //set_option <name> <value>
+                //add_hook
+                //remove hook
                 _ => {
                     //TODO: check if command_string matches user defined command
                     return Err(());
@@ -1060,15 +1154,26 @@ impl Application{
                         self.update_layouts();
                         self.update_ui_data_document();
                     }
+                    //could become a command: eval_command %val{selection}
                     EditorAction::EvaluateSelectionAsCommand => {
                         if self.mode() != Mode::Insert{pop_to_insert(self);}    //handle insert fallthrough
                         //TODO: figure out best way to handle multiple selections...
                         if self.selections.count() > 1{
                             handle_application_error(self, ApplicationError::SelectionsError(SelectionsError::MultipleSelections));
                         }else{
-                            if let Err(_) = parse_command(self, self.selections.primary().to_string(&self.buffer)){
+                            //if parse_command(self, self.selections.primary().to_string(&self.buffer)).is_err(){
+                            if Result::is_err(&parse_command(self, self.selections.primary().to_string(&self.buffer))){
                                 handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);
                             }
+                        }
+                    }
+                    //this, in combination with copy, is the keyboard centric version of plan9's acme's 2-1 mouse chording
+                    //evaluate_command %val{clipboard}
+                    EditorAction::EvaluateClipboardAsCommand => {
+                        if self.mode() != Mode::Insert{pop_to_insert(self);}    //handle insert fallthrough
+                        //if parse_command(self, self.clipboard.clone()).is_err(){
+                        if Result::is_err(&parse_command(self, self.clipboard.clone())){
+                            handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);
                         }
                     }
                 }
@@ -1117,6 +1222,7 @@ impl Application{
                     SelectionAction::IncrementPrimarySelection => {(increment_primary_selection::selections_impl(&self.selections), SelectionToFollow::Primary)}
                     SelectionAction::DecrementPrimarySelection => {(decrement_primary_selection::selections_impl(&self.selections), SelectionToFollow::Primary)}
                     SelectionAction::Surround => {(surround::selections_impl(&self.selections, &self.buffer, self.config.semantics.clone()), SelectionToFollow::Primary)},
+                    //TODO: FlipDirection should update stored line position, so that a subsequent vertical move reflects the current cursor position
                     SelectionAction::FlipDirection => {(self.selections.move_cursor_non_overlapping(&self.buffer, self.config.semantics.clone(), flip_direction::selection_impl), SelectionToFollow::Primary)},
                 
                         //These may technically be distinct from the other selection actions, because they could be called from object mode, and would need to pop the mode stack after calling...
@@ -1309,7 +1415,8 @@ impl Application{
                                 else{handle_message(self, INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}
                             }
                             Mode::Command => {
-                                if let Ok(_) = parse_command(self, self.ui.util_bar.utility_widget.text_box.buffer.to_string()){
+                                //if parse_command(self, self.ui.util_bar.utility_widget.text_box.buffer.to_string()).is_ok(){
+                                if Result::is_ok(&parse_command(self, self.ui.util_bar.utility_widget.text_box.buffer.to_string())){
                                     //only checking command mode because parsed resultant fn may need to enter error/warning/notify/info mode, and user should see that
                                     if self.mode() == Mode::Command{pop_to_insert(self);}
                                 }else{handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);}

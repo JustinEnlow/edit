@@ -12,6 +12,7 @@
     ToggleStatusBar,
     OpenNewTerminalWindow,
     EvaluateSelectionAsCommand,
+    EvaluateClipboardAsCommand,
 }
 impl EditorAction{
     fn action_name(&self) -> String{
@@ -28,7 +29,8 @@ impl EditorAction{
             EditorAction::Save => "save",
             EditorAction::ToggleLineNumbers => "toggle line numbers",
             EditorAction::ToggleStatusBar => "toggle status bar",
-            EditorAction::EvaluateSelectionAsCommand => "evaluate selection as command"
+            EditorAction::EvaluateSelectionAsCommand => "evaluate selection as command",
+            EditorAction::EvaluateClipboardAsCommand => "evaluate clipbaord as command"
         };
         name.to_string()
     }
@@ -135,6 +137,18 @@ impl SelectionAction{
         //TODO: RotateTextInSelections,
     AddSurround(char, char),
 }
+impl EditAction{
+    fn action_name(&self) -> String{
+        let name = match self{
+            EditAction::AddSurround('[', ']') => "add surrounding square braces",
+            EditAction::AddSurround('{', '}') => "add surrounding curly braces",
+            EditAction::AddSurround('(', ')') => "add surrounding parens",
+            EditAction::AddSurround('<', '>') => "add surrounding angle braces",
+            _ => "unimplemented"
+        };
+        name.to_string()
+    }
+}
 #[derive(Clone)] pub enum ViewAction{
     CenterVerticallyAroundCursor,
         //TODO: CenterHorizontallyAroundCursor,
@@ -212,7 +226,7 @@ impl Action{
         let command_name = match self{
             Action::EditorAction(editor_action) => {&editor_action.action_name()}
             Action::SelectionAction(selection_action, _) => {&selection_action.action_name()}
-            Action::EditAction(_edit_action) => "unimplemented",
+            Action::EditAction(edit_action) => &edit_action.action_name(),
             Action::ViewAction(view_action) => {&view_action.action_name()}
             Action::UtilAction(util_action) => {&util_action.action_name()}
         };

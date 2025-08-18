@@ -2,8 +2,10 @@ use crate::selection::CursorSemantics;
 use ratatui::style::Color;
 
 //this should contain config options that could be changed at runtime
-#[derive(Clone)]
-pub struct Config{
+#[derive(Clone)] pub struct Config{
+    //pub options: HashMap<String, OptionType>, //OptionType{Bool(bool), U8(u8), String(String), etc}    //container for config options     //add/remove/set-option
+    //pub user_commands: Vec<Command>,  //container for user defined commands. built ins stored elsewhere       //add/remove-command
+    //pub user_hooks: Vec<Hook>,        //add/remove-hook
     pub semantics: CursorSemantics,
     pub use_full_file_path: bool,
     pub use_hard_tab: bool,
@@ -11,7 +13,7 @@ pub struct Config{
     pub view_scroll_amount: usize,
     pub show_cursor_column: bool,
     pub show_cursor_line: bool,
-    pub keybinds: /*std::collections::HashMap*/indexmap::IndexMap<(crate::mode::Mode, crossterm::event::KeyEvent), crate::action::Action>,
+    pub keybinds: indexmap::IndexMap<(crate::mode::Mode, crossterm::event::KeyEvent), crate::action::Action>,   //maybe instead of value being an Action, it should be a command string...  //add/remove-keybind
     //maybe message display modes?...
     //maybe others...
 }

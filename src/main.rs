@@ -144,6 +144,8 @@ fn main() -> Result<(), String>{
 }
 
 fn run_app(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<(), String>{
+    //TODO: pass a default config to start app
+    //TODO: then update config from rc file. if an option is undefined in rc, it will already have a default value
     let config = edit::config::Config{
             semantics: edit::config::CURSOR_SEMANTICS,
             use_full_file_path: edit::config::USE_FULL_FILE_PATH,
