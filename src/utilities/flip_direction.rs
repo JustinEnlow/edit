@@ -30,5 +30,6 @@ pub fn selection_impl(selection: &Selection, buffer: &crate::buffer::Buffer, sem
         Some(Direction::Forward)/*ExtensionDirection::Forward*/ => Some(Direction::Backward)/*ExtensionDirection::Backward*/,
         Some(Direction::Backward)/*ExtensionDirection::Backward*/ => Some(Direction::Forward)/*ExtensionDirection::Forward*/
     };
+    new_selection.stored_line_offset = Some(buffer.offset_from_line_start(new_selection.cursor(buffer, semantics)));
     Ok(new_selection)
 }

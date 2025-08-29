@@ -1,48 +1,7 @@
-//goal features:
-//  edit is a file server. serves readable files for exposure of internal data, and writeable files for integration with external utilities(for example, integrate with plan9 style plumber via plumbing rules)
-//  controllable through a custom command language, with command extensibility, executable from within the text buffer
-//  enable commands to be associated with event hooks, to enable synchronous integration(file read/write would be for asynchronous?...)
-//  enable ui customization with custom layouts/widgets + content
-//  modal agnostic
-//  reduce the set of built in features to only those that cannot be built using external utilities or from combining existing commands
-//  always give user some visual response to input(this may not be possible with only a text buffer ui widget)
-
-
-//simplest impl would be just a text buffer, and the ability to eval commands from within buffer, and assign commands to keybinds
-
-
-//integrate with external plumb utility
-    //%sh{cat /mnt/edit/$pid/selection/content | plumb}     //send content of primary selection to plumb utility    //response behavior is determined by predefined plumb rules
-    //%sh{cat $selection | plumb}
-
-
-//TODO: figure out how to launch another terminal session, start another edit session, and pass it text via stdin
-    //let _ = std::process::Command::new("alacritty")
-    //                    .args(&["-e", "bash", "-c", "<program to run>"])
-    //                    .spawn()
-    //                    .expect("Failed to launch Alacritty");
-
-//TODO: if error message displayed in scratch buffer, select filename and error location, trigger plumb command(acme mouse right click).
-// ex: file_name.rs:10:22
-// if the buffer with filename is open in session, and is the active buffer for this client, go to that location in the buffer
-// if the buffer with filename is open in session, but is not the active buffer for this client, set it as the active buffer for this client, and go to that location in the buffer
-// if the buffer with filename not open in session, open that file in session, set it as the active buffer for this client, and go to that location in the buffer
-// if an error occurs, display error in error mode util widget
-// TODO: if used with multiple edit clients, may require integration with the window manager to set focus to the window of a specific edit client...
-
-//TODO: if buffer history(undo/redo) implement a display method, edit could expose those as command expansion variables/tags
-// ex: no_op %sh{echo %var{history} | edit -p} or no_op %sh{edit -p < %var{history}}      //no_op means edit will not evaluate any output resulting from the run of the shell session
-// this would pipe a displayable version of the buffer's undo/redo stack(s)/tree(s) in a scratch buffer in a new edit client
-// alternatively, if we impl the filesystem approach, user would just pipe tmp/edit/sessions/session_id/buffers/buffer_id/history to edit -p
-// ex: no_op %sh{edit -p < tmp/edit/sessions/%var{session_id}/buffers/%var{buffer_id}/history}
-
-// I don't want my editor implementation to also be a file system explorer, and so will not provide capabilities for navigating the
-// file system from within the editor, or opening buffers from within the editor.
-// user can navigate to a file in a terminal(or some external application) and open that buffer in the editor, 
-// or pass text from a terminal(or some external application) in to a scratch buffer in the editor
-// but the eventual client/server design shouldn't be restricted from doing so, if the user desires. it just won't be supported
-// as a built in feature...
-// we should prob support switching to other open buffers within a session inside the editor, though
+//TODO: figure out how to launch a shell with a command string determined at run time, for %sh{} expansions
+    //let output = std::process::Command::new("sh")
+    //                .arg(expansion_content)
+    //                .output();
 
 ////////////////////////////////////////////////////////////////////////////
 //pub fn insert(&mut self, new_text: &str){
@@ -65,67 +24,13 @@
 //}
 ////////////////////////////////////////////////////////////////////////////
 
-// could certain actions be accomplished with a built in command?
-// add-highlighter  //line/column/rope offset/range based?...    //pre virtual text or post?     //only single cell or vec of cells?...
-    //let user decide which coordinate scheme to use, but it should always resolve to a rope offset
-    //this will be pre virtual text, and accounted for in edit core/server before conversion to display coordinates
-    //all buffer highlights should be listed in offset coordinates and served at buffer/highlights
-    //visible buffer highlights should be listed in display coordinates and served at display_area/highlights
-    //highlighters may need a group parameter, so that a group can be cleared, if needed, and the rest left alone
-// add-virtual-text //line/column or rope offset?...    //should this have an associated color for highlighting?...
-// add-command <name> <command>     //add-comand open_terminal "alacritty &"    //if command ends in '&', spawn instead of status/output
-// add-keybind <scope> <mode> <keybind> <command>   //does this need to be handled separately from other commands, since keybinds are a frontend only concept?...
-// add-fold     //line or selection_range     //pre virtual text/highlighting or post?
-// menu     //for contextual popup menus
-// prompt   //for util text box
-// command aliases could be accomplished by defining a new command  //add-command <alias> <aliased-command>
-// search <regex>   //non interactive search within selections  //could interactive search be accomplished by integrating external utility instead of being built in?...
-// split <regex>    //non interactive split within selections   //could interactive split be accomplished by integrating external utility instead of being built in?...
-
-// client could tokenize command string, and maybe have separate client specific commands, which the client would resolve before sending
-// command tokens to server
-// ex: add-keybind
-// ex: %sh{idk_bar -display !val{mode}}     //mode is expanded in client, shell command expanded and called in server
-// menu and prompt would have to be intercepted by the client side parser as well
-// maybe we wouldn't need separate %val{} and !val{}. client can just determine what is it's responsibility to expand, and do so...
-
-//maybe add Mode::User(mode_name) to let user add custom modes...
-
-//would it be possible to allow layout(and contents) to be defined using commands?
-// add-widget text --start (0, 0) --dimensions (10, 20) --content %val{line_numbers} --bg Rgb(0, 0, 0) --fg(255, 255, 255) --name line_number_widget
-// add-sub-widget scrollbar --parent file_text_buffer (+whatever other info would be needed)
-//how could this be made to change dynamically(like during resize)
-
-//Config could be populated from an rc(run command) file, instead of deserializing from some config format
-//the rc file would contain a list of whitespace separated commands to run(from top to bottom) at startup, to set up necessary data structures
-//such as default keybinds:
-//bind <mode> <keybind> <command>   //command could be a built-in, or one defined earlier in the rc...
-    //it may be a good idea to allow for comments in the rc file. how could this be accomplished
-//or to set up options:
-//set-option <option> <value>   //set-option use_full_file_path false
-
-
-//9p file system
-// command file     //on write, edit performs commands
-//%sh{ cat date > $buffer }      //write date to buffer file, which inserts date's output at every selection(replacing selection content if extended)
-// write to /mnt/edit/id/buffer would insert/replace at/in place of the currently selected text for all selections
-// write to /mnt/edit/id/selections/selection_num would insert/replace at/in place of the selected text for that selection only
-// /mnt/edit/id/selections/leading/selection_num, /mnt/edit/id/selections/primary, /mnt/edit/id/selections/trailing/selection_num if using alternate selections impl
-// selection_num files would only be served if that selection number exists
-
-
-//notification modes could be set through a command
-//echo --error <message>
-//echo --warn <message>
-//echo --notify <message>
-//echo --info <message>     //same as echo <message>
-
 use std::path::PathBuf;
 use crossterm::event;
 use ratatui::{
     prelude::*,
     widgets::*
 };
+//use unicode_segmentation::UnicodeSegmentation;
 use crate::{
     config::*,
     mode::Mode,
@@ -831,9 +736,9 @@ impl Application{
         }
         match event::read(){
             Ok(event) => {
-                self.action(
-                    match event{
-                        event::Event::Key(key_event) => {
+                match event{
+                    event::Event::Key(key_event) => {
+                        self.action(
                             match self.config.keybinds.get(&(self.mode(), key_event)).cloned(){
                                 Some(action) => action,
                                 None => {
@@ -842,7 +747,8 @@ impl Application{
                                         Mode::Warning | Mode::Notify | Mode::Info => {
                                             //spoofing our mode as insert, to handle fall through
                                             match self.config.keybinds.get(&(Mode::Insert, key_event)).cloned(){
-                                                //some actions may need to be modified to pop until insert mode, because we aren't actually in insert yet
+                                                //some actions may need to be modified to pop until insert mode, 
+                                                //because we aren't actually in insert yet
                                                 //the application will panic/misbehave if action does not handle this...
                                                 Some(insert_action) => insert_action,
                                                 None => handle_char_insert(Mode::Insert, key_event)
@@ -852,14 +758,24 @@ impl Application{
                                     }
                                 }
                             }
-                        },
-                        event::Event::Mouse(_mouse_event) => Action::EditorAction(EditorAction::NoOpEvent),
-                        event::Event::Resize(width, height) => Action::EditorAction(EditorAction::Resize(width, height)),
-                        event::Event::FocusLost => Action::EditorAction(EditorAction::NoOpEvent), //maybe quit displaying cursor(s)/selection(s)?...
-                        event::Event::FocusGained => Action::EditorAction(EditorAction::NoOpEvent),   //display cursor(s)/selection(s)?...
-                        event::Event::Paste(_) => Action::EditorAction(EditorAction::NoOpEvent)
+                        );
+                    },
+                    event::Event::Mouse(_mouse_event) => self.action(Action::EditorAction(EditorAction::NoOpEvent)),
+                    event::Event::Resize(width, height) => {
+                        self.ui.set_terminal_size(width, height);
+                        self.update_layouts();
+                        self.update_ui_data_util_bar(); //TODO: can this be called later in fn impl?
+                        // scrolling so cursor is in a reasonable place, and updating so any ui changes render correctly
+                        self.checked_scroll_and_update(
+                            &self.selections.primary().clone(),
+                            Application::update_ui_data_document, 
+                            Application::update_ui_data_document
+                        );
                     }
-                );
+                    event::Event::FocusLost => self.action(Action::EditorAction(EditorAction::NoOpEvent)), //maybe quit displaying cursor(s)/selection(s)?...
+                    event::Event::FocusGained => self.action(Action::EditorAction(EditorAction::NoOpEvent)),   //display cursor(s)/selection(s)?...
+                    event::Event::Paste(_) => self.action(Action::EditorAction(EditorAction::NoOpEvent))
+                }
                 Ok(())
             }
             Err(e) => Err(format!("{e}"))
@@ -913,79 +829,343 @@ impl Application{
         //at the extreme, i think every action could end up being a command
         //in that sense, the editor is just a command parser, with command specific response behavior
         fn parse_command(app: &mut Application, command_string: String) -> Result<(), ()>{
-            //TODO: split commands on any '\n' or ';' outside of quote strings
-            //TODO: loop through each separate command string, and perform
+            //TODO: maybe parse_command should return a new instance of Application instead of modifying existing
+            //that way, we could apply changes to the new instance, and if an error occurs, default back to the old instance with no changes
+            //also, parse_command could return errors up from command_handler fns, instead of returning an uninformative unit Err(())
+            if command_string.is_empty(){return Err(());}
+            //enum ExpansionType{Option, Value, Register, Shell}
+            //enum WordType{
+            //    Unquoted(String),
+            //    SingleQuote(String),
+            //    DoubleQuote(String),
+            //    Percent(String, Option<ExpansionType>)
+            //}
+            //does quote type need to be encoded? or can we just:   //this way we can assign a command as any quoted type and match on it, instead of having to exactly match the quote type
+            //enum WordType{
+            //  Unquoted,                   //word
+            //  Quoted,                     //'a word', "a word", %{a word}
+            //  Expansion(ExpansionType)    //%value{value_name}   //valid types are "shell", "register", "option", "value"
+            //}
+            //struct Word{
+            //  type: WordType,
+            //  content: String
+            //}
+            //expansions should be handled at the time of execution. fn execute_command()
+            let mut commands = Vec::new();
+            let mut command = Vec::new();
+            let mut word = String::new();
+
+            let mut inside_of_quotations = false;   //we may need to store quotation type too. ', ", %
+            let mut quote_char = Vec::new();   //may need to become a Vec<char>, so that we can have nestable brace quotes no_op %sh{{ sleep 10 } > /dev/null 2>&1 < /dev/null &}     //push to vec on '{', pop from vec on '}'. push word to command if vec empty
+            let mut inside_of_comment = false;
+            let mut escape_next = false;
+            //TODO: for grapheme in command_string.graphemes(true){
+            for (_i, char) in command_string.chars().enumerate(){
+                //TODO: maybe we should push '\' to word, and pop from word if the following char is something we should escape
+                //that way we don't have to double escape unquoted strings containg '\'
+                //TODO: maybe we should store a follows_percent bool. for balanced % quotes/expansions
+                //follows_percent can only be set to true if word.is_empty()
+                //if follows_percent is true, but char is ' ' || '\t' || '\n' || ';', follows_percent = false, and push '%' word to command
+                match char{
+                    ' ' | '\t' => {
+                        if inside_of_comment{}
+                        else if inside_of_quotations{   //this may become inside_of_single_quote || inside_of_double_quote || inside_of_percent_quote
+                            word.push(char);
+                        }
+                        else if escape_next{
+                            word.push(char);
+                            escape_next = false;
+                        }
+                        else{
+                            if !word.is_empty(){
+                                command.push(word); //maybe determine word type, then push WordType
+                                word = String::new();
+                                // this should handle any quote chars that are used alone and not for quotation
+                                inside_of_quotations = false;
+                                quote_char = Vec::new();
+                                //
+                            }
+                        }
+                    }
+                    '\n' => {
+                        if inside_of_comment{
+                            inside_of_comment = false;
+                        }
+                        else if inside_of_quotations{
+                            word.push(char);
+                        }
+                        else if escape_next{
+                            word.push(char);
+                            escape_next = false;
+                        }
+                        else{
+                            if !word.is_empty(){
+                                command.push(word);
+                                word = String::new();
+                            }
+                            if !command.is_empty(){
+                                commands.push(command);
+                                command = Vec::new();
+                            }
+                        }
+                    }
+                    ';' => {
+                        if inside_of_comment{}
+                        else if inside_of_quotations{
+                            word.push(char);
+                        }
+                        else if escape_next{
+                            word.push(char);
+                            escape_next = false;
+                        }
+                        else{
+                            if !word.is_empty(){
+                                command.push(word);
+                                word = String::new();
+                            }
+                            if !command.is_empty(){
+                                commands.push(command);
+                                command = Vec::new();
+                            }
+                        }
+                    }
+                    '#' => {
+                        if inside_of_comment{}
+                        else if inside_of_quotations{
+                            word.push(char);
+                        }
+                        else if escape_next{
+                            word.push(char);
+                            escape_next = false;
+                        }
+                        else{
+                            inside_of_comment = true;
+                        }
+                    }
+                    '\\' => {
+                        if inside_of_comment{}
+                        else if inside_of_quotations{
+                            word.push(char);
+                        }
+                        else if escape_next{
+                            word.push(char);
+                            escape_next = false;
+                        }
+                        else{
+                            escape_next = true;
+                        }
+                    }
+                    '\'' | '"' => {
+                        if inside_of_comment{}
+                        else if inside_of_quotations{
+                            if quote_char.last() == Some(&char){
+                                word.push(char);
+                                let _ = quote_char.pop();
+                                if let None = quote_char.last(){
+                                    command.push(word);
+                                    word = String::new();
+                                    inside_of_quotations = false;
+                                    //quote_char = Vec::new();
+                                }
+                            }else{
+                                word.push(char);
+                            }
+                        }
+                        else if escape_next{
+                            word.push(char);
+                            escape_next = false;
+                        }
+                        else{
+                            word.push(char);
+                            inside_of_quotations = true;
+                            quote_char.push(char);
+                        }
+                    }
+                    '{' | '[' | '(' => {
+                        if inside_of_comment{}
+                        else if inside_of_quotations{
+                            word.push(char);
+                            if quote_char.last() == Some(&char){
+                                quote_char.push(char);
+                            }
+                        }
+                        else if escape_next{
+                            word.push(char);
+                            escape_next = false;
+                        }
+                        else{
+                            word.push(char);
+                            inside_of_quotations = true;
+                            quote_char.push(char);
+                        }
+                    }
+                    '}' | ']' | ')' => {
+                        fn inverse_brace(char: char) -> Option<char>{
+                            if char == '}'{Some('{')}
+                            else if char == ']'{Some('[')}
+                            else if char == ')'{Some('(')}
+                            else{None}
+                        }
+                        if inside_of_comment{}
+                        else if inside_of_quotations{
+                            if quote_char.last() == Some(&inverse_brace(char).unwrap()){    //ok to unwrap here because inputs are verified by parent match expression
+                                word.push(char);
+                                let _ = quote_char.pop();
+                                if let None = quote_char.last(){
+                                    command.push(word);
+                                    word = String::new();
+                                    inside_of_quotations = false;
+                                    //quote_char = Vec::new();
+                                }
+                            }
+                            else{
+                                word.push(char);
+                            }
+                        }
+                        else if escape_next{
+                            word.push(char);
+                            escape_next = false;
+                        }
+                        else{
+                            word.push(char);
+                            //inside_of_quotations = true;
+                            //quote_char.push(char);
+                        }
+                    }
+                    //| => {}
+                    _ => {
+                        if inside_of_comment{}
+                        else if inside_of_quotations{
+                            word.push(char);
+                        }
+                        else if escape_next{
+                            word.push(char);
+                            escape_next = false;
+                        }
+                        else{
+                            word.push(char);
+                        }
+                    }
+                }
+            }
+            if !word.is_empty(){
+                command.push(word);
+            }
+            if !command.is_empty(){
+                commands.push(command);
+            }
+            if commands.is_empty(){return Err(());}
+            //handle_message(app, DisplayMode::Info, &format!("{:?}", commands)); //for debugging commands
             //TODO: consider how to handle a failed command in a list of commands. should we just error on first failed command?...
-            let command: Vec<&str> = command_string.split(' ').collect();
-            match /*command_string.as_str()*/*command.first().unwrap(){    //maybe command.get(0)...
-                //TODO: this should be a user defined command instead of built in
-                //push-command <name_string> <command_string>
-                //push-command "open new alacritty window" %sh{alacritty msg create-window}
-                //push-command term "open new alacritty window"  //this is effectively an alias
-                //push-command t term                            //this is effectively an alias
-                //pop-command <name_string> //remove a user defined command
-                //UserCommand{
-                //  name: String,
-                //  aliases: Option<Vec<String>>,
-                //  command_body: String
-                //}
-                //and would have to match on user defined commands
-                //user defined commands may need to be quoted "if spaces are used"...
-                "term" | "t" => app.action(Action::EditorAction(EditorAction::OpenNewTerminalWindow)),
-                "toggle_line_numbers" | "ln" => app.action(Action::EditorAction(EditorAction::ToggleLineNumbers)),  //these will prob end up using set-option command...
-                "toggle_status_bar" | "sb" => app.action(Action::EditorAction(EditorAction::ToggleStatusBar)),      //these will prob end up using set-option command...
-                "quit" | "q" => app.action(Action::EditorAction(EditorAction::Quit)),
-                "quit!" | "q!" => app.action(Action::EditorAction(EditorAction::QuitIgnoringChanges)),
-                //write buffer contents to file //should this optionally take a filepath to save to? then we don't need to implement save as    //would have to split util bar text on ' ' into separate args
-                "write" | "w" => app.action(Action::EditorAction(EditorAction::Save)),
-                "search" => {
-                    match crate::utilities::incremental_search_in_selection::selections_impl(
-                        &app.selections, 
-                        command.get(1).unwrap(),
-                        &app.buffer, 
-                        app.config.semantics.clone()
-                    ){
-                        Ok(new_selections) => {
-                            app.selections = new_selections;
-                            app.checked_scroll_and_update(
-                                &app.selections.primary().clone(), 
-                                Application::update_ui_data_document, 
-                                Application::update_ui_data_selections
-                            );
-                        }
-                        Err(_) => {
-                            //self.selections = selections_before_search.clone();
-                            handle_message(app, DisplayMode::Error, "not matching regex");
+            for command in commands{
+                //TODO: these could all go in a execute_command fn
+                //execute_command(app, command)?;
+                
+                //TODO: let first = command.first().unwrap();
+                //if word.type == WordType::Expansion{/* evaluate expansion */}
+                //match first{  //then match
+                match command.first().unwrap().as_str(){
+                    //TODO: this should be a user defined command instead of built in
+                    //add-command <name_string> --doc_string <optional_doc_string> <command_string>
+                    //add-command "open new alacritty window" --doc_string "opens a new alacritty window" %sh{alacritty msg create-window}
+                    //add-command term "open new alacritty window"  //this is effectively an alias
+                    //add-command t term                            //this is effectively an alias
+                    //remove-command <name_string> //remove a user defined command
+                    //UserCommand{
+                    //  name: String,
+                    //  documentation: Option<String>,
+                    //  command_body: String
+                    //}
+                    //and would have to match on user defined commands
+                    //user defined commands may need to be quoted "if spaces are used"...
+                    "term" | "t" => app.action(Action::EditorAction(EditorAction::OpenNewTerminalWindow)),
+                    "toggle_line_numbers" | "ln" => app.action(Action::EditorAction(EditorAction::ToggleLineNumbers)),  //these will prob end up using set-option command...
+                    "toggle_status_bar" | "sb" => app.action(Action::EditorAction(EditorAction::ToggleStatusBar)),      //these will prob end up using set-option command...
+                    "quit" | "q" => app.action(Action::EditorAction(EditorAction::Quit)),
+                    "quit!" | "q!" => app.action(Action::EditorAction(EditorAction::QuitIgnoringChanges)),
+                    //write buffer contents to file //should this optionally take a filepath to save to? then we don't need to implement save as    //would have to split util bar text on ' ' into separate args
+                    "write" | "w" => app.action(Action::EditorAction(EditorAction::Save)),
+                    "search" => {
+                        match crate::utilities::incremental_search_in_selection::selections_impl(
+                            &app.selections, 
+                            command.get(1).unwrap(),
+                            &app.buffer, 
+                            app.config.semantics.clone()
+                        ){
+                            Ok(new_selections) => {
+                                app.selections = new_selections;
+                                app.checked_scroll_and_update(
+                                    &app.selections.primary().clone(), 
+                                    Application::update_ui_data_document, 
+                                    Application::update_ui_data_selections
+                                );
+                            }
+                            Err(_) => {
+                                //self.selections = selections_before_search.clone();
+                                handle_message(app, DisplayMode::Error, "no matching regex");
+                            }
                         }
                     }
-                }
-                //"\"idk some shit\"" => handle_message(app, DisplayMode::Error, "idk some shit"),  //commands with whitespace can be handled this way
-                //add_command <command_name> <command>
-                //"add_command" => {/* match positional args and, if command name available, insert into command list */}
-                //remove_command <command_name>
-                //add_keybind <mode> <keybind> <command>
-                "add_keybind" => {
-                    let mode = Mode::Insert;    //get mode from positional args
-                    let keycode = crossterm::event::KeyCode::Char('w'); //get mode from positional args
-                    let modifiers = crossterm::event::KeyModifiers::CONTROL;    //get mode from positional args
-                    let key_event = crossterm::event::KeyEvent::new(keycode, modifiers);
-                    let _command = "idk some shit".to_string();  //get mode from positional args
-                    if app.config.keybinds.contains_key(&(mode, key_event)){
-                        //error
-                    }else{
-                        //app.config.keybinds.insert((mode, key_event), Action::EditorAction(EditorAction::EvalCommand(command)));
-                        handle_message(app, DisplayMode::Info, "keybind added");
+                    "split" => {    // certain regexes like "\d\." don't work because command parsing is interpreting the '\' as an escape. we may need to take regexes in quotes. i would assume the same applies to search
+                        match crate::utilities::incremental_split_in_selection::selections_impl(
+                            &app.selections, 
+                            command.get(1).unwrap(),
+                            &app.buffer, 
+                            app.config.semantics.clone()
+                        ){
+                            Ok(new_selections) => {
+                                app.selections = new_selections;
+                                app.checked_scroll_and_update(
+                                    &app.selections.primary().clone(), 
+                                    Application::update_ui_data_document, 
+                                    Application::update_ui_data_selections
+                                );
+                            }
+                            Err(_) => {
+                                //self.selections = selections_before_search.clone();
+                                handle_message(app, DisplayMode::Error, "no matching regex");
+                            }
+                        }
                     }
-                }
-                //remove_keybind <keybind>
-                //add_option <name> <type>
-                //remove_option <name>
-                //set_option <name> <value>
-                //add_hook
-                //remove hook
-                _ => {
-                    //TODO: check if command_string matches user defined command
-                    return Err(());
+                    //"\"idk some shit\"" => handle_message(app, DisplayMode::Error, "idk some shit"),  //commands with whitespace can be handled this way
+                    //add_command <command_name> <command> --doc_string <optional_doc_string>
+                    "add_command" => {
+                        let name = command.get(1).unwrap();
+                        //let body = get command body
+                        //let documentation = get optional doc string
+                        //app.config.user_commands.push(Command::new(name, documentation, body));
+                        handle_message(app, DisplayMode::Info, &format!("{} command added", name));
+                    }
+                    //"add_command" => {/* match positional args and, if command name available, insert into command list */}
+                    //remove_command <command_name>
+                    //add_keybind <mode> <keybind> <command>
+                    "add_keybind" => {
+                        let mode = Mode::Insert;    //get mode from positional args
+                        let keycode = crossterm::event::KeyCode::Char('n'); //get mode from positional args
+                        let modifiers = crossterm::event::KeyModifiers::CONTROL;    //get mode from positional args
+                        let key_event = crossterm::event::KeyEvent::new(keycode, modifiers);
+                        let _command = "idk some shit".to_string();  //get mode from positional args
+                        if app.config.keybinds.contains_key(&(mode, key_event)){
+                            //error
+                        }else{
+                            //app.config.keybinds.insert((mode, key_event), Action::EditorAction(EditorAction::EvalCommand(command)));
+                            handle_message(app, DisplayMode::Info, "keybind added");
+                        }
+                    }
+                    //remove_keybind <keybind>
+                    //add_option <name> <type>
+                    //remove_option <name>
+                    //set_option <name> <value>
+                    //add_hook
+                    //remove hook
+                    _ => {
+                        //TODO: check if command_string matches user defined command
+                        //match app.config.user_commands.get(command){  //this should check against command name
+                        //    Some(command) => {parse_command(app, command.body)?}
+                        //    None => {}
+                        //}
+                        return Err(());
+                    }
                 }
             }
             Ok(())
@@ -1057,17 +1237,6 @@ impl Application{
                         //does this belong here, or in ui.rs?...    //by calling here, we only perform this calculation as needed, not on every editor run cycle
                         self.update_ui_data_mode();
                     }
-                    EditorAction::Resize(width, height) => {
-                        self.ui.set_terminal_size(width, height);
-                        self.update_layouts();
-                        self.update_ui_data_util_bar(); //TODO: can this be called later in fn impl?
-                        // scrolling so cursor is in a reasonable place, and updating so any ui changes render correctly
-                        self.checked_scroll_and_update(
-                            &self.selections.primary().clone(),
-                            Application::update_ui_data_document, 
-                            Application::update_ui_data_document
-                        );
-                    }
                     EditorAction::NoOpKeypress => {handle_message(self, UNHANDLED_KEYPRESS_DISPLAY_MODE, UNHANDLED_KEYPRESS);}
                     EditorAction::NoOpEvent => {handle_message(self, UNHANDLED_EVENT_DISPLAY_MODE, UNHANDLED_EVENT);}
                     EditorAction::Quit => {
@@ -1132,6 +1301,7 @@ impl Application{
                     EditorAction::OpenNewTerminalWindow => {
                         assert!(matches!(self.mode(), Mode::Insert | Mode::Command | Mode::Warning | Mode::Notify | Mode::Info));
                         //if matches!(self.mode(), Mode::Warning | Mode::Notify | Mode::Info){pop_to_insert(self);}   //handle insert fallthrough
+                        if self.mode() != Mode::Insert{pop_to_insert(self);}
                         let result = std::process::Command::new("alacritty")     //TODO: have user define TERMINAL const in config.rs   //or check env vars for $TERM?
                             //.arg("msg")     // these extra commands just make new instances use the same backend(daemon?)
                             //.arg("create-window")
@@ -1162,7 +1332,7 @@ impl Application{
                             handle_application_error(self, ApplicationError::SelectionsError(SelectionsError::MultipleSelections));
                         }else{
                             //if parse_command(self, self.selections.primary().to_string(&self.buffer)).is_err(){
-                            if Result::is_err(&parse_command(self, self.selections.primary().to_string(&self.buffer))){
+                            if Result::is_err(&parse_command(self, self.selections.primary().to_string(&self.buffer))){     //to_string() might need to return an error if cursor at buffer len + 1
                                 handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);
                             }
                         }
@@ -1211,8 +1381,6 @@ impl Application{
                     SelectionAction::ExtendSelectionPageDown => {(self.selections.move_selection(count, &self.buffer, Some(&self.buffer_display_area()), self.config.semantics.clone(), extend_selection_page_down::selection_impl), SelectionToFollow::Primary)}                    
                     SelectionAction::SelectLine => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), select_line::selection_impl), SelectionToFollow::Primary)}
                     SelectionAction::SelectAll => {(self.selections.move_cursor_clearing_non_primary(&self.buffer, self.config.semantics.clone(), select_all::selection_impl), SelectionToFollow::Primary)}
-                    //TODO: bug fix: if selection extended vertically(up/page up/maybe others), then collapsed to anchor, the resultant cursor is 1 grapheme right from where it should be
-                    //TODO: this also happens if selection extended backwards horizontally
                     SelectionAction::CollapseSelectionToAnchor => {(self.selections.move_cursor_non_overlapping(&self.buffer, self.config.semantics.clone(), collapse_selections_to_anchor::selection_impl), SelectionToFollow::Primary)}
                     SelectionAction::CollapseSelectionToCursor => {(self.selections.move_cursor_non_overlapping(&self.buffer, self.config.semantics.clone(), collapse_selections_to_cursor::selection_impl), SelectionToFollow::Primary)}
                     SelectionAction::ClearNonPrimarySelections => {(clear_non_primary_selections::selections_impl(&self.selections), SelectionToFollow::Primary)}
@@ -1222,7 +1390,6 @@ impl Application{
                     SelectionAction::IncrementPrimarySelection => {(increment_primary_selection::selections_impl(&self.selections), SelectionToFollow::Primary)}
                     SelectionAction::DecrementPrimarySelection => {(decrement_primary_selection::selections_impl(&self.selections), SelectionToFollow::Primary)}
                     SelectionAction::Surround => {(surround::selections_impl(&self.selections, &self.buffer, self.config.semantics.clone()), SelectionToFollow::Primary)},
-                    //TODO: FlipDirection should update stored line position, so that a subsequent vertical move reflects the current cursor position
                     SelectionAction::FlipDirection => {(self.selections.move_cursor_non_overlapping(&self.buffer, self.config.semantics.clone(), flip_direction::selection_impl), SelectionToFollow::Primary)},
                 
                         //These may technically be distinct from the other selection actions, because they could be called from object mode, and would need to pop the mode stack after calling...

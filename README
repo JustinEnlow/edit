@@ -1,104 +1,133 @@
-edit aims to be the generic text editing component of a computing system, 
-that allows for composability with other components to extend its abilities/usability.
+edit aims to be a generic text editing component of a computing system, 
+that allows for composability with other programs to extend its abilities/usability.
 
-This is a reference TUI frontend implementation using the edit_core backend.
-Edit is intended to be used inside a terminal that supports keyboard enhancement(tested with alacritty).
+Currently, Edit is intended to be used inside a terminal that supports keyboard enhancement(tested with alacritty).
 if using a terminal without keyboard enhancement, you may have to rebind the default keybindings...
 
-Unix is the IDE...edit is the text editor component of that IDE.
-
-Features:
-    Editing and movement features implemented in edit_core
-        [x]
-    User Interface(all elements themeable):
-        [ ] Text Document
-            [x] ascii text rendering
-            [ ] utf-8 text rendering
-            [x] cursor/selection rendering(done for document, still WIP in utilities)
-            [x] cursor line (highlight the line the primary cursor is on)
-            [x] cursor column (highlight the column the primary cursor is on)
-            [ ] suggestions/completion(from previously used words)
-        [ ] Scroll bar(shows relative location in document)(handle should be proportional to view size and backdrop should be proportional to doc len)
-        [x] Toggleable Line Numbers
-            [x] absolute(works with raw text. annotations/collapsing/other display decorations is WIP)
-            [ ] relative
-        [x] Toggleable Status Bar
-            [x] File name
-            [x] Modified Indicator
-            [x] Read Only Indicator
-            [x] Mode Indicator/count of modes on mode stack     [Mode: Insert | Stack: 1]
-            [x] Selection Indicator(1/1 = primary cursor is the only one, 3/125 = primary cursor is the 3rd selection of 125)
-            [x] primary cursor location indicator(line num:column num)
-        [ ] Utility Bar(mode specific) (should utils have suggestions/completion?)
-            [x] Go to Mode  (should have popup with available commands?...)
-                [x] use input as line number
-                [x] use input as amount for following relative motion command (up, down, left, right, etc.)
-                [ ] to matching surround
-            [x] Command mode    (should provide list of available commands)
-                [x] built in and custom commands
-            [ ] Search Mode
-                [x] search inside extended selections
-                [ ] search whole document if no selection extended
-                [x] match regex pattern
-                [x] incremental search
-            [x] Split Mode
-                [x] match regex pattern
-                [x] incremental split
-            [x] Error Mode(blocking display of error messages/visual responses to input)
-            [x] Warning Mode(non-blocking display of warning messages/visual responses to input)
-            [x] Notify Mode(non-blocking display of notifications/visual responses to input)
-            [x] Information Mode(non-blocking display of informational messages/visual responses to input)
-                [x] File modified
-                [x] Save failed
-                [x] Command parse failed
-                [x] Single selection
-                [x] Multiple selections
-                [x] Invalid input
-                [x] Same state
-                [x] Unhandled error
-                [x] Unhandled keypress
-                [x] Unhandled event
-                [x] Selection action out of view (inform user of non visible selection actions)
-                [x] Text copied
-                    //any of the above message types can be assigned to Error/Warning/Notify/Info mode, depending on user display/behavior preference
-            [ ] Shell Mode
-                [ ] pipe selection(s) to external utility and replace selection(s) with utility output
-                [ ] call external utility and insert at/replace selection(s) with utility output
-        [ ] Popups(mode specific)(should be hideable from config)
-            [ ] View Mode
-                [x] scroll up, down, left, right
-                [x] center view vertically around primary cursor
-                [ ] center view horizontally around primary cursor
-                [ ] align view with primary cursor at top
-                [ ] align view with primary cursor at bottom
-            [ ] Object Mode (for text object selection)
-                [ ] word
-                [ ] sentence
-                [ ] paragraph
-                [x] surrounding pair
-                [ ] exclusive surrounding pair
-                [ ] inclusive surrounding pair
-
+Goal Features:
+    File Server Interface (for asynchronous interaction)
+        //9p file system
+            // command file     //on write, edit performs commands
+            //%sh{ cat date > $buffer }      //write date to buffer file, which inserts date's output at every selection(replacing selection content if extended)
+            // write to /mnt/edit/id/buffer would insert/replace at/in place of the currently selected text for all selections
+            // write to /mnt/edit/id/selections/selection_num would insert/replace at/in place of the selected text for that selection only
+            // /mnt/edit/id/selections/leading/selection_num, /mnt/edit/id/selections/primary, /mnt/edit/id/selections/trailing/selection_num if using alternate selections impl
+            // selection_num files would only be served if that selection number exists
+        files served:     //just for consideration. not set on this yet
+            /mnt/edit/
+            |-----hooks                           //write to add hooks, read to list hooks
+            |-----command                         //writeable file for asynchronous command input
+            |-----events                          //readable file containing hook events
+            |-----display/
+            |     |---layout                      //writeable file to assign widget layout
+            |     |---vertical/                   //layout widget
+            |         |---horizontal/             //layout widget
+            |         |   |---text/               //text widget
+            |         |   |   |---show            //indicates whether the widget should be displayed
+            |         |   |   |---content         //readable file containing text widget content(line numbers)
+            |         |   |   |---fg_color        //rgb(0,0,0)/black/0x000000/etc...
+            |         |   |   |---bg_color
+            |         |   |   |---style           //bold/italic/etc..
+            |         |   |   |---alignment       //how to align content(left/right/center)
+            |         |   |   |---padding         //the space assigned for widget display(space_around/min/max/length/percentage)
+            |         |   |---text/
+            |         |   |   |---content         //readable file containing text widget content(text buffer display text)
+            |         |   |   |---fg_color        //rgb(0,0,0)/black/0x000000/etc...
+            |         |   |   |---bg_color
+            |         |   |   |---style           //bold/italic/etc..
+            |         |   |---scroll_bar/
+            |         |       |---thumb/
+            |         |       |---track/
+            |         |---horizontal/             //layout widget     //status bar
+            |         |---horizontal/             //layout widget     //util bar
+            |-----buffer/
+            |     |---events
+            |     |---raw_text
+            |     |---highlights
+            |     |---virtual_text
+            |     |---folds
+            |     |---wrap
+            |     |---display                 //readable file containing the buffer text after all virtual_text/folds/wrapping has been applied
+            |-----selections/
+                  |---selections/
+                  |   |---content                 //readable file containing a newline separated string of all selection's contents
+                  |   |                           //writeable file. if selection extended, replaces selection content with written text
+                  |   |                           //if selection not extended, inserts written text at cursor location
+                  |   |---buffer_offset
+                  |---enumerated/
+                      |---0/
+                      |   |---content             //readable file containing selection 0's content
+                      |   |                       //writeable file. if selection extended, replaces selection content with written text
+                      |   |                       //if selection not extended, inserts written text at cursor location
+                      |   |---buffer_offset       //readable file containing selection 0's anchor/head/cursor (grapheme/char/byte?)offsets from buffer start
+                      |---1/
+    Extensible Command Interface (for synchronous interaction)(executable from within the text buffer)
+        //TODO: describe command language
+        built-in commands:
+            built in selection/movement/edit/editor functionality
+            search <regex>   //non interactive search within selections  //could interactive search be accomplished by integrating external utility instead of being built in?...
+            split <regex>    //non interactive split within selections   //could interactive split be accomplished by integrating external utility instead of being built in?...
+            pipe <program>    //pipe each selection through the given external program and replace the selection with its output
+            send <program>    //pipe each selection through the given external program and ignore its output
+            retain-successful <program>   //enter a shell command and pipe each selection's content to it. Selections whose shell command returns 0 will be kept, others will be dropped
+            add-command <name> <command>     //add-command open_terminal "alacritty &"    //if command ends in '&', spawn instead of status/output
+            remove-command <name>
+            // command aliases could be accomplished by defining a new command  //add-command <alias> <aliased-command>
+            // or may be better to just have an alias command... idk
+            add-keybind <mode> <keybind> <command>
+            remove-keybind <keybind>
+            add-option
+            remove-option
+            set-option
+            add-hook
+            remove-hook
+            //notification modes could be set through a command
+            echo [Flags] <message>      //which should be the default, if no flag passed?...
+                Flags:
+                    --error
+                    --warn
+                    --notify
+                    --info
+            evaluate-commands <commands>
+            menu     //for contextual popup menus
+            prompt   //for util text box
+            add-highlighter  //line/column/rope offset/range based?...    //pre virtual text or post?     //only single cell or vec of cells?...
+                // let user decide which coordinate scheme to use, but it should always resolve to a rope offset
+                // this will be pre virtual text, and accounted for in edit core/server before conversion to display coordinates
+                // all buffer highlights should be listed in offset coordinates and served at buffer/highlights
+                // visible buffer highlights should be listed in display coordinates and served at display_area/highlights
+                // highlighters may need a group parameter, so that a group can be cleared, if needed, and the rest left alone
+            add-virtual-text //line/column or rope offset?...    //should this have an associated color for highlighting?...
+            add-fold     //line or selection_range     //pre virtual text/highlighting or post?
+            //examples:
+                //integrate with external plumb utility
+                //%sh{cat /mnt/edit/$pid/selection/content | plumb}     //send content of primary selection to plumb utility    //response behavior is determined by predefined plumb rules
+                //%sh{cat $edit_selection | plumb}
+    Customizable UI with Widgets + Layout (definable through command/file interface)
+        //would it be possible to allow layout(and contents) to be defined using commands?
+        // add-widget text --start (0, 0) --dimensions (10, 20) --content %val{line_numbers} --bg Rgb(0, 0, 0) --fg(255, 255, 255) --name line_number_widget
+        // add-sub-widget scrollbar --parent file_text_buffer (+whatever other info would be needed)
+        //how could this be made to change dynamically(like during resize)
+    Modal Agnostic (only 1 mode by default, but expandable, if desired)
+        //maybe add Mode::User(mode_name) to let user add custom modes...
+    Event -> Command Hook System (assign commands to execute in response to events)
+    Registers for text storage (system clipboard access through command interface)
+    Tree Style Edit History(undo/redo)  (maybe selection history too)
+    Config
+        //Config could be populated from an rc(run command) file, instead of deserializing from some config format
+        //the rc file would contain a list of '\n' or ';' separated commands to run(from top to bottom) at startup, to set up necessary data structures
+        //such as default keybinds:
+        //add-keybind <mode> <keybind> <command>   //command could be a built-in, or one defined earlier in the rc...
+        //or to set up options:
+        //set-option <option> <value>   //set-option use_full_file_path false
+        //config can contain line comments following a '#'
     
-    File Operations
-        [x] Open (from command line)
-        [x] Close
-        [x] Save
-    Performance
-        [ ] make performant (trying, but i honestly have no clue what i am doing...)
-
-    Customization and Extensibility
-        [ ] user config file
-        [ ] custom keybinds
+Desired Constraints:
+    reduce the set of built in features to only those that cannot be built using external utilities or from combining existing commands
+    always give user some visual response to input(this may not be possible with only a text buffer ui widget)
 
 Future Features:
-    edit_server/daemon mode?
-    Code Editing:
-        [ ] LSP
-        [ ] TreeSitter
-        [ ] DAP
-        [ ] ...more
-    interactive keybind/command re-binding?
+    client/server architecture
 
 Non-Features:
     cross platform usability

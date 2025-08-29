@@ -40,9 +40,9 @@ use crate::tests::selection_actions::test_selection_action;
         Mode::Insert, 
         vec![
             //(4, 0, None),
-            Selection::new_unchecked(Range::new(0, 4), Some(Direction::Backward), None),
+            Selection::new_unchecked(Range::new(0, 4), Some(Direction::Backward), Some(0)),
             //(9, 4, None)
-            Selection::new_unchecked(Range::new(4, 9), Some(Direction::Backward), None),
+            Selection::new_unchecked(Range::new(4, 9), Some(Direction::Backward), Some(0)),
         ], 
         0
     );
@@ -77,9 +77,9 @@ use crate::tests::selection_actions::test_selection_action;
         Mode::Insert, 
         vec![
             //(0, 4, None),
-            Selection::new_unchecked(Range::new(0, 4), Some(Direction::Forward), None),
+            Selection::new_unchecked(Range::new(0, 4), Some(Direction::Forward), Some(3)),
             //(4, 9, None)
-            Selection::new_unchecked(Range::new(4, 9), Some(Direction::Forward), None),
+            Selection::new_unchecked(Range::new(4, 9), Some(Direction::Forward), Some(4)),
         ], 
         0
     );

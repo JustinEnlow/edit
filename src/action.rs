@@ -1,7 +1,6 @@
 #[derive(Clone)] pub enum EditorAction{
     ModePop,
     ModePush(crate::mode_stack::StackMember),
-    Resize(u16, u16),
     NoOpKeypress,
     NoOpEvent,
     Quit,
@@ -25,7 +24,6 @@ impl EditorAction{
             EditorAction::OpenNewTerminalWindow => "open new terminal window",
             EditorAction::Quit => "quit",
             EditorAction::QuitIgnoringChanges => "force quit",
-            EditorAction::Resize(x, y) => &format!("resize to {},{}", x, y),
             EditorAction::Save => "save",
             EditorAction::ToggleLineNumbers => "toggle line numbers",
             EditorAction::ToggleStatusBar => "toggle status bar",

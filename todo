@@ -20,6 +20,7 @@ bug fix:
         //this seems to be related to shifting the selection so it cannot encompass the newline
     [x] with selection extended to line end(cursor over newline), and move cursor line end called, the selection should be collapsed, not return a same state error
     [ ] add selection above/below only copies the primary selection, not any other selections on the same line as primary
+    [ ] edit panics if evaluate command called at buffer end(with no text under cursor)
 
 
 other/maybe:
@@ -31,3 +32,96 @@ other/maybe:
     [ ] make undo/redo work with several subsequent grapheme insertions/deletions, not just single insertion/deletion. (undo/redo typed words)
 
     [x] if buffer is read only, don't allow edit actions to modify the buffer. selection actions and others should still work...
+
+Features:
+    Editing and movement features implemented in edit_core
+        [x]
+    User Interface(all elements themeable):
+        [ ] Text Document
+            [x] ascii text rendering
+            [ ] utf-8 text rendering
+            [x] cursor/selection rendering(done for document, still WIP in utilities)
+            [x] cursor line (highlight the line the primary cursor is on)
+            [x] cursor column (highlight the column the primary cursor is on)
+            [ ] suggestions/completion(from previously used words)
+        [ ] Scroll bar(shows relative location in document)(handle should be proportional to view size and backdrop should be proportional to doc len)
+        [x] Toggleable Line Numbers
+            [x] absolute(works with raw text. annotations/collapsing/other display decorations is WIP)
+            [ ] relative
+        [x] Toggleable Status Bar
+            [x] File name
+            [x] Modified Indicator
+            [x] Read Only Indicator
+            [x] Mode Indicator/count of modes on mode stack     [Mode: Insert | Stack: 1]
+            [x] Selection Indicator(1/1 = primary cursor is the only one, 3/125 = primary cursor is the 3rd selection of 125)
+            [x] primary cursor location indicator(line num:column num)
+        [ ] Utility Bar(mode specific) (should utils have suggestions/completion?)
+            [x] Go to Mode  (should have popup with available commands?...)
+                [x] use input as line number
+                [x] use input as amount for following relative motion command (up, down, left, right, etc.)
+                [ ] to matching surround
+            [x] Command mode    (should provide list of available commands)
+                [x] built in and custom commands
+            [ ] Search Mode
+                [x] search inside extended selections
+                [ ] search whole document if no selection extended
+                [x] match regex pattern
+                [x] incremental search
+            [x] Split Mode
+                [x] match regex pattern
+                [x] incremental split
+            [x] Error Mode(blocking display of error messages/visual responses to input)
+            [x] Warning Mode(non-blocking display of warning messages/visual responses to input)
+            [x] Notify Mode(non-blocking display of notifications/visual responses to input)
+            [x] Information Mode(non-blocking display of informational messages/visual responses to input)
+                [x] File modified
+                [x] Save failed
+                [x] Command parse failed
+                [x] Single selection
+                [x] Multiple selections
+                [x] Invalid input
+                [x] Same state
+                [x] Unhandled error
+                [x] Unhandled keypress
+                [x] Unhandled event
+                [x] Selection action out of view (inform user of non visible selection actions)
+                [x] Text copied
+                    //any of the above message types can be assigned to Error/Warning/Notify/Info mode, depending on user display/behavior preference
+            [ ] Shell Mode
+                [ ] pipe selection(s) to external utility and replace selection(s) with utility output
+                [ ] call external utility and insert at/replace selection(s) with utility output
+        [ ] Popups(mode specific)(should be hideable from config)
+            [ ] View Mode
+                [x] scroll up, down, left, right
+                [x] center view vertically around primary cursor
+                [ ] center view horizontally around primary cursor
+                [ ] align view with primary cursor at top
+                [ ] align view with primary cursor at bottom
+            [ ] Object Mode (for text object selection)
+                [ ] word
+                [ ] sentence
+                [ ] paragraph
+                [x] surrounding pair
+                [ ] exclusive surrounding pair
+                [ ] inclusive surrounding pair
+
+    
+    File Operations
+        [x] Open (from command line)
+        [x] Close
+        [x] Save
+    Performance
+        [ ] make performant (trying, but i honestly have no clue what i am doing...)
+
+    Customization and Extensibility
+        [ ] user config file
+        [ ] custom keybinds
+
+Future Features:
+    edit_server/daemon mode?
+    Code Editing:
+        [ ] LSP
+        [ ] TreeSitter
+        [ ] DAP
+        [ ] ...more
+    interactive keybind/command re-binding?

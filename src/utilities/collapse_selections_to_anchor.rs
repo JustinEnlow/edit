@@ -15,7 +15,17 @@ pub fn selection_impl(selection: &Selection, buffer: &crate::buffer::Buffer, sem
     //selection.assert_invariants(buffer, semantics.clone());
     assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
     if !selection.is_extended(){return Err(SelectionError::ResultsInSameState);}
-    let result = selection.put_cursor(selection.anchor(), buffer, Movement::Move, semantics.clone(), true);
+    let result = selection.put_cursor(
+        if selection.direction(buffer, semantics.clone()) == Some(crate::selection::Direction::Backward){
+            buffer.previous_grapheme_char_index(selection.anchor())
+        }else{
+            selection.anchor()
+        }, 
+        buffer, 
+        Movement::Move, 
+        semantics.clone(), 
+        true
+    );
     match result{
         Ok(selection) => {
             assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
