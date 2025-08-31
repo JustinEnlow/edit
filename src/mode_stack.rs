@@ -2,7 +2,7 @@ use crate::mode::Mode;
 
 #[derive(Clone, PartialEq, Debug)] pub struct StackMember{
     pub mode: Mode,
-    pub text: Option<String>
+    pub text: Option<String>    //maybe Mode itself can have an associated text?... instead of here...
 }
 
 /// Guarantees at least one element on stack

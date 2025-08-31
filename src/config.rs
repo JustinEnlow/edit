@@ -1,5 +1,14 @@
 use crate::selection::CursorSemantics;
 use ratatui::style::Color;
+//use std::collections::HashMap;
+//
+//#[derive(Clone)] enum OptionType{
+//    Bool(bool),
+//    U8(u8),
+//    String(String),
+//}
+//#[derive(Clone)] struct Command{}
+//#[derive(Clone)] struct Hook{}
 
 //this should contain config options that could be changed at runtime
 #[derive(Clone)] pub struct Config{
@@ -13,6 +22,7 @@ use ratatui::style::Color;
     pub view_scroll_amount: usize,
     pub show_cursor_column: bool,
     pub show_cursor_line: bool,
+    //TODO: indexmap::IndexMap<(crate::mode::Mode, crossterm::event::KeyEvent), Vec<Vec<Word>>,
     pub keybinds: indexmap::IndexMap<(crate::mode::Mode, crossterm::event::KeyEvent), crate::action::Action>,   //maybe instead of value being an Action, it should be a command string...  //add/remove-keybind
     //maybe message display modes?...
     //maybe others...
