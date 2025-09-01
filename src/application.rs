@@ -949,7 +949,7 @@ impl Application{
                         self.update_layouts();
                         self.update_ui_data_document();
                     }
-                    //could become a command: eval_command %val{selection}
+                    //could become a command: evaluate_command %val{selection}
                     EditorAction::EvaluateSelectionAsCommand => {
                         if self.mode() != Mode::Insert{pop_to_insert(self);}    //handle insert fallthrough
                         //TODO: figure out best way to handle multiple selections...
@@ -1394,29 +1394,31 @@ fn handle_application_error(app: &mut Application, e: ApplicationError){
         }
     }
 }
-enum ExpansionType{Option, Value, Register, Shell}
-enum WordType{
-  Unquoted,                   //word
-  Quoted,                     //'a word', "a word", %{a word}
-  Expansion(ExpansionType)    //%value{value_name}   //valid types are "shell", "register", "option", "value"
+#[derive(PartialEq, Debug)] enum ExpansionType{Option, Value, Register, Shell}
+#[derive(PartialEq, Debug)] enum WordType{
+    Unquoted,                   //word
+    Quoted,                     //'a word', "a word", %{a word}
+    Expansion(ExpansionType)    //%value{value_name}   //valid types are "shell", "register", "option", "value"
 }
-struct Word{
-  word_type: WordType,
-  content: String
+#[derive(PartialEq, Debug)] pub struct Word{
+    word_type: WordType,
+    content: String
 }
 //at the extreme, i think every action could end up being a command
 //in that sense, the editor is just a command parser, with command specific response behavior
-fn parse_command(command_string: String) -> Result<Vec<Vec<String>>, ()>{
+//NOTE: expansions should be performed at the time of execution. fn execute_command()
+pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, ()>{
     if command_string.is_empty(){return Err(());}
-    //expansions should be handled at the time of execution. fn execute_command()
     let mut commands = Vec::new();
     let mut command = Vec::new();
     let mut word = String::new();
+    let mut expansion_type_string = String::new();
 
     let mut inside_of_quotations = false;
-    let mut quote_char = Vec::new();   //may need to become a Vec<char>, so that we can have nestable brace quotes no_op %sh{{ sleep 10 } > /dev/null 2>&1 < /dev/null &}     //push to vec on '{', pop from vec on '}'. push word to command if vec empty
+    let mut quote_char: Vec<char> = Vec::new();   //may need to become a Vec<char>, so that we can have nestable brace quotes no_op %sh{{ sleep 10 } > /dev/null 2>&1 < /dev/null &}     //push to vec on '{', pop from vec on '}'. push word to command if vec empty
     let mut inside_of_comment = false;
     let mut escape_next = false;
+    let mut follows_percent = false;
     #[cfg(test)] println!("command string:\n{}\n", command_string);
     #[cfg(test)] println!("command string length: {}\n", command_string.len());
     //TODO: for grapheme in command_string.graphemes(true){
@@ -1444,11 +1446,13 @@ fn parse_command(command_string: String) -> Result<Vec<Vec<String>>, ()>{
                 else{
                     if !word.is_empty(){
                         #[cfg(test)] println!("word pushed to command: {:?}", word);
-                        command.push(word); //maybe determine word type, then push WordType
+                        //command.push(word); //maybe determine word type, then push WordType
+                        command.push(Word{word_type: WordType::Unquoted, content: word});
                         word = String::new();
                         // this should handle any quote chars that are used alone and not for quotation
                         inside_of_quotations = false;
                         quote_char = Vec::new();
+                        follows_percent = false;
                         //
                     }
                 }
@@ -1470,13 +1474,16 @@ fn parse_command(command_string: String) -> Result<Vec<Vec<String>>, ()>{
                 else{
                     if !word.is_empty(){
                         #[cfg(test)] println!("word pushed to command: {:?}", word);
-                        command.push(word);
+                        //command.push(word);
+                        command.push(Word{word_type: WordType::Unquoted, content: word});
                         word = String::new();
+                        follows_percent = false;
                     }
                     if !command.is_empty(){
                         #[cfg(test)] println!("command pushed to commands: {:?}", command);
                         commands.push(command);
                         command = Vec::new();
+                        follows_percent = false;
                     }
                 }
             }
@@ -1496,13 +1503,16 @@ fn parse_command(command_string: String) -> Result<Vec<Vec<String>>, ()>{
                 else{
                     if !word.is_empty(){
                         #[cfg(test)] println!("word pushed to command: {:?}", word);
-                        command.push(word);
+                        //command.push(word);
+                        command.push(Word{word_type: WordType::Unquoted, content: word});
                         word = String::new();
+                        follows_percent = false;
                     }
                     if !command.is_empty(){
                         #[cfg(test)] println!("command pushed to commands: {:?}", command);
                         commands.push(command);
                         command = Vec::new();
+                        follows_percent = false;
                     }
                 }
             }
@@ -1524,36 +1534,38 @@ fn parse_command(command_string: String) -> Result<Vec<Vec<String>>, ()>{
                     inside_of_comment = true;
                 }
             }
-            '\\' => {
-                if inside_of_comment{
-                    #[cfg(test)] println!("char ignored as comment");
-                }
-                else if inside_of_quotations{
-                    #[cfg(test)] println!("char pushed to word: {char}");
-                    word.push(char);
-                }
-                else if escape_next{
-                    #[cfg(test)] println!("char pushed to word: {char}");
-                    word.push(char);
-                    escape_next = false;
-                }
-                else{
-                    #[cfg(test)] println!("escaping next char");
-                    escape_next = true;
-                }
-            }
+//TODO: reimpl how escapes work... 
+//            '\\' => {
+//                if inside_of_comment{
+//                    #[cfg(test)] println!("char ignored as comment");
+//                }
+//                else if inside_of_quotations{
+//                    #[cfg(test)] println!("char pushed to word: {char}");
+//                    word.push(char);
+//                }
+//                else if escape_next{
+//                    #[cfg(test)] println!("char pushed to word: {char}");
+//                    word.push(char);
+//                    escape_next = false;
+//                }
+//                else{
+//                    #[cfg(test)] println!("escaping next char");
+//                    escape_next = true;
+//                }
+//            }
             '\'' | '"' => {
                 if inside_of_comment{
                     #[cfg(test)] println!("char ignored as comment");
                 }
                 else if inside_of_quotations{
                     if quote_char.last() == Some(&char){
-                        #[cfg(test)] println!("char pushed to word: {char}");
-                        word.push(char);
+                        //#[cfg(test)] println!("char pushed to word: {char}");
+                        //word.push(char);
                         let _ = quote_char.pop();
                         if Option::is_none(&quote_char.last()){
                             #[cfg(test)] println!("word pushed to command: {:?}", word);
-                            command.push(word);
+                            //command.push(word);
+                            command.push(Word{word_type: WordType::Quoted, content: word});
                             word = String::new();
                             inside_of_quotations = false;
                             //quote_char = Vec::new();
@@ -1569,10 +1581,29 @@ fn parse_command(command_string: String) -> Result<Vec<Vec<String>>, ()>{
                     escape_next = false;
                 }
                 else{
-                    #[cfg(test)] println!("char pushed to word: {char}");
-                    word.push(char);
+                    //#[cfg(test)] println!("char pushed to word: {char}");
+                    //word.push(char);
                     inside_of_quotations = true;
                     quote_char.push(char);
+                }
+            }
+            '%' => {
+                if inside_of_comment{
+                    #[cfg(test)] println!("char ignored as comment");
+                }
+                else if inside_of_quotations{
+                    #[cfg(test)] println!("char pushed to word: {char}");
+                    word.push(char);
+                }
+                else if escape_next{
+                    #[cfg(test)] println!("char pushed to word: {char}");
+                    word.push(char);
+                    escape_next = false;
+                }
+                else{
+                    #[cfg(test)] println!("char pushed to word: {char}");
+                    word.push(char);
+                    follows_percent = true;
                 }
             }
             '{' | '[' | '(' => {
@@ -1591,19 +1622,30 @@ fn parse_command(command_string: String) -> Result<Vec<Vec<String>>, ()>{
                     word.push(char);
                     escape_next = false;
                 }
+                else if follows_percent{
+                    //TODO: remove '%' from word
+                    word.remove(0);
+                    //
+                    expansion_type_string = word.clone();
+                    word = String::new();
+                    inside_of_quotations = true;
+                    quote_char.push(char);
+                    follows_percent = false;
+                }
                 else{
                     #[cfg(test)] println!("char pushed to word: {char}");
                     word.push(char);
-                    inside_of_quotations = true;
-                    quote_char.push(char);
+                    //inside_of_quotations = true;
+                    //quote_char.push(char);
                 }
             }
+            //TODO: need to figure out how to error on unclosed/unbalanced %quote/expansion     //or push that as an unquoted string    //echo "idk     //echo %{idk
             '}' | ']' | ')' => {
                 fn inverse_brace(char: char) -> Option<char>{
                     if char == '}'{Some('{')}
                     else if char == ']'{Some('[')}
                     else if char == ')'{Some('(')}
-                    else{None}
+                    else{None}  //or maybe unreachable!
                 }
                 if inside_of_comment{
                     #[cfg(test)] println!("char ignored as comment");
@@ -1611,15 +1653,30 @@ fn parse_command(command_string: String) -> Result<Vec<Vec<String>>, ()>{
                 else if inside_of_quotations{
                     //if quote_char.last() == Some(&'{'){
                     if quote_char.last() == Some(&inverse_brace(char).unwrap()){    //ok to unwrap here because inputs are verified by parent match expression
-                        #[cfg(test)] println!("char pushed to word: {char}");
-                        word.push(char);
+                        //#[cfg(test)] println!("char pushed to word: {char}");
+                        //word.push(char);
                         let _ = quote_char.pop();
                         if Option::is_none(&quote_char.last()){
                             #[cfg(test)] println!("word pushed to command: {:?}", word);
-                            command.push(word);
+                            //command.push(word);
+                            if expansion_type_string.is_empty(){
+                                command.push(Word{word_type: WordType::Quoted, content: word});
+                            }else{
+                                let expansion_type = match expansion_type_string.as_str(){
+                                    "opt" => ExpansionType::Option,
+                                    "reg" => ExpansionType::Register,
+                                    "sh" => ExpansionType::Shell,
+                                    "val" => ExpansionType::Value,
+                                    _ => return Err(())
+                                };
+                                command.push(Word{word_type: WordType::Expansion(expansion_type), content: word});
+                            }
                             word = String::new();
                             inside_of_quotations = false;
                             //quote_char = Vec::new();
+                        }else{
+                            #[cfg(test)] println!("char pushed to word: {char}");
+                            word.push(char);
                         }
                     }
                     else{
@@ -1662,7 +1719,8 @@ fn parse_command(command_string: String) -> Result<Vec<Vec<String>>, ()>{
     }
     if !word.is_empty(){
         #[cfg(test)] println!("word pushed to command: {:?}", word);
-        command.push(word);
+        //command.push(word);
+        command.push(Word{word_type: WordType::Unquoted, content: word});
     }
     if !command.is_empty(){
         #[cfg(test)] println!("command pushed to commands: {:?}", command);
@@ -1682,11 +1740,11 @@ fn parse_command(command_string: String) -> Result<Vec<Vec<String>>, ()>{
         Ok(
             vec![//commands
                 vec![//command
-                    String::from("idk") //word
-                    //Word{
-                    //    word_type: WordType::Unquoted,
-                    //    content: String::from("idk")
-                    //}
+                    //String::from("idk") //word
+                    Word{
+                        word_type: WordType::Unquoted,
+                        content: String::from("idk")
+                    }
                 ]
             ]
         ), 
@@ -1699,14 +1757,74 @@ fn parse_command(command_string: String) -> Result<Vec<Vec<String>>, ()>{
         Ok(
             vec![//commands
                 vec![//command
-                    String::from("command"),    //word
-                    String::from("--flag"),     //word
-                    String::from("flag_item"),  //word
-                    String::from("positional")  //word
+                    //String::from("command"),    //word
+                    Word{word_type: WordType::Unquoted, content: String::from("command")},
+                    //String::from("--flag"),     //word
+                    Word{word_type: WordType::Unquoted, content: String::from("--flag")},
+                    //String::from("flag_item"),  //word
+                    Word{word_type: WordType::Unquoted, content: String::from("flag_item")},
+                    //String::from("positional")  //word
+                    Word{word_type: WordType::Unquoted, content: String::from("positional")},
                 ]
             ]
         ), 
         parse_command(String::from("command --flag flag_item positional"))
+    );
+}
+#[test] fn multiple_unquoted_words_separated_by_tabs(){
+    assert_eq!(
+        Ok(
+            vec![//commands
+                vec![//command
+                    //String::from("this"),       //word
+                    Word{word_type: WordType::Unquoted, content: String::from("this")},
+                    //String::from("command"),    //word
+                    Word{word_type: WordType::Unquoted, content: String::from("command")},
+                    //String::from("contains"),   //word
+                    Word{word_type: WordType::Unquoted, content: String::from("contains")},
+                    //String::from("tabs"),       //word
+                    Word{word_type: WordType::Unquoted, content: String::from("tabs")}
+                ]
+            ]
+        ),
+        parse_command(String::from("this\tcommand\tcontains\ttabs"))
+    )
+}
+#[test] fn newline_splits_multiple_commands(){
+    //ln
+    //sb
+    assert_eq!(
+        Ok(
+            vec![//commands
+                vec![//command
+                    //String::from("ln")//word
+                    Word{word_type: WordType::Unquoted, content: String::from("ln")}
+                ], 
+                vec![//command
+                    //String::from("sb")//word
+                    Word{word_type: WordType::Unquoted, content: String::from("sb")}
+                ]
+            ]
+        ), 
+        parse_command(String::from("ln\nsb"))
+    );
+}
+#[test] fn semicolon_splits_multiple_commands(){
+    //ln;sb
+    assert_eq!(
+        Ok(
+            vec![//commands
+                vec![//command
+                    //String::from("ln")//word
+                    Word{word_type: WordType::Unquoted, content: String::from("ln")}
+                ], 
+                vec![//command
+                    //String::from("sb")//word
+                    Word{word_type: WordType::Unquoted, content: String::from("sb")}
+                ]
+            ]
+        ), 
+        parse_command(String::from("ln;sb"))
     );
 }
 #[test] fn with_comment(){
@@ -1716,16 +1834,90 @@ fn parse_command(command_string: String) -> Result<Vec<Vec<String>>, ()>{
         Ok(
             vec![//commands
                 vec![//command
-                    String::from("and"),    //word
-                    String::from("this"),   //word
-                    String::from("is"),     //word
-                    String::from("a"),      //word
-                    String::from("command") //word
+                    //String::from("and"),    //word
+                    Word{word_type: WordType::Unquoted, content: String::from("and")},
+                    //String::from("this"),   //word
+                    Word{word_type: WordType::Unquoted, content: String::from("this")},
+                    //String::from("is"),     //word
+                    Word{word_type: WordType::Unquoted, content: String::from("is")},
+                    //String::from("a"),      //word
+                    Word{word_type: WordType::Unquoted, content: String::from("a")},
+                    //String::from("command") //word
+                    Word{word_type: WordType::Unquoted, content: String::from("command")}
                 ]
             ]
         ), 
         parse_command(String::from("# this is a comment\nand this is a command"))
     );
+}
+//#[test] fn with_escaped_characters(){
+//    //idk \"some shit\"
+//    assert_eq!(
+//        Ok(
+//            vec![//commands
+//                vec![//command
+//                    String::from("idk"),    //word
+//                    String::from("\"some"), //word
+//                    String::from("shit\"")  //word
+//                ]
+//            ]
+//        ),
+//        parse_command(String::from("idk \\\"some shit\\\""))
+//    );
+//}
+#[test] fn single_quoted_string(){
+    //'this is a quoted string'
+    assert_eq!(
+        Ok(
+            vec![
+                vec![
+                    //String::from("'this is a quoted string'")
+                    Word{word_type: WordType::Quoted, content: String::from("this is a quoted string")}
+                ]
+            ]
+        ),
+        parse_command(String::from("'this is a quoted string'"))
+    );
+}
+#[test] fn unbalanced_single_quoted_returns_unquoted(){
+    assert_eq!(
+        Ok(
+            vec![
+                vec![
+                    Word{word_type: WordType::Unquoted, content: String::from("echo")},
+                    Word{word_type: WordType::Unquoted, content: String::from("'idk")}
+                ]
+            ]
+        ),
+        parse_command(String::from("echo 'idk"))
+    )
+}
+#[test] fn double_quoted_string(){
+    //"this is a quoted string"
+    assert_eq!(
+        Ok(
+            vec![
+                vec![
+                    //String::from("\"this is a quoted string\"")
+                    Word{word_type: WordType::Quoted, content: String::from("this is a quoted string")}
+                ]
+            ]
+        ),
+        parse_command(String::from("\"this is a quoted string\""))
+    );
+}
+#[test] fn unbalanced_double_quoted_returns_unquoted(){
+    assert_eq!(
+        Ok(
+            vec![
+                vec![
+                    Word{word_type: WordType::Unquoted, content: String::from("echo")},
+                    Word{word_type: WordType::Unquoted, content: String::from("\"idk")}
+                ]
+            ]
+        ),
+        parse_command(String::from("echo \"idk"))
+    )
 }
 #[test] fn with_space_inside_quotation(){
     //split ' '
@@ -1733,60 +1925,14 @@ fn parse_command(command_string: String) -> Result<Vec<Vec<String>>, ()>{
         Ok(
             vec![//commands
                 vec![//command
-                    String::from("split"),  //word
-                    String::from("' '")     //word
+                    //String::from("split"),  //word
+                    Word{word_type: WordType::Unquoted, content: String::from("split")},
+                    //String::from("' '")     //word
+                    Word{word_type: WordType::Quoted, content: String::from(" ")}
                 ]
             ]
         ), 
         parse_command(String::from("split ' '"))
-    );
-}
-#[test] fn semicolon_splits_multiple_commands(){
-    //ln;sb
-    assert_eq!(
-        Ok(
-            vec![//commands
-                vec![//command
-                    String::from("ln")//word
-                ], 
-                vec![//command
-                    String::from("sb")//word
-                ]
-            ]
-        ), 
-        parse_command(String::from("ln;sb"))
-    );
-}
-#[test] fn newline_splits_multiple_commands(){
-    //ln
-    //sb
-    assert_eq!(
-        Ok(
-            vec![//commands
-                vec![//command
-                    String::from("ln")//word
-                ], 
-                vec![//command
-                    String::from("sb")//word
-                ]
-            ]
-        ), 
-        parse_command(String::from("ln\nsb"))
-    );
-}
-#[test] fn with_escaped_characters(){
-    //idk \"some shit\"
-    assert_eq!(
-        Ok(
-            vec![//commands
-                vec![//command
-                    String::from("idk"),    //word
-                    String::from("\"some"), //word
-                    String::from("shit\"")  //word
-                ]
-            ]
-        ),
-        parse_command(String::from("idk \\\"some shit\\\""))
     );
 }
 #[test] fn with_percent_string_no_type(){
@@ -1795,13 +1941,28 @@ fn parse_command(command_string: String) -> Result<Vec<Vec<String>>, ()>{
         Ok(
             vec![
                 vec![
-                    String::from("echo"),
-                    String::from("%{this is quoted}")
+                    //String::from("echo"),
+                    Word{word_type: WordType::Unquoted, content: String::from("echo")},
+                    //String::from("%{this is quoted}")
+                    Word{word_type: WordType::Quoted, content: String::from("this is quoted")},
                 ]
             ]
         ),
         parse_command(String::from("echo %{this is quoted}"))
     );
+}
+#[test] fn unbalanced_percent_string_returns_unquoted(){
+    assert_eq!(
+        Ok(
+            vec![
+                vec![
+                    Word{word_type: WordType::Unquoted, content: String::from("echo")},
+                    Word{word_type: WordType::Unquoted, content: String::from("%{idk")}
+                ]
+            ]
+        ),
+        parse_command(String::from("echo %{idk"))
+    )
 }
 #[test] fn with_percent_string_typed(){
     //echo %sh{this is quoted}
@@ -1809,169 +1970,308 @@ fn parse_command(command_string: String) -> Result<Vec<Vec<String>>, ()>{
         Ok(
             vec![
                 vec![
-                    String::from("echo"),
-                    String::from("%sh{this is quoted}")
+                    //String::from("echo"),
+                    Word{word_type: WordType::Unquoted, content: String::from("echo")},
+                    //String::from("%sh{this is quoted}")
+                    Word{word_type: WordType::Expansion(ExpansionType::Shell), content: String::from("this is quoted")}
                 ]
             ]
         ),
         parse_command(String::from("echo %sh{this is quoted}"))
     );
 }
-#[test] fn multiple_unquoted_words_separated_by_tabs(){
+#[test] fn unbalanced_expansion_returns_unquoted(){
     assert_eq!(
         Ok(
-            vec![//commands
-                vec![//command
-                    String::from("this"),       //word
-                    String::from("command"),    //word
-                    String::from("contains"),   //word
-                    String::from("tabs"),       //word
+            vec![
+                vec![
+                    Word{word_type: WordType::Unquoted, content: String::from("echo")},
+                    Word{word_type: WordType::Unquoted, content: String::from("%val{idk")}
                 ]
             ]
         ),
-        parse_command(String::from("this\tcommand\tcontains\ttabs"))
+        parse_command(String::from("echo %val{idk"))
     )
 }
-#[test] fn single_quoted_string(){
-    //'this is a quoted string'
-    assert_eq!(
-        Ok(
-            vec![
-                vec![
-                    String::from("'this is a quoted string'")
-                ]
-            ]
-        ),
-        parse_command(String::from("'this is a quoted string'"))
-    );
-}
-#[test] fn double_quoted_string(){
-    //"this is a quoted string"
-    assert_eq!(
-        Ok(
-            vec![
-                vec![
-                    String::from("\"this is a quoted string\"")
-                ]
-            ]
-        ),
-        parse_command(String::from("\"this is a quoted string\""))
-    );
-}
 
 
-fn execute_commands(app: &mut Application, commands: Vec<Vec<String>>) -> Result<(), ()>{//Result<Application, ApplicationError>{
+
+fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(), ()>{//Result<Application, ApplicationError>{
+    fn expand_option(_app: &Application, _option: String) -> Result<String, ()>{
+        /*
+        match app.config.options.get(option){
+            Some(option) => Ok(option),
+            None => Err(())
+        }
+        */
+        Ok("option expansion unimplemented".to_string())
+    }
+    //fn expand_register() -> Result<String, ()>{Err(())}
+    //fn expand_shell() -> Result<String, ()>{Err(())}  //check content for $values, and set as environment variables
+    //fn expand_value() -> Result<String, ()>{Err(())}
+
     //TODO: consider how to handle a failed command in a list of commands. should we just error on first failed command?...
 
     //TODO: maybe execute_command should return a new instance of Application instead of modifying existing
     //that way, we could apply changes to the new instance, and if an error occurs, default back to the old instance with no changes
     //also, execute_command could return errors up from command_handler fns, instead of returning an uninformative unit Err(())
     for command in commands{
-        //TODO: let first = command.first().unwrap();
-        //if word.type == WordType::Expansion{/* evaluate expansion */}
-        //match first{  //then match
-        match command.first().unwrap().as_str(){
-            //add-command <name_string> --doc_string <optional_doc_string> <command_string>
-            //add-command "open new alacritty window" --doc_string "opens a new alacritty window" %sh{alacritty msg create-window}
-            //add-command term "open new alacritty window"  //this is effectively an alias
-            //add-command t term                            //this is effectively an alias
-            //remove-command <name_string> //remove a user defined command
-            //UserCommand{
-            //  name: String,
-            //  documentation: Option<String>,
-            //  command_body: String
+        let mut command_words = command.iter();
+        let maybe_first = command_words.next();
+        if Option::is_some(&maybe_first){
+            let first = maybe_first.unwrap();
+            //if first word is expansion, handle
+            //if matches!(&first.word_type, WordType::Expansion(_)){
+            //    /* evaluate expansion */
             //}
-            //and would have to match on user defined commands
-            //user defined commands may need to be quoted "if spaces are used"...
-            //TODO: this should be a user defined command instead of built in
-            "term" | "t" => app.action(Action::EditorAction(EditorAction::OpenNewTerminalWindow)),
-            "toggle_line_numbers" | "ln" => app.action(Action::EditorAction(EditorAction::ToggleLineNumbers)),  //these will prob end up using set-option command...
-            "toggle_status_bar" | "sb" => app.action(Action::EditorAction(EditorAction::ToggleStatusBar)),      //these will prob end up using set-option command...
-            "quit" | "q" => app.action(Action::EditorAction(EditorAction::Quit)),
-            "quit!" | "q!" => app.action(Action::EditorAction(EditorAction::QuitIgnoringChanges)),
-            //write buffer contents to file //should this optionally take a filepath to save to? then we don't need to implement save as    //would have to split util bar text on ' ' into separate args
-            "write" | "w" => app.action(Action::EditorAction(EditorAction::Save)),
-            "search" => {
-                match crate::utilities::incremental_search_in_selection::selections_impl(
-                    &app.selections, 
-                    command.get(1).unwrap(),
-                    &app.buffer, 
-                    app.config.semantics.clone()
-                ){
-                    Ok(new_selections) => {
-                        app.selections = new_selections;
-                        app.checked_scroll_and_update(
-                            &app.selections.primary().clone(), 
-                            Application::update_ui_data_document, 
-                            Application::update_ui_data_selections
-                        );
-                    }
-                    Err(_) => {
-                        //self.selections = selections_before_search.clone();
-                        handle_message(app, DisplayMode::Error, "no matching regex");
+            let first = match &first.word_type{
+                WordType::Expansion(expansion_type) => {
+                    match expansion_type{
+                        ExpansionType::Option => {
+                            match expand_option(app, first.content.clone()){
+                                Ok(option) => {
+                                    &Word{word_type: WordType::Quoted, content: option}
+                                }
+                                Err(()) => return Err(())
+                            }
+                        }
+                        ExpansionType::Register => {&Word{word_type: WordType::Quoted, content: first.content.clone()}}
+                        ExpansionType::Shell => {&Word{word_type: WordType::Quoted, content: first.content.clone()}}
+                        ExpansionType::Value => {&Word{word_type: WordType::Quoted, content: first.content.clone()}}
                     }
                 }
-            }
-            "split" => {    // certain regexes like "\d\." don't work because command parsing is interpreting the '\' as an escape. we may need to take regexes in quotes. i would assume the same applies to search
-                match crate::utilities::incremental_split_in_selection::selections_impl(
-                    &app.selections, 
-                    command.get(1).unwrap(),
-                    &app.buffer, 
-                    app.config.semantics.clone()
-                ){
-                    Ok(new_selections) => {
-                        app.selections = new_selections;
-                        app.checked_scroll_and_update(
-                            &app.selections.primary().clone(), 
-                            Application::update_ui_data_document, 
-                            Application::update_ui_data_selections
-                        );
+                _ => {first}
+            };
+            match first.content.as_str(){
+                "evaluate_commands" => {
+                    if command.len() > 2{
+                        return Err(()); //too many arguments
                     }
-                    Err(_) => {
-                        //self.selections = selections_before_search.clone();
-                        handle_message(app, DisplayMode::Error, "no matching regex");
+                    let maybe_word = command_words.next();
+                    if Option::is_some(&maybe_word){
+                        let word = maybe_word.unwrap();
+                        match &word.word_type{
+                            WordType::Expansion(expansion_type) => {
+                                match expansion_type{
+                                    ExpansionType::Option => {
+                                        match expand_option(app, word.content.clone()){
+                                            Ok(option) => {
+                                                //parse
+                                                let parse_result = parse_command(option);
+                                                if Result::is_ok(&parse_result){
+                                                    let commands = Result::unwrap(parse_result);
+                                                    //execute
+                                                    let execute_result = execute_commands(app, commands);
+                                                    if Result::is_err(&execute_result){
+                                                        handle_message(app, DisplayMode::Error, "command not registered");
+                                                    }
+                                                }else{
+                                                    handle_message(app, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);
+                                                }
+                                            }
+                                            Err(()) => handle_message(app, DisplayMode::Error, "option does not exist"),
+                                        }
+                                    }
+                                    ExpansionType::Register => {handle_message(app, DisplayMode::Error, "register expansion unimplemented");}
+                                    ExpansionType::Shell => {handle_message(app, DisplayMode::Error, "shell expansion unimplemented");}
+                                    ExpansionType::Value => {handle_message(app, DisplayMode::Error, "value expansion unimplemented");}
+                                }
+                            }
+                            _ => {
+                                //parse
+                                let parse_result = parse_command(word.content.clone());
+                                if Result::is_ok(&parse_result){
+                                    let commands = Result::unwrap(parse_result);
+                                    //execute
+                                    let execute_result = execute_commands(app, commands);
+                                    if Result::is_err(&execute_result){
+                                        handle_message(app, DisplayMode::Error, "command not registered");
+                                    }
+                                }else{
+                                    handle_message(app, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);
+                                }
+                            }
+                        }
+                    }else{
+                        handle_message(app, DisplayMode::Error, "evaluate_commands requires more arguments");
                     }
                 }
-            }
-            //"\"idk some shit\"" => handle_message(app, DisplayMode::Error, "idk some shit"),  //commands with whitespace can be handled this way
-            //add_command <command_name> <command> --doc_string <optional_doc_string>
-            "add_command" => {
-                let name = command.get(1).unwrap();
-                //let body = get command body
-                //let documentation = get optional doc string
-                //app.config.user_commands.push(Command::new(name, documentation, body));
-                handle_message(app, DisplayMode::Info, &format!("{} command added", name));
-            }
-            //"add_command" => {/* match positional args and, if command name available, insert into command list */}
-            //remove_command <command_name>
-            //add_keybind <mode> <keybind> <command>
-            "add_keybind" => {
-                let mode = Mode::Insert;    //get mode from positional args
-                let keycode = crossterm::event::KeyCode::Char('n'); //get mode from positional args
-                let modifiers = crossterm::event::KeyModifiers::CONTROL;    //get mode from positional args
-                let key_event = crossterm::event::KeyEvent::new(keycode, modifiers);
-                let _command = "idk some shit".to_string();  //get mode from positional args
-                if app.config.keybinds.contains_key(&(mode, key_event)){
-                    //error
-                }else{
-                    //app.config.keybinds.insert((mode, key_event), Action::EditorAction(EditorAction::EvalCommand(command)));
-                    handle_message(app, DisplayMode::Info, "keybind added");
+                "echo" => {
+                    let mut display_mode = DisplayMode::Info;
+                    fn echo_word(app: &mut Application, display_mode: DisplayMode, word: &Word){
+                        match &word.word_type{
+                            WordType::Expansion(expansion_type) => {
+                                match expansion_type{
+                                    ExpansionType::Option => {
+                                        match expand_option(app, word.content.clone()){
+                                            Ok(option) => handle_message(app, display_mode, option.as_str()),
+                                            Err(()) => handle_message(app, DisplayMode::Error, "option does not exist"),
+                                        }
+                                    }
+                                    ExpansionType::Register => {handle_message(app, DisplayMode::Error, "register expansion unimplemented");}
+                                    ExpansionType::Shell => {handle_message(app, DisplayMode::Error, "shell expansion unimplemented");}
+                                    ExpansionType::Value => {handle_message(app, DisplayMode::Error, "value expansion unimplemented");}
+                                }
+                            }
+                            _ => handle_message(app, display_mode, &word.content)
+                        }
+                    }
+                    let word = command_words.next();
+                    if Option::is_some(&word){
+                        let word = word.unwrap();
+                        match word.content.as_str(){
+                            "--error" => {
+                                display_mode = DisplayMode::Error;
+                                let maybe_word = command_words.next();
+                                if Option::is_some(&maybe_word){
+                                    let word = maybe_word.unwrap();
+                                    echo_word(app, display_mode, word);
+                                }else{
+                                    handle_message(app, DisplayMode::Error, "echo requires more arguments");    //return Err(());
+                                }
+                            }
+                            "--warning" => {
+                                display_mode = DisplayMode::Warning;
+                                let maybe_word = command_words.next();
+                                if Option::is_some(&maybe_word){
+                                    let word = maybe_word.unwrap();
+                                    echo_word(app, display_mode, word);
+                                }else{
+                                    handle_message(app, DisplayMode::Error, "echo requires more arguments");    //return Err(());
+                                }
+                            }
+                            "--notify" => {
+                                display_mode = DisplayMode::Notify;
+                                let maybe_word = command_words.next();
+                                if Option::is_some(&maybe_word){
+                                    let word = maybe_word.unwrap();
+                                    echo_word(app, display_mode, word);
+                                }else{
+                                    handle_message(app, DisplayMode::Error, "echo requires more arguments");    //return Err(());
+                                }
+                            }
+                            "--info" => {
+                                display_mode = DisplayMode::Info;
+                                let maybe_word = command_words.next();
+                                if Option::is_some(&maybe_word){
+                                    let word = maybe_word.unwrap();
+                                    echo_word(app, display_mode, word);
+                                }else{
+                                    handle_message(app, DisplayMode::Error, "echo requires more arguments");    //return Err(());
+                                }
+                            }
+                            _ => {
+                                echo_word(app, display_mode, word);
+                            }
+                        }
+                    }else{
+                        handle_message(app, DisplayMode::Error, "echo requires more arguments");    //return Err(());
+                    }
                 }
-            }
-            //remove_keybind <keybind>
-            //add_option <name> <type>
-            //remove_option <name>
-            //set_option <name> <value>
-            //add_hook
-            //remove hook
-            _ => {
-                //TODO: check if command_string matches user defined command
-                //match app.config.user_commands.get(command){  //this should check against command name
-                //    Some(command) => {parse_command(app, command.body)?}
-                //    None => {}
+                //add-command <name_string> --doc_string <optional_doc_string> <command_string>
+                //add-command "open new alacritty window" --doc_string "opens a new alacritty window" %sh{alacritty msg create-window}
+                //add-command term "open new alacritty window"  //this is effectively an alias
+                //add-command t term                            //this is effectively an alias
+                //remove-command <name_string> //remove a user defined command
+                //UserCommand{
+                //  name: String,
+                //  documentation: Option<String>,
+                //  command_body: String
                 //}
-                return Err(());
+                //and would have to match on user defined commands
+                //user defined commands may need to be quoted "if spaces are used"...
+                //TODO: this should be a user defined command instead of built in
+                "term" | "t" => app.action(Action::EditorAction(EditorAction::OpenNewTerminalWindow)),
+                "toggle_line_numbers" | "ln" => app.action(Action::EditorAction(EditorAction::ToggleLineNumbers)),  //these will prob end up using set-option command...
+                "toggle_status_bar" | "sb" => app.action(Action::EditorAction(EditorAction::ToggleStatusBar)),      //these will prob end up using set-option command...
+                "quit" | "q" => app.action(Action::EditorAction(EditorAction::Quit)),
+                "quit!" | "q!" => app.action(Action::EditorAction(EditorAction::QuitIgnoringChanges)),
+                //write buffer contents to file //should this optionally take a filepath to save to? then we don't need to implement save as    //would have to split util bar text on ' ' into separate args
+                "write" | "w" => app.action(Action::EditorAction(EditorAction::Save)),
+                "search" => {
+                    match crate::utilities::incremental_search_in_selection::selections_impl(
+                        &app.selections, 
+                        command_words.next().unwrap().content.as_str(),
+                        &app.buffer, 
+                        app.config.semantics.clone()
+                    ){
+                        Ok(new_selections) => {
+                            app.selections = new_selections;
+                            app.checked_scroll_and_update(
+                                &app.selections.primary().clone(), 
+                                Application::update_ui_data_document, 
+                                Application::update_ui_data_selections
+                            );
+                        }
+                        Err(_) => {
+                            //self.selections = selections_before_search.clone();
+                            handle_message(app, DisplayMode::Error, "no matching regex");
+                        }
+                    }
+                }
+                "split" => {    //we may need to take regexes in quotes. i would assume the same applies to search
+                    match crate::utilities::incremental_split_in_selection::selections_impl(
+                        &app.selections, 
+                        command_words.next().unwrap().content.as_str(),
+                        &app.buffer, 
+                        app.config.semantics.clone()
+                    ){
+                        Ok(new_selections) => {
+                            app.selections = new_selections;
+                            app.checked_scroll_and_update(
+                                &app.selections.primary().clone(), 
+                                Application::update_ui_data_document, 
+                                Application::update_ui_data_selections
+                            );
+                        }
+                        Err(_) => {
+                            //self.selections = selections_before_search.clone();
+                            handle_message(app, DisplayMode::Error, "no matching regex");
+                        }
+                    }
+                }
+                //"\"idk some shit\"" => handle_message(app, DisplayMode::Error, "idk some shit"),  //commands with whitespace can be handled this way
+                //add_command <command_name> <command> --doc_string <optional_doc_string>
+                "add_command" => {
+                    let name = command_words.next().unwrap().content.as_str();
+                    //let body = get command body
+                    //let documentation = get optional doc string
+                    //app.config.user_commands.push(Command::new(name, documentation, body));
+                    handle_message(app, DisplayMode::Info, &format!("{} command added", name));
+                }
+                //"add_command" => {/* match positional args and, if command name available, insert into command list */}
+                //remove_command <command_name>
+                //add_keybind <mode> <keybind> <command>
+                "add_keybind" => {
+                    let mode = Mode::Insert;    //get mode from positional args
+                    let keycode = crossterm::event::KeyCode::Char('n'); //get mode from positional args
+                    let modifiers = crossterm::event::KeyModifiers::CONTROL;    //get mode from positional args
+                    let key_event = crossterm::event::KeyEvent::new(keycode, modifiers);
+                    let _command = "idk some shit".to_string();  //get mode from positional args
+                    if app.config.keybinds.contains_key(&(mode, key_event)){
+                        //error
+                    }else{
+                        //app.config.keybinds.insert((mode, key_event), Action::EditorAction(EditorAction::EvalCommand(command)));
+                        handle_message(app, DisplayMode::Info, "keybind added");
+                    }
+                }
+                //remove_keybind <keybind>
+                //add_option <name> <type>
+                //remove_option <name>
+                //set_option <name> <value>
+                //add_hook
+                //remove hook
+                _ => {
+                    //TODO: check if command_string matches user defined command
+                    //match app.config.user_commands.get(command){  //this should check against command name
+                    //    Some(command) => {parse_command(app, command.body)?}
+                    //    None => {}
+                    //}
+                    return Err(());
+                }
             }
+        }else{
+            return Err(()); //cannot execute empty command
         }
     }
     Ok(())
