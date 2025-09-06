@@ -1,0 +1,95 @@
+# set built in options
+set-option cursor_semantics block       # use block semantics
+set-option use_full_file_path false     #
+set-option use_hard_tab false           # replace tab with spaces
+set-option tab_width 4                  # display as 4 terminal cells
+set-option view_scroll_amount 1         # scroll view by 1 line/column increments       # maybe should be split into vertical/horizontal view_scroll_amount
+set-option show_cursor_column false     # no highlight for cursor column    # should be implemented by external util using add-highlight command
+set-option show_cursor_line true        # highligh cursor line              # should be implemented by external util using add-highlight command
+
+# add custom options
+add-option display_line_numbers bool
+add-option show_status_bar bool
+
+# set custom options
+set-option display_line_numbers true
+set-option show_status_bar true
+
+# set up layout
+# indentation is ignored by command parser. it is just for ease of understanding in this rc
+add-widget --type vertical --name vertical --no-parent
+    add-widget --type horizontal --name buffer_display_area --parent vertical --constrain-min 0
+        # (need a way to say this should display conditionally, and to define condition)(maybe give an associated option and the option value when it should display)
+        # --option-conditional display_line_numbers --show-when true
+        # (or maybe just add/remove widget to enable/disable)(may need to take a priority param to render in correct order when added/removed)
+        # --priority 2(0-255?) #lower occurring sooner, higher occurring later
+        # (or take a --before/--after param, to specify order in relation to another widget)
+        add-widget --type text --name line_numbers --parent buffer_display_area --constrain-len "%val(line_number_width)" --updating-content "%val(line_number_content)"
+        add-widget --type text --name buffer --parent buffer_display_area
+    add-widget --type horizontal --name status_bar_display_area --parent vertical --constrain-min 0
+        add-widget --type horizontal --name status_bar_first_third --parent status_bar_display_area
+            add-widget --type text --name read_only_indicator --parent status_bar_first_third
+            add-widget --type text --name buffer_name --parent status_bar_first_third --content "%val(buffer_name)"
+            add-widget --type text --name modified_indicator --parent status_bar_first_third
+        add-widget --type horizontal --name status_bar_middle_third --parent status_bar_display_area
+            add-widget --type text --name selections_indicator --parent status_bar_middle_third
+        add-widget --type horizontal --name status_bar_last_third --parent status_bar_display_area
+            add-widget --type text --name cursor_indicator --parent status_bar_last_third
+            add-widget --type text --name mode_indicator --parent status_bar_last_third --updating-content "%val(mode): %val(mode_stack_count)"
+    add-widget --type horizontal --name utility_bar --parent vertical --constrain-min 0
+add-widget --type floating --name idk --no-parent --vertical_start 50 --horizontal_start 50 --width 50 --height 50
+    add-widget --type text --name something --parent idk --content "menu 'blah|blah|blah'" --mode-conditional error
+
+# add custom modes
+add-mode search
+add-mode split
+add-mode view
+add-mode goto
+add-mode command
+add-mode object
+add-mode add_surround
+add-mode error
+add-mode warning
+add-mode notify
+add-mode info
+
+# add custom commands
+add-command open-new-alacritty-window %sh(alacritty msg create-window) --doc 'opens a new alacritty window'
+
+# add keybinds
+# alternatively, form could be: add-keybind control-shift-enter 'insert hello'
+add-keybind --mode normal --key a --command 'insert a'
+add-keybind --mode normal --key z --command 'insert z'
+add-keybind --mode normal --key enter --command 'insert --ctl \n'
+add-keybind --mode normal --key tab --command 'insert --ctl \t'
+add-keybind --mode normal --key delete --command delete     #same as delete --forward
+add-keybind --mode normal --key backspace --command 'delete --backward'
+add-keybind --mode normal --key t --modifier control --command open-new-alacritty-window
+add-keybind --mode normal --key enter --modifier control --modifier shift --command 'insert hello'    # or --modifiers control-shift
+add-keybind --mode normal --key g --modifier control --command 'mode-push goto'
+
+add-keybind --mode goto --key esc --command mode-pop
+add-keybind --mode goto --key enter --command 'evaluate-commands "%sh(go_to_line_number $edit_val_goto)"'  # external edit_goto command returns commands for edit to run to achieve desired state   # would use some command like: set-selection --index 0 --from-offset 0,0
+
+# add hooks
+add-hook --group line_number --event RenderPre --filter idk --command "set-widget line_numbers --constrain-len %val(line_number_width) --content %val(line_number_content)"
+add-hook --group diagnostic --event ErrorOccured --command "
+    add-widget --type text --name error --parent utility_bar --constrain-min 0 --center
+    set-widget error --content %val(error_content)
+    mode-push error
+"
+add-hook --group diagnostic --event WarningOccured --command "
+    add-widget --type text --name warning --parent utility_bar --constrain-min 0 --center
+    set-widget warning --content %val(warning_content)
+    mode-push warning
+"
+add-hook --group diagnostic --event NotificationOccured --command "
+    add-widget --type text --name warning --parent utility_bar --constrain-min 0 --center
+    set-widget warning --content %val(notify_content)
+    mode-push notify
+"
+add-hook --group diagnostic --event InformationOccured --command "
+    add-widget --type text --name warning --parent utility_bar --constrain-min 0 --center
+    set-widget warning --content %val(info_content)
+    mode-push info
+"

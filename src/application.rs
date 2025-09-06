@@ -1,28 +1,17 @@
-//TODO: figure out how to launch a shell with a command string determined at run time, for %sh{} expansions
-    //let output = std::process::Command::new("sh")
-    //                .arg(expansion_content)
-    //                .output();
-
-////////////////////////////////////////////////////////////////////////////
-//pub fn insert(&mut self, new_text: &str){
-//    //create pending changeset
-//    //for each selection
-//        //insert new_text at/replacing selection (depends on selection extension)
-//        //handle hook behavior
-//            //if new_text multichar
-//                //extend selection to encompass new_text (extension direction could be input language dependent(like arabic could be backwards))
-//            //else if new_text single char
-//                //move cursor (movement direction could be input language dependent(like arabic could be backwards))
-//            //update subsequent selection positions to reflect new changes
-//            //add change to pending changeset (figure out how to group related subsequent changes(like typing each char in a word) in to one single changeset)
-//}
-//pub fn remove(&mut self){
-//
-//}
-//pub fn replace(&mut self, new_text: &str){
-//
-//}
-////////////////////////////////////////////////////////////////////////////
+// insert <text>
+    //hooks.run(InsertTextPre)  //hook just before text insertion
+        //let mut pending_changeset = ChangeSet::new();
+    //for selection in selections{
+        //insert text at/replacing selection (depends on selection extension)
+        //hooks.run(InsertText)
+            //if text.len() > 1 //extend selection to encompass text (extension direction could be input language dependent(like arabic could be backwards))
+            //if text.len() == 1 //move cursor (movement direction could be input language dependent(like arabic could be backwards))
+            //update subsequent selection positions to reflect new changes
+            //add change to pending changeset (figure out how to group related subsequent changes(like type each char in a word) in to one single changeset)
+    //}
+    //if selections have changed run hooks for SelectionsModified
+    //hooks.run(InsertTextPost) //hook just after text insertion
+        //push changeset to history
 
 use std::path::PathBuf;
 use crossterm::event;
@@ -1363,6 +1352,10 @@ impl Application{
     }
 }
 
+
+
+
+
 fn handle_message(app: &mut Application, display_mode: DisplayMode, message: &/*'static */str){
     match display_mode{
         DisplayMode::Error => app.action(Action::EditorAction(EditorAction::ModePush(StackMember{mode: Mode::Error, text: Some(message.to_string())}))),
@@ -1394,6 +1387,7 @@ fn handle_application_error(app: &mut Application, e: ApplicationError){
         }
     }
 }
+
 #[derive(PartialEq, Debug)] enum ExpansionType{Option, Value, Register, Shell}
 #[derive(PartialEq, Debug)] enum WordType{
     Unquoted,                   //word
@@ -1417,7 +1411,7 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, ()>{
     let mut inside_of_quotations = false;
     let mut quote_char: Vec<char> = Vec::new();   //may need to become a Vec<char>, so that we can have nestable brace quotes no_op %sh{{ sleep 10 } > /dev/null 2>&1 < /dev/null &}     //push to vec on '{', pop from vec on '}'. push word to command if vec empty
     let mut inside_of_comment = false;
-    let mut escape_next = false;
+    //let mut escape_next = false;
     let mut follows_percent = false;
     #[cfg(test)] println!("command string:\n{}\n", command_string);
     #[cfg(test)] println!("command string length: {}\n", command_string.len());
@@ -1425,9 +1419,6 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, ()>{
     for (_i, char) in command_string.chars().enumerate(){
         //TODO: maybe we should push '\' to word, and pop from word if the following char is something we should escape
         //that way we don't have to double escape unquoted strings containg '\'
-        //TODO: maybe we should store a follows_percent bool. for balanced % quotes/expansions
-        //follows_percent can only be set to true if word.is_empty()
-        //if follows_percent is true, but char is ' ' || '\t' || '\n' || ';', follows_percent = false, and push '%' word to command
         #[cfg(test)] println!("char: {char}, index: {_i}");
         match char{
             ' ' | '\t' => {
@@ -1438,22 +1429,20 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, ()>{
                     #[cfg(test)] println!("char pushed to word: {char}");
                     word.push(char);
                 }
-                else if escape_next{
-                    #[cfg(test)] println!("char pushed to word: {char}");
-                    word.push(char);
-                    escape_next = false;
-                }
+                //else if escape_next{
+                //    #[cfg(test)] println!("char pushed to word: {char}");
+                //    word.push(char);
+                //    escape_next = false;
+                //}
                 else{
                     if !word.is_empty(){
                         #[cfg(test)] println!("word pushed to command: {:?}", word);
-                        //command.push(word); //maybe determine word type, then push WordType
                         command.push(Word{word_type: WordType::Unquoted, content: word});
+                        //reset
                         word = String::new();
-                        // this should handle any quote chars that are used alone and not for quotation
                         inside_of_quotations = false;
                         quote_char = Vec::new();
                         follows_percent = false;
-                        //
                     }
                 }
             }
@@ -1466,23 +1455,28 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, ()>{
                     #[cfg(test)] println!("char pushed to word: {char}");
                     word.push(char);
                 }
-                else if escape_next{
-                    #[cfg(test)] println!("char pushed to word: {char}");
-                    word.push(char);
-                    escape_next = false;
-                }
+                //else if escape_next{
+                //    #[cfg(test)] println!("char pushed to word: {char}");
+                //    word.push(char);
+                //    escape_next = false;
+                //}
                 else{
                     if !word.is_empty(){
                         #[cfg(test)] println!("word pushed to command: {:?}", word);
-                        //command.push(word);
                         command.push(Word{word_type: WordType::Unquoted, content: word});
+                        //reset
                         word = String::new();
+                        inside_of_quotations = false;
+                        quote_char = Vec::new();
                         follows_percent = false;
                     }
                     if !command.is_empty(){
                         #[cfg(test)] println!("command pushed to commands: {:?}", command);
                         commands.push(command);
+                        //reset
                         command = Vec::new();
+                        inside_of_quotations = false;
+                        quote_char = Vec::new();
                         follows_percent = false;
                     }
                 }
@@ -1495,23 +1489,28 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, ()>{
                     #[cfg(test)] println!("char pushed to word: {char}");
                     word.push(char);
                 }
-                else if escape_next{
-                    #[cfg(test)] println!("char pushed to word: {char}");
-                    word.push(char);
-                    escape_next = false;
-                }
+                //else if escape_next{
+                //    #[cfg(test)] println!("char pushed to word: {char}");
+                //    word.push(char);
+                //    escape_next = false;
+                //}
                 else{
                     if !word.is_empty(){
                         #[cfg(test)] println!("word pushed to command: {:?}", word);
-                        //command.push(word);
                         command.push(Word{word_type: WordType::Unquoted, content: word});
+                        //reset
                         word = String::new();
+                        inside_of_quotations = false;
+                        quote_char = Vec::new();
                         follows_percent = false;
                     }
                     if !command.is_empty(){
                         #[cfg(test)] println!("command pushed to commands: {:?}", command);
                         commands.push(command);
+                        //reset
                         command = Vec::new();
+                        inside_of_quotations = false;
+                        quote_char = Vec::new();
                         follows_percent = false;
                     }
                 }
@@ -1524,11 +1523,11 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, ()>{
                     #[cfg(test)] println!("char pushed to word: {char}");
                     word.push(char);
                 }
-                else if escape_next{
-                    #[cfg(test)] println!("char pushed to word: {char}");
-                    word.push(char);
-                    escape_next = false;
-                }
+                //else if escape_next{
+                //    #[cfg(test)] println!("char pushed to word: {char}");
+                //    word.push(char);
+                //    escape_next = false;
+                //}
                 else{
                     #[cfg(test)] println!("comment started");
                     inside_of_comment = true;
@@ -1553,36 +1552,39 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, ()>{
 //                    escape_next = true;
 //                }
 //            }
+
+//TODO: support expansion inside double quotes: echo "the date is %sh{date}"
             '\'' | '"' => {
                 if inside_of_comment{
                     #[cfg(test)] println!("char ignored as comment");
                 }
                 else if inside_of_quotations{
-                    if quote_char.last() == Some(&char){
-                        //#[cfg(test)] println!("char pushed to word: {char}");
-                        //word.push(char);
-                        let _ = quote_char.pop();
-                        if Option::is_none(&quote_char.last()){
+                    if quote_char.last() == Some(&char){    //if same as opening quote char
+                        let _ = quote_char.pop();   //remove opening quote char from stack
+                        if Option::is_none(&quote_char.last()){ //if quote char stack is empty  //should always be the case for '\'' and '"'
+                            let _removed_char = word.remove(0); //remove leading '\'' or '"' from word
+                            #[cfg(test)] println!("leading {} removed", _removed_char);
+
                             #[cfg(test)] println!("word pushed to command: {:?}", word);
-                            //command.push(word);
                             command.push(Word{word_type: WordType::Quoted, content: word});
+                            //reset necessary variables
                             word = String::new();
                             inside_of_quotations = false;
-                            //quote_char = Vec::new();
+                            assert!(quote_char.is_empty()); //could prob remove if Option::is_none, and assert after quote_char.pop() above...
                         }
-                    }else{
+                    }else{  //for all other quote chars than same as opening, push to word
                         #[cfg(test)] println!("char pushed to word: {char}");
                         word.push(char);
                     }
                 }
-                else if escape_next{
+                //else if escape_next{
+                //    #[cfg(test)] println!("char pushed to word: {char}");
+                //    word.push(char);
+                //    escape_next = false;
+                //}
+                else{
                     #[cfg(test)] println!("char pushed to word: {char}");
                     word.push(char);
-                    escape_next = false;
-                }
-                else{
-                    //#[cfg(test)] println!("char pushed to word: {char}");
-                    //word.push(char);
                     inside_of_quotations = true;
                     quote_char.push(char);
                 }
@@ -1595,15 +1597,15 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, ()>{
                     #[cfg(test)] println!("char pushed to word: {char}");
                     word.push(char);
                 }
-                else if escape_next{
-                    #[cfg(test)] println!("char pushed to word: {char}");
-                    word.push(char);
-                    escape_next = false;
-                }
+                //else if escape_next{
+                //    #[cfg(test)] println!("char pushed to word: {char}");
+                //    word.push(char);
+                //    escape_next = false;
+                //}
                 else{
+                    if word.is_empty(){follows_percent = true;}
                     #[cfg(test)] println!("char pushed to word: {char}");
                     word.push(char);
-                    follows_percent = true;
                 }
             }
             '{' | '[' | '(' => {
@@ -1617,17 +1619,18 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, ()>{
                         quote_char.push(char);
                     }
                 }
-                else if escape_next{
+                //else if escape_next{
+                //    #[cfg(test)] println!("char pushed to word: {char}");
+                //    word.push(char);
+                //    escape_next = false;
+                //}
+                else if follows_percent{
+                    expansion_type_string = word.clone();   //copy preceding chars in word as expansion_type
+                    expansion_type_string.remove(0);    //remove leading '%'
+                    #[cfg(test)] println!("expansion_type_string: {}", expansion_type_string);
+
                     #[cfg(test)] println!("char pushed to word: {char}");
                     word.push(char);
-                    escape_next = false;
-                }
-                else if follows_percent{
-                    //TODO: remove '%' from word
-                    word.remove(0);
-                    //
-                    expansion_type_string = word.clone();
-                    word = String::new();
                     inside_of_quotations = true;
                     quote_char.push(char);
                     follows_percent = false;
@@ -1635,12 +1638,9 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, ()>{
                 else{
                     #[cfg(test)] println!("char pushed to word: {char}");
                     word.push(char);
-                    //inside_of_quotations = true;
-                    //quote_char.push(char);
                 }
             }
-            //TODO: need to figure out how to error on unclosed/unbalanced %quote/expansion     //or push that as an unquoted string    //echo "idk     //echo %{idk
-            '}' | ']' | ')' => {
+            '}' | ']' | ')' => {    //TODO: add '<' and '>' to supported percent quote characters
                 fn inverse_brace(char: char) -> Option<char>{
                     if char == '}'{Some('{')}
                     else if char == ']'{Some('[')}
@@ -1651,17 +1651,27 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, ()>{
                     #[cfg(test)] println!("char ignored as comment");
                 }
                 else if inside_of_quotations{
-                    //if quote_char.last() == Some(&'{'){
-                    if quote_char.last() == Some(&inverse_brace(char).unwrap()){    //ok to unwrap here because inputs are verified by parent match expression
-                        //#[cfg(test)] println!("char pushed to word: {char}");
-                        //word.push(char);
-                        let _ = quote_char.pop();
+                    if quote_char.last() == Some(&inverse_brace(char).unwrap()){    //if char matches opening quote char    //ok to unwrap here because inputs are verified by parent match expression
+                        let _ = quote_char.pop();   //remove latest opening quote char from stack
                         if Option::is_none(&quote_char.last()){
-                            #[cfg(test)] println!("word pushed to command: {:?}", word);
-                            //command.push(word);
                             if expansion_type_string.is_empty(){
+                                let _removed_char = word.remove(0); //remove leading '%' from word
+                                #[cfg(test)] println!("leading {} removed", _removed_char);
+                                let _removed_char = word.remove(0); //remove trailing '{', '[', '(', or '<' from word
+                                #[cfg(test)] println!("trailing {} removed", _removed_char);
+
+                                #[cfg(test)] println!("word pushed to command: {:?}", word);
                                 command.push(Word{word_type: WordType::Quoted, content: word});
                             }else{
+                                let _removed_char = word.remove(0); //remove leading '%' from word
+                                #[cfg(test)] println!("leading {} removed", _removed_char);
+                                for i in 0..expansion_type_string.len(){
+                                    let _removed_char = word.remove(i); //remove expansion type chars from word
+                                    #[cfg(test)] println!("expansion string {} removed", _removed_char);
+                                }
+                                let _removed_char = word.remove(0); //remove trailing '{', '[', '(', or '<' from word
+                                #[cfg(test)] println!("trailing {} removed", _removed_char);
+
                                 let expansion_type = match expansion_type_string.as_str(){
                                     "opt" => ExpansionType::Option,
                                     "reg" => ExpansionType::Register,
@@ -1669,11 +1679,12 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, ()>{
                                     "val" => ExpansionType::Value,
                                     _ => return Err(())
                                 };
+                                #[cfg(test)] println!("word pushed to command: {:?}", word);
                                 command.push(Word{word_type: WordType::Expansion(expansion_type), content: word});
                             }
                             word = String::new();
                             inside_of_quotations = false;
-                            //quote_char = Vec::new();
+                            assert!(quote_char.is_empty());
                         }else{
                             #[cfg(test)] println!("char pushed to word: {char}");
                             word.push(char);
@@ -1684,16 +1695,14 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, ()>{
                         word.push(char);
                     }
                 }
-                else if escape_next{
-                    #[cfg(test)] println!("char pushed to word: {char}");
-                    word.push(char);
-                    escape_next = false;
-                }
+                //else if escape_next{
+                //    #[cfg(test)] println!("char pushed to word: {char}");
+                //    word.push(char);
+                //    escape_next = false;
+                //}
                 else{
                     #[cfg(test)] println!("char pushed to word: {char}");
                     word.push(char);
-                    //inside_of_quotations = true;
-                    //quote_char.push(char);
                 }
             }
             //| => {}
@@ -1705,11 +1714,11 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, ()>{
                     #[cfg(test)] println!("char pushed to word: {char}");
                     word.push(char);
                 }
-                else if escape_next{
-                    #[cfg(test)] println!("char pushed to word: {char}");
-                    word.push(char);
-                    escape_next = false;
-                }
+                //else if escape_next{
+                //    #[cfg(test)] println!("char pushed to word: {char}");
+                //    word.push(char);
+                //    escape_next = false;
+                //}
                 else{
                     #[cfg(test)] println!("char pushed to word: {char}");
                     word.push(char);
@@ -1719,7 +1728,6 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, ()>{
     }
     if !word.is_empty(){
         #[cfg(test)] println!("word pushed to command: {:?}", word);
-        //command.push(word);
         command.push(Word{word_type: WordType::Unquoted, content: word});
     }
     if !command.is_empty(){
@@ -1997,47 +2005,93 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, ()>{
 
 
 fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(), ()>{//Result<Application, ApplicationError>{
-    fn expand_option(_app: &Application, _option: String) -> Result<String, ()>{
-        /*
-        match app.config.options.get(option){
-            Some(option) => Ok(option),
-            None => Err(())
+    fn expand(_app: &Application, word_content: &str, expansion_type: &ExpansionType) -> Result<String, String>{
+        //fn expand_option(_app: &Application, _option: String) -> Result<String, ()>{
+        //    /*
+        //    match option{
+        //        "cursor_semantics" => {}
+        //        "other_built_in_options" => {}
+        //        _ => {
+        //            match app.config.options.get(option){
+        //                Some(option) => Ok(option),
+        //                None => Err(())
+        //            }
+        //        }
+        //    }
+        //    */
+        //}
+        //fn expand_register() -> Result<String, ()>{Err(())}
+        fn expand_shell(command_string: String) -> Result<String, ()>{    //check content for $values, and set as environment variables
+            let mut environment_variables = std::collections::HashMap::new();
+            environment_variables.insert("MY_VAR", "environment variable content");
+            let output = std::process::Command::new("sh"/*"bash"*/)
+                .arg("-c")
+                .arg(command_string)
+                //.env("MY_VAR", "environment variable content")
+                .envs(&environment_variables)
+                .output()
+                .expect("failed to execute process");
+
+            if output.status.success(){
+                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                if !stdout.is_empty(){
+                    return Ok(stdout);
+                }
+            }//else{
+            //    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            //    if !stderr.is_empty(){
+            //        return Ok(stderr);
+            //    }
+            //}
+
+            Err(())
         }
-        */
-        Ok("option expansion unimplemented".to_string())
+        //fn expand_value() -> Result<String, ()>{Err(())}
+
+        match expansion_type{
+            ExpansionType::Option => {
+                //match expand_option(app, word_content.to_string()){
+                //    Ok(option) => Ok(option),
+                //    Err(()) => Err("option does not exist".to_string()),
+                //}
+                Err("option expansion unimplemented".to_string())
+            }
+            ExpansionType::Register => {
+                Err("register expansion unimplemented".to_string())
+            }
+            ExpansionType::Shell => {
+                let shell_result = expand_shell(word_content.to_string());
+                if Result::is_ok(&shell_result){
+                    let shell_output = shell_result.unwrap();
+                    Ok(shell_output)
+                }else{
+                    Err("shell command failed".to_string())
+                }
+            }
+            ExpansionType::Value => {
+                Err("value expansion unimplemented".to_string())
+            }
+        }
     }
-    //fn expand_register() -> Result<String, ()>{Err(())}
-    //fn expand_shell() -> Result<String, ()>{Err(())}  //check content for $values, and set as environment variables
-    //fn expand_value() -> Result<String, ()>{Err(())}
 
     //TODO: consider how to handle a failed command in a list of commands. should we just error on first failed command?...
 
     //TODO: maybe execute_command should return a new instance of Application instead of modifying existing
     //that way, we could apply changes to the new instance, and if an error occurs, default back to the old instance with no changes
     //also, execute_command could return errors up from command_handler fns, instead of returning an uninformative unit Err(())
+    //also, create a successful_commands counter. on each successful command, increment by 1;
+    //if unsuccessful command, return "Error: {error} on command {counter + 1}"
     for command in commands{
         let mut command_words = command.iter();
         let maybe_first = command_words.next();
         if Option::is_some(&maybe_first){
             let first = maybe_first.unwrap();
-            //if first word is expansion, handle
-            //if matches!(&first.word_type, WordType::Expansion(_)){
-            //    /* evaluate expansion */
-            //}
+            //if first word is expansion, expand
             let first = match &first.word_type{
                 WordType::Expansion(expansion_type) => {
-                    match expansion_type{
-                        ExpansionType::Option => {
-                            match expand_option(app, first.content.clone()){
-                                Ok(option) => {
-                                    &Word{word_type: WordType::Quoted, content: option}
-                                }
-                                Err(()) => return Err(())
-                            }
-                        }
-                        ExpansionType::Register => {&Word{word_type: WordType::Quoted, content: first.content.clone()}}
-                        ExpansionType::Shell => {&Word{word_type: WordType::Quoted, content: first.content.clone()}}
-                        ExpansionType::Value => {&Word{word_type: WordType::Quoted, content: first.content.clone()}}
+                    match expand(app, &first.content, expansion_type){
+                        Ok(output) => &Word{word_type: WordType::Quoted, content: output},
+                        Err(_) => return Err(())
                     }
                 }
                 _ => {first}
@@ -2052,29 +2106,21 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                         let word = maybe_word.unwrap();
                         match &word.word_type{
                             WordType::Expansion(expansion_type) => {
-                                match expansion_type{
-                                    ExpansionType::Option => {
-                                        match expand_option(app, word.content.clone()){
-                                            Ok(option) => {
-                                                //parse
-                                                let parse_result = parse_command(option);
-                                                if Result::is_ok(&parse_result){
-                                                    let commands = Result::unwrap(parse_result);
-                                                    //execute
-                                                    let execute_result = execute_commands(app, commands);
-                                                    if Result::is_err(&execute_result){
-                                                        handle_message(app, DisplayMode::Error, "command not registered");
-                                                    }
-                                                }else{
-                                                    handle_message(app, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);
-                                                }
+                                match expand(app, &word.content, expansion_type){
+                                    Ok(output) => {
+                                        let parse_result = parse_command(output);
+                                        if Result::is_ok(&parse_result){
+                                            let commands = Result::unwrap(parse_result);
+                                            //execute
+                                            let execute_result = execute_commands(app, commands);
+                                            if Result::is_err(&execute_result){
+                                                handle_message(app, DisplayMode::Error, "command not registered");
                                             }
-                                            Err(()) => handle_message(app, DisplayMode::Error, "option does not exist"),
+                                        }else{
+                                            handle_message(app, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);
                                         }
                                     }
-                                    ExpansionType::Register => {handle_message(app, DisplayMode::Error, "register expansion unimplemented");}
-                                    ExpansionType::Shell => {handle_message(app, DisplayMode::Error, "shell expansion unimplemented");}
-                                    ExpansionType::Value => {handle_message(app, DisplayMode::Error, "value expansion unimplemented");}
+                                    Err(error) => handle_message(app, DisplayMode::Error, &error),
                                 }
                             }
                             _ => {
@@ -2097,20 +2143,14 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                     }
                 }
                 "echo" => {
+                    //TODO: figure out how to handle excess input...    echo idk idk idk
                     let mut display_mode = DisplayMode::Info;
                     fn echo_word(app: &mut Application, display_mode: DisplayMode, word: &Word){
                         match &word.word_type{
                             WordType::Expansion(expansion_type) => {
-                                match expansion_type{
-                                    ExpansionType::Option => {
-                                        match expand_option(app, word.content.clone()){
-                                            Ok(option) => handle_message(app, display_mode, option.as_str()),
-                                            Err(()) => handle_message(app, DisplayMode::Error, "option does not exist"),
-                                        }
-                                    }
-                                    ExpansionType::Register => {handle_message(app, DisplayMode::Error, "register expansion unimplemented");}
-                                    ExpansionType::Shell => {handle_message(app, DisplayMode::Error, "shell expansion unimplemented");}
-                                    ExpansionType::Value => {handle_message(app, DisplayMode::Error, "value expansion unimplemented");}
+                                match expand(app, &word.content, expansion_type){
+                                    Ok(output) => handle_message(app, display_mode, &output),
+                                    Err(error) => handle_message(app, DisplayMode::Error, &error),
                                 }
                             }
                             _ => handle_message(app, display_mode, &word.content)
@@ -2168,19 +2208,10 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                         handle_message(app, DisplayMode::Error, "echo requires more arguments");    //return Err(());
                     }
                 }
-                //add-command <name_string> --doc_string <optional_doc_string> <command_string>
-                //add-command "open new alacritty window" --doc_string "opens a new alacritty window" %sh{alacritty msg create-window}
-                //add-command term "open new alacritty window"  //this is effectively an alias
-                //add-command t term                            //this is effectively an alias
-                //remove-command <name_string> //remove a user defined command
-                //UserCommand{
-                //  name: String,
-                //  documentation: Option<String>,
-                //  command_body: String
-                //}
                 //and would have to match on user defined commands
                 //user defined commands may need to be quoted "if spaces are used"...
                 //TODO: this should be a user defined command instead of built in
+                //add-command "open new alacritty window" --doc_string "opens a new alacritty window" %sh{alacritty msg create-window}
                 "term" | "t" => app.action(Action::EditorAction(EditorAction::OpenNewTerminalWindow)),
                 "toggle_line_numbers" | "ln" => app.action(Action::EditorAction(EditorAction::ToggleLineNumbers)),  //these will prob end up using set-option command...
                 "toggle_status_bar" | "sb" => app.action(Action::EditorAction(EditorAction::ToggleStatusBar)),      //these will prob end up using set-option command...
@@ -2256,11 +2287,13 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                     }
                 }
                 //remove_keybind <keybind>
-                //add_option <name> <type>
+                //add_option <name> <type> <value>
                 //remove_option <name>
                 //set_option <name> <value>
-                //add_hook
-                //remove hook
+                //add_hook <group_name> <event> <filtering_regex> <response_command>    //maybe set a hook name instead of group?...    //if no group/name provided, only trigger once, then remove
+                //remove hook <group_name>
+                //TODO: add-selection
+                //TODO: set-selection
                 _ => {
                     //TODO: check if command_string matches user defined command
                     //match app.config.user_commands.get(command){  //this should check against command name

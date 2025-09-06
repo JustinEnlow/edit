@@ -7,13 +7,18 @@ use ratatui::style::Color;
 //    U8(u8),
 //    String(String),
 //}
-//#[derive(Clone)] struct Command{}
+//#[derive(Clone)] struct Command{
+//    documentation: Option<String>,
+//    command_body: String
+//}
 //#[derive(Clone)] struct Hook{}
 
 //this should contain config options that could be changed at runtime
 #[derive(Clone)] pub struct Config{
     //pub options: HashMap<String, OptionType>, //OptionType{Bool(bool), U8(u8), String(String), etc}    //container for config options     //add/remove/set-option
     //pub user_commands: Vec<Command>,  //container for user defined commands. built ins stored elsewhere       //add/remove-command
+    //or maybe:
+    //pub user_commands: HashMap<String, Command>
     //pub user_hooks: Vec<Hook>,        //add/remove-hook
     pub semantics: CursorSemantics,
     pub use_full_file_path: bool,
