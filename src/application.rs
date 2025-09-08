@@ -299,8 +299,28 @@ impl Application{
                 )
                 .split(rect)
         }
-        fn layout_status_bar(app: &Application, rect: Rect) -> std::rc::Rc<[Rect]>{
+        fn layout_status_bar(rect: Rect) -> std::rc::Rc<[Rect]>{
             // layout of status bar rect (modified_indicator/file_name/cursor_position)
+            Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints(
+                    vec![
+                        //[0]
+                        // first third
+                        Constraint::Ratio(1, 3),
+
+                        //[1]
+                        // middle third
+                        Constraint::Ratio(1, 3),
+
+                        //[2]
+                        // last third
+                        Constraint::Ratio(1, 3)
+                    ]
+                )
+                .split(rect)
+        }
+        fn layout_status_bar_first_third(app: &Application, rect: Rect) -> std::rc::Rc<[Rect]>{
             Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints(
@@ -340,20 +360,44 @@ impl Application{
                         ),
 
                         //[5]
+                        // padding_3
+                        Constraint::Min(0)
+                    ]
+                )
+                .split(rect)
+        }
+        fn layout_status_bar_middle_third(rect: Rect) -> std::rc::Rc<[Rect]>{
+            Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints(
+                    vec![
+                        //[0]
                         // selections widget
                         Constraint::Min(0),     //or set selections widget to Max, and surround with 2 padding widgets set to Min(0)?...idk if that will work the same?...
+                    ]
+                )
+                .split(rect)
+        }
+        fn layout_status_bar_last_third(app: &Application, rect: Rect) -> std::rc::Rc<[Rect]>{
+            Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints(
+                    vec![
+                        //[0]
+                        // padding_4
+                        Constraint::Min(0),
 
-                        //[6]
+                        //[1]
                         // cursor position indicator width
                         Constraint::Max(
                             app.ui.status_bar.cursor_position_widget.text.len() as u16
                         ),
                     
-                        //[7]
+                        //[2]
                         // padding_3
                         Constraint::Max(1),
                     
-                        //[8]
+                        //[3]
                         // mode widget
                         Constraint::Max(
                             app.ui.status_bar.mode_widget.text.len() as u16
@@ -448,22 +492,30 @@ impl Application{
     
         let terminal_rect = layout_terminal(self, self.ui.terminal_size);
         let document_viewport_rect = layout_buffer_viewport(self, terminal_rect[0]);
-        let status_bar_rect = layout_status_bar(self, terminal_rect[1]);
+        let status_bar_rect = layout_status_bar(terminal_rect[1]);
         let util_rect = layout_util_bar(self, terminal_rect[2]);
+
+        let status_bar_first_third_rect = layout_status_bar_first_third(self, status_bar_rect[0]);
+        let status_bar_middle_third_rect = layout_status_bar_middle_third(status_bar_rect[1]);
+        let status_bar_last_third_rect = layout_status_bar_last_third(self, status_bar_rect[2]);
     
         self.ui.document_viewport.line_number_widget.rect = document_viewport_rect[0];
         self.ui.document_viewport.padding.rect = document_viewport_rect[1];
         self.ui.document_viewport.document_widget.rect = document_viewport_rect[2];
             
-        self.ui.status_bar.read_only_widget.rect = status_bar_rect[0];
-        self.ui.status_bar.padding_1.rect = status_bar_rect[1];
-        self.ui.status_bar.file_name_widget.rect = status_bar_rect[2];
-        self.ui.status_bar.padding_2.rect = status_bar_rect[3];
-        self.ui.status_bar.modified_widget.rect = status_bar_rect[4];
-        self.ui.status_bar.selections_widget.rect = status_bar_rect[5];
-        self.ui.status_bar.cursor_position_widget.rect = status_bar_rect[6];
-        self.ui.status_bar.padding_3.rect = status_bar_rect[7];
-        self.ui.status_bar.mode_widget.rect = status_bar_rect[8];
+        self.ui.status_bar.read_only_widget.rect =       status_bar_first_third_rect[0];//status_bar_rect[0];
+        self.ui.status_bar.padding_1.rect =              status_bar_first_third_rect[1];//status_bar_rect[1];
+        self.ui.status_bar.file_name_widget.rect =       status_bar_first_third_rect[2];//status_bar_rect[2];
+        self.ui.status_bar.padding_2.rect =              status_bar_first_third_rect[3];//status_bar_rect[3];
+        self.ui.status_bar.modified_widget.rect =        status_bar_first_third_rect[4];//status_bar_rect[4];
+        self.ui.status_bar.padding_3.rect =              status_bar_first_third_rect[5];
+        
+        self.ui.status_bar.selections_widget.rect =      status_bar_middle_third_rect[0];//status_bar_rect[5];
+        
+        self.ui.status_bar.padding_4.rect =              status_bar_last_third_rect[0];
+        self.ui.status_bar.cursor_position_widget.rect = status_bar_last_third_rect[1];//status_bar_rect[6];
+        self.ui.status_bar.padding_5.rect =              status_bar_last_third_rect[2];//status_bar_rect[7];
+        self.ui.status_bar.mode_widget.rect =            status_bar_last_third_rect[3];//status_bar_rect[8];
             
         self.ui.util_bar.prompt.rect = util_rect[0];
         self.ui.util_bar.utility_widget.rect = util_rect[1];
@@ -600,9 +652,13 @@ impl Application{
                     frame.render_widget(generate_widget(&self.ui.status_bar.file_name_widget.text, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, FILE_NAME_WIDGET_FOREGROUND_COLOR), self.ui.status_bar.file_name_widget.rect);
                     frame.render_widget(generate_widget("", Alignment::Center, false, STATUS_BAR_BACKGROUND_COLOR, Color::Red), self.ui.status_bar.padding_2.rect);
                     frame.render_widget(generate_widget(&self.ui.status_bar.modified_widget.text, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, MODIFIED_WIDGET_FOREGROUND_COLOR), self.ui.status_bar.modified_widget.rect);
+                    frame.render_widget(generate_widget("", Alignment::Center, false, STATUS_BAR_BACKGROUND_COLOR, STATUS_BAR_BACKGROUND_COLOR), self.ui.status_bar.padding_3.rect);
+                    
                     frame.render_widget(generate_widget(&self.ui.status_bar.selections_widget.text, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, SELECTIONS_WIDGET_FOREGROUND_COLOR), self.ui.status_bar.selections_widget.rect);
+                    
+                    frame.render_widget(generate_widget("", Alignment::Center, false, STATUS_BAR_BACKGROUND_COLOR, STATUS_BAR_BACKGROUND_COLOR), self.ui.status_bar.padding_4.rect);
                     frame.render_widget(generate_widget(&self.ui.status_bar.cursor_position_widget.text, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, CURSOR_POSITION_WIDGET_FOREGROUND_COLOR), self.ui.status_bar.cursor_position_widget.rect);
-                    frame.render_widget(generate_widget("", Alignment::Center, false, STATUS_BAR_BACKGROUND_COLOR, Color::Red), self.ui.status_bar.padding_3.rect);
+                    frame.render_widget(generate_widget("", Alignment::Center, false, STATUS_BAR_BACKGROUND_COLOR, Color::Red), self.ui.status_bar.padding_5.rect);
                     frame.render_widget(generate_widget(&self.ui.status_bar.mode_widget.text, Alignment::Center, true, STATUS_BAR_BACKGROUND_COLOR, MODE_WIDGET_FOREGROUND_COLOR), self.ui.status_bar.mode_widget.rect);
                 }
     
@@ -1042,8 +1098,19 @@ impl Application{
                     Ok(new_selections) => {
                         self.selections = new_selections;
                     
-                        pop_to_insert(self);
-
+                        //pop_to_insert(self);  //testing to see if this increments SELECTION_ACTION_DISPLAY_MODE if selection_out_of_view
+                        fn same_mode(mode: Mode, display_mode: DisplayMode) -> bool{
+                            if mode == Mode::Error && display_mode == DisplayMode::Error{true}
+                            else if mode == Mode::Warning && display_mode == DisplayMode::Warning{true}
+                            else if mode == Mode::Notify && display_mode == DisplayMode::Notify{true}
+                            else if mode == Mode::Info && display_mode == DisplayMode::Info{true}
+                            else{false}
+                        }
+                        if same_mode(self.mode(), SELECTION_ACTION_DISPLAY_MODE) && self.mode_stack.top().text == Some(SELECTION_ACTION_OUT_OF_VIEW.to_string()){/* retain mode as SELECTION_ACTION_DISPLAY_MODE */}
+                        else{
+                            pop_to_insert(self);
+                        }
+                        //
                         let primary_selection = &self.selections.primary().clone();
                         let first_selection = &self.selections.first().clone();
                         let last_selection = &self.selections.last().clone();
@@ -1067,6 +1134,11 @@ impl Application{
                         if selection_out_of_view{
                             handle_message(self, SELECTION_ACTION_DISPLAY_MODE, SELECTION_ACTION_OUT_OF_VIEW);
                         }
+                            //testing to see if this increments SELECTION_ACTION_DISPLAY_MODE if selection_out_of_view
+                            else{
+                                pop_to_insert(self);
+                            }
+                            //
                         //
                     }
                     Err(e) => {handle_application_error(self, ApplicationError::SelectionsError(e));}
@@ -1094,7 +1166,19 @@ impl Application{
                     };
                     match result{
                         Ok(()) => {
-                            pop_to_insert(self);
+                            //pop_to_insert(self);  //testing to see if this increments EDIT_ACTION_DISPLAY_MODE if selection_out_of_view
+                            fn same_mode(mode: Mode, display_mode: DisplayMode) -> bool{
+                                if mode == Mode::Error && display_mode == DisplayMode::Error{true}
+                                else if mode == Mode::Warning && display_mode == DisplayMode::Warning{true}
+                                else if mode == Mode::Notify && display_mode == DisplayMode::Notify{true}
+                                else if mode == Mode::Info && display_mode == DisplayMode::Info{true}
+                                else{false}
+                            }
+                            if same_mode(self.mode(), EDIT_ACTION_DISPLAY_MODE) && self.mode_stack.top().text == Some(EDIT_ACTION_OUT_OF_VIEW.to_string()){/* retain mode as EDIT_ACTION_DISPLAY_MODE */}
+                            else{
+                                pop_to_insert(self);
+                            }
+                            //
                             self.checked_scroll_and_update(
                                 &self.selections.primary().clone(), 
                                 Application::update_ui_data_document, 
@@ -1110,6 +1194,11 @@ impl Application{
                             if selection_out_of_view{
                                 handle_message(self, EDIT_ACTION_DISPLAY_MODE, EDIT_ACTION_OUT_OF_VIEW);
                             }
+                                //testing to see if this increments EDIT_ACTION_DISPLAY_MODE if selection_out_of_view
+                                else{
+                                    pop_to_insert(self);
+                                }
+                                //
                             //
                         }
                         Err(e) => {handle_application_error(self, e);}

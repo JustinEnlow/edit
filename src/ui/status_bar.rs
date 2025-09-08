@@ -44,8 +44,10 @@ use ratatui::layout::Rect;
     pub file_name_widget: FileNameWidget,
     pub padding_2: Padding,
     pub modified_widget: ModifiedWidget,
-    pub selections_widget: SelectionsWidget,
-    pub cursor_position_widget: CursorPositionWidget,
     pub padding_3: Padding,
+    pub selections_widget: SelectionsWidget,
+    pub padding_4: Padding,
+    pub cursor_position_widget: CursorPositionWidget,
+    pub padding_5: Padding,
     pub mode_widget: ModeWidget,
 }
