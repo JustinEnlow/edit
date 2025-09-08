@@ -109,13 +109,14 @@ impl Selection{
         Ok(())
     }
 
-    //TODO?: does this belong in buffer.rs instead?...
-    pub fn to_string(&self, buffer: &Buffer) -> String{     //or maybe Result<String, ()>
-        buffer.slice(self.range.start, self.range.end)
-        //would this be sufficient to fix bug when calling to_string past buffer end?...
-        //let start = usize::min(self.range.start, buffer.len_chars());
-        //let end = usize::min(self.range.end, buffer.len_chars());
-        //buffer.slice(start, end)
+    pub fn to_string(&self, buffer: &Buffer) -> String{     //maybe this should just be Result<String, ()> instead...
+        if self.range.start >= buffer.len_chars() && self.range.end >= buffer.len_chars(){
+            String::new()
+        }else{
+            let start = usize::min(self.range.start, buffer.len_chars());
+            let end = usize::min(self.range.end, buffer.len_chars());
+            buffer.slice(start, end)
+        }
     }
 
     #[cfg(test)] pub fn debug_over_buffer_content(&self, buffer: &Buffer, semantics: CursorSemantics) -> String{

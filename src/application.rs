@@ -1,6 +1,10 @@
 // insert <text>
     //hooks.run(InsertTextPre)  //hook just before text insertion
-        //let mut pending_changeset = ChangeSet::new();
+        //if text is not the same word type as previous changes in changeset || if selection count has changed
+            //push pending changeset to history
+            //let mut pending_changeset = ChangeSet::new(); //create new changeset
+        //else
+            //following steps should append existing pending changeset
     //for selection in selections{
         //insert text at/replacing selection (depends on selection extension)
         //hooks.run(InsertText)
@@ -950,10 +954,13 @@ impl Application{
                                 let commands = Result::unwrap(parse_result);
                                 let execute_result = execute_commands(self, commands);
                                 if Result::is_err(&execute_result){
-                                    handle_message(self, DisplayMode::Error, "command not registered");
+                                    let error = Result::unwrap_err(execute_result);
+                                    handle_message(self, DisplayMode::Error, &error);
                                 }
                             }else{
-                                handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);
+                                //handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);
+                                let error = Result::unwrap_err(parse_result);
+                                handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, &error);
                             }
                         }
                     }
@@ -966,10 +973,13 @@ impl Application{
                             let commands = Result::unwrap(parse_result);
                             let execute_result = execute_commands(self, commands);
                             if Result::is_err(&execute_result){
-                                handle_message(self, DisplayMode::Error, "command not registered");
+                                let error = Result::unwrap_err(execute_result);
+                                handle_message(self, DisplayMode::Error, &error);
                             }
                         }else{
-                            handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);
+                            //handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);
+                            let error = Result::unwrap_err(parse_result);
+                            handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, &error);
                         }
                     }
                 }
@@ -1216,10 +1226,13 @@ impl Application{
                                         //only checking command mode because parsed resultant fn may need to enter error/warning/notify/info mode, and user should see that
                                         if self.mode() == Mode::Command{pop_to_insert(self);}
                                     }else{
-                                        handle_message(self, DisplayMode::Error, "command not registered");
+                                        let error = Result::unwrap_err(execute_result);
+                                        handle_message(self, DisplayMode::Error, &error);
                                     }
                                 }else{
-                                    handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED)
+                                    //handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED)
+                                    let error = Result::unwrap_err(parse_result);
+                                    handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, &error);
                                 }
                             }
                             Mode::Find | Mode::Split => self.action(Action::EditorAction(EditorAction::ModePop)),
@@ -1401,8 +1414,8 @@ fn handle_application_error(app: &mut Application, e: ApplicationError){
 //at the extreme, i think every action could end up being a command
 //in that sense, the editor is just a command parser, with command specific response behavior
 //NOTE: expansions should be performed at the time of execution. fn execute_command()
-pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, ()>{
-    if command_string.is_empty(){return Err(());}
+pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, String>{
+    if command_string.is_empty(){return Err(String::from("cannot parse empty string"));}
     let mut commands = Vec::new();
     let mut command = Vec::new();
     let mut word = String::new();
@@ -1677,7 +1690,7 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, ()>{
                                     "reg" => ExpansionType::Register,
                                     "sh" => ExpansionType::Shell,
                                     "val" => ExpansionType::Value,
-                                    _ => return Err(())
+                                    _ => return Err(String::from("unsupported expansion type"))
                                 };
                                 #[cfg(test)] println!("word pushed to command: {:?}", word);
                                 command.push(Word{word_type: WordType::Expansion(expansion_type), content: word});
@@ -1734,13 +1747,13 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, ()>{
         #[cfg(test)] println!("command pushed to commands: {:?}", command);
         commands.push(command);
     }
-    if commands.is_empty(){return Err(());}
+    if commands.is_empty(){return Err(String::from("failed to parse string as commands"));}
     #[cfg(test)] println!("commands: {:?}", commands);
     #[cfg(test)] println!("");
     Ok(commands)    
 }
 #[test]fn empty_command_string_should_error(){
-    assert_eq!(Err(()), parse_command(String::from("")));
+    assert_eq!(Err(String::from("cannot parse empty string")), parse_command(String::from("")));
 }
 #[test] fn single_unquoted_word(){
     //idk
@@ -2003,8 +2016,12 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, ()>{
 }
 
 
-
-fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(), ()>{//Result<Application, ApplicationError>{
+//TODO: consider how to handle a failed command in a list of commands. should we just error on first failed command?...
+//TODO: execute_command should return a new instance of Application instead of modifying existing
+//that way, we could apply changes to the new instance, and if an error occurs, default back to the old instance with no changes
+//also, create a successful_commands counter. on each successful command, increment by 1;
+//if unsuccessful command, return "Error: {error} on command {counter + 1}"
+fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(), String>{//Result<Application, ApplicationError>{
     fn expand(_app: &Application, word_content: &str, expansion_type: &ExpansionType) -> Result<String, String>{
         //fn expand_option(_app: &Application, _option: String) -> Result<String, ()>{
         //    /*
@@ -2021,30 +2038,34 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
         //    */
         //}
         //fn expand_register() -> Result<String, ()>{Err(())}
-        fn expand_shell(command_string: String) -> Result<String, ()>{    //check content for $values, and set as environment variables
+        fn expand_shell(command_string: String) -> Result<String, String>{    //check content for $values, and set as environment variables
             let mut environment_variables = std::collections::HashMap::new();
             environment_variables.insert("MY_VAR", "environment variable content");
-            let output = std::process::Command::new("sh"/*"bash"*/)
+            let output = std::process::Command::new("sh"/*"bash"*/) //TODO: should this be calling the first arg in command string instead?...
                 .arg("-c")
                 .arg(command_string)
                 //.env("MY_VAR", "environment variable content")
                 .envs(&environment_variables)
+                //.stdout(std::process::Stdio::piped()) //i think this is the default with .output()
+                //.stderr(std::process::Stdio::piped()) //i think this is the default with .output()
                 .output()
                 .expect("failed to execute process");
 
             if output.status.success(){
                 let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-                if !stdout.is_empty(){
-                    return Ok(stdout);
+                if stdout.is_empty(){
+                    Ok(String::from("shell command succeeded with empty output string"))
+                }else{
+                    Ok(stdout)
                 }
-            }//else{
-            //    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-            //    if !stderr.is_empty(){
-            //        return Ok(stderr);
-            //    }
-            //}
-
-            Err(())
+            }else{
+                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                if stderr.is_empty(){
+                    Err(String::from("shell command failed with empty error string"))
+                }else{
+                    Err(stderr)
+                }
+            }
         }
         //fn expand_value() -> Result<String, ()>{Err(())}
 
@@ -2065,7 +2086,8 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                     let shell_output = shell_result.unwrap();
                     Ok(shell_output)
                 }else{
-                    Err("shell command failed".to_string())
+                    let shell_error = shell_result.unwrap_err();
+                    Err(shell_error)
                 }
             }
             ExpansionType::Value => {
@@ -2074,13 +2096,6 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
         }
     }
 
-    //TODO: consider how to handle a failed command in a list of commands. should we just error on first failed command?...
-
-    //TODO: maybe execute_command should return a new instance of Application instead of modifying existing
-    //that way, we could apply changes to the new instance, and if an error occurs, default back to the old instance with no changes
-    //also, execute_command could return errors up from command_handler fns, instead of returning an uninformative unit Err(())
-    //also, create a successful_commands counter. on each successful command, increment by 1;
-    //if unsuccessful command, return "Error: {error} on command {counter + 1}"
     for command in commands{
         let mut command_words = command.iter();
         let maybe_first = command_words.next();
@@ -2091,7 +2106,7 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                 WordType::Expansion(expansion_type) => {
                     match expand(app, &first.content, expansion_type){
                         Ok(output) => &Word{word_type: WordType::Quoted, content: output},
-                        Err(_) => return Err(())
+                        Err(e) => return Err(e)
                     }
                 }
                 _ => {first}
@@ -2099,7 +2114,7 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
             match first.content.as_str(){
                 "evaluate_commands" => {
                     if command.len() > 2{
-                        return Err(()); //too many arguments
+                        return Err(String::from("too many arguments supplied to evaluate_commands")); //too many arguments
                     }
                     let maybe_word = command_words.next();
                     if Option::is_some(&maybe_word){
@@ -2114,13 +2129,17 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                                             //execute
                                             let execute_result = execute_commands(app, commands);
                                             if Result::is_err(&execute_result){
-                                                handle_message(app, DisplayMode::Error, "command not registered");
+                                                let error = Result::unwrap_err(execute_result);
+                                                //handle_message(app, DisplayMode::Error, &error);
+                                                return Err(error);
                                             }
                                         }else{
-                                            handle_message(app, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);
+                                            //handle_message(app, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);
+                                            let error = Result::unwrap_err(parse_result);
+                                            return Err(error);
                                         }
                                     }
-                                    Err(error) => handle_message(app, DisplayMode::Error, &error),
+                                    Err(error) => return Err(error)//handle_message(app, DisplayMode::Error, &error),
                                 }
                             }
                             _ => {
@@ -2131,81 +2150,54 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                                     //execute
                                     let execute_result = execute_commands(app, commands);
                                     if Result::is_err(&execute_result){
-                                        handle_message(app, DisplayMode::Error, "command not registered");
+                                        let error = Result::unwrap_err(execute_result);
+                                        //handle_message(app, DisplayMode::Error, &error);
+                                        return Err(error);
                                     }
                                 }else{
-                                    handle_message(app, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);
+                                    //handle_message(app, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);
+                                    let error = Result::unwrap_err(parse_result);
+                                    return Err(error);
                                 }
                             }
                         }
                     }else{
-                        handle_message(app, DisplayMode::Error, "evaluate_commands requires more arguments");
+                        //handle_message(app, DisplayMode::Error, "evaluate_commands requires more arguments");
+                        return Err(String::from("evaluate_commands requires more arguments"));
                     }
                 }
                 "echo" => {
-                    //TODO: figure out how to handle excess input...    echo idk idk idk
                     let mut display_mode = DisplayMode::Info;
-                    fn echo_word(app: &mut Application, display_mode: DisplayMode, word: &Word){
-                        match &word.word_type{
-                            WordType::Expansion(expansion_type) => {
-                                match expand(app, &word.content, expansion_type){
-                                    Ok(output) => handle_message(app, display_mode, &output),
-                                    Err(error) => handle_message(app, DisplayMode::Error, &error),
+                    let mut process_next_word = true;
+                    while process_next_word{
+                        let word = command_words.next();
+                        if Option::is_some(&word){
+                            let word = word.unwrap();
+                            match word.content.as_str(){
+                                "--error" => display_mode = DisplayMode::Error,
+                                "--warning" => display_mode = DisplayMode::Warning,
+                                "--notify" => display_mode = DisplayMode::Notify,
+                                "--info" => {}  //already in DisplayMode::Info
+                                _ => {
+                                    let next_word = command_words.next();
+                                    if Option::is_some(&next_word){
+                                        return Err(String::from("too many arguments: echo [diagnostic_mode] <message>"));
+                                    }
+                                    process_next_word = false;
+                                    match &word.word_type{
+                                        WordType::Expansion(expansion_type) => {
+                                            match expand(app, &word.content, expansion_type){
+                                                Ok(message) => handle_message(app, display_mode.clone(), &message),
+                                                Err(error) => return Err(error),
+                                            }
+                                        }
+                                        _ => handle_message(app, display_mode.clone(), &word.content)
+                                    }
                                 }
                             }
-                            _ => handle_message(app, display_mode, &word.content)
+                        }else{
+                            return Err(String::from("too few arguments: echo [diagnostic_mode] <message>"));
                         }
-                    }
-                    let word = command_words.next();
-                    if Option::is_some(&word){
-                        let word = word.unwrap();
-                        match word.content.as_str(){
-                            "--error" => {
-                                display_mode = DisplayMode::Error;
-                                let maybe_word = command_words.next();
-                                if Option::is_some(&maybe_word){
-                                    let word = maybe_word.unwrap();
-                                    echo_word(app, display_mode, word);
-                                }else{
-                                    handle_message(app, DisplayMode::Error, "echo requires more arguments");    //return Err(());
-                                }
-                            }
-                            "--warning" => {
-                                display_mode = DisplayMode::Warning;
-                                let maybe_word = command_words.next();
-                                if Option::is_some(&maybe_word){
-                                    let word = maybe_word.unwrap();
-                                    echo_word(app, display_mode, word);
-                                }else{
-                                    handle_message(app, DisplayMode::Error, "echo requires more arguments");    //return Err(());
-                                }
-                            }
-                            "--notify" => {
-                                display_mode = DisplayMode::Notify;
-                                let maybe_word = command_words.next();
-                                if Option::is_some(&maybe_word){
-                                    let word = maybe_word.unwrap();
-                                    echo_word(app, display_mode, word);
-                                }else{
-                                    handle_message(app, DisplayMode::Error, "echo requires more arguments");    //return Err(());
-                                }
-                            }
-                            "--info" => {
-                                display_mode = DisplayMode::Info;
-                                let maybe_word = command_words.next();
-                                if Option::is_some(&maybe_word){
-                                    let word = maybe_word.unwrap();
-                                    echo_word(app, display_mode, word);
-                                }else{
-                                    handle_message(app, DisplayMode::Error, "echo requires more arguments");    //return Err(());
-                                }
-                            }
-                            _ => {
-                                echo_word(app, display_mode, word);
-                            }
-                        }
-                    }else{
-                        handle_message(app, DisplayMode::Error, "echo requires more arguments");    //return Err(());
                     }
                 }
                 //and would have to match on user defined commands
@@ -2236,7 +2228,8 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                         }
                         Err(_) => {
                             //self.selections = selections_before_search.clone();
-                            handle_message(app, DisplayMode::Error, "no matching regex");
+                            //handle_message(app, DisplayMode::Error, "no matching regex");
+                            return Err(String::from("no matching regex"))
                         }
                     }
                 }
@@ -2257,7 +2250,8 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                         }
                         Err(_) => {
                             //self.selections = selections_before_search.clone();
-                            handle_message(app, DisplayMode::Error, "no matching regex");
+                            //handle_message(app, DisplayMode::Error, "no matching regex");
+                            return Err(String::from("no matching regex"));
                         }
                     }
                 }
@@ -2280,7 +2274,7 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                     let key_event = crossterm::event::KeyEvent::new(keycode, modifiers);
                     let _command = "idk some shit".to_string();  //get mode from positional args
                     if app.config.keybinds.contains_key(&(mode, key_event)){
-                        //error
+                        return Err(String::from("this keybind has already been mapped"))
                     }else{
                         //app.config.keybinds.insert((mode, key_event), Action::EditorAction(EditorAction::EvalCommand(command)));
                         handle_message(app, DisplayMode::Info, "keybind added");
@@ -2294,17 +2288,21 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                 //remove hook <group_name>
                 //TODO: add-selection
                 //TODO: set-selection
+                //add-highlighter <group_id> [buffer_offset|widget_coords|screen_coords] <value>
+                    //value = buffer range | widget line/column/cell | screen line/column/cell
+                    //buffer_offset highlighter could map directly to the buffer, which would convert to widget_coords for render...
+                //remove-highlighter <group_id>
                 _ => {
                     //TODO: check if command_string matches user defined command
                     //match app.config.user_commands.get(command){  //this should check against command name
                     //    Some(command) => {parse_command(app, command.body)?}
                     //    None => {}
                     //}
-                    return Err(());
+                    return Err(String::from("no matching command registered"));
                 }
             }
         }else{
-            return Err(()); //cannot execute empty command
+            return Err(String::from("cannot execute empty command"));
         }
     }
     Ok(())
