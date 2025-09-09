@@ -20,6 +20,8 @@ use crate::tests::selection_actions::test_selection_action;
     //|i>d k|(>s o m e|[>]>_ t h i n g _|{>}>e l s e|)>_ i|d>k
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -82,6 +84,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn at_start_with_no_surrounding_pair(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -122,6 +126,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn normal_case(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -158,6 +164,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn with_cursor_over_surrounding_pair_opening(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -194,6 +202,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn with_other_pairs_inside_surrounding_pair(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -230,6 +240,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn with_cursor_over_surrounding_pair_closing(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -266,6 +278,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn at_end_with_no_surrounding_pair(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -306,6 +320,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn no_opening_bracket_pair_returns_empty_vec(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -344,6 +360,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn no_closing_bracket_pair_returns_empty_vec(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -384,6 +402,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn with_multiple_levels_of_same_surrounding_pair(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 

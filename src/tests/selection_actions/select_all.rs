@@ -16,6 +16,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn selects_all_and_clears_non_primary_selections(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -50,6 +52,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn ensure_cannot_past_text_len(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -83,6 +87,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn errors_if_all_already_selected(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 

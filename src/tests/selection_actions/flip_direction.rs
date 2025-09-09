@@ -14,6 +14,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn forward_selections_flip_backwards_block_semantics(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -51,6 +53,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn backward_selections_flip_forwards_block_semantics(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -88,6 +92,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn non_extended_return_error_block_semantics(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 

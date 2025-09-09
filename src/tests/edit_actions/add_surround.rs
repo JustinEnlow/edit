@@ -24,6 +24,8 @@ use crate::tests::edit_actions::test_edit_action;
     //);
     test_edit_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -78,6 +80,8 @@ use crate::tests::edit_actions::test_edit_action;
     //);
     test_edit_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -126,6 +130,8 @@ use crate::tests::edit_actions::test_edit_action;
     //);
     test_edit_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -168,6 +174,8 @@ use crate::tests::edit_actions::test_edit_action;
 #[test] fn with_read_only_buffer_is_error(){
     test_edit_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 

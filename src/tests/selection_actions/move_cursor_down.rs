@@ -15,6 +15,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn to_shorter_line_block_semantics(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -53,6 +55,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn to_line_with_equal_len_or_more_block_semantics(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -91,6 +95,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn with_mixed_valid_and_invalid_selections_block_semantics(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -129,6 +135,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn merges_overlapping_resultant_selections_block_semantics(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -165,6 +173,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn with_extended_selection_collapses_block_semantics(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -203,6 +213,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn errors_if_single_selection_on_bottommost_line_block_semantics(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 

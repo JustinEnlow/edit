@@ -14,6 +14,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn when_primary_is_first_next_becomes_new_primary(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -48,6 +50,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn when_primary_not_first_previous_becomes_new_primary(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -83,6 +87,8 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn errors_if_single_selection(){
     test_selection_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 

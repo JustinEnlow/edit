@@ -17,6 +17,8 @@ use crate::tests::view_actions::test_view_action;
     //|s h|i t       s h i t
     test_view_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -50,6 +52,8 @@ use crate::tests::view_actions::test_view_action;
     //|s h|i t       s h i t
     test_view_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -83,6 +87,8 @@ use crate::tests::view_actions::test_view_action;
     // s h i t
     test_view_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -119,6 +125,8 @@ use crate::tests::view_actions::test_view_action;
 #[should_panic] #[test] fn should_panic_when_called_from_any_mode_but_insert_or_view(){
     test_view_action(
         Config{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
