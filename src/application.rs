@@ -2185,21 +2185,13 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
 
         match expansion_type{
             ExpansionType::Option => {
-                //Err("option expansion unimplemented".to_string())
                 expand_option(app, word_content.to_string())
             }
             ExpansionType::Register => {
                 Err("register expansion unimplemented".to_string())
             }
             ExpansionType::Shell => {
-                let shell_result = expand_shell(word_content.to_string());
-                if Result::is_ok(&shell_result){
-                    let shell_output = shell_result.unwrap();
-                    Ok(shell_output)
-                }else{
-                    let shell_error = shell_result.unwrap_err();
-                    Err(shell_error)
-                }
+                expand_shell(word_content.to_string())
             }
             ExpansionType::Value => {
                 Err("value expansion unimplemented".to_string())
@@ -2208,15 +2200,15 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
     }
 
     //thinking this should be useful to help with handling possible expansion on each command_words.next()
-    fn resolve_content(app: &Application, word: Word) -> Result<String, String>{
-        match word.word_type{
+    fn resolve_content(app: &Application, word: &Word) -> Result<String, String>{   //maybe move Word instead of using &Word...
+        match &word.word_type{
             WordType::Expansion(expansion_type) => {
-                match expand(app, &word.content, &expansion_type){
+                match expand(app, &word.content, expansion_type){
                     Ok(output) => Ok(output),
                     Err(error) => Err(error)
                 }
             }
-            _ => Ok(word.content)
+            _ => Ok(word.content.clone())
         }
     }
 
@@ -2224,80 +2216,55 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
         let mut command_words = command.iter();
         let maybe_first = command_words.next();
         if Option::is_some(&maybe_first){
-            let first = maybe_first.unwrap();
-            //if first word is expansion, expand
-            let first = match &first.word_type{
-                WordType::Expansion(expansion_type) => {
-                    match expand(app, &first.content, expansion_type){
-                        Ok(output) => &Word{word_type: WordType::Quoted, content: output},
-                        Err(e) => return Err(e)
-                    }
-                }
-                _ => {first}
+            let first_word = maybe_first.unwrap();
+            let first_word_content = match resolve_content(app, first_word){
+                Ok(content) => content,
+                Err(error) => return Err(error)
             };
-            match first.content.as_str(){
+            match first_word_content.as_str(){
                 "evaluate_commands" => {
+                    //evaluate_commands <commands>
                     if command.len() > 2{
                         return Err(String::from("too many arguments supplied to evaluate_commands")); //too many arguments
                     }
                     let maybe_word = command_words.next();
                     if Option::is_some(&maybe_word){
                         let word = maybe_word.unwrap();
-                        match &word.word_type{
-                            WordType::Expansion(expansion_type) => {
-                                match expand(app, &word.content, expansion_type){
-                                    Ok(output) => {
-                                        let parse_result = parse_command(output);
-                                        if Result::is_ok(&parse_result){
-                                            let commands = Result::unwrap(parse_result);
-                                            //execute
-                                            let execute_result = execute_commands(app, commands);
-                                            if Result::is_err(&execute_result){
-                                                let error = Result::unwrap_err(execute_result);
-                                                //handle_message(app, DisplayMode::Error, &error);
-                                                return Err(error);
-                                            }
-                                        }else{
-                                            //handle_message(app, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);
-                                            let error = Result::unwrap_err(parse_result);
-                                            return Err(error);
-                                        }
-                                    }
-                                    Err(error) => return Err(error)//handle_message(app, DisplayMode::Error, &error),
-                                }
-                            }
-                            _ => {
-                                //parse
-                                let parse_result = parse_command(word.content.clone());
+                        match resolve_content(app, word){
+                            Ok(commands) => {
+                                let parse_result = parse_command(commands);
                                 if Result::is_ok(&parse_result){
                                     let commands = Result::unwrap(parse_result);
                                     //execute
                                     let execute_result = execute_commands(app, commands);
                                     if Result::is_err(&execute_result){
                                         let error = Result::unwrap_err(execute_result);
-                                        //handle_message(app, DisplayMode::Error, &error);
                                         return Err(error);
                                     }
                                 }else{
-                                    //handle_message(app, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);
                                     let error = Result::unwrap_err(parse_result);
                                     return Err(error);
                                 }
                             }
-                        }
+                            Err(error) => return Err(error)
+                        };
                     }else{
-                        //handle_message(app, DisplayMode::Error, "evaluate_commands requires more arguments");
                         return Err(String::from("evaluate_commands requires more arguments"));
                     }
                 }
-                "echo" => {
+                "echo" => { //TODO: bug if "echo --error --warning". should output "--warning" in error mode
+                    //echo [diagnostic_mode] <message>
                     let mut display_mode = DisplayMode::Info;
                     let mut process_next_word = true;
                     while process_next_word{
                         let word = command_words.next();
                         if Option::is_some(&word){
                             let word = word.unwrap();
-                            match word.content.as_str(){
+                            let word_content = match resolve_content(app, word){
+                                Ok(content) => content,
+                                Err(error) => return Err(error)
+                            };
+                            match word_content.as_str(){
                                 "--error" => display_mode = DisplayMode::Error,
                                 "--warning" => display_mode = DisplayMode::Warning,
                                 "--notify" => display_mode = DisplayMode::Notify,
@@ -2308,15 +2275,7 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                                         return Err(String::from("too many arguments: echo [diagnostic_mode] <message>"));
                                     }
                                     process_next_word = false;
-                                    match &word.word_type{
-                                        WordType::Expansion(expansion_type) => {
-                                            match expand(app, &word.content, expansion_type){
-                                                Ok(message) => handle_message(app, display_mode.clone(), &message),
-                                                Err(error) => return Err(error),
-                                            }
-                                        }
-                                        _ => handle_message(app, display_mode.clone(), &word.content)
-                                    }
+                                    handle_message(app, display_mode.clone(), &word_content);
                                 }
                             }
                         }else{
@@ -2324,8 +2283,6 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                         }
                     }
                 }
-                //and would have to match on user defined commands
-                //user defined commands may need to be quoted "if spaces are used"...
                 //TODO: this should be a user defined command instead of built in
                 //add-command "open new alacritty window" --doc_string "opens a new alacritty window" %sh{alacritty msg create-window}
                 "term" | "t" => app.action(Action::EditorAction(EditorAction::OpenNewTerminalWindow)),
@@ -2336,60 +2293,85 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                 //write buffer contents to file //should this optionally take a filepath to save to? then we don't need to implement save as    //would have to split util bar text on ' ' into separate args
                 "write" | "w" => app.action(Action::EditorAction(EditorAction::Save)),
                 "search" => {
-                    match crate::utilities::incremental_search_in_selection::selections_impl(
-                        &app.selections, 
-                        command_words.next().unwrap().content.as_str(),
-                        &app.buffer, 
-                        app.config.semantics.clone()
-                    ){
-                        Ok(new_selections) => {
-                            app.selections = new_selections;
-                            app.checked_scroll_and_update(
-                                &app.selections.primary().clone(), 
-                                Application::update_ui_data_document, 
-                                Application::update_ui_data_selections
-                            );
-                        }
-                        Err(_) => {
-                            //self.selections = selections_before_search.clone();
-                            //handle_message(app, DisplayMode::Error, "no matching regex");
-                            return Err(String::from("no matching regex"))
+                    //search <regex>
+                    let maybe_word = command_words.next();
+                    if Option::is_none(&maybe_word){
+                        return Err(String::from("too few args: search <regex>"))
+                    }else{
+                        let word = maybe_word.unwrap();
+                        let regex = match resolve_content(app, word){
+                            Ok(content) => content,
+                            Err(error) => return Err(error)
+                        };
+                        match crate::utilities::incremental_search_in_selection::selections_impl(
+                            &app.selections, 
+                            &regex,
+                            &app.buffer, 
+                            app.config.semantics.clone()
+                        ){
+                            Ok(new_selections) => {
+                                app.selections = new_selections;
+                                app.checked_scroll_and_update(
+                                    &app.selections.primary().clone(), 
+                                    Application::update_ui_data_document, 
+                                    Application::update_ui_data_selections
+                                );
+                            }
+                            Err(_) => {
+                                return Err(String::from("no matching regex"))
+                            }
                         }
                     }
                 }
-                "split" => {    //we may need to take regexes in quotes. i would assume the same applies to search
-                    match crate::utilities::incremental_split_in_selection::selections_impl(
-                        &app.selections, 
-                        command_words.next().unwrap().content.as_str(),
-                        &app.buffer, 
-                        app.config.semantics.clone()
-                    ){
-                        Ok(new_selections) => {
-                            app.selections = new_selections;
-                            app.checked_scroll_and_update(
-                                &app.selections.primary().clone(), 
-                                Application::update_ui_data_document, 
-                                Application::update_ui_data_selections
-                            );
-                        }
-                        Err(_) => {
-                            //self.selections = selections_before_search.clone();
-                            //handle_message(app, DisplayMode::Error, "no matching regex");
-                            return Err(String::from("no matching regex"));
-                        }
+                "split" => {    //we may need to take certain regexes in quotes. i would assume the same applies to search
+                    //split <regex>
+                    let maybe_word = command_words.next();
+                    if Option::is_none(&maybe_word){
+                        return Err(String::from("too few args: search <regex>"))
+                    }else{
+                        let word = maybe_word.unwrap();
+                        let regex = match resolve_content(app, word){
+                            Ok(content) => content,
+                            Err(error) => return Err(error)
+                        };
+                        match crate::utilities::incremental_split_in_selection::selections_impl(
+                            &app.selections, 
+                            &regex,
+                            &app.buffer, 
+                            app.config.semantics.clone()
+                        ){
+                            Ok(new_selections) => {
+                                app.selections = new_selections;
+                                app.checked_scroll_and_update(
+                                    &app.selections.primary().clone(), 
+                                    Application::update_ui_data_document, 
+                                    Application::update_ui_data_selections
+                                );
+                            }
+                            Err(_) => {
+                                return Err(String::from("no matching regex"));
+                            }
+                        }   
                     }
                 }
                 
+                //user defined commands may need to be quoted "if spaces are used"...
                 //"\"idk some shit\"" => handle_message(app, DisplayMode::Error, "idk some shit"),  //commands with whitespace can be handled this way
                 
-                //add_command <command_name> <command> --doc_string <optional_doc_string>
                 "add_command" => {
+                    //add_command <command_name> <command> [optional_doc_string]
                     match command_words.next(){
                         Some(word) => {
-                            let name = word.content.clone();
+                            let name = match resolve_content(app, word){
+                                Ok(content) => content,
+                                Err(error) => return Err(error)
+                            };
                             match command_words.next(){
                                 Some(word) => {
-                                    let command = word.content.clone();
+                                    let command = match resolve_content(app, word){
+                                        Ok(content) => content,
+                                        Err(error) => error
+                                    };
                                     if app.config.user_commands.contains_key(&name){
                                         return Err(format!("commands already contains {} command", &name));
                                     }
@@ -2399,7 +2381,10 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                                             aliases: Vec::new(), 
                                             documentation: match command_words.next(){
                                                 Some(word) => {
-                                                    Some(word.content.clone())
+                                                    match resolve_content(app, word){
+                                                        Ok(content) => Some(content),
+                                                        Err(error) => return Err(error)
+                                                    }
                                                 }
                                                 None => None
                                             }, 
@@ -2417,12 +2402,15 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                         None => return Err(String::from("too few arguments: add_command <command_name> <command> [optional_documentation]"))
                     }
                 }
-                //remove_command <command_name>
                 "remove_command" => {
+                    //remove_command <command_name>
                     match command_words.next(){
                         None => return Err(String::from("too few arguments: remove_command <command_name>")),
                         Some(word) => {
-                            let command_name = word.content.clone();
+                            let command_name = match resolve_content(app, word){
+                                Ok(content) => content,
+                                Err(error) => return Err(error)
+                            };
                             match app.config.user_commands.remove(&command_name){
                                 None => return Err(format!("{} does not exist in user commands", &command_name)),
                                 Some(_) => handle_message(app, DisplayMode::Notify, &format!("{} removed from user commands", &command_name)),
@@ -2432,36 +2420,48 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                 }
                 
                 //add_keybind <mode> <keybind> <command>
-                "add_keybind" => {
-                    let mode = Mode::Insert;    //get mode from positional args
-                    let keycode = crossterm::event::KeyCode::Char('n'); //get mode from positional args
-                    let modifiers = crossterm::event::KeyModifiers::CONTROL;    //get mode from positional args
-                    let key_event = crossterm::event::KeyEvent::new(keycode, modifiers);
-                    let _command = "idk some shit".to_string();  //get mode from positional args
-                    if app.config.keybinds.contains_key(&(mode, key_event)){
-                        return Err(String::from("this keybind has already been mapped"))
-                    }else{
-                        //app.config.keybinds.insert((mode, key_event), Action::EditorAction(EditorAction::EvalCommand(command)));
-                        handle_message(app, DisplayMode::Info, "keybind added");
-                    }
-                }
+                //"add_keybind" => {
+                //    let mode = Mode::Insert;    //get mode from positional args
+                //    let keycode = crossterm::event::KeyCode::Char('n'); //get mode from positional args
+                //    let modifiers = crossterm::event::KeyModifiers::CONTROL;    //get mode from positional args
+                //    let key_event = crossterm::event::KeyEvent::new(keycode, modifiers);
+                //    let _command = "idk some shit".to_string();  //get mode from positional args
+                //    if app.config.keybinds.contains_key(&(mode, key_event)){
+                //        return Err(String::from("this keybind has already been mapped"))
+                //    }else{
+                //        //app.config.keybinds.insert((mode, key_event), Action::EditorAction(EditorAction::EvalCommand(command)));
+                //        handle_message(app, DisplayMode::Info, "keybind added");
+                //    }
+                //}
                 //remove_keybind <keybind>
                 
-                //add_option <name> <option_type> [initial_value]
                 "add_option" => {   //TODO: handle excess args
+                    //add_option <name> <option_type> [initial_value]
                     match command_words.next(){
                         Some(word) => {
-                            let name = word.content.clone();
+                            //let name = word.content.clone();
+                            let name = match resolve_content(app, word){
+                                Ok(content) => content,
+                                Err(error) => return Err(error)
+                            };
                             let option_type = match command_words.next(){
                                 Some(word) => {
-                                    match word.content.as_str(){
+                                    let option_type = match resolve_content(app, word){
+                                        Ok(content) => content,
+                                        Err(error) => return Err(error)
+                                    };
+                                    match option_type.as_str(){
                                         "bool" => OptionType::Bool(
                                             match command_words.next(){
                                                 Some(word) => {
-                                                    match word.content.as_str(){
+                                                    let value = match resolve_content(app, word){
+                                                        Ok(content) => content,
+                                                        Err(error) => return Err(error)
+                                                    };
+                                                    match value.as_str(){
                                                         "true" => true,
                                                         "false" => false,
-                                                        _ => return Err(format!("{} is not a valid boolean value", word.content))
+                                                        _ => return Err(format!("{} is not a valid boolean value", value))
                                                     }
                                                 }
                                                 None => false
@@ -2470,8 +2470,12 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                                         "u8" => OptionType::U8(
                                             match command_words.next(){
                                                 Some(word) => {
-                                                    let value: Result<u8, std::num::ParseIntError> = word.content.parse();
-                                                    match value{
+                                                    let value = match resolve_content(app, word){
+                                                        Ok(content) => content,
+                                                        Err(error) => return Err(error)
+                                                    };
+                                                    let parsed_value: Result<u8, std::num::ParseIntError> = value.parse();
+                                                    match parsed_value{
                                                         Ok(val) => val,
                                                         Err(error) => return Err(format!("{}", error))
                                                     }
@@ -2481,7 +2485,12 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                                         ),
                                         "string" => OptionType::String(
                                             match command_words.next(){
-                                                Some(word) => word.content.clone(),
+                                                Some(word) => {
+                                                    match resolve_content(app, word){
+                                                        Ok(content) => content,
+                                                        Err(error) => return Err(error)
+                                                    }
+                                                }
                                                 None => String::new()
                                             }
                                         ),
@@ -2503,28 +2512,38 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                         None => return Err(String::from("too few arguments: add_option <name> <option_type> [initial_value]"))
                     }
                 }
-                //remove_option <name>
                 "remove_option" => {    //TODO: handle excess args
+                    //remove_option <name>
                     match command_words.next(){
                         Some(word) => {
-                            if app.config.user_options.contains_key(&word.content){
-                                app.config.user_options.remove(&word.content);
-                                handle_message(app, DisplayMode::Notify, &format!("{} removed from user_options", &word.content));
+                            let name = match resolve_content(app, word){
+                                Ok(content) => content,
+                                Err(error) => return Err(error)
+                            };
+                            if app.config.user_options.contains_key(&name){
+                                app.config.user_options.remove(&name);
+                                handle_message(app, DisplayMode::Notify, &format!("{} removed from user_options", &name));
                             }else{
-                                return Err(format!("{} is not a valid user_option", &word.content))
+                                return Err(format!("{} is not a valid user_option", &name))
                             }
                         }
                         None => return Err(String::from("too few arguments: remove_option <name>"))
                     }
                 }
-                //set_option <name> <value>
-                "set_option" => {   //TODO: handle excess args
+                "set_option" => {   //TODO: handle excess args  //TODO: this needs to handle built in options too
+                    //set_option <name> <value>
                     match command_words.next(){
                         Some(word) => {
-                            let name = word.content.clone();
+                            let name = match resolve_content(app, word){
+                                Ok(content) => content,
+                                Err(error) => return Err(error)
+                            };
                             match command_words.next(){
                                 Some(word) => {
-                                    let value = word.content.clone();
+                                    let value = match resolve_content(app, word){
+                                        Ok(content) => content,
+                                        Err(error) => return Err(error)
+                                    };
                                     let option_type = match app.config.user_options.get(&name){
                                         Some(option_type) => option_type,
                                         None => return Err(format!("user_options does not contain {}", &name))
@@ -2567,21 +2586,18 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                 }
                 
                 "no_op" => {    //this would be used to start some external program or similar. no editor explicit behavior
+                    //no_op <command>
                     match command_words.next(){
                         None => return Err(String::from("too few args: no_op <command>")),
                         Some(word) => {
-                            match &word.word_type{
-                                WordType::Expansion(expansion_type) => {
-                                    match expand(app, &word.content, &expansion_type){
-                                        Ok(_expanded) => {}
-                                        Err(error) => return Err(error)
-                                    }
-                                }
-                                _ => {}
+                            match resolve_content(app, word){
+                                Ok(_content) => {}
+                                Err(error) => return Err(error)
                             }
                         }
                     }
-                    handle_message(app, SAME_STATE_DISPLAY_MODE, SAME_STATE);
+                    //should we really be displaying anything here?...
+                    handle_message(app, DisplayMode::Info, "no op");
                 }
                 //add_hook <group_name> <event> <filtering_regex> <response_command>    //maybe set a hook name instead of group?...    //if no group/name provided, only trigger once, then remove
                 //remove hook <group_name>
@@ -2592,7 +2608,7 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                     //buffer_offset highlighter could map directly to the buffer, which would convert to widget_coords for render...
                 //remove-highlighter <group_id>
                 _ => {
-                    match app.config.user_commands.get(&first.content){
+                    match app.config.user_commands.get(&first_word_content){
                         Some(command) => {
                             match execute_commands(app, command.command_body.clone()){
                                 Ok(()) => {}
