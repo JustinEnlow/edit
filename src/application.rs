@@ -1490,13 +1490,13 @@ fn handle_application_error(app: &mut Application, e: ApplicationError){
     }
 }
 
-#[derive(PartialEq, Debug)] enum ExpansionType{Option, Value, Register, Shell}
-#[derive(PartialEq, Debug)] enum WordType{
+#[derive(PartialEq, Debug, Clone)] enum ExpansionType{Option, Value, Register, Shell}
+#[derive(PartialEq, Debug, Clone)] enum WordType{
     Unquoted,                   //word
     Quoted,                     //'a word', "a word", %{a word}
     Expansion(ExpansionType)    //%value{value_name}   //valid types are "shell", "register", "option", "value"
 }
-#[derive(PartialEq, Debug)] pub struct Word{
+#[derive(PartialEq, Debug, Clone)] pub struct Word{
     word_type: WordType,
     content: String
 }
@@ -2207,6 +2207,19 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
         }
     }
 
+    //thinking this should be useful to help with handling possible expansion on each command_words.next()
+    fn resolve_content(app: &Application, word: Word) -> Result<String, String>{
+        match word.word_type{
+            WordType::Expansion(expansion_type) => {
+                match expand(app, &word.content, &expansion_type){
+                    Ok(output) => Ok(output),
+                    Err(error) => Err(error)
+                }
+            }
+            _ => Ok(word.content)
+        }
+    }
+
     for command in commands{
         let mut command_words = command.iter();
         let maybe_first = command_words.next();
@@ -2366,17 +2379,58 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                         }
                     }
                 }
+                
                 //"\"idk some shit\"" => handle_message(app, DisplayMode::Error, "idk some shit"),  //commands with whitespace can be handled this way
+                
                 //add_command <command_name> <command> --doc_string <optional_doc_string>
                 "add_command" => {
-                    let name = command_words.next().unwrap().content.as_str();
-                    //let body = get command body
-                    //let documentation = get optional doc string
-                    //app.config.user_commands.push(Command::new(name, documentation, body));
-                    handle_message(app, DisplayMode::Info, &format!("{} command added", name));
+                    match command_words.next(){
+                        Some(word) => {
+                            let name = word.content.clone();
+                            match command_words.next(){
+                                Some(word) => {
+                                    let command = word.content.clone();
+                                    if app.config.user_commands.contains_key(&name){
+                                        return Err(format!("commands already contains {} command", &name));
+                                    }
+                                    app.config.user_commands.insert(
+                                        name.clone(), 
+                                        Command{
+                                            aliases: Vec::new(), 
+                                            documentation: match command_words.next(){
+                                                Some(word) => {
+                                                    Some(word.content.clone())
+                                                }
+                                                None => None
+                                            }, 
+                                            command_body: match parse_command(command){
+                                                Ok(commands) => commands,
+                                                Err(error) => return Err(error)
+                                            }
+                                        }
+                                    );
+                                    handle_message(app, DisplayMode::Notify, &format!("{} added to commands", name));
+                                }
+                                None => return Err(String::from("too few arguments: add_command <command_name> <command> [optional_documentation]"))
+                            }
+                        }
+                        None => return Err(String::from("too few arguments: add_command <command_name> <command> [optional_documentation]"))
+                    }
                 }
-                //"add_command" => {/* match positional args and, if command name available, insert into command list */}
                 //remove_command <command_name>
+                "remove_command" => {
+                    match command_words.next(){
+                        None => return Err(String::from("too few arguments: remove_command <command_name>")),
+                        Some(word) => {
+                            let command_name = word.content.clone();
+                            match app.config.user_commands.remove(&command_name){
+                                None => return Err(format!("{} does not exist in user commands", &command_name)),
+                                Some(_) => handle_message(app, DisplayMode::Notify, &format!("{} removed from user commands", &command_name)),
+                            }
+                        }
+                    }
+                }
+                
                 //add_keybind <mode> <keybind> <command>
                 "add_keybind" => {
                     let mode = Mode::Insert;    //get mode from positional args
@@ -2512,6 +2566,23 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                     }
                 }
                 
+                "no_op" => {    //this would be used to start some external program or similar. no editor explicit behavior
+                    match command_words.next(){
+                        None => return Err(String::from("too few args: no_op <command>")),
+                        Some(word) => {
+                            match &word.word_type{
+                                WordType::Expansion(expansion_type) => {
+                                    match expand(app, &word.content, &expansion_type){
+                                        Ok(_expanded) => {}
+                                        Err(error) => return Err(error)
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    handle_message(app, SAME_STATE_DISPLAY_MODE, SAME_STATE);
+                }
                 //add_hook <group_name> <event> <filtering_regex> <response_command>    //maybe set a hook name instead of group?...    //if no group/name provided, only trigger once, then remove
                 //remove hook <group_name>
                 //TODO: add-selection
@@ -2521,12 +2592,15 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                     //buffer_offset highlighter could map directly to the buffer, which would convert to widget_coords for render...
                 //remove-highlighter <group_id>
                 _ => {
-                    //TODO: check if command_string matches user defined command
-                    //match app.config.user_commands.get(command){  //this should check against command name
-                    //    Some(command) => {parse_command(app, command.body)?}
-                    //    None => {}
-                    //}
-                    return Err(String::from("no matching command registered"));
+                    match app.config.user_commands.get(&first.content){
+                        Some(command) => {
+                            match execute_commands(app, command.command_body.clone()){
+                                Ok(()) => {}
+                                Err(error) => return Err(error)
+                            }
+                        }
+                        None => return Err(String::from("no matching command registered"))
+                    }
                 }
             }
         }else{

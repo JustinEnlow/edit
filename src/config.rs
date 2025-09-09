@@ -7,11 +7,11 @@ use std::collections::HashMap;
     U8(u8),
     String(String),
 }
-//#[derive(Clone)] struct Command{
-//    aliases: Vec<String>,
-//    documentation: Option<String>,
-//    command_body: String
-//}
+#[derive(Clone)] pub struct Command{
+    pub aliases: Vec<String>,
+    pub documentation: Option<String>,
+    pub command_body: Vec<Vec<crate::application::Word>>//String
+}
 //#[derive(Clone)] struct Hook{}
 
 //this should contain config options that could be changed at runtime
@@ -19,7 +19,7 @@ use std::collections::HashMap;
     pub user_options: HashMap<String, OptionType>, //OptionType{Bool(bool), U8(u8), String(String), etc}    //container for config options     //add/remove/set-option
     //pub user_commands: Vec<Command>,  //container for user defined commands. built ins stored elsewhere       //add/remove-command
     //or maybe:
-    //pub user_commands: HashMap<String, Command>
+    pub user_commands: HashMap<String, Command>,
     //pub user_hooks: Vec<Hook>,        //add/remove-hook
     pub semantics: CursorSemantics,
     pub use_full_file_path: bool,
