@@ -2530,7 +2530,7 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                         None => return Err(String::from("too few arguments: remove_option <name>"))
                     }
                 }
-                "set_option" => {   //TODO: handle excess args  //TODO: this needs to handle built in options too
+                "set_option" => {   //TODO: handle excess args
                     //set_option <name> <value>
                     match command_words.next(){
                         Some(word) => {
@@ -2544,37 +2544,114 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                                         Ok(content) => content,
                                         Err(error) => return Err(error)
                                     };
-                                    let option_type = match app.config.user_options.get(&name){
-                                        Some(option_type) => option_type,
-                                        None => return Err(format!("user_options does not contain {}", &name))
-                                    };
-                                    match option_type{
-                                        OptionType::Bool(_) => {
-                                            match value.as_ref(){
-                                                "true" => {
-                                                    app.config.user_options.insert(name.clone(), OptionType::Bool(true));
-                                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, value));
+                                    match name.as_ref(){
+                                        "cursor_semantics" => {
+                                            match value.as_str(){
+                                                "Bar" => {
+                                                    app.config.semantics = CursorSemantics::Bar;
+                                                    handle_message(app, DisplayMode::Notify, &format!("cursor_semantics set to {}", value));
                                                 }
-                                                "false" => {
-                                                    app.config.user_options.insert(name.clone(), OptionType::Bool(false));
-                                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, value));
+                                                "Block" => {
+                                                    app.config.semantics = CursorSemantics::Block;
+                                                    handle_message(app, DisplayMode::Notify, &format!("cursor_semantics set to {}", value));
                                                 }
-                                                _ => return Err(format!("{} is not a valid boolean for {}", value, name))
+                                                _ => return Err(format!("{} is not a valid value for cursor_semantics", value))
                                             }
                                         }
-                                        OptionType::U8(_) => {
-                                            let value: Result<u8, std::num::ParseIntError> = word.content.parse();
-                                            match value{
-                                                Ok(val) => {
-                                                    app.config.user_options.insert(name.clone(), OptionType::U8(val));
-                                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, val));
+                                        "use_full_file_path" => {
+                                            let maybe_value: Result<bool, std::str::ParseBoolError> = value.parse();
+                                            match maybe_value{
+                                                Ok(value) => {
+                                                    app.config.use_full_file_path = value;
+                                                    handle_message(app, DisplayMode::Notify, &format!("use_full_file_path set to {}", value));
                                                 }
                                                 Err(error) => return Err(format!("{}", error))
                                             }
                                         }
-                                        OptionType::String(_) => {
-                                            app.config.user_options.insert(name.clone(), OptionType::String(value.clone()));
-                                            handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, value));
+                                        "use_hard_tab" => {
+                                            let maybe_value: Result<bool, std::str::ParseBoolError> = value.parse();
+                                            match maybe_value{
+                                                Ok(value) => {
+                                                    app.config.use_hard_tab = value;
+                                                    handle_message(app, DisplayMode::Notify, &format!("use_hard_tab set to {}", value));
+                                                }
+                                                Err(error) => return Err(format!("{}", error))
+                                            }
+                                        }
+                                        "tab_width" => {
+                                            let maybe_value: Result<usize, std::num::ParseIntError> = value.parse();
+                                            match maybe_value{
+                                                Ok(value) => {
+                                                    app.config.tab_width = value;
+                                                    handle_message(app, DisplayMode::Notify, &format!("tab_width set to {}", value));
+                                                }
+                                                Err(error) => return Err(format!("{}", error))
+                                            }
+                                        }
+                                        "view_scroll_amount" => {
+                                            let maybe_value: Result<usize, std::num::ParseIntError> = value.parse();
+                                            match maybe_value{
+                                                Ok(value) => {
+                                                    app.config.view_scroll_amount = value;
+                                                    handle_message(app, DisplayMode::Notify, &format!("view_scroll_amount set to {}", value));
+                                                }
+                                                Err(error) => return Err(format!("{}", error))
+                                            }
+                                        }
+                                        "show_cursor_column" => {
+                                            let maybe_value: Result<bool, std::str::ParseBoolError> = value.parse();
+                                            match maybe_value{
+                                                Ok(value) => {
+                                                    app.config.show_cursor_column = value;
+                                                    handle_message(app, DisplayMode::Notify, &format!("show_cursor_column set to {}", value));
+                                                }
+                                                Err(error) => return Err(format!("{}", error))
+                                            }
+                                        }
+                                        "show_cursor_line" => {
+                                            let maybe_value: Result<bool, std::str::ParseBoolError> = value.parse();
+                                            match maybe_value{
+                                                Ok(value) => {
+                                                    app.config.show_cursor_line = value;
+                                                    handle_message(app, DisplayMode::Notify, &format!("show_cursor_line set to {}", value));
+                                                }
+                                                Err(error) => return Err(format!("{}", error))
+                                            }
+                                        }
+                                        _ => {
+                                            let option_type = match app.config.user_options.get(&name){
+                                                Some(option_type) => option_type,
+                                                None => return Err(format!("user_options does not contain {}", &name))
+                                            };
+                                            match option_type{
+                                                OptionType::Bool(_) => {
+                                                    match value.as_ref(){
+                                                        "true" => {
+                                                            app.config.user_options.insert(name.clone(), OptionType::Bool(true));
+                                                            handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, value));
+                                                        }
+                                                        "false" => {
+                                                            app.config.user_options.insert(name.clone(), OptionType::Bool(false));
+                                                            handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, value));
+                                                        }
+                                                        _ => return Err(format!("{} is not a valid boolean for {}", value, name))
+                                                    }
+                                                }
+                                                OptionType::U8(_) => {
+                                                    let value: Result<u8, std::num::ParseIntError> = value.parse();//word.content.parse();
+                                                    match value{
+                                                        Ok(val) => {
+                                                            app.config.user_options.insert(name.clone(), OptionType::U8(val));
+                                                            handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, val));
+                                                        }
+                                                        Err(error) => return Err(format!("{}", error))
+                                                    }
+                                                }
+                                                OptionType::String(_) => {
+                                                    app.config.user_options.insert(name.clone(), OptionType::String(value.clone()));
+                                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, value));
+                                                }
+                                            }
                                         }
                                     }
                                 }
