@@ -15,7 +15,7 @@ use crate::{
 
 #[derive(PartialEq, Clone, Debug)] pub enum Direction{Forward, Backward}
 #[derive(PartialEq)] pub enum Movement{Extend, Move}
-#[derive(PartialEq, Clone)] pub enum CursorSemantics{Bar, Block}   //TODO?: change to SelectionSemantics{Exclusive, Inclusive}
+#[derive(Debug, PartialEq, Clone)] pub enum CursorSemantics{Bar, Block}   //TODO?: change to SelectionSemantics{Exclusive, Inclusive}
 #[derive(Debug, PartialEq)] pub enum SelectionError{
     ResultsInSameState,
     NoOverlap,

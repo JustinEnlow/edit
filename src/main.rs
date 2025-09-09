@@ -147,6 +147,7 @@ fn run_app(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, termi
     //TODO: pass a default config to start app
     //TODO: then update config from rc file. if an option is undefined in rc, it will already have a default value
     let config = edit::config::Config{
+            user_options: std::collections::HashMap::new(),
             semantics: edit::config::CURSOR_SEMANTICS,
             use_full_file_path: edit::config::USE_FULL_FILE_PATH,
             use_hard_tab: edit::config::USE_HARD_TAB,

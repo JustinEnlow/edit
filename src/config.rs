@@ -1,13 +1,14 @@
 use crate::selection::CursorSemantics;
 use ratatui::style::Color;
-//use std::collections::HashMap;
-//
-//#[derive(Clone)] enum OptionType{
-//    Bool(bool),
-//    U8(u8),
-//    String(String),
-//}
+use std::collections::HashMap;
+
+#[derive(Clone)] pub enum OptionType{
+    Bool(bool),
+    U8(u8),
+    String(String),
+}
 //#[derive(Clone)] struct Command{
+//    aliases: Vec<String>,
 //    documentation: Option<String>,
 //    command_body: String
 //}
@@ -15,7 +16,7 @@ use ratatui::style::Color;
 
 //this should contain config options that could be changed at runtime
 #[derive(Clone)] pub struct Config{
-    //pub options: HashMap<String, OptionType>, //OptionType{Bool(bool), U8(u8), String(String), etc}    //container for config options     //add/remove/set-option
+    pub user_options: HashMap<String, OptionType>, //OptionType{Bool(bool), U8(u8), String(String), etc}    //container for config options     //add/remove/set-option
     //pub user_commands: Vec<Command>,  //container for user defined commands. built ins stored elsewhere       //add/remove-command
     //or maybe:
     //pub user_commands: HashMap<String, Command>

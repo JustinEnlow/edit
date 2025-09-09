@@ -1767,8 +1767,8 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, String>{
                             }else{
                                 let _removed_char = word.remove(0); //remove leading '%' from word
                                 #[cfg(test)] println!("leading {} removed", _removed_char);
-                                for i in 0..expansion_type_string.len(){
-                                    let _removed_char = word.remove(i); //remove expansion type chars from word
+                                for _ in 0..expansion_type_string.len(){
+                                    let _removed_char = word.remove(0); //remove expansion type chars from word
                                     #[cfg(test)] println!("expansion string {} removed", _removed_char);
                                 }
                                 let _removed_char = word.remove(0); //remove trailing '{', '[', '(', or '<' from word
@@ -2090,6 +2090,20 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, String>{
         parse_command(String::from("echo %sh{this is quoted}"))
     );
 }
+#[test] fn percent_string_opt_typed(){
+    //echo %opt{cursor_semantics}
+    assert_eq!(
+        Ok(
+            vec![
+                vec![
+                    Word{word_type: WordType::Unquoted, content: String::from("echo")},
+                    Word{word_type: WordType::Expansion(ExpansionType::Option), content: String::from("cursor_semantics")}
+                ]
+            ]
+        ),
+        parse_command(String::from("echo %opt{cursor_semantics}"))
+    );
+}
 #[test] fn unbalanced_expansion_returns_unquoted(){
     assert_eq!(
         Ok(
@@ -2111,21 +2125,32 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, String>{
 //also, create a successful_commands counter. on each successful command, increment by 1;
 //if unsuccessful command, return "Error: {error} on command {counter + 1}"
 fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(), String>{//Result<Application, ApplicationError>{
-    fn expand(_app: &Application, word_content: &str, expansion_type: &ExpansionType) -> Result<String, String>{
-        //fn expand_option(_app: &Application, _option: String) -> Result<String, ()>{
-        //    /*
-        //    match option{
-        //        "cursor_semantics" => {}
-        //        "other_built_in_options" => {}
-        //        _ => {
-        //            match app.config.options.get(option){
-        //                Some(option) => Ok(option),
-        //                None => Err(())
-        //            }
-        //        }
-        //    }
-        //    */
-        //}
+    fn expand(app: &Application, word_content: &str, expansion_type: &ExpansionType) -> Result<String, String>{
+        fn expand_option(app: &Application, option: String) -> Result<String, String>{
+            match option.as_ref(){
+                "cursor_semantics" => Ok(format!("{:?}", app.config.semantics)),
+                "use_full_file_path" => Ok(app.config.use_full_file_path.to_string()),
+                "use_hard_tab" => Ok(app.config.use_hard_tab.to_string()),
+                "tab_width" => Ok(app.config.tab_width.to_string()),
+                "view_scroll_amount" => Ok(app.config.view_scroll_amount.to_string()),
+                "show_cursor_column" => Ok(app.config.show_cursor_column.to_string()),
+                "show_cursor_line" => Ok(app.config.show_cursor_line.to_string()),
+                _ => {
+                    match app.config.user_options.get(&option){
+                        Some(option_type) => {
+                            Ok(
+                                match option_type{
+                                    OptionType::Bool(bool) => bool.to_string(),
+                                    OptionType::U8(u8) => u8.to_string(),
+                                    OptionType::String(string) => string.clone()
+                                }
+                            )
+                        }
+                        None => Err(format!("{} option does not exist", option))
+                    }
+                }
+            }
+        }
         //fn expand_register() -> Result<String, ()>{Err(())}
         fn expand_shell(command_string: String) -> Result<String, String>{    //check content for $values, and set as environment variables
             let mut environment_variables = std::collections::HashMap::new();
@@ -2160,11 +2185,8 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
 
         match expansion_type{
             ExpansionType::Option => {
-                //match expand_option(app, word_content.to_string()){
-                //    Ok(option) => Ok(option),
-                //    Err(()) => Err("option does not exist".to_string()),
-                //}
-                Err("option expansion unimplemented".to_string())
+                //Err("option expansion unimplemented".to_string())
+                expand_option(app, word_content.to_string())
             }
             ExpansionType::Register => {
                 Err("register expansion unimplemented".to_string())
@@ -2370,9 +2392,126 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                     }
                 }
                 //remove_keybind <keybind>
-                //add_option <name> <type> <value>
+                
+                //add_option <name> <option_type> [initial_value]
+                "add_option" => {   //TODO: handle excess args
+                    match command_words.next(){
+                        Some(word) => {
+                            let name = word.content.clone();
+                            let option_type = match command_words.next(){
+                                Some(word) => {
+                                    match word.content.as_str(){
+                                        "bool" => OptionType::Bool(
+                                            match command_words.next(){
+                                                Some(word) => {
+                                                    match word.content.as_str(){
+                                                        "true" => true,
+                                                        "false" => false,
+                                                        _ => return Err(format!("{} is not a valid boolean value", word.content))
+                                                    }
+                                                }
+                                                None => false
+                                            }
+                                        ),
+                                        "u8" => OptionType::U8(
+                                            match command_words.next(){
+                                                Some(word) => {
+                                                    let value: Result<u8, std::num::ParseIntError> = word.content.parse();
+                                                    match value{
+                                                        Ok(val) => val,
+                                                        Err(error) => return Err(format!("{}", error))
+                                                    }
+                                                }
+                                                None => 0
+                                            }
+                                        ),
+                                        "string" => OptionType::String(
+                                            match command_words.next(){
+                                                Some(word) => word.content.clone(),
+                                                None => String::new()
+                                            }
+                                        ),
+                                        _ => return Err(String::from("invalid option type"))
+                                    }
+                                }
+                                None => return Err(String::from("too few arguments: add_option <name> <option_type> [initial_value]"))
+                            };
+                            //if command_words.next().is_some(){
+                            //    return Err(String::from("too many arguments: add_option <name> <option_type> [initial_value]"))
+                            //}
+                            if app.config.user_options.contains_key(&name){
+                                return Err(format!("user_options already contains {}", name));
+                            }else{
+                                app.config.user_options.insert(name.clone(), option_type);
+                                handle_message(app, DisplayMode::Notify, &format!("{:?} added to user_options", name));
+                            }
+                        }
+                        None => return Err(String::from("too few arguments: add_option <name> <option_type> [initial_value]"))
+                    }
+                }
                 //remove_option <name>
+                "remove_option" => {    //TODO: handle excess args
+                    match command_words.next(){
+                        Some(word) => {
+                            if app.config.user_options.contains_key(&word.content){
+                                app.config.user_options.remove(&word.content);
+                                handle_message(app, DisplayMode::Notify, &format!("{} removed from user_options", &word.content));
+                            }else{
+                                return Err(format!("{} is not a valid user_option", &word.content))
+                            }
+                        }
+                        None => return Err(String::from("too few arguments: remove_option <name>"))
+                    }
+                }
                 //set_option <name> <value>
+                "set_option" => {   //TODO: handle excess args
+                    match command_words.next(){
+                        Some(word) => {
+                            let name = word.content.clone();
+                            match command_words.next(){
+                                Some(word) => {
+                                    let value = word.content.clone();
+                                    let option_type = match app.config.user_options.get(&name){
+                                        Some(option_type) => option_type,
+                                        None => return Err(format!("user_options does not contain {}", &name))
+                                    };
+                                    match option_type{
+                                        OptionType::Bool(_) => {
+                                            match value.as_ref(){
+                                                "true" => {
+                                                    app.config.user_options.insert(name.clone(), OptionType::Bool(true));
+                                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, value));
+                                                }
+                                                "false" => {
+                                                    app.config.user_options.insert(name.clone(), OptionType::Bool(false));
+                                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, value));
+                                                }
+                                                _ => return Err(format!("{} is not a valid boolean for {}", value, name))
+                                            }
+                                        }
+                                        OptionType::U8(_) => {
+                                            let value: Result<u8, std::num::ParseIntError> = word.content.parse();
+                                            match value{
+                                                Ok(val) => {
+                                                    app.config.user_options.insert(name.clone(), OptionType::U8(val));
+                                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, val));
+                                                }
+                                                Err(error) => return Err(format!("{}", error))
+                                            }
+                                        }
+                                        OptionType::String(_) => {
+                                            app.config.user_options.insert(name.clone(), OptionType::String(value.clone()));
+                                            handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, value));
+                                        }
+                                    }
+                                }
+                                None => return Err(String::from("too few arguments: set_option <name> <value>"))
+                            }
+                        }
+                        None => return Err(String::from("too few arguments: set_option <name> <value>"))
+                    }
+                }
+                
                 //add_hook <group_name> <event> <filtering_regex> <response_command>    //maybe set a hook name instead of group?...    //if no group/name provided, only trigger once, then remove
                 //remove hook <group_name>
                 //TODO: add-selection
