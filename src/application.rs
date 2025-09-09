@@ -2559,61 +2559,61 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                                             }
                                         }
                                         "use_full_file_path" => {
-                                            let maybe_value: Result<bool, std::str::ParseBoolError> = value.parse();
-                                            match maybe_value{
-                                                Ok(value) => {
-                                                    app.config.use_full_file_path = value;
-                                                    handle_message(app, DisplayMode::Notify, &format!("use_full_file_path set to {}", value));
+                                            let maybe_parsed_value: Result<bool, std::str::ParseBoolError> = value.parse();
+                                            match maybe_parsed_value{
+                                                Ok(parsed_value) => {
+                                                    app.config.use_full_file_path = parsed_value;
+                                                    handle_message(app, DisplayMode::Notify, &format!("use_full_file_path set to {}", parsed_value));
                                                 }
                                                 Err(error) => return Err(format!("{}", error))
                                             }
                                         }
                                         "use_hard_tab" => {
-                                            let maybe_value: Result<bool, std::str::ParseBoolError> = value.parse();
-                                            match maybe_value{
-                                                Ok(value) => {
-                                                    app.config.use_hard_tab = value;
-                                                    handle_message(app, DisplayMode::Notify, &format!("use_hard_tab set to {}", value));
+                                            let maybe_parsed_value: Result<bool, std::str::ParseBoolError> = value.parse();
+                                            match maybe_parsed_value{
+                                                Ok(parsed_value) => {
+                                                    app.config.use_hard_tab = parsed_value;
+                                                    handle_message(app, DisplayMode::Notify, &format!("use_hard_tab set to {}", parsed_value));
                                                 }
                                                 Err(error) => return Err(format!("{}", error))
                                             }
                                         }
                                         "tab_width" => {
-                                            let maybe_value: Result<usize, std::num::ParseIntError> = value.parse();
-                                            match maybe_value{
-                                                Ok(value) => {
-                                                    app.config.tab_width = value;
-                                                    handle_message(app, DisplayMode::Notify, &format!("tab_width set to {}", value));
+                                            let maybe_parsed_value: Result<usize, std::num::ParseIntError> = value.parse();
+                                            match maybe_parsed_value{
+                                                Ok(parsed_value) => {
+                                                    app.config.tab_width = parsed_value;
+                                                    handle_message(app, DisplayMode::Notify, &format!("tab_width set to {}", parsed_value));
                                                 }
                                                 Err(error) => return Err(format!("{}", error))
                                             }
                                         }
                                         "view_scroll_amount" => {
-                                            let maybe_value: Result<usize, std::num::ParseIntError> = value.parse();
-                                            match maybe_value{
-                                                Ok(value) => {
-                                                    app.config.view_scroll_amount = value;
-                                                    handle_message(app, DisplayMode::Notify, &format!("view_scroll_amount set to {}", value));
+                                            let maybe_parsed_value: Result<usize, std::num::ParseIntError> = value.parse();
+                                            match maybe_parsed_value{
+                                                Ok(parsed_value) => {
+                                                    app.config.view_scroll_amount = parsed_value;
+                                                    handle_message(app, DisplayMode::Notify, &format!("view_scroll_amount set to {}", parsed_value));
                                                 }
                                                 Err(error) => return Err(format!("{}", error))
                                             }
                                         }
                                         "show_cursor_column" => {
-                                            let maybe_value: Result<bool, std::str::ParseBoolError> = value.parse();
-                                            match maybe_value{
-                                                Ok(value) => {
-                                                    app.config.show_cursor_column = value;
-                                                    handle_message(app, DisplayMode::Notify, &format!("show_cursor_column set to {}", value));
+                                            let maybe_parsed_value: Result<bool, std::str::ParseBoolError> = value.parse();
+                                            match maybe_parsed_value{
+                                                Ok(parsed_value) => {
+                                                    app.config.show_cursor_column = parsed_value;
+                                                    handle_message(app, DisplayMode::Notify, &format!("show_cursor_column set to {}", parsed_value));
                                                 }
                                                 Err(error) => return Err(format!("{}", error))
                                             }
                                         }
                                         "show_cursor_line" => {
-                                            let maybe_value: Result<bool, std::str::ParseBoolError> = value.parse();
-                                            match maybe_value{
-                                                Ok(value) => {
-                                                    app.config.show_cursor_line = value;
-                                                    handle_message(app, DisplayMode::Notify, &format!("show_cursor_line set to {}", value));
+                                            let maybe_parsed_value: Result<bool, std::str::ParseBoolError> = value.parse();
+                                            match maybe_parsed_value{
+                                                Ok(parsed_value) => {
+                                                    app.config.show_cursor_line = parsed_value;
+                                                    handle_message(app, DisplayMode::Notify, &format!("show_cursor_line set to {}", parsed_value));
                                                 }
                                                 Err(error) => return Err(format!("{}", error))
                                             }
@@ -2625,24 +2625,21 @@ fn execute_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(
                                             };
                                             match option_type{
                                                 OptionType::Bool(_) => {
-                                                    match value.as_ref(){
-                                                        "true" => {
-                                                            app.config.user_options.insert(name.clone(), OptionType::Bool(true));
-                                                            handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, value));
+                                                    let maybe_parsed_value: Result<bool, std::str::ParseBoolError> = value.parse();
+                                                    match maybe_parsed_value{
+                                                        Ok(parsed_value) => {
+                                                            app.config.user_options.insert(name.clone(), OptionType::Bool(parsed_value));
+                                                            handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
                                                         }
-                                                        "false" => {
-                                                            app.config.user_options.insert(name.clone(), OptionType::Bool(false));
-                                                            handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, value));
-                                                        }
-                                                        _ => return Err(format!("{} is not a valid boolean for {}", value, name))
+                                                        Err(error) => return Err(format!("{}", error))
                                                     }
                                                 }
                                                 OptionType::U8(_) => {
-                                                    let value: Result<u8, std::num::ParseIntError> = value.parse();//word.content.parse();
-                                                    match value{
-                                                        Ok(val) => {
-                                                            app.config.user_options.insert(name.clone(), OptionType::U8(val));
-                                                            handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, val));
+                                                    let maybe_parsed_value: Result<u8, std::num::ParseIntError> = value.parse();//word.content.parse();
+                                                    match maybe_parsed_value{
+                                                        Ok(parsed_value) => {
+                                                            app.config.user_options.insert(name.clone(), OptionType::U8(parsed_value));
+                                                            handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
                                                         }
                                                         Err(error) => return Err(format!("{}", error))
                                                     }
