@@ -2250,35 +2250,42 @@ fn execute_parsed_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> R
                     }
                 }
             }
-            "echo" => { //TODO: bug if "echo --error --warning". should output "--warning" in error mode
+            "echo" => {
                 //echo [diagnostic_mode] <message>
                 let mut display_mode = DisplayMode::Info;
-                let mut process_next_word = true;
-                while process_next_word{
-                    match command_words.next(){
-                        None => return Err(String::from("too few arguments: echo [diagnostic_mode] <message>")),
-                        Some(word) => {
-                            match resolve_potential_expansion(app, word){
-                                Err(error) => return Err(error),
-                                Ok(content) => {
-                                    match content.as_str(){
-                                        "--error" => display_mode = DisplayMode::Error,
-                                        "--warning" => display_mode = DisplayMode::Warning,
-                                        "--notify" => display_mode = DisplayMode::Notify,
-                                        "--info" => {}  //already in DisplayMode::Info
-                                        _ => {
-                                            match command_words.next(){
-                                                Some(_) => return Err(String::from("too many arguments: echo [diagnostic_mode] <message>")),
-                                                None => {
-                                                    process_next_word = false;
-                                                    handle_message(app, display_mode.clone(), &content);
-                                                }
+                let message = match command_words.next(){
+                    None => return Err(String::from("too few arguments: echo [diagnostic_mode] <message>")),
+                    Some(word) => {
+                        match resolve_potential_expansion(app, word){
+                            Err(error) => return Err(error),
+                            Ok(word_content) => {
+                                let mut process_next_word = true;
+                                match word_content.as_str(){
+                                    "--error" => display_mode = DisplayMode::Error,
+                                    "--warning" => display_mode = DisplayMode::Warning,
+                                    "--notify" => display_mode = DisplayMode::Notify,
+                                    "--info" => {/* already set to info mode */}
+                                    _ => {process_next_word = false;}
+                                }
+                                if process_next_word{
+                                    match command_words.next(){
+                                        None => return Err(String::from("too few arguments: echo [diagnostic_mode] <message>")),
+                                        Some(word) => {
+                                            match resolve_potential_expansion(app, word){
+                                                Err(error) => return Err(error),
+                                                Ok(message) => message
                                             }
                                         }
                                     }
-                                }
+                                }else{word_content}
                             }
                         }
+                    }
+                };
+                match command_words.next(){
+                    Some(_) => return Err(String::from("too many arguments: echo [diagnostic_mode] <message>")),
+                    None => {
+                        handle_message(app, display_mode.clone(), &message);
                     }
                 }
             }
