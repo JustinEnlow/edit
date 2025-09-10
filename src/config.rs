@@ -16,10 +16,8 @@ use std::collections::HashMap;
 
 //this should contain config options that could be changed at runtime
 #[derive(Clone)] pub struct Config{
-    pub user_options: HashMap<String, OptionType>, //OptionType{Bool(bool), U8(u8), String(String), etc}    //container for config options     //add/remove/set-option
-    //pub user_commands: Vec<Command>,  //container for user defined commands. built ins stored elsewhere       //add/remove-command
-    //or maybe:
-    pub user_commands: HashMap<String, Command>,
+    pub user_options: HashMap<String, OptionType>,
+    pub user_commands: HashMap<String, Command>,    //or maybe: pub user_commands: Vec<Command>,
     //pub user_hooks: Vec<Hook>,        //add/remove-hook
     pub semantics: CursorSemantics,
     pub use_full_file_path: bool,
