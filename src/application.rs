@@ -677,7 +677,7 @@ impl Application{
                         render_util_bar_highlights(self, frame.buffer_mut());
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.goto.rect);
-                            frame.render_widget(generate_popup(&self.ui.popups.goto.text, &self.ui.popups.goto.title, Color::Black, Color::Yellow), self.ui.popups.goto.rect);
+                            frame.render_widget(generate_popup(&self.ui.popups.goto.text, &format!("{}: {}", self.ui.popups.goto.title, self.mode_stack.len())/*&self.ui.popups.goto.title*/, Color::Black, Color::Yellow), self.ui.popups.goto.rect);
                         }
                     }
                     Mode::Command => {
@@ -686,7 +686,7 @@ impl Application{
                         render_util_bar_highlights(self, frame.buffer_mut());
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.command.rect);
-                            frame.render_widget(generate_popup(&self.ui.popups.command.text, &self.ui.popups.command.title, Color::Black, Color::Yellow), self.ui.popups.command.rect);
+                            frame.render_widget(generate_popup(&self.ui.popups.command.text, &format!("{}: {}", self.ui.popups.command.title, self.mode_stack.len())/*&self.ui.popups.command.title*/, Color::Black, Color::Yellow), self.ui.popups.command.rect);
                         }
                     }
                     Mode::Find => {
@@ -695,7 +695,7 @@ impl Application{
                         render_util_bar_highlights(self, frame.buffer_mut());
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.find.rect);
-                            frame.render_widget(generate_popup(&self.ui.popups.find.text, &self.ui.popups.find.title, Color::Black, Color::Yellow), self.ui.popups.find.rect);
+                            frame.render_widget(generate_popup(&self.ui.popups.find.text, &format!("{}: {}", self.ui.popups.find.title, self.mode_stack.len())/*&self.ui.popups.find.title*/, Color::Black, Color::Yellow), self.ui.popups.find.rect);
                         }
                     }
                     Mode::Split => {
@@ -704,7 +704,7 @@ impl Application{
                         render_util_bar_highlights(self, frame.buffer_mut());
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.split.rect);
-                            frame.render_widget(generate_popup(&self.ui.popups.split.text, &self.ui.popups.split.title, Color::Black, Color::Yellow), self.ui.popups.split.rect);
+                            frame.render_widget(generate_popup(&self.ui.popups.split.text, &format!("{}: {}", self.ui.popups.split.title, self.mode_stack.len())/*&self.ui.popups.split.title*/, Color::Black, Color::Yellow), self.ui.popups.split.rect);
                         }
                     }
                     Mode::Error => {
@@ -713,13 +713,13 @@ impl Application{
                         if self.mode_stack.top().text == Some(FILE_MODIFIED.to_string()){
                             if SHOW_CONTEXTUAL_KEYBINDS{
                                 frame.render_widget(ratatui::widgets::Clear, self.ui.popups.modified_error.rect);
-                                frame.render_widget(generate_popup(&self.ui.popups.modified_error.text, &self.ui.popups.modified_error.title, Color::Black, Color::Yellow), self.ui.popups.modified_error.rect);
+                                frame.render_widget(generate_popup(&self.ui.popups.modified_error.text, &format!("{}: {}", self.ui.popups.modified_error.title, self.mode_stack.len())/*&self.ui.popups.modified_error.title*/, Color::Black, Color::Yellow), self.ui.popups.modified_error.rect);
                             }
                         }
                         else{
                             if SHOW_CONTEXTUAL_KEYBINDS{
                                 frame.render_widget(ratatui::widgets::Clear, self.ui.popups.error.rect);
-                                frame.render_widget(generate_popup(&self.ui.popups.error.text, &self.ui.popups.error.title, Color::Black, Color::Yellow), self.ui.popups.error.rect);
+                                frame.render_widget(generate_popup(&self.ui.popups.error.text, &format!("{}: {}", self.ui.popups.error.title, self.mode_stack.len())/*&self.ui.popups.error.title*/, Color::Black, Color::Yellow), self.ui.popups.error.rect);
                             }
                         }
                     }
@@ -727,39 +727,39 @@ impl Application{
                         frame.render_widget(generate_widget(&self.mode_stack.top().text.expect("text being Some should be guaranteed in Warning mode"), Alignment::Center, true, WARNING_BACKGROUND_COLOR, WARNING_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.warning.rect);
-                            frame.render_widget(generate_popup(&self.ui.popups.warning.text, &self.ui.popups.warning.title, Color::Black, Color::Yellow), self.ui.popups.warning.rect);
+                            frame.render_widget(generate_popup(&self.ui.popups.warning.text, &format!("{}: {}", self.ui.popups.warning.title, self.mode_stack.len())/*&self.ui.popups.warning.title*/, Color::Black, Color::Yellow), self.ui.popups.warning.rect);
                         }
                     }
                     Mode::Notify => {
                         frame.render_widget(generate_widget(&self.mode_stack.top().text.expect("text being Some should be guaranteed in Notify mode"), Alignment::Center, true, NOTIFY_BACKGROUND_COLOR, NOTIFY_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.notify.rect);
-                            frame.render_widget(generate_popup(&self.ui.popups.notify.text, &self.ui.popups.notify.title, Color::Black, Color::Yellow), self.ui.popups.notify.rect);
+                            frame.render_widget(generate_popup(&self.ui.popups.notify.text, &format!("{}: {}", self.ui.popups.notify.title, self.mode_stack.len())/*&self.ui.popups.notify.title*/, Color::Black, Color::Yellow), self.ui.popups.notify.rect);
                         }
                     }
                     Mode::Info => {
                         frame.render_widget(generate_widget(&self.mode_stack.top().text.expect("text being Some should be guaranteed in Info mode"), Alignment::Center, true, INFO_BACKGROUND_COLOR, INFO_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.info.rect);
-                            frame.render_widget(generate_popup(&self.ui.popups.info.text, &self.ui.popups.info.title, Color::Black, Color::Yellow), self.ui.popups.info.rect);
+                            frame.render_widget(generate_popup(&self.ui.popups.info.text, &format!("{}: {}", self.ui.popups.info.title, self.mode_stack.len())/*&self.ui.popups.info.title*/, Color::Black, Color::Yellow), self.ui.popups.info.rect);
                         }
                     }
                     Mode::View => {
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.view.rect);
-                            frame.render_widget(generate_popup(&self.ui.popups.view.text, &self.ui.popups.view.title, Color::Black, Color::Yellow), self.ui.popups.view.rect);
+                            frame.render_widget(generate_popup(&self.ui.popups.view.text, &format!("{}: {}", self.ui.popups.view.title, self.mode_stack.len())/*&self.ui.popups.view.title*/, Color::Black, Color::Yellow), self.ui.popups.view.rect);
                         }
                     }
                     Mode::Object => {
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.object.rect);
-                            frame.render_widget(generate_popup(&self.ui.popups.object.text, &self.ui.popups.object.title, Color::Black, Color::Yellow), self.ui.popups.object.rect);
+                            frame.render_widget(generate_popup(&self.ui.popups.object.text, &format!("{}: {}", self.ui.popups.object.title, self.mode_stack.len())/*&self.ui.popups.object.title*/, Color::Black, Color::Yellow), self.ui.popups.object.rect);
                         }
                     }
                     Mode::AddSurround => {
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.add_surround.rect);
-                            frame.render_widget(generate_popup(&self.ui.popups.add_surround.text, &self.ui.popups.add_surround.title, Color::Black, Color::Yellow), self.ui.popups.add_surround.rect);
+                            frame.render_widget(generate_popup(&self.ui.popups.add_surround.text, &format!("{}: {}", self.ui.popups.add_surround.title, self.mode_stack.len())/*&self.ui.popups.add_surround.title*/, Color::Black, Color::Yellow), self.ui.popups.add_surround.rect);
                         }
                     }
                 }
@@ -2135,6 +2135,8 @@ fn execute_parsed_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> R
                 "view_scroll_amount" => Ok(app.config.view_scroll_amount.to_string()),
                 "show_cursor_column" => Ok(app.config.show_cursor_column.to_string()),
                 "show_cursor_line" => Ok(app.config.show_cursor_line.to_string()),
+                "show_line_numbers" => Ok(app.ui.document_viewport.line_number_widget.show.to_string()),
+                "show_status_bar" => Ok(app.ui.status_bar.show.to_string()),
                 _ => {
                     match app.config.user_options.get(&option){
                         Some(option_type) => {
@@ -2152,9 +2154,11 @@ fn execute_parsed_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> R
             }
         }
         //fn expand_register() -> Result<String, ()>{Err(())}
-        fn expand_shell(command_string: String) -> Result<String, String>{    //check content for $values, and set as environment variables
+        fn expand_shell(command_string: String) -> Result<String, String>{
+            //check content for $values, and set as environment variables
             let mut environment_variables = std::collections::HashMap::new();
             environment_variables.insert("MY_VAR", "environment variable content");
+            
             let output = std::process::Command::new("sh"/*"bash"*/) //TODO: should this be calling the first arg in command string instead?...
                 .arg("-c")
                 .arg(command_string)
@@ -2289,11 +2293,18 @@ fn execute_parsed_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> R
                     }
                 }
             }
-            //TODO: this should be a user defined command instead of built in
-            //add-command "open new alacritty window" --doc_string "opens a new alacritty window" %sh{alacritty msg create-window}
-            "term" | "t" => app.action(Action::EditorAction(EditorAction::OpenNewTerminalWindow)),
-            "toggle_line_numbers" | "ln" => app.action(Action::EditorAction(EditorAction::ToggleLineNumbers)),  //these will prob end up using set-option command...
-            "toggle_status_bar" | "sb" => app.action(Action::EditorAction(EditorAction::ToggleStatusBar)),      //these will prob end up using set-option command...
+            
+            //TODO: replace with user command: add_command term 'no_op %sh{nohup alacritty >/dev/null 2>&1 &}' 'opens a new alacritty window'
+            //"term" | "t" => app.action(Action::EditorAction(EditorAction::OpenNewTerminalWindow)),
+
+            //TODO: replace with user command: add_command toggle_line_numbers %sh{#some logic} 'toggles the display of line numbers'
+            //can currently just: set_option show_line_numbers true|false
+            //"toggle_line_numbers" | "ln" => app.action(Action::EditorAction(EditorAction::ToggleLineNumbers)),  //these will prob end up using set-option command...
+
+            //TODO: replace with user command: add_command toggle_status_bar %sh{#some logic} 'toggles the display of the status bar'
+            //can currently just: set_option show_status_bar true|false
+            //"toggle_status_bar" | "sb" => app.action(Action::EditorAction(EditorAction::ToggleStatusBar)),      //these will prob end up using set-option command...
+            
             "quit" | "q" => app.action(Action::EditorAction(EditorAction::Quit)),
             "quit!" | "q!" => app.action(Action::EditorAction(EditorAction::QuitIgnoringChanges)),
             //write buffer contents to file //should this optionally take a filepath to save to? then we don't need to implement save as    //would have to split util bar text on ' ' into separate args
@@ -2358,7 +2369,7 @@ fn execute_parsed_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> R
             //user defined commands may need to be quoted "if spaces are used"...
             //"\"idk some shit\"" => handle_message(app, DisplayMode::Error, "idk some shit"),  //commands with whitespace can be handled this way
                 
-            "add_command" => {
+            "add_command" => {  //TODO: figure out how to handle command aliases...
                 //add_command <command_name> <command> [optional_doc_string]
                 let command_name = match command_words.next(){
                     None => return Err(String::from("too few args: add_command <command_name> <command> [optional_documentation]")),
@@ -2390,21 +2401,41 @@ fn execute_parsed_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> R
                 match command_words.next(){
                     Some(_) => return Err(String::from("too many args: add_command <command_name> <command> [optional_documentation]")),
                     None => {
-                        match app.config.user_commands.contains_key(&command_name){
-                            true => return Err(format!("commands already contains {}", &command_name)),
-                            false => {
-                                app.config.user_commands.insert(
-                                    command_name.clone(), 
-                                    Command{
-                                        aliases: Vec::new(),
-                                        documentation: optional_documentation,
-                                        command_body: match parse_command(command){
-                                            Err(error) => return Err(error),
-                                            Ok(command) => command
-                                        }
+                        match command_name.as_str(){
+                            "evaluate_commands" |
+                            "echo" |
+                            //"term" | "t" |
+                            //"toggle_line_numbers" | "ln" |
+                            //"toggle_status_bar" | "sb" |
+                            "quit" | "q" |
+                            "quit!" | "q!" |
+                            "write" | "w" |
+                            "search" |
+                            "split" |
+                            "add_command" |
+                            "remove_command" |
+                            "add_option" |
+                            "remove_option" |
+                            "set_option" |
+                            "no_op" => return Err(format!("{:?} already defined in built in commands", &command_name)),
+                            _ => {
+                                match app.config.user_commands.contains_key(&command_name){
+                                    true => return Err(format!("{:?} already defined in user commands", &command_name)),
+                                    false => {
+                                        app.config.user_commands.insert(
+                                            command_name.clone(), 
+                                            Command{
+                                                aliases: Vec::new(),
+                                                documentation: optional_documentation,
+                                                command_body: match parse_command(command){
+                                                    Err(error) => return Err(error),
+                                                    Ok(command) => command
+                                                }
+                                            }
+                                        );
+                                        handle_message(app, DisplayMode::Notify, &format!("{} added to commands", &command_name));
                                     }
-                                );
-                                handle_message(app, DisplayMode::Notify, &format!("{} added to commands", &command_name));
+                                }
                             }
                         }
                     }
@@ -2487,7 +2518,9 @@ fn execute_parsed_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> R
                             "tab_width" |
                             "view_scroll_amount" |
                             "show_cursor_column" |
-                            "show_cursor_line" => return Err(format!("{} is already a built in option", &name)),
+                            "show_cursor_line" |
+                            "show_line_numbers" |
+                            "show_status_bar" => return Err(format!("{} is already a built in option", &name)),
                             _ => {
                                 match app.config.user_options.contains_key(&name){
                                     true => return Err(format!("{} user option already exists", &name)),
@@ -2588,13 +2621,14 @@ fn execute_parsed_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> R
                     Some(_) => return Err(String::from("too many args: set_option <name> <value>")),
                     None => {
                         match name.as_ref(){
-                            "cursor_semantics" => {
+                            //NOTE: may not allow setting cursor semantics for TUI, because terminal cannot currently handle multicursor bar cursor display...
+                            "cursor_semantics" => { //TODO: maybe return error results in same state if already set to provided value. maybe do that for all options...
                                 match value.as_str(){
-                                    "Bar" => {
+                                    "Bar" | "bar" => {
                                         app.config.semantics = CursorSemantics::Bar;
                                         handle_message(app, DisplayMode::Notify, &format!("cursor_semantics set to {}", value));
                                     }
-                                    "Block" => {
+                                    "Block" | "block" => {
                                         app.config.semantics = CursorSemantics::Block;
                                         handle_message(app, DisplayMode::Notify, &format!("cursor_semantics set to {}", value));
                                     }
@@ -2651,6 +2685,26 @@ fn execute_parsed_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> R
                                     Err(error) => return Err(format!("{}", error)),
                                     Ok(parsed_value) => {
                                         app.config.show_cursor_line = parsed_value;
+                                        handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
+                                    }
+                                }
+                            }
+                            "show_line_numbers" => {
+                                match value.parse::<bool>(){
+                                    Err(error) => return Err(format!("{}", error)),
+                                    Ok(parsed_value) => {
+                                        //TODO?: if app.mode() == Mode::Command{app.pop_to_insert()/*although, this fn is scoped within action()...*/}
+                                        app.ui.document_viewport.line_number_widget.show = parsed_value;
+                                        handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
+                                    }
+                                }
+                            }
+                            "show_status_bar" => {
+                                match value.parse::<bool>(){
+                                    Err(error) => return Err(format!("{}", error)),
+                                    Ok(parsed_value) => {
+                                        //TODO?: if app.mode() == Mode::Command{app.pop_to_insert()/*although, this fn is scoped within action()...*/}
+                                        app.ui.status_bar.show = parsed_value;
                                         handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
                                     }
                                 }
@@ -2722,7 +2776,7 @@ fn execute_parsed_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> R
             //remove-highlighter <group_id>
             _ => {
                 match app.config.user_commands.get(&first){
-                    None => return Err(format!("{} is not a valid command", first)),
+                    None => return Err(format!("{:?} is not a valid command", first)),
                     Some(command) => {
                         match execute_parsed_commands(app, command.command_body.clone()){
                             Err(error) => return Err(error),
@@ -2735,3 +2789,36 @@ fn execute_parsed_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> R
     }
     Ok(())
 }
+
+/*
+this could be used for aliasing commands, instead of storing "aliases: Vec<String>"
+let mut key_to_id: HashMap<String, usize> = HashMap::new();
+let mut id_to_value: HashMap<usize, Command> = HashMap::new();
+
+//command: add_command term 'no_op %sh{alacritty}' 'opens a new alacritty window'
+key_to_id.insert(String::from("term"), 0);  //we could generate the id value
+
+id_to_value.insert(
+    0, 
+    Command{
+        documentation: Some(String::from("opens a new alacritty window"), 
+        command_body: Vec<Vec<Word{word_type: WordType::Expansion, content: String::from("alacritty")}>>)
+    }
+);
+
+//command: alias term t
+key_to_id.insert(String::from("t"), 0); //this is the alias
+
+
+how would removing aliased commands work?...
+    remove_command <command_name>
+    get key_to_id for <command_name>
+    remove all keys with value id?
+what if we just wanted to remove the alias?...
+    maybe store key (command: String, is_alias: bool)       //key_to_id: HashMap<(String, bool), usize>     //could newtype String to CommandName, and bool to IsAlias
+    then, removing a command when is_alias == false, remove all keys with that shared id
+    and, removing a command when is_alias == true, just remove that one
+
+let idk = user_commands.get(user_command_ids.get("user_command_name"));
+let idk = built_in_commands.get(built_in_command_ids.get("built_in_command_name"));
+*/

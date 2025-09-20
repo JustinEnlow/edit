@@ -2,28 +2,33 @@ use crate::selection::CursorSemantics;
 use ratatui::style::Color;
 use std::collections::HashMap;
 
-#[derive(Clone)] pub enum OptionType{
+#[derive(Clone)] pub enum OptionType{   //maybe UserOptionType
     Bool(bool),
     U8(u8),
     String(String),
 }
-#[derive(Clone)] pub struct Command{
+#[derive(Clone)] pub struct Command{    //maybe UserCommand
     pub aliases: Vec<String>,
     pub documentation: Option<String>,
     pub command_body: Vec<Vec<crate::application::Word>>//String
 }
-//#[derive(Clone)] struct Hook{}
+//#[derive(Clone)] struct Hook{
+//    group: Option<String>,  //if no group, only run once
+//    event: AppEvent,    //the event type this hook responds to
+//    regex: String,  //regex that matches against file name (if no match, doesn't run)
+//    command: Vec<Vec<Word>> //response behavior
+//}
 
 //this should contain config options that could be changed at runtime
 #[derive(Clone)] pub struct Config{
     pub user_options: HashMap<String, OptionType>,
     pub user_commands: HashMap<String, Command>,    //or maybe: pub user_commands: Vec<Command>,
-    //pub user_hooks: Vec<Hook>,        //add/remove-hook
+    //pub user_hooks: Vec<Hook>,        //add/remove-hook   //can't be HashMap/IndexMap because multiple hooks can be assigned to group/event
     pub semantics: CursorSemantics,
     pub use_full_file_path: bool,
-    pub use_hard_tab: bool,
-    pub tab_width: usize,
-    pub view_scroll_amount: usize,
+    pub use_hard_tab: bool, //TODO: replace to "replace_tabs_with_spaces". NOTE: the meaning is the exact opposite, so don't just rename...
+    pub tab_width: usize,   //is this in display cells or graphemes?...
+    pub view_scroll_amount: usize,  //TODO: split into separate vertical/horizontal components
     pub show_cursor_column: bool,
     pub show_cursor_line: bool,
     //TODO: indexmap::IndexMap<(crate::mode::Mode, crossterm::event::KeyEvent), Vec<Vec<Word>>,
@@ -49,7 +54,7 @@ pub const USE_FULL_FILE_PATH: bool = false;
 /// Indicates whether to use hard tabs (e.g., `\t`) or spaces for indentation.
 ///     - If `USE_HARD_TAB` is `true`, a literal tab character (`\t`) is inserted.
 ///     - If `USE_HARD_TAB` is `false`, spaces are inserted, with the number of spaces determined by the `TAB_WIDTH` setting.
-pub const USE_HARD_TAB: bool = false;   //maybe do enum TabStyle{Hard, Soft, Smart}
+pub const USE_HARD_TAB: bool = false;   //maybe do enum TabStyle{Hard, Soft, Smart} //TODO: rename to "replace_tabs_with_spaces"
 /// Specifies the display width of a tab character. 
 /// This value could be adjusted based on user preferences or configuration, though there are currently no per-language settings.
 pub const TAB_WIDTH: usize = 4; //should this be language dependant? on-the-fly configurable?   //TODO: consider what to do with files where the tab width already in use is different than this setting

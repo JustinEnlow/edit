@@ -8,7 +8,9 @@ use crate::mode::Mode;
 /// Guarantees at least one element on stack
 pub struct ModeStack{
     stack: Vec<StackMember>,
+    //message_stack: Vec<Option<String>>,   //could replace StackMember.text    //assert message_stack.len() == stack.len()
     top: StackMember
+    //top_message: Option<String>
 }
 impl ModeStack{
     pub fn push(&mut self, new_top: StackMember){

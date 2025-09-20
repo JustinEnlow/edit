@@ -142,6 +142,12 @@ impl DisplayArea{
     }
     
 
+    //TODO?: may be worth returning line num string as 3 strings. would allow for formatting/displaying primary differently than the others
+    //struct LineNumbers{
+    //    leading: Option<String>,
+    //    primary: String,
+    //    trailing: Option<String>
+    //}
     /// Returns a `String` containing the line numbers of the text that can be contained within [`DisplayArea`] boundaries.
     #[must_use] pub fn line_numbers(&self, buffer: &crate::buffer::Buffer) -> String{
         //enhance performance by building the string using a vector and then joining it at the end

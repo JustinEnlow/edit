@@ -8,11 +8,11 @@ set-option show_cursor_column false     # no highlight for cursor column    # sh
 set-option show_cursor_line true        # highligh cursor line              # should be implemented by external util using add-highlight command
 
 # add custom options
-add-option display_line_numbers bool
+add-option show_line_numbers bool
 add-option show_status_bar bool
 
 # set custom options
-set-option display_line_numbers true
+set-option show_line_numbers true
 set-option show_status_bar true
 
 # set up layout
@@ -20,7 +20,7 @@ set-option show_status_bar true
 add-widget --type vertical --name vertical --no-parent
     add-widget --type horizontal --name buffer_display_area --parent vertical --constrain-min 0
         # (need a way to say this should display conditionally, and to define condition)(maybe give an associated option and the option value when it should display)
-        # --option-conditional display_line_numbers --show-when true
+        # --option-conditional show_line_numbers --show-when true
         # (or maybe just add/remove widget to enable/disable)(may need to take a priority param to render in correct order when added/removed)
         # --priority 2(0-255?) #lower occurring sooner, higher occurring later
         # (or take a --before/--after param, to specify order in relation to another widget)

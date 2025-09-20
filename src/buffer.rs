@@ -68,13 +68,13 @@ impl Buffer{
     }
 
     //TODO: replace ropey specific return types
-    pub fn line(&self, line_idx: usize) -> ropey::RopeSlice{    //-> String?
+    pub fn line(&self, line_idx: usize) -> ropey::RopeSlice<'_>{    //-> String?
         self.inner.line(line_idx)
     }
     //fn get_line(&self, line_idx: usize) -> Option<ropey::RopeSlice<'_>>{
     //    self.inner.get_line(line_idx)
     //}
-    pub fn lines(&self) -> ropey::iter::Lines{  //-> Vec<String>?
+    pub fn lines(&self) -> ropey::iter::Lines<'_>{  //-> Vec<String>?
         self.inner.lines()
     }
     pub fn len_lines(&self) -> usize{
@@ -106,7 +106,7 @@ impl Buffer{
     pub fn get_char(&self, char_idx: usize) -> Option<char>{
         self.inner.get_char(char_idx)
     }
-    pub fn chars(&self) -> ropey::iter::Chars{
+    pub fn chars(&self) -> ropey::iter::Chars<'_>{
         self.inner.chars()
     }
     pub fn write_to<T>(&mut self, writer: T) -> std::io::Result<()>
