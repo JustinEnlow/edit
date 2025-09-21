@@ -1,6 +1,6 @@
 #[derive(Clone)] pub enum EditorAction{
     ModePop,
-    ModePush(crate::mode_stack::StackMember),
+    ModePush(crate::mode::Mode, Option<String>),
     NoOpKeypress,
     NoOpEvent,
     Quit,
@@ -18,7 +18,7 @@ impl EditorAction{
         let name = match self{
             EditorAction::Copy => "copy",
             EditorAction::ModePop => "exit mode",
-            EditorAction::ModePush(mode) => &format!("push {:?} to mode stack", mode),
+            EditorAction::ModePush(mode, _message) => &format!("push {:?} to mode stack", mode),
             EditorAction::NoOpEvent => "no op event",
             EditorAction::NoOpKeypress => "no op keypress",
             EditorAction::OpenNewTerminalWindow => "open new terminal window",

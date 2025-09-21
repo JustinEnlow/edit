@@ -27,7 +27,6 @@ use ratatui::{
 use crate::{
     config::*,
     mode::Mode,
-    mode_stack::StackMember,
     action::{Action, EditorAction, SelectionAction, EditAction, ViewAction, UtilAction},
     range::Range,
     buffer::Buffer,
@@ -165,7 +164,7 @@ impl Application{
             self.ui.util_bar.utility_widget.rect.height as usize
         )
     }
-    pub fn mode(&self) -> Mode{self.mode_stack.top().mode.clone()}
+    pub fn mode(&self) -> Mode{self.mode_stack.top().clone()}
 
     /// Set all data related to document viewport UI.
     fn update_ui_data_document(&mut self){
@@ -708,9 +707,9 @@ impl Application{
                         }
                     }
                     Mode::Error => {
-                        frame.render_widget(generate_widget(&self.mode_stack.top().text.expect("text being Some should be guaranteed in Error mode"), Alignment::Center, true, ERROR_BACKGROUND_COLOR, ERROR_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
+                        frame.render_widget(generate_widget(&self.mode_stack.top_message().expect("text being Some should be guaranteed in Error mode"), Alignment::Center, true, ERROR_BACKGROUND_COLOR, ERROR_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
                         //if &self.mode_stack.top().text.expect("text being Some should be guaranteed in Error mode") == FILE_MODIFIED{
-                        if self.mode_stack.top().text == Some(FILE_MODIFIED.to_string()){
+                        if self.mode_stack.top_message() == Some(FILE_MODIFIED.to_string()){
                             if SHOW_CONTEXTUAL_KEYBINDS{
                                 frame.render_widget(ratatui::widgets::Clear, self.ui.popups.modified_error.rect);
                                 frame.render_widget(generate_popup(&self.ui.popups.modified_error.text, &format!("{}: {}", self.ui.popups.modified_error.title, self.mode_stack.len())/*&self.ui.popups.modified_error.title*/, Color::Black, Color::Yellow), self.ui.popups.modified_error.rect);
@@ -724,21 +723,21 @@ impl Application{
                         }
                     }
                     Mode::Warning => {
-                        frame.render_widget(generate_widget(&self.mode_stack.top().text.expect("text being Some should be guaranteed in Warning mode"), Alignment::Center, true, WARNING_BACKGROUND_COLOR, WARNING_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
+                        frame.render_widget(generate_widget(&self.mode_stack.top_message().expect("text being Some should be guaranteed in Warning mode"), Alignment::Center, true, WARNING_BACKGROUND_COLOR, WARNING_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.warning.rect);
                             frame.render_widget(generate_popup(&self.ui.popups.warning.text, &format!("{}: {}", self.ui.popups.warning.title, self.mode_stack.len())/*&self.ui.popups.warning.title*/, Color::Black, Color::Yellow), self.ui.popups.warning.rect);
                         }
                     }
                     Mode::Notify => {
-                        frame.render_widget(generate_widget(&self.mode_stack.top().text.expect("text being Some should be guaranteed in Notify mode"), Alignment::Center, true, NOTIFY_BACKGROUND_COLOR, NOTIFY_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
+                        frame.render_widget(generate_widget(&self.mode_stack.top_message().expect("text being Some should be guaranteed in Notify mode"), Alignment::Center, true, NOTIFY_BACKGROUND_COLOR, NOTIFY_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.notify.rect);
                             frame.render_widget(generate_popup(&self.ui.popups.notify.text, &format!("{}: {}", self.ui.popups.notify.title, self.mode_stack.len())/*&self.ui.popups.notify.title*/, Color::Black, Color::Yellow), self.ui.popups.notify.rect);
                         }
                     }
                     Mode::Info => {
-                        frame.render_widget(generate_widget(&self.mode_stack.top().text.expect("text being Some should be guaranteed in Info mode"), Alignment::Center, true, INFO_BACKGROUND_COLOR, INFO_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
+                        frame.render_widget(generate_widget(&self.mode_stack.top_message().expect("text being Some should be guaranteed in Info mode"), Alignment::Center, true, INFO_BACKGROUND_COLOR, INFO_FOREGROUND_COLOR), self.ui.util_bar.utility_widget.rect);
                         if SHOW_CONTEXTUAL_KEYBINDS{
                             frame.render_widget(ratatui::widgets::Clear, self.ui.popups.info.rect);
                             frame.render_widget(generate_popup(&self.ui.popups.info.text, &format!("{}: {}", self.ui.popups.info.title, self.mode_stack.len())/*&self.ui.popups.info.title*/, Color::Black, Color::Yellow), self.ui.popups.info.rect);
@@ -857,8 +856,8 @@ impl Application{
                             app.update_ui_data_util_bar();
                         }
                         //remove current mode from stack
-                        if let Ok(StackMember{mode: popped_mode, text: popped_text}) = self.mode_stack.pop(){
-                            if popped_mode == self.mode() && popped_text == self.mode_stack.top().text{
+                        if let Ok((popped_mode, popped_text)) = self.mode_stack.pop(){
+                            if popped_mode == self.mode() && popped_text == self.mode_stack.top_message(){
                                 //continue popping until self.mode() is something else (this would clean up repeated error messages/etc.)
                                 self.action(Action::EditorAction(EditorAction::ModePop));
                                 return; //only the final ModePop should run any follow up code
@@ -876,7 +875,7 @@ impl Application{
                             self.update_ui_data_mode();
                         }else{handle_message(self, SAME_STATE_DISPLAY_MODE, SAME_STATE);}
                     }
-                    EditorAction::ModePush(stack_member) => {
+                    EditorAction::ModePush(to_mode, message) => {
                         fn perform_shared_behavior(app: &mut Application){
                             //update layouts and document
                             app.update_layouts();
@@ -884,11 +883,11 @@ impl Application{
                             //update util bar
                             app.update_ui_data_util_bar();
                         }
-                        let to_mode = stack_member.mode.clone();
+                        //let to_mode = stack_member.mode.clone();
                         match to_mode{
                             Mode::Find | Mode::Split => {
                                 pop_to_insert(self);
-                                self.mode_stack.push(stack_member);
+                                self.mode_stack.push(to_mode, message);
                                 self.preserved_selections = Some(self.selections.clone());  //save selections
                                 if !self.ui.status_bar.show{ // potential fix for status bar bug in todo.rs
                                     perform_shared_behavior(self);
@@ -896,16 +895,16 @@ impl Application{
                             }
                             Mode::Command | Mode::Goto => {
                                 pop_to_insert(self);
-                                self.mode_stack.push(stack_member);
+                                self.mode_stack.push(to_mode, message);
                                 if !self.ui.status_bar.show{ // potential fix for status bar bug in todo.rs
                                     perform_shared_behavior(self);
                                 }
                             }
                             Mode::Object | Mode::AddSurround | Mode::View => {
                                 pop_to_insert(self);
-                                self.mode_stack.push(stack_member);
+                                self.mode_stack.push(to_mode, message);
                             }
-                            Mode::Error | Mode::Warning | Mode::Notify | Mode::Info => {self.mode_stack.push(stack_member);}
+                            Mode::Error | Mode::Warning | Mode::Notify | Mode::Info => {self.mode_stack.push(to_mode, message);}
                             Mode::Insert => {unreachable!()}    //should always pop to Insert, never push to Insert
                         }
                         //does this belong here, or in ui.rs?...    //by calling here, we only perform this calculation as needed, not on every editor run cycle
@@ -917,7 +916,7 @@ impl Application{
                         //possible modes are Insert and Command + any mode with fallthrough to insert
                         assert!(matches!(self.mode(), Mode::Insert | Mode::Command | Mode::Error | Mode::Warning | Mode::Notify | Mode::Info));
                         if self.buffer.is_modified(){
-                            if self.mode() == Mode::Error && self.mode_stack.top().text.unwrap() == FILE_MODIFIED{
+                            if self.mode() == Mode::Error && self.mode_stack.top_message().unwrap() == FILE_MODIFIED{
                                 self.action(Action::EditorAction(EditorAction::QuitIgnoringChanges));
                             }
                             else{
@@ -931,7 +930,7 @@ impl Application{
                     }
                     EditorAction::QuitIgnoringChanges => {
                         assert!(
-                            self.mode() == Mode::Error && self.mode_stack.top().text.unwrap() == FILE_MODIFIED ||
+                            self.mode() == Mode::Error && self.mode_stack.top_message().unwrap() == FILE_MODIFIED ||
                             self.mode() == Mode::Command ||
                             self.mode() == Mode::Insert
                         );
@@ -1106,7 +1105,7 @@ impl Application{
                             else if mode == Mode::Info && display_mode == DisplayMode::Info{true}
                             else{false}
                         }
-                        if same_mode(self.mode(), SELECTION_ACTION_DISPLAY_MODE) && self.mode_stack.top().text == Some(SELECTION_ACTION_OUT_OF_VIEW.to_string()){/* retain mode as SELECTION_ACTION_DISPLAY_MODE */}
+                        if same_mode(self.mode(), SELECTION_ACTION_DISPLAY_MODE) && self.mode_stack.top_message() == Some(SELECTION_ACTION_OUT_OF_VIEW.to_string()){/* retain mode as SELECTION_ACTION_DISPLAY_MODE */}
                         else{
                             pop_to_insert(self);
                         }
@@ -1174,7 +1173,7 @@ impl Application{
                                 else if mode == Mode::Info && display_mode == DisplayMode::Info{true}
                                 else{false}
                             }
-                            if same_mode(self.mode(), EDIT_ACTION_DISPLAY_MODE) && self.mode_stack.top().text == Some(EDIT_ACTION_OUT_OF_VIEW.to_string()){/* retain mode as EDIT_ACTION_DISPLAY_MODE */}
+                            if same_mode(self.mode(), EDIT_ACTION_DISPLAY_MODE) && self.mode_stack.top_message() == Some(EDIT_ACTION_OUT_OF_VIEW.to_string()){/* retain mode as EDIT_ACTION_DISPLAY_MODE */}
                             else{
                                 pop_to_insert(self);
                             }
@@ -1460,10 +1459,10 @@ impl Application{
 
 fn handle_message(app: &mut Application, display_mode: DisplayMode, message: &/*'static */str){
     match display_mode{
-        DisplayMode::Error => app.action(Action::EditorAction(EditorAction::ModePush(StackMember{mode: Mode::Error, text: Some(message.to_string())}))),
-        DisplayMode::Warning => app.action(Action::EditorAction(EditorAction::ModePush(StackMember{mode: Mode::Warning, text: Some(message.to_string())}))),
-        DisplayMode::Notify => app.action(Action::EditorAction(EditorAction::ModePush(StackMember{mode: Mode::Notify, text: Some(message.to_string())}))),
-        DisplayMode::Info => app.action(Action::EditorAction(EditorAction::ModePush(StackMember{mode: Mode::Info, text: Some(message.to_string())}))),
+        DisplayMode::Error => app.action(Action::EditorAction(EditorAction::ModePush(Mode::Error, Some(message.to_string())))),
+        DisplayMode::Warning => app.action(Action::EditorAction(EditorAction::ModePush(Mode::Warning, Some(message.to_string())))),
+        DisplayMode::Notify => app.action(Action::EditorAction(EditorAction::ModePush(Mode::Notify, Some(message.to_string())))),
+        DisplayMode::Info => app.action(Action::EditorAction(EditorAction::ModePush(Mode::Info, Some(message.to_string())))),
         DisplayMode::Ignore => {/* do nothing */}
     }
 }

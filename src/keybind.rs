@@ -1,10 +1,8 @@
 use crate::{
     mode::Mode,
-    mode_stack::StackMember,
     action::{Action, EditorAction, SelectionAction, EditAction, ViewAction, UtilAction}
 };
 use crossterm::event::{KeyCode, KeyModifiers, KeyEvent};
-//use std::collections::HashMap;
 use indexmap::IndexMap;
 
 
@@ -15,7 +13,6 @@ use indexmap::IndexMap;
 //maybe define EditorAction::Custom(user_action_string) that performs a user defined set of commands
 
 pub fn default_keybinds() -> /*HashMap*/IndexMap<(Mode, KeyEvent), Action>{
-    //let mut keybinds = HashMap::new();
     let mut keybinds = IndexMap::new();
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('p'), KeyModifiers::CONTROL | KeyModifiers::SHIFT)), Action::SelectionAction(SelectionAction::DecrementPrimarySelection, 1));
     //keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('q'), KeyModifiers::CONTROL | KeyModifiers::SHIFT)), Action::EditorAction(EditorAction::QuitIgnoringChanges));
@@ -24,19 +21,19 @@ pub fn default_keybinds() -> /*HashMap*/IndexMap<(Mode, KeyEvent), Action>{
         //keybinds.insert((Mode::Insert, KeyEvent::new_with_kind(KeyCode::Char('b'), KeyModifiers::CONTROL | KeyModifiers::SHIFT, KeyEventKind::Press)), Action::EditorAction(EditorAction::ModePush(Mode::AddSurround)));
         //'|' is <shift+\>
         //keybinds.insert((Mode::Insert, KeyEvent::new_with_kind(KeyCode::Char('\\'), KeyModifiers::CONTROL | KeyModifiers::SHIFT, KeyEventKind::Press)), Action::EditorAction(EditorAction::Pipe));
-    keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char(' '), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::ModePush(StackMember{mode: Mode::View, text: None})));
+    keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char(' '), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::ModePush(Mode::View, None)));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL)), Action::SelectionAction(SelectionAction::SelectAll, 1));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('b'), KeyModifiers::CONTROL)), Action::SelectionAction(SelectionAction::Surround, 1));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::Copy));
-    keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::ModePush(StackMember{mode: Mode::AddSurround, text: None})));
+    keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::ModePush(Mode::AddSurround, None)));
     //
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('w'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::EvaluateClipboardAsCommand));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('e'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::EvaluateSelectionAsCommand));
     //
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL)), Action::SelectionAction(SelectionAction::FlipDirection, 1));
-    keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('g'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::ModePush(StackMember{mode: Mode::Goto, text: None})));
+    keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('g'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::ModePush(Mode::Goto, None)));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('l'), KeyModifiers::CONTROL)), Action::SelectionAction(SelectionAction::SelectLine, 1));
-    keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::ModePush(StackMember{mode: Mode::Object, text: None})));
+    keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::ModePush(Mode::Object, None)));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('p'), KeyModifiers::CONTROL)), Action::SelectionAction(SelectionAction::IncrementPrimarySelection, 1));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('q'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::Quit));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('r'), KeyModifiers::CONTROL)), Action::SelectionAction(SelectionAction::RemovePrimarySelection, 1));
@@ -45,9 +42,9 @@ pub fn default_keybinds() -> /*HashMap*/IndexMap<(Mode, KeyEvent), Action>{
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('v'), KeyModifiers::CONTROL)), Action::EditAction(EditAction::Paste));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('x'), KeyModifiers::CONTROL)), Action::EditAction(EditAction::Cut));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL)), Action::EditAction(EditAction::Undo));
-    keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('/'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::ModePush(StackMember{mode: Mode::Find, text: None})));
-    keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char(','), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::ModePush(StackMember{mode: Mode::Split, text: None})));
-    keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char(';'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::ModePush(StackMember{mode: Mode::Command, text: None})));
+    keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('/'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::ModePush(Mode::Find, None)));
+    keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char(','), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::ModePush(Mode::Split, None)));
+    keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char(';'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::ModePush(Mode::Command, None)));
         //handled in Application::handle_event()
         //keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char(c), KeyModifiers::SHIFT)), Action::EditAction(EditAction::InsertChar(c)));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('v'), KeyModifiers::ALT)), Action::ViewAction(ViewAction::CenterVerticallyAroundCursor));
