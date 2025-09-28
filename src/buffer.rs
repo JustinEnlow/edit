@@ -33,10 +33,6 @@ impl Buffer{
         }
     }
 
-    pub fn to_string(&self) -> String{
-        self.inner.to_string()
-    }
-
     pub fn file_path(&self) -> Option<String>{
         //match &self.file_path{
         //    Some(path) => {Some(path.to_string_lossy().to_string())}
@@ -388,6 +384,12 @@ impl Buffer{
             selection.clone(), 
             Operation::Insert{inserted_text: change_text.to_string()}
         )
+    }
+}
+
+impl std::fmt::Display for Buffer{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result{
+        write!(f, "{}", self.inner)
     }
 }
 

@@ -1099,11 +1099,15 @@ impl Application{
                     
                         //pop_to_insert(self);  //testing to see if this increments SELECTION_ACTION_DISPLAY_MODE if selection_out_of_view
                         fn same_mode(mode: Mode, display_mode: DisplayMode) -> bool{
-                            if mode == Mode::Error && display_mode == DisplayMode::Error{true}
-                            else if mode == Mode::Warning && display_mode == DisplayMode::Warning{true}
-                            else if mode == Mode::Notify && display_mode == DisplayMode::Notify{true}
-                            else if mode == Mode::Info && display_mode == DisplayMode::Info{true}
-                            else{false}
+                            //if mode == Mode::Error && display_mode == DisplayMode::Error{true}
+                            //else if mode == Mode::Warning && display_mode == DisplayMode::Warning{true}
+                            //else if mode == Mode::Notify && display_mode == DisplayMode::Notify{true}
+                            //else if mode == Mode::Info && display_mode == DisplayMode::Info{true}
+                            //else{false}
+                            (mode == Mode::Error && display_mode == DisplayMode::Error) ||
+                            (mode == Mode::Warning && display_mode == DisplayMode::Warning) ||
+                            (mode == Mode::Notify && display_mode == DisplayMode::Notify) ||
+                            (mode == Mode::Info && display_mode == DisplayMode::Info)
                         }
                         if same_mode(self.mode(), SELECTION_ACTION_DISPLAY_MODE) && self.mode_stack.top_message() == Some(SELECTION_ACTION_OUT_OF_VIEW.to_string()){/* retain mode as SELECTION_ACTION_DISPLAY_MODE */}
                         else{
@@ -1167,11 +1171,15 @@ impl Application{
                         Ok(()) => {
                             //pop_to_insert(self);  //testing to see if this increments EDIT_ACTION_DISPLAY_MODE if selection_out_of_view
                             fn same_mode(mode: Mode, display_mode: DisplayMode) -> bool{
-                                if mode == Mode::Error && display_mode == DisplayMode::Error{true}
-                                else if mode == Mode::Warning && display_mode == DisplayMode::Warning{true}
-                                else if mode == Mode::Notify && display_mode == DisplayMode::Notify{true}
-                                else if mode == Mode::Info && display_mode == DisplayMode::Info{true}
-                                else{false}
+                                //if mode == Mode::Error && display_mode == DisplayMode::Error{true}
+                                //else if mode == Mode::Warning && display_mode == DisplayMode::Warning{true}
+                                //else if mode == Mode::Notify && display_mode == DisplayMode::Notify{true}
+                                //else if mode == Mode::Info && display_mode == DisplayMode::Info{true}
+                                //else{false}
+                                (mode == Mode::Error && display_mode == DisplayMode::Error) ||
+                                (mode == Mode::Warning && display_mode == DisplayMode::Warning) ||
+                                (mode == Mode::Notify && display_mode == DisplayMode::Notify) ||
+                                (mode == Mode::Info && display_mode == DisplayMode::Info)
                             }
                             if same_mode(self.mode(), EDIT_ACTION_DISPLAY_MODE) && self.mode_stack.top_message() == Some(EDIT_ACTION_OUT_OF_VIEW.to_string()){/* retain mode as EDIT_ACTION_DISPLAY_MODE */}
                             else{
