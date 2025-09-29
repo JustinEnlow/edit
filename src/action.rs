@@ -9,7 +9,7 @@
     Copy,
     ToggleLineNumbers,
     ToggleStatusBar,
-    OpenNewTerminalWindow,
+    //OpenNewTerminalWindow,
     EvaluateSelectionAsCommand,
     EvaluateClipboardAsCommand,
 }
@@ -21,7 +21,7 @@ impl EditorAction{
             EditorAction::ModePush(mode, _message) => &format!("push {:?} to mode stack", mode),
             EditorAction::NoOpEvent => "no op event",
             EditorAction::NoOpKeypress => "no op keypress",
-            EditorAction::OpenNewTerminalWindow => "open new terminal window",
+            //EditorAction::OpenNewTerminalWindow => "open new terminal window",
             EditorAction::Quit => "quit",
             EditorAction::QuitIgnoringChanges => "force quit",
             EditorAction::Save => "save",

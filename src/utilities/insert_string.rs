@@ -1,7 +1,11 @@
 use crate::{
     application::{Application, ApplicationError},
+    //selection::CursorSemantics,
+    //history::{Change, ChangeSet},
+};
+use edit_core::{
     selection::CursorSemantics,
-    history::{Change, ChangeSet},
+    history::{Change, ChangeSet, Operation}
 };
 
 /// Inserts provided string into text at each selection.
@@ -53,7 +57,7 @@ fn handle_insert_replace(app: &mut Application, current_selection_index: usize, 
     let selection = app.selections.nth_mut(current_selection_index);
     //let change = Application::apply_replace(&mut app.buffer, new_text, selection, semantics);
     let change = app.buffer.apply_replace(new_text, selection, semantics);
-    if let crate::history::Operation::Replace{replacement_text} = change.inverse(){
+    if let Operation::Replace{replacement_text} = change.inverse(){
         match replacement_text.len().cmp(&new_text.len()){    //old selected text vs new text
             Ordering::Greater => {app.selections.shift_subsequent_selections_backward(current_selection_index, replacement_text.len().saturating_sub(new_text.len()));}
             Ordering::Less => {app.selections.shift_subsequent_selections_forward(current_selection_index, new_text.len().saturating_sub(replacement_text.len()));}

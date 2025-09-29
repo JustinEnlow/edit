@@ -2,9 +2,14 @@ use crate::{
     config::Config,
     action::EditAction,
     mode::Mode,
+    //buffer::Buffer,
+    //selection::Selection,
+    //display_area::DisplayArea,
+};
+use edit_core::{
     buffer::Buffer,
     selection::Selection,
-    display_area::DisplayArea,
+    display_area::DisplayArea
 };
 use crate::tests::common::{
     set_up_test_application,
@@ -62,7 +67,7 @@ pub fn test_edit_action(
 
             assert_eq!(expected_mode, app.mode());
             assert_eq!(expected_selections, app.selections);
-            assert_eq!(expected_primary, app.selections.primary_selection_index);
+            assert_eq!(expected_primary, app.selections.primary_selection_index());
             assert_eq!(expected_buffer, app.buffer);
             assert_eq!(expected_clipboard, app.clipboard);
 

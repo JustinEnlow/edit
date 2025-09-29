@@ -1,5 +1,9 @@
 use crate::{
     application::{Application, ApplicationError},
+    //selection::CursorSemantics,
+    //history::{Change, ChangeSet, Operation}
+};
+use edit_core::{
     selection::CursorSemantics,
     history::{Change, ChangeSet, Operation}
 };
@@ -12,7 +16,7 @@ use crate::{
 /// - at start of line, appends current line to end of previous line
 /// - removes previous soft tab, if `TAB_WIDTH` spaces are before cursor
 /// - deletes selection if selection extended
-pub fn application_impl(app: &mut Application, use_hard_tab: bool, tab_width: usize, semantics: CursorSemantics) -> Result<(), ApplicationError>{
+pub fn application_impl(app: &mut Application, _use_hard_tab: bool, _tab_width: usize, semantics: CursorSemantics) -> Result<(), ApplicationError>{
     let selections_before_changes = app.selections.clone();
     let mut changes = Vec::with_capacity(app.selections.count());
     let mut cannot_delete = false;
@@ -51,7 +55,8 @@ pub fn application_impl(app: &mut Application, use_hard_tab: bool, tab_width: us
                 //    app.selections.shift_subsequent_selections_backward(i, tab_width);
                 //}
                 //else{
-                    if let Ok(new_selection) = crate::utilities::move_cursor_left::selection_impl(selection, 1, &app.buffer, None, semantics.clone()){
+                    //if let Ok(new_selection) = crate::utilities::move_cursor_left::selection_impl(selection, 1, &app.buffer, None, semantics.clone()){
+                    if let Ok(new_selection) = edit_core::selection::move_cursor_left(selection, 1, &app.buffer, None, semantics.clone()){
                         *selection = new_selection;
                     }   //TODO: handle error    //first for loop guarantees no selection is at doc bounds, so this should be ok to ignore...
                     changes.push(app.buffer.apply_delete(selection, semantics.clone()));

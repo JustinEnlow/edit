@@ -1,10 +1,15 @@
 use crate::{
     application::Application, 
-    buffer::Buffer, 
+    //buffer::Buffer, 
     config::Config, 
-    display_area::DisplayArea, 
-    //range::Range, 
-    selection::{CursorSemantics, Selection}, 
+    //display_area::DisplayArea,
+    //selection::{CursorSemantics, Selection}, 
+    //selections::Selections
+};
+use edit_core::{
+    buffer::Buffer,
+    display_area::DisplayArea,
+    selection::{CursorSemantics, Selection},
     selections::Selections
 };
 

@@ -38,7 +38,7 @@ pub fn default_keybinds() -> /*HashMap*/IndexMap<(Mode, KeyEvent), Action>{
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('q'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::Quit));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('r'), KeyModifiers::CONTROL)), Action::SelectionAction(SelectionAction::RemovePrimarySelection, 1));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::Save));
-    keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('t'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::OpenNewTerminalWindow));
+    //keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('t'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::OpenNewTerminalWindow));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('v'), KeyModifiers::CONTROL)), Action::EditAction(EditAction::Paste));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('x'), KeyModifiers::CONTROL)), Action::EditAction(EditAction::Cut));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL)), Action::EditAction(EditAction::Undo));

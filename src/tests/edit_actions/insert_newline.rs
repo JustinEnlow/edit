@@ -1,11 +1,16 @@
 use crate::{
     action::EditAction::InsertNewline,
     mode::Mode,
-    range::Range,
-    selection::{Selection, CursorSemantics::Block},
-    display_area::DisplayArea,
+    //range::Range,
+    //selection::{Selection, CursorSemantics::Block},
+    //display_area::DisplayArea,
     config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, /*READ_ONLY_BUFFER, */Config},
     keybind::default_keybinds
+};
+use edit_core::{
+    range::Range,
+    selection::{Selection, CursorSemantics::Block},
+    display_area::DisplayArea
 };
 use crate::tests::edit_actions::test_edit_action;
 

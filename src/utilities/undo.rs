@@ -1,5 +1,9 @@
 use crate::{
     application::{Application, ApplicationError},
+    //selection::CursorSemantics,
+    //history::Operation
+};
+use edit_core::{
     selection::CursorSemantics,
     history::Operation
 };

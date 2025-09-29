@@ -1,4 +1,5 @@
-use crate::selection::CursorSemantics;
+//use crate::selection::CursorSemantics;
+use edit_core::selection::CursorSemantics;
 use ratatui::style::Color;
 use std::collections::HashMap;
 

@@ -5,16 +5,21 @@
 //TODO: impl cut/copy/paste for text box
 
 use crate::{
-    range::Range,
-    selection::{/*Movement, */Selection, /*ExtensionDirection*/}, 
+    //range::Range,
+    //selection::{/*Movement, */Selection, /*ExtensionDirection*/}, 
     config::CURSOR_SEMANTICS
+};
+use edit_core::{
+    range::Range,
+    selection::Selection,
+    buffer::Buffer
 };
 //use std::cmp::Ordering;
 
 
 
 pub struct InteractiveTextBox{
-    pub buffer: crate::buffer::Buffer,
+    pub buffer: Buffer,
     pub text_is_valid: bool,
     pub selection: Selection,
     pub display_area_horizontal_start: usize,
@@ -22,7 +27,7 @@ pub struct InteractiveTextBox{
 }
 impl Default for InteractiveTextBox{
     fn default() -> Self{
-        let buffer = crate::buffer::Buffer::new("", None, false);
+        let buffer = Buffer::new("", None, false);
         Self{
             buffer: buffer.clone(),
             text_is_valid: false,
@@ -142,7 +147,8 @@ impl InteractiveTextBox{
             self.delete();
         }else{
             if self.selection.cursor(&self.buffer, semantics) > 0{
-                if let Ok(new_selection) = crate::utilities::move_cursor_left::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
+                //if let Ok(new_selection) = crate::utilities::move_cursor_left::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
+                if let Ok(new_selection) = edit_core::selection::move_cursor_left(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
                     self.selection = new_selection;
                 }
                 self.delete();
@@ -153,42 +159,50 @@ impl InteractiveTextBox{
 
 
     pub fn extend_selection_end(&mut self){
-        if let Ok(new_selection) = crate::utilities::extend_selection_line_end::selection_impl(&self.selection, &self.buffer, CURSOR_SEMANTICS){
+        //if let Ok(new_selection) = crate::utilities::extend_selection_line_end::selection_impl(&self.selection, &self.buffer, CURSOR_SEMANTICS){
+        if let Ok(new_selection) = edit_core::selection::extend_selection_line_end(&self.selection, &self.buffer, CURSOR_SEMANTICS){
             self.selection = new_selection;
         }
     }
     pub fn extend_selection_home(&mut self){
-        if let Ok(new_selection) = crate::utilities::extend_selection_home::selection_impl(&self.selection, &self.buffer, CURSOR_SEMANTICS){
+        //if let Ok(new_selection) = crate::utilities::extend_selection_home::selection_impl(&self.selection, &self.buffer, CURSOR_SEMANTICS){
+        if let Ok(new_selection) = edit_core::selection::extend_selection_home(&self.selection, &self.buffer, CURSOR_SEMANTICS){
             self.selection = new_selection;
         }
     }
     pub fn extend_selection_left(&mut self){
-        if let Ok(new_selection) = crate::utilities::extend_selection_left::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
+        //if let Ok(new_selection) = crate::utilities::extend_selection_left::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
+        if let Ok(new_selection) = edit_core::selection::extend_selection_left(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
             self.selection = new_selection;
         }
     }
     pub fn extend_selection_right(&mut self){
-        if let Ok(new_selection) = crate::utilities::extend_selection_right::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
+        //if let Ok(new_selection) = crate::utilities::extend_selection_right::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
+        if let Ok(new_selection) = edit_core::selection::extend_selection_right(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
             self.selection = new_selection;
         }
     }
     pub fn move_cursor_left(&mut self){
-        if let Ok(new_selection) = crate::utilities::move_cursor_left::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
+        //if let Ok(new_selection) = crate::utilities::move_cursor_left::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
+        if let Ok(new_selection) = edit_core::selection::move_cursor_left(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
             self.selection = new_selection;
         }
     }
     pub fn move_cursor_line_end(&mut self){
-        if let Ok(new_selection) = crate::utilities::move_cursor_line_end::selection_impl(&self.selection, &self.buffer, CURSOR_SEMANTICS){
+        //if let Ok(new_selection) = crate::utilities::move_cursor_line_end::selection_impl(&self.selection, &self.buffer, CURSOR_SEMANTICS){
+        if let Ok(new_selection) = edit_core::selection::move_cursor_line_end(&self.selection, &self.buffer, CURSOR_SEMANTICS){
             self.selection = new_selection;
         }
     }
     pub fn move_cursor_line_start(&mut self){
-        if let Ok(new_selection) = crate::utilities::move_cursor_home::selection_impl(&self.selection, &self.buffer, CURSOR_SEMANTICS){
+        //if let Ok(new_selection) = crate::utilities::move_cursor_home::selection_impl(&self.selection, &self.buffer, CURSOR_SEMANTICS){
+        if let Ok(new_selection) = edit_core::selection::move_cursor_home(&self.selection, &self.buffer, CURSOR_SEMANTICS){
             self.selection = new_selection;
         }
     }
     pub fn move_cursor_right(&mut self){
-        if let Ok(new_selection) = crate::utilities::move_cursor_right::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
+        //if let Ok(new_selection) = crate::utilities::move_cursor_right::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
+        if let Ok(new_selection) = edit_core::selection::move_cursor_right(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
             self.selection = new_selection;
         }
     }

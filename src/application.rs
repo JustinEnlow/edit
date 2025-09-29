@@ -28,14 +28,22 @@ use crate::{
     config::*,
     mode::Mode,
     action::{Action, EditorAction, SelectionAction, EditAction, ViewAction, UtilAction},
+    //range::Range,
+    //buffer::Buffer,
+    //display_area::{DisplayArea, DisplayAreaError},
+    mode_stack::ModeStack,
+    //selection::{Selection, CursorSemantics},
+    //selections::{Selections, SelectionsError},
+    ui::{UserInterface, util_bar::*},
+    //history::ChangeSet,
+};
+use edit_core::{
     range::Range,
     buffer::Buffer,
-    display_area::{DisplayArea, DisplayAreaError},
-    mode_stack::ModeStack,
     selection::{Selection, CursorSemantics},
     selections::{Selections, SelectionsError},
-    ui::{UserInterface, util_bar::*},
-    history::ChangeSet,
+    display_area::{DisplayArea, DisplayAreaError},
+    history::ChangeSet
 };
 
 //TODO: maybe Mode, ModeStack, and Action + related actually do belong in this file...
@@ -141,7 +149,7 @@ impl Application{
         self.update_ui_data_mode();
         self.update_layouts();
         self.checked_scroll_and_update(
-            &self.selections.primary().clone(), 
+            &self.selections.primary.clone(),   //TODO: set this to a variable and drop .clone()
             Application::update_ui_data_document, 
             Application::update_ui_data_document
         );
@@ -185,8 +193,8 @@ impl Application{
         self.ui.document_viewport.highlighter.primary_cursor = self.buffer_display_area().primary_cursor_position(&self.buffer, &self.selections, self.config.semantics.clone());
         self.ui.document_viewport.highlighter.cursors = self.buffer_display_area().cursor_positions(&self.buffer, &self.selections, self.config.semantics.clone());
         self.ui.document_viewport.highlighter.selections = self.buffer_display_area().selections(&self.selections, &self.buffer);
-        self.ui.status_bar.selections_widget.text = format!("selections: {}/{}", &self.selections.primary_selection_index + 1, &self.selections.count());
-        let cursor_position = &self.selections.primary().selection_to_selection2d(&self.buffer, self.config.semantics.clone()).head().clone();
+        self.ui.status_bar.selections_widget.text = format!("selections: {}/{}", &self.selections.primary_selection_index() + 1, &self.selections.count());
+        let cursor_position = &self.selections.primary.selection_to_selection2d(&self.buffer, self.config.semantics.clone()).head().clone();
         self.ui.status_bar.cursor_position_widget.text = format!("cursor: {}:{}", cursor_position.y + 1, cursor_position.x + 1)
     }
     fn update_ui_data_mode(&mut self){self.ui.status_bar.mode_widget.text = format!("{:?}: {:#?}", self.mode(), self.mode_stack.len());}
@@ -815,7 +823,7 @@ impl Application{
                         self.update_ui_data_util_bar(); //TODO: can this be called later in fn impl?
                         // scrolling so cursor is in a reasonable place, and updating so any ui changes render correctly
                         self.checked_scroll_and_update(
-                            &self.selections.primary().clone(),
+                            &self.selections.primary.clone(),
                             Application::update_ui_data_document, 
                             Application::update_ui_data_document
                         );
@@ -830,6 +838,8 @@ impl Application{
         }
     }
 
+    //TODO?: should each action result in a new app state, or an error state?... can these be made more purely functional?...
+    //this may be impossible to do with event hooks.
     pub fn action(&mut self, action: Action){
         //impl helper functions here to manage scope of exposure
         //fn esc_handle(app: &mut Application){
@@ -971,18 +981,18 @@ impl Application{
                         }
                     }
                     //TODO: remove this in favor of a user defined command
-                    EditorAction::OpenNewTerminalWindow => {
-                        assert!(matches!(self.mode(), Mode::Insert | Mode::Command | Mode::Warning | Mode::Notify | Mode::Info));
-                        //if matches!(self.mode(), Mode::Warning | Mode::Notify | Mode::Info){pop_to_insert(self);}   //handle insert fallthrough
-                        if self.mode() != Mode::Insert{pop_to_insert(self);}
-                        let result = std::process::Command::new("alacritty")     //TODO: have user define TERMINAL const in config.rs   //or check env vars for $TERM?
-                            //.arg("msg")     // these extra commands just make new instances use the same backend(daemon?)
-                            //.arg("create-window")
-                            //.current_dir(std::env::current_dir().unwrap())    //not needed here, because term spawned here defaults to this directory, but good to know
-                            .spawn();
-                            //.expect("failed to spawn new terminal at current directory");
-                        if let Err(e) = result{handle_message(self, DisplayMode::Error, &format!("{e}"));}
-                    }
+                    //EditorAction::OpenNewTerminalWindow => {
+                    //    assert!(matches!(self.mode(), Mode::Insert | Mode::Command | Mode::Warning | Mode::Notify | Mode::Info));
+                    //    //if matches!(self.mode(), Mode::Warning | Mode::Notify | Mode::Info){pop_to_insert(self);}   //handle insert fallthrough
+                    //    if self.mode() != Mode::Insert{pop_to_insert(self);}
+                    //    let result = std::process::Command::new("alacritty")     //TODO: have user define TERMINAL const in config.rs   //or check env vars for $TERM?
+                    //        //.arg("msg")     // these extra commands just make new instances use the same backend(daemon?)
+                    //        //.arg("create-window")
+                    //        //.current_dir(std::env::current_dir().unwrap())    //not needed here, because term spawned here defaults to this directory, but good to know
+                    //        .spawn();
+                    //        //.expect("failed to spawn new terminal at current directory");
+                    //    if let Err(e) = result{handle_message(self, DisplayMode::Error, &format!("{e}"));}
+                    //}
                     EditorAction::ToggleLineNumbers => {
                         //TODO: this may need to handle insert fallthrough
                         assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
@@ -1004,7 +1014,7 @@ impl Application{
                         if self.selections.count() > 1{
                             handle_application_error(self, ApplicationError::SelectionsError(SelectionsError::MultipleSelections));
                         }else{
-                            let parse_result = parse_command(self.selections.primary().to_string(&self.buffer));
+                            let parse_result = parse_command(self.selections.primary.to_string(&self.buffer));
                             if Result::is_ok(&parse_result){
                                 let commands = Result::unwrap(parse_result);
                                 let execute_result = execute_parsed_commands(self, commands);
@@ -1040,54 +1050,54 @@ impl Application{
                 }
             }
             Action::SelectionAction(selection_action, count) => {
-                use crate::utilities::*;
+                //use crate::utilities::*;
                 //possible modes are Insert and Object + any mode with fallthrough to insert
                 assert!(matches!(self.mode(), Mode::Insert | Mode::Object | Mode::Warning | Mode::Notify | Mode::Info));
                 enum SelectionToFollow{Primary,First,Last}
 
                 let (result, selection_to_follow) = match selection_action{
-                    SelectionAction::MoveCursorUp => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), move_cursor_up::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::MoveCursorDown => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), move_cursor_down::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::MoveCursorLeft => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), move_cursor_left::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::MoveCursorRight => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), move_cursor_right::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::MoveCursorWordBoundaryForward => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), move_cursor_word_boundary_forward::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::MoveCursorWordBoundaryBackward => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), move_cursor_word_boundary_backward::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::MoveCursorLineEnd => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), move_cursor_line_end::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::MoveCursorHome => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), move_cursor_home::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::MoveCursorBufferStart => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), move_cursor_buffer_start::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::MoveCursorBufferEnd => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), move_cursor_buffer_end::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::MoveCursorPageUp => {(self.selections.move_selection(count, &self.buffer, Some(&self.buffer_display_area()), self.config.semantics.clone(), move_cursor_page_up::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::MoveCursorPageDown => {(self.selections.move_selection(count, &self.buffer, Some(&self.buffer_display_area()), self.config.semantics.clone(), move_cursor_page_down::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionUp => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), extend_selection_up::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionDown => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), extend_selection_down::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionLeft => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), extend_selection_left::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionRight => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), extend_selection_right::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionWordBoundaryBackward => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), extend_selection_word_boundary_backward::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionWordBoundaryForward => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), extend_selection_word_boundary_forward::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionLineEnd => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), extend_selection_line_end::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionHome => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), extend_selection_home::selection_impl), SelectionToFollow::Primary)}                    
-                    SelectionAction::ExtendSelectionBufferStart => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), extend_selection_buffer_start::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionBufferEnd => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), extend_selection_buffer_end::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionPageUp => {(self.selections.move_selection(count, &self.buffer, Some(&self.buffer_display_area()), self.config.semantics.clone(), extend_selection_page_up::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionPageDown => {(self.selections.move_selection(count, &self.buffer, Some(&self.buffer_display_area()), self.config.semantics.clone(), extend_selection_page_down::selection_impl), SelectionToFollow::Primary)}                    
-                    SelectionAction::SelectLine => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), select_line::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::SelectAll => {(self.selections.move_cursor_clearing_non_primary(&self.buffer, self.config.semantics.clone(), select_all::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::CollapseSelectionToAnchor => {(self.selections.move_cursor_non_overlapping(&self.buffer, self.config.semantics.clone(), collapse_selections_to_anchor::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::CollapseSelectionToCursor => {(self.selections.move_cursor_non_overlapping(&self.buffer, self.config.semantics.clone(), collapse_selections_to_cursor::selection_impl), SelectionToFollow::Primary)}
-                    SelectionAction::ClearNonPrimarySelections => {(clear_non_primary_selections::selections_impl(&self.selections), SelectionToFollow::Primary)}
-                    SelectionAction::AddSelectionAbove => {(add_selection_above::selections_impl(&self.selections, &self.buffer, self.config.semantics.clone()), SelectionToFollow::First)}
-                    SelectionAction::AddSelectionBelow => {(add_selection_below::selections_impl(&self.selections, &self.buffer, self.config.semantics.clone()), SelectionToFollow::Last)}
-                    SelectionAction::RemovePrimarySelection => {(remove_primary_selection::selections_impl(&self.selections), SelectionToFollow::Primary)}
-                    SelectionAction::IncrementPrimarySelection => {(increment_primary_selection::selections_impl(&self.selections), SelectionToFollow::Primary)}
-                    SelectionAction::DecrementPrimarySelection => {(decrement_primary_selection::selections_impl(&self.selections), SelectionToFollow::Primary)}
-                    SelectionAction::Surround => {(surround::selections_impl(&self.selections, &self.buffer, self.config.semantics.clone()), SelectionToFollow::Primary)},
-                    SelectionAction::FlipDirection => {(self.selections.move_cursor_non_overlapping(&self.buffer, self.config.semantics.clone(), flip_direction::selection_impl), SelectionToFollow::Primary)},
+                    SelectionAction::MoveCursorUp => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), edit_core::selection::move_cursor_up), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorDown => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), edit_core::selection::move_cursor_down), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorLeft => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), edit_core::selection::move_cursor_left), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorRight => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), edit_core::selection::move_cursor_right), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorWordBoundaryForward => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), edit_core::selection::move_cursor_word_boundary_forward), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorWordBoundaryBackward => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), edit_core::selection::move_cursor_word_boundary_backward), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorLineEnd => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), edit_core::selection::move_cursor_line_end), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorHome => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), edit_core::selection::move_cursor_home), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorBufferStart => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), edit_core::selection::move_cursor_buffer_start), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorBufferEnd => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), edit_core::selection::move_cursor_buffer_end), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorPageUp => {(self.selections.move_selection(count, &self.buffer, Some(&self.buffer_display_area()), self.config.semantics.clone(), edit_core::selection::move_cursor_page_up), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorPageDown => {(self.selections.move_selection(count, &self.buffer, Some(&self.buffer_display_area()), self.config.semantics.clone(), edit_core::selection::move_cursor_page_down), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionUp => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), edit_core::selection::extend_selection_up), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionDown => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), edit_core::selection::extend_selection_down), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionLeft => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), edit_core::selection::extend_selection_left), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionRight => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), edit_core::selection::extend_selection_right), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionWordBoundaryBackward => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), edit_core::selection::extend_selection_word_boundary_backward), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionWordBoundaryForward => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), edit_core::selection::extend_selection_word_boundary_forward), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionLineEnd => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), edit_core::selection::extend_selection_line_end), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionHome => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), edit_core::selection::extend_selection_home), SelectionToFollow::Primary)}                    
+                    SelectionAction::ExtendSelectionBufferStart => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), edit_core::selection::extend_selection_buffer_start), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionBufferEnd => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), edit_core::selection::extend_selection_buffer_end), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionPageUp => {(self.selections.move_selection(count, &self.buffer, Some(&self.buffer_display_area()), self.config.semantics.clone(), edit_core::selection::extend_selection_page_up), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionPageDown => {(self.selections.move_selection(count, &self.buffer, Some(&self.buffer_display_area()), self.config.semantics.clone(), edit_core::selection::extend_selection_page_down), SelectionToFollow::Primary)}                    
+                    SelectionAction::SelectLine => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), edit_core::selection::select_line), SelectionToFollow::Primary)}
+                    SelectionAction::SelectAll => {(self.selections.move_cursor_clearing_non_primary(&self.buffer, self.config.semantics.clone(), edit_core::selection::select_all), SelectionToFollow::Primary)}
+                    SelectionAction::CollapseSelectionToAnchor => {(self.selections.move_cursor_non_overlapping(&self.buffer, self.config.semantics.clone(), edit_core::selection::collapse_selection_to_anchor), SelectionToFollow::Primary)}
+                    SelectionAction::CollapseSelectionToCursor => {(self.selections.move_cursor_non_overlapping(&self.buffer, self.config.semantics.clone(), edit_core::selection::collapse_selection_to_cursor), SelectionToFollow::Primary)}
+                    SelectionAction::ClearNonPrimarySelections => {(/*clear_non_primary_selections::selections_impl(&self.selections)*/edit_core::selections::clear_non_primary_selections(&self.selections), SelectionToFollow::Primary)}
+                    SelectionAction::AddSelectionAbove => {(/*add_selection_above::selections_impl(&self.selections, &self.buffer, self.config.semantics.clone())*/edit_core::selections::add_selection_above(&self.selections, &self.buffer, self.config.semantics.clone()), SelectionToFollow::First)}
+                    SelectionAction::AddSelectionBelow => {(/*add_selection_below::selections_impl(&self.selections, &self.buffer, self.config.semantics.clone())*/edit_core::selections::add_selection_below(&self.selections, &self.buffer, self.config.semantics.clone()), SelectionToFollow::Last)}
+                    SelectionAction::RemovePrimarySelection => {(/*remove_primary_selection::selections_impl(&self.selections)*/edit_core::selections::remove_primary_selection(&self.selections), SelectionToFollow::Primary)}
+                    SelectionAction::IncrementPrimarySelection => {(/*increment_primary_selection::selections_impl(&self.selections)*/edit_core::selections::increment_primary_selection(&self.selections), SelectionToFollow::Primary)}
+                    SelectionAction::DecrementPrimarySelection => {(/*decrement_primary_selection::selections_impl(&self.selections)*/edit_core::selections::decrement_primary_selection(&self.selections), SelectionToFollow::Primary)}
+                    SelectionAction::Surround => {(/*surround::selections_impl(&self.selections, &self.buffer, self.config.semantics.clone())*/edit_core::selections::surround(&self.selections, &self.buffer, self.config.semantics.clone()), SelectionToFollow::Primary)},
+                    SelectionAction::FlipDirection => {(self.selections.move_cursor_non_overlapping(&self.buffer, self.config.semantics.clone(), edit_core::selection::flip_direction), SelectionToFollow::Primary)},
                 
                         //These may technically be distinct from the other selection actions, because they could be called from object mode, and would need to pop the mode stack after calling...
                         //TODO: SelectionAction::Word => {self.document.word()}
                         //TODO: SelectionAction::Sentence => {self.document.sentence()}
                         //TODO: SelectionAction::Paragraph => {self.document.paragraph()}
-                    SelectionAction::SurroundingPair => {(nearest_surrounding_pair::selections_impl(&self.selections, &self.buffer, self.config.semantics.clone()), SelectionToFollow::Primary)}  //TODO: rename SurroundingBracketPair
+                    SelectionAction::SurroundingPair => {(/*nearest_surrounding_pair::selections_impl(&self.selections, &self.buffer, self.config.semantics.clone())*/edit_core::selections::nearest_surrounding_pair(&self.selections, &self.buffer, self.config.semantics.clone()), SelectionToFollow::Primary)}  //TODO: rename SurroundingBracketPair
                         //TODO: SelectionAction::QuotePair => {self.document.nearest_quote_pair()}                      //TODO: rename SurroundingQuotePair
                         //TODO: SelectionAction::ExclusiveSurroundingPair => {self.document.exclusive_surrounding_pair()}
                         //TODO: SelectionAction::InclusiveSurroundingPair => {self.document.inclusive_surrounding_pair()}
@@ -1109,12 +1119,14 @@ impl Application{
                             (mode == Mode::Notify && display_mode == DisplayMode::Notify) ||
                             (mode == Mode::Info && display_mode == DisplayMode::Info)
                         }
-                        if same_mode(self.mode(), SELECTION_ACTION_DISPLAY_MODE) && self.mode_stack.top_message() == Some(SELECTION_ACTION_OUT_OF_VIEW.to_string()){/* retain mode as SELECTION_ACTION_DISPLAY_MODE */}
-                        else{
+                        if same_mode(self.mode(), SELECTION_ACTION_DISPLAY_MODE) 
+                        && self.mode_stack.top_message() == Some(SELECTION_ACTION_OUT_OF_VIEW.to_string()){
+                            /* retain mode as SELECTION_ACTION_DISPLAY_MODE */
+                        }else{
                             pop_to_insert(self);
                         }
                         //
-                        let primary_selection = &self.selections.primary().clone();
+                        let primary_selection = &self.selections.primary.clone();
                         let first_selection = &self.selections.first().clone();
                         let last_selection = &self.selections.last().clone();
                         self.checked_scroll_and_update(
@@ -1181,13 +1193,15 @@ impl Application{
                                 (mode == Mode::Notify && display_mode == DisplayMode::Notify) ||
                                 (mode == Mode::Info && display_mode == DisplayMode::Info)
                             }
-                            if same_mode(self.mode(), EDIT_ACTION_DISPLAY_MODE) && self.mode_stack.top_message() == Some(EDIT_ACTION_OUT_OF_VIEW.to_string()){/* retain mode as EDIT_ACTION_DISPLAY_MODE */}
-                            else{
+                            if same_mode(self.mode(), EDIT_ACTION_DISPLAY_MODE) 
+                            && self.mode_stack.top_message() == Some(EDIT_ACTION_OUT_OF_VIEW.to_string()){
+                                /* retain mode as EDIT_ACTION_DISPLAY_MODE */
+                            }else{
                                 pop_to_insert(self);
                             }
                             //
                             self.checked_scroll_and_update(
-                                &self.selections.primary().clone(), 
+                                &self.selections.primary.clone(), 
                                 Application::update_ui_data_document, 
                                 Application::update_ui_data_document
                             );
@@ -1213,19 +1227,32 @@ impl Application{
                 }
             }
             Action::ViewAction(view_action) => {
-                use crate::utilities::*;
+                //use crate::utilities::*;
                 //possible modes are Insert and View + any mode with fallthrough to insert
                 assert!(matches!(self.mode(), Mode::Insert | Mode::View | Mode::Warning | Mode::Notify | Mode::Info));
                 let mut should_exit = false;
                 let result = match view_action{
                     ViewAction::CenterVerticallyAroundCursor => {
                         should_exit = true;
-                        center_view_vertically_around_cursor::view_impl(&self.buffer_display_area(), self.selections.primary(), &self.buffer, self.config.semantics.clone())
+                        //center_view_vertically_around_cursor::view_impl(&self.buffer_display_area(), self.selections.primary(), &self.buffer, self.config.semantics.clone())
+                        edit_core::display_area::center_view_vertically_around_cursor(&self.buffer_display_area(), &self.selections.primary, &self.buffer, self.config.semantics.clone())
                     }
-                    ViewAction::ScrollUp => {scroll_view_up::view_impl(&self.buffer_display_area(), self.config.view_scroll_amount)}
-                    ViewAction::ScrollDown => {scroll_view_down::view_impl(&self.buffer_display_area(), self.config.view_scroll_amount, &self.buffer)}
-                    ViewAction::ScrollLeft => {scroll_view_left::view_impl(&self.buffer_display_area(), self.config.view_scroll_amount)}
-                    ViewAction::ScrollRight => {scroll_view_right::view_impl(&self.buffer_display_area(), self.config.view_scroll_amount, &self.buffer)}
+                    ViewAction::ScrollUp => {
+                        //scroll_view_up::view_impl(&self.buffer_display_area(), self.config.view_scroll_amount)
+                        edit_core::display_area::scroll_view_up(&self.buffer_display_area(), self.config.view_scroll_amount)
+                    }
+                    ViewAction::ScrollDown => {
+                        //scroll_view_down::view_impl(&self.buffer_display_area(), self.config.view_scroll_amount, &self.buffer)
+                        edit_core::display_area::scroll_view_down(&self.buffer_display_area(), self.config.view_scroll_amount, &self.buffer)
+                    }
+                    ViewAction::ScrollLeft => {
+                        //scroll_view_left::view_impl(&self.buffer_display_area(), self.config.view_scroll_amount)
+                        edit_core::display_area::scroll_view_left(&self.buffer_display_area(), self.config.view_scroll_amount)
+                    }
+                    ViewAction::ScrollRight => {
+                        //scroll_view_right::view_impl(&self.buffer_display_area(), self.config.view_scroll_amount, &self.buffer)
+                        edit_core::display_area::scroll_view_right(&self.buffer_display_area(), self.config.view_scroll_amount, &self.buffer)
+                    }
                 };
                 match result{
                     Ok(view) => {
@@ -1282,19 +1309,23 @@ impl Application{
                                         let line_number = line_number.saturating_sub(1);
                                         if line_number < self.buffer.len_lines(){
                                             if self.selections.count() > 1{
-                                                if let Ok(new_selections) = crate::utilities::clear_non_primary_selections::selections_impl(&self.selections){self.selections = new_selections;}    //intentionally ignoring any errors
+                                                //if let Ok(new_selections) = crate::utilities::clear_non_primary_selections::selections_impl(&self.selections){self.selections = new_selections;}    //intentionally ignoring any errors
+                                                if let Ok(new_selections) = edit_core::selections::clear_non_primary_selections(&self.selections){self.selections = new_selections;}    //intentionally ignoring any errors
                                             }
-                                            match crate::utilities::move_to_line_number::selection_impl(self.selections.primary(), line_number, &self.buffer, crate::selection::Movement::Move, self.config.semantics.clone()){
+                                            //match crate::utilities::move_to_line_number::selection_impl(self.selections.primary(), line_number, &self.buffer, crate::selection::Movement::Move, self.config.semantics.clone()){
+                                            match edit_core::selection::move_to_line_number(&self.selections.primary, line_number, &self.buffer, edit_core::selection::Movement::Move, self.config.semantics.clone()){
                                                 Ok(new_selection) => {
-                                                    *self.selections.primary_mut() = new_selection;
+                                                    //*self.selections.primary_mut() = new_selection;
+                                                    self.selections.primary = new_selection;
                                                     self.checked_scroll_and_update(
-                                                        &self.selections.primary().clone(), 
+                                                        &self.selections.primary.clone(), 
                                                         Application::update_ui_data_selections, 
                                                         Application::update_ui_data_selections
                                                     ); //TODO: pretty sure one of these should be update_ui_data_document
                                                     self.action(Action::EditorAction(EditorAction::ModePop));
                                                     // center view vertically around new primary, if possible
-                                                    if let Ok(new_view) = crate::utilities::center_view_vertically_around_cursor::view_impl(&self.buffer_display_area(), self.selections.primary(), &self.buffer, self.config.semantics.clone()){
+                                                    //if let Ok(new_view) = crate::utilities::center_view_vertically_around_cursor::view_impl(&self.buffer_display_area(), self.selections.primary(), &self.buffer, self.config.semantics.clone()){
+                                                    if let Ok(new_view) = edit_core::display_area::center_view_vertically_around_cursor(&self.buffer_display_area(), &self.selections.primary, &self.buffer, self.config.semantics.clone()){
                                                         self.buffer_horizontal_start = new_view.horizontal_start;
                                                         self.buffer_vertical_start = new_view.vertical_start;
                                                         self.update_ui_data_document();
@@ -1342,7 +1373,7 @@ impl Application{
                                 self.ui.util_bar.utility_widget.text_box.text_is_valid = false;
                                 self.selections = self.preserved_selections.clone().unwrap();   //shouldn't be called unless this value is Some()
                                 self.checked_scroll_and_update(
-                                    &self.selections.primary().clone(), 
+                                    &self.selections.primary.clone(), 
                                     Application::update_ui_data_document, 
                                     Application::update_ui_data_selections
                                 );
@@ -1391,7 +1422,8 @@ impl Application{
                         Mode::Find => {
                             match &self.preserved_selections{
                                 Some(selections_before_search) => {
-                                    match crate::utilities::incremental_search_in_selection::selections_impl(
+                                    //match crate::utilities::incremental_search_in_selection::selections_impl(
+                                    match edit_core::selections::incremental_search_in_selection(
                                         selections_before_search, 
                                         &self.ui.util_bar.utility_widget.text_box.buffer.to_string(),
                                         &self.buffer, 
@@ -1410,7 +1442,7 @@ impl Application{
                                 None => {/* maybe error?... */unreachable!()}
                             }
                             self.checked_scroll_and_update(
-                                &self.selections.primary().clone(), 
+                                &self.selections.primary.clone(), 
                                 Application::update_ui_data_document, 
                                 Application::update_ui_data_selections
                             );
@@ -1418,7 +1450,8 @@ impl Application{
                         Mode::Split => {
                             match &self.preserved_selections{
                                 Some(selections_before_split) => {
-                                    match crate::utilities::incremental_split_in_selection::selections_impl(
+                                    //match crate::utilities::incremental_split_in_selection::selections_impl(
+                                    match edit_core::selections::incremental_split_in_selection(
                                         selections_before_split, 
                                         &self.ui.util_bar.utility_widget.text_box.buffer.to_string(),
                                         &self.buffer, 
@@ -1437,7 +1470,7 @@ impl Application{
                                 None => {/* maybe error?... */unreachable!()}
                             }
                             self.checked_scroll_and_update(
-                                &self.selections.primary().clone(), 
+                                &self.selections.primary.clone(), 
                                 Application::update_ui_data_document, 
                                 Application::update_ui_data_selections
                             );
@@ -2330,12 +2363,13 @@ fn execute_parsed_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> R
                 match command_words.next(){
                     Some(_) => return Err(String::from("too many args: search <regex>")),
                     None => {
-                        match crate::utilities::incremental_search_in_selection::selections_impl(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
+                        //match crate::utilities::incremental_search_in_selection::selections_impl(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
+                        match edit_core::selections::incremental_search_in_selection(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
                             Err(_) => return Err(String::from("no matching regex")),
                             Ok(new_selections) => {
                                 app.selections = new_selections;
                                 app.checked_scroll_and_update(
-                                    &app.selections.primary().clone(), 
+                                    &app.selections.primary.clone(), 
                                     Application::update_ui_data_document, 
                                     Application::update_ui_data_selections
                                 );
@@ -2358,12 +2392,13 @@ fn execute_parsed_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> R
                 match command_words.next(){
                     Some(_) => return Err(String::from("too many args: split <regex>")),
                     None => {
-                        match crate::utilities::incremental_split_in_selection::selections_impl(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
+                        //match crate::utilities::incremental_split_in_selection::selections_impl(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
+                        match edit_core::selections::incremental_split_in_selection(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
                             Err(_) => return Err(String::from("no matching regex")),
                             Ok(new_selections) => {
                                 app.selections = new_selections;
                                 app.checked_scroll_and_update(
-                                    &app.selections.primary().clone(), 
+                                    &app.selections.primary.clone(), 
                                     Application::update_ui_data_document, 
                                     Application::update_ui_data_selections
                                 );
@@ -2632,12 +2667,20 @@ fn execute_parsed_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> R
                             "cursor_semantics" => { //TODO: maybe return error results in same state if already set to provided value. maybe do that for all options...
                                 match value.as_str(){
                                     "Bar" | "bar" => {
-                                        app.config.semantics = CursorSemantics::Bar;
-                                        handle_message(app, DisplayMode::Notify, &format!("cursor_semantics set to {}", value));
+                                        if app.config.semantics == CursorSemantics::Bar{handle_message(app, SAME_STATE_DISPLAY_MODE, SAME_STATE);}
+                                        else{
+                                            app.config.semantics = CursorSemantics::Bar;
+                                            //TODO: change selections from Block to Bar
+                                            handle_message(app, DisplayMode::Notify, &format!("cursor_semantics set to {}", value));
+                                        }
                                     }
                                     "Block" | "block" => {
-                                        app.config.semantics = CursorSemantics::Block;
-                                        handle_message(app, DisplayMode::Notify, &format!("cursor_semantics set to {}", value));
+                                        if app.config.semantics == CursorSemantics::Block{handle_message(app, SAME_STATE_DISPLAY_MODE, SAME_STATE);}
+                                        else{
+                                            app.config.semantics = CursorSemantics::Block;
+                                            //TODO: change selections from Bar to Block
+                                            handle_message(app, DisplayMode::Notify, &format!("cursor_semantics set to {}", value));
+                                        }
                                     }
                                     _ => return Err(format!("{} is not a valid value for cursor_semantics", value))
                                 }
