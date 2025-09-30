@@ -1,6 +1,5 @@
 use crate::application::{Application, ApplicationError};
-//use crate::selections::SelectionsError;
-use edit_core::selections::SelectionsError;
+use crate::selections::SelectionsError;
 
 /// Copy single selection to clipboard.
 /// Ensure single selection when calling this function.

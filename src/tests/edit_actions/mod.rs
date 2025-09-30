@@ -2,14 +2,9 @@ use crate::{
     config::Config,
     action::EditAction,
     mode::Mode,
-    //buffer::Buffer,
-    //selection::Selection,
-    //display_area::DisplayArea,
-};
-use edit_core::{
     buffer::Buffer,
     selection::Selection,
-    display_area::DisplayArea
+    display_area::DisplayArea,
 };
 use crate::tests::common::{
     set_up_test_application,

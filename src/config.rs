@@ -1,5 +1,4 @@
-//use crate::selection::CursorSemantics;
-use edit_core::selection::CursorSemantics;
+use crate::selection::CursorSemantics;
 use ratatui::style::Color;
 use std::collections::HashMap;
 
@@ -47,23 +46,23 @@ use std::collections::HashMap;
 //    cursor::SetCursorStyle::BlinkingBar | cursor::SetCursorStyle::SteadyBar => CursorSemantics::Bar,
 //    _ => CursorSemantics::Block
 //};
-pub const CURSOR_SEMANTICS: CursorSemantics = CursorSemantics::Block;
+//pub const CURSOR_SEMANTICS: CursorSemantics = CursorSemantics::Block;
 
 /// Determines whether the full file path or just the file name should be displayed when showing the document's name.
-pub const USE_FULL_FILE_PATH: bool = false;
+//pub const USE_FULL_FILE_PATH: bool = false;
 
 /// Indicates whether to use hard tabs (e.g., `\t`) or spaces for indentation.
 ///     - If `USE_HARD_TAB` is `true`, a literal tab character (`\t`) is inserted.
 ///     - If `USE_HARD_TAB` is `false`, spaces are inserted, with the number of spaces determined by the `TAB_WIDTH` setting.
-pub const USE_HARD_TAB: bool = false;   //maybe do enum TabStyle{Hard, Soft, Smart} //TODO: rename to "replace_tabs_with_spaces"
+//pub const USE_HARD_TAB: bool = false;   //maybe do enum TabStyle{Hard, Soft, Smart} //TODO: rename to "replace_tabs_with_spaces"
 /// Specifies the display width of a tab character. 
 /// This value could be adjusted based on user preferences or configuration, though there are currently no per-language settings.
-pub const TAB_WIDTH: usize = 4; //should this be language dependant? on-the-fly configurable?   //TODO: consider what to do with files where the tab width already in use is different than this setting
+//pub const TAB_WIDTH: usize = 4; //should this be language dependant? on-the-fly configurable?   //TODO: consider what to do with files where the tab width already in use is different than this setting
 
-pub const VIEW_SCROLL_AMOUNT: usize = 1;    //should this have separate vertical and horizontal definitions?
+//pub const VIEW_SCROLL_AMOUNT: usize = 1;    //should this have separate vertical and horizontal definitions?
 
-pub const DISPLAY_LINE_NUMBERS_ON_STARTUP: bool = true;
-pub const DISPLAY_STATUS_BAR_ON_STARTUP: bool = true;
+//pub const DISPLAY_LINE_NUMBERS_ON_STARTUP: bool = true;
+//pub const DISPLAY_STATUS_BAR_ON_STARTUP: bool = true;
 
 // what other config should be here?
 //themeing/coloring consts
@@ -107,8 +106,8 @@ pub const DISPLAY_STATUS_BAR_ON_STARTUP: bool = true;
     pub const CURSOR_LINE_BACKGROUND_COLOR: Color = Color::Rgb(45, 45, 45);
     pub const CURSOR_LINE_FOREGROUND_COLOR: Color = Color::White;
 
-pub const SHOW_CURSOR_COLUMN: bool = false;
-pub const SHOW_CURSOR_LINE: bool = true;//false;
+//pub const SHOW_CURSOR_COLUMN: bool = false;
+//pub const SHOW_CURSOR_LINE: bool = true;//false;
 
 // user can change these text strings to customize contextual util bar messages
 // errors/warnings/notifications/information

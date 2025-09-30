@@ -1,8 +1,6 @@
 use ratatui::layout::Rect;
-//use crate::position::Position;
-use edit_core::position::Position;
-//use crate::selection2d::Selection2d;
-use edit_core::selection2d::Selection2d;
+use crate::position::Position;
+use crate::selection2d::Selection2d;
 
 //pub const LINE_NUMBER_PADDING: u16 = 1;
 

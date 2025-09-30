@@ -1,16 +1,11 @@
 use crate::{
     action::EditAction::Backspace,
     mode::Mode,
-    //range::Range,
-    //selection::{Selection, CursorSemantics::Block, /*Extension*/Direction},
-    //display_area::DisplayArea,
-    config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, /*READ_ONLY_BUFFER, */SAME_STATE_DISPLAY_MODE, /*SAME_STATE, */Config},
-    keybind::default_keybinds
-};
-use edit_core::{
     range::Range,
     selection::{Selection, CursorSemantics::Block, Direction},
-    display_area::DisplayArea
+    display_area::DisplayArea,
+    config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, /*READ_ONLY_BUFFER, */SAME_STATE_DISPLAY_MODE, /*SAME_STATE, */Config},
+    keybind::default_keybinds
 };
 use crate::tests::edit_actions::test_edit_action;
 

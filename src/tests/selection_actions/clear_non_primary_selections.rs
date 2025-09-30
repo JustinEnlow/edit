@@ -1,16 +1,11 @@
 use crate::{
     action::SelectionAction::ClearNonPrimarySelections,
     mode::Mode,
-    //range::Range,
-    //selection::{Selection, CursorSemantics::Block},
-    //display_area::DisplayArea,
-    config::{DisplayMode, SINGLE_SELECTION_DISPLAY_MODE, /*SINGLE_SELECTION, */Config},
-    keybind::default_keybinds
-};
-use edit_core::{
     range::Range,
     selection::{Selection, CursorSemantics::Block},
-    display_area::DisplayArea
+    display_area::DisplayArea,
+    config::{DisplayMode, SINGLE_SELECTION_DISPLAY_MODE, /*SINGLE_SELECTION, */Config},
+    keybind::default_keybinds
 };
 use crate::tests::selection_actions::test_selection_action;
 

@@ -1,8 +1,7 @@
 use crate::{
     application::{Application, ApplicationError},
-    //selection::CursorSemantics,
+    selection::CursorSemantics,
 };
-use edit_core::selection::CursorSemantics;
 
 /// Insert clipboard contents at cursor position(s).
 pub fn application_impl(app: &mut Application, use_hard_tab: bool, tab_width: usize, semantics: CursorSemantics) -> Result<(), ApplicationError>{

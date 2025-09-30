@@ -1,10 +1,6 @@
 use crate::{
     application::{Application, ApplicationError},
-    //selection::CursorSemantics,
-    //history::{Change, ChangeSet, Operation}
-};
-use edit_core::{
-    selection::CursorSemantics,
+    selection::{self, CursorSemantics},
     history::{Change, ChangeSet, Operation}
 };
 
@@ -56,7 +52,7 @@ pub fn application_impl(app: &mut Application, _use_hard_tab: bool, _tab_width: 
                 //}
                 //else{
                     //if let Ok(new_selection) = crate::utilities::move_cursor_left::selection_impl(selection, 1, &app.buffer, None, semantics.clone()){
-                    if let Ok(new_selection) = edit_core::selection::move_cursor_left(selection, 1, &app.buffer, None, semantics.clone()){
+                    if let Ok(new_selection) = selection::move_cursor_left(selection, 1, &app.buffer, None, semantics.clone()){
                         *selection = new_selection;
                     }   //TODO: handle error    //first for loop guarantees no selection is at doc bounds, so this should be ok to ignore...
                     changes.push(app.buffer.apply_delete(selection, semantics.clone()));

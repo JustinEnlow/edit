@@ -1,8 +1,5 @@
 use crate::{
     application::{Application, ApplicationError},
-    //selection::CursorSemantics,
-};
-use edit_core::{
     selection::CursorSemantics,
     selections::SelectionsError
 };

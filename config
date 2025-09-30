@@ -1,0 +1,13 @@
+#set_option cursor_semantics Block      #Block | Bar
+#set_option use_full_file_path false    #true | false
+#set_option use_hard_tab false          #true | false   #indicates whether to use '\t' literal or spaces for indentation
+#set_option tab_width 4                 #the number of terminal cells to next tab stop
+#set_option view_scroll_amount          #the number of lines/columns to scroll
+#set_option show_cursor_column false    #true | false   #indicates whether to highlight the whole column of the primary cursor (for visibility)
+#set_option show_cursor_line true       #true | false   #indicates whether to highlight the whole line of the primary cursor (for visibility)
+set_option show_line_numbers true
+set_option show_status_bar true
+
+#add_command toggle_line_numbers 'set_option show_line_numbers %sh{\
+#    #add toggle logic here\
+#}' 'toggles the display of bufffer line numbers'

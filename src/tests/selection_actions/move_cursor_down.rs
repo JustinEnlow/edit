@@ -1,16 +1,11 @@
 use crate::{
     action::SelectionAction::MoveCursorDown,
     mode::Mode,
-    //range::Range,
-    //selection::{Selection, CursorSemantics::Block, /*Extension*/Direction},
-    //display_area::DisplayArea,
+    range::Range,
+    selection::{Selection, CursorSemantics::Block, /*Extension*/Direction},
+    display_area::DisplayArea,
     config::{DisplayMode, SAME_STATE_DISPLAY_MODE, /*SAME_STATE, */Config},
     keybind::default_keybinds
-};
-use edit_core::{
-    range::Range,
-    selection::{Selection, CursorSemantics::Block, Direction},
-    display_area::DisplayArea
 };
 use crate::tests::selection_actions::test_selection_action;
 

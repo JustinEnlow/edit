@@ -1,16 +1,11 @@
 use crate::{
     action::ViewAction,
     mode::Mode,
-    //range::Range,
-    //selection::{Selection, CursorSemantics::Block},
-    //display_area::DisplayArea,
-    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, /*SAME_STATE, */Config},
-    keybind::default_keybinds
-};
-use edit_core::{
     range::Range,
     selection::{Selection, CursorSemantics::Block},
-    display_area::DisplayArea
+    display_area::DisplayArea,
+    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, /*SAME_STATE, */Config},
+    keybind::default_keybinds
 };
 use crate::tests::view_actions::test_view_action;
 

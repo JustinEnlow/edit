@@ -1,18 +1,15 @@
 use crate::{
     action::EditAction::InsertTab,
     mode::Mode,
-    //range::Range,
-    //selection::{Selection, CursorSemantics::Block},
-    //display_area::DisplayArea,
-    config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, /*READ_ONLY_BUFFER, */USE_HARD_TAB, Config},
-    keybind::default_keybinds
-};
-use edit_core::{
     range::Range,
     selection::{Selection, CursorSemantics::Block},
-    display_area::DisplayArea
+    display_area::DisplayArea,
+    config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, /*READ_ONLY_BUFFER, *//*USE_HARD_TAB, */Config},
+    keybind::default_keybinds
 };
 use crate::tests::edit_actions::test_edit_action;
+
+const USE_HARD_TAB: bool = false;
 
 #[test] fn with_multiple_selections(){
     test_edit_action(

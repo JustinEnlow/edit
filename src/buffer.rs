@@ -319,7 +319,7 @@ impl Buffer{
         //self.insert(selection.cursor(self, semantics.clone()), string);
         self.inner.insert(selection.cursor(self, semantics.clone()), string);
         for _ in 0..string.len(){
-            if let Ok(new_selection) = crate::utilities::move_cursor_right::selection_impl(selection, 1, self, None, semantics.clone()){
+            if let Ok(new_selection) = crate::selection::move_cursor_right(selection, 1, self, None, semantics.clone()){
                 *selection = new_selection;
             }
         }

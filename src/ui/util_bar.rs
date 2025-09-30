@@ -1,10 +1,6 @@
 use crate::ui::interactive_text_box::InteractiveTextBox;
-//use crate::selection2d::Selection2d;
-//use crate::position::Position;
-use edit_core::{
-    selection2d::Selection2d,
-    position::Position
-};
+use crate::selection2d::Selection2d;
+use crate::position::Position;
 use ratatui::layout::Rect;
 
 pub const GOTO_PROMPT: &str = " Go to: ";

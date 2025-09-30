@@ -1,15 +1,9 @@
 use crate::{
     application::Application, 
-    //buffer::Buffer, 
+    buffer::Buffer, 
     config::Config, 
-    //display_area::DisplayArea,
-    //selection::{CursorSemantics, Selection}, 
-    //selections::Selections
-};
-use edit_core::{
-    buffer::Buffer,
     display_area::DisplayArea,
-    selection::{CursorSemantics, Selection},
+    selection::{CursorSemantics, Selection}, 
     selections::Selections
 };
 
@@ -18,8 +12,8 @@ pub fn set_up_test_application(
     terminal_display_area: DisplayArea, //this represents our full terminal, not just the buffer viewport.
     buffer_text: &str, 
     read_only: bool,
-    render_line_numbers: bool,
-    render_status_bar: bool,
+    _render_line_numbers: bool,
+    _render_status_bar: bool,
     //TODO: expected_buffer_display_area: DisplayArea,
 ) -> Result<Application, String>{
         // i don't think we want to do this. there are some advantages to passing in a manual terminal_display_area, and checking against an expected buffer_display_area
@@ -38,7 +32,7 @@ pub fn set_up_test_application(
     );
     match ratatui::Terminal::new(backend){
         Ok(terminal) => {
-            match Application::new(config, render_line_numbers, render_status_bar, buffer_text, None, read_only,&terminal){
+            match Application::new(config, /*render_line_numbers, render_status_bar, */buffer_text, None, read_only,&terminal){
                 Ok(mut app) => {
                     app.buffer_horizontal_start = terminal_display_area.horizontal_start;
                     app.buffer_vertical_start = terminal_display_area.vertical_start;

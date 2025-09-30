@@ -1,16 +1,11 @@
 use crate::{
     action::EditAction::Paste,
     mode::Mode,
-    //range::Range,
-    //selection::{Selection, CursorSemantics::Block},
-    //display_area::DisplayArea,
-    config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, /*READ_ONLY_BUFFER, */INVALID_INPUT_DISPLAY_MODE, /*INVALID_INPUT, */Config},
-    keybind::default_keybinds
-};
-use edit_core::{
     range::Range,
     selection::{Selection, CursorSemantics::Block},
-    display_area::DisplayArea
+    display_area::DisplayArea,
+    config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, /*READ_ONLY_BUFFER, */INVALID_INPUT_DISPLAY_MODE, /*INVALID_INPUT, */Config},
+    keybind::default_keybinds
 };
 use crate::tests::edit_actions::test_edit_action;
 

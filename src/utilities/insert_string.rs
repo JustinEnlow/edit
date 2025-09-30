@@ -1,11 +1,7 @@
 use crate::{
     application::{Application, ApplicationError},
-    //selection::CursorSemantics,
-    //history::{Change, ChangeSet},
-};
-use edit_core::{
     selection::CursorSemantics,
-    history::{Change, ChangeSet, Operation}
+    history::{Change, ChangeSet, Operation},
 };
 
 /// Inserts provided string into text at each selection.

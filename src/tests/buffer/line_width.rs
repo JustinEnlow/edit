@@ -1,6 +1,4 @@
-use crate::{
-    buffer::Buffer
-};
+use crate::buffer::Buffer;
 
 #[test] fn works_with_ascii_text(){
     let buffer = Buffer::new("idk\nsome\nshit\n", None, false);

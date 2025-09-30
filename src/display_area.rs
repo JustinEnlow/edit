@@ -255,7 +255,8 @@ impl DisplayArea{
     }
     /// Returns [`Position`] of primary cursor if it is within [`DisplayArea`] boundaries, or None otherwise.
     #[must_use] pub fn primary_cursor_position(&self, buffer: &crate::buffer::Buffer, selections: &Selections, semantics: CursorSemantics) -> Option<Position>{
-        let primary = selections.primary();
+        //let primary = selections.primary();
+        let primary = &selections.primary;
         Self::cursor_position(&primary.selection_to_selection2d(buffer, semantics), self)
     }
     /// Returns [`Position`]s of cursors that are within [`DisplayArea`] boundaries, or an empty vec otherwise.
@@ -266,4 +267,111 @@ impl DisplayArea{
             })
             .collect()
     }
+}
+
+/// Returns a new instance of [`View`] with `vertical_start` decreased by specified amount.
+/// # Errors
+/// when `amount` is 0.
+/// when function would return a `View` with the same state.
+pub fn scroll_view_up(view: &DisplayArea, amount: usize) -> Result<DisplayArea, DisplayAreaError>{
+    if amount == 0{return Err(DisplayAreaError::InvalidInput);}
+    if view.vertical_start == 0{return Err(DisplayAreaError::ResultsInSameState);}
+    Ok(DisplayArea::new(view.horizontal_start, view.vertical_start.saturating_sub(amount), view.width, view.height))
+}
+
+/// Returns a new instance of [`View`] with `vertical_start` increased by specified amount.
+/// # Errors
+/// when `amount` is 0.
+/// when function would return a `View` with the same state.
+/// # Panics
+/// when `text` is invalid.
+pub fn scroll_view_down(view: &DisplayArea, amount: usize, buffer: &crate::buffer::Buffer) -> Result<DisplayArea, DisplayAreaError>{
+    assert!(buffer.len_lines() > 0);
+
+    if amount == 0{return Err(DisplayAreaError::InvalidInput);}
+
+    let max_scrollable_position = buffer.len_lines().saturating_sub(view.height);
+    if view.vertical_start == max_scrollable_position{return Err(DisplayAreaError::ResultsInSameState);}
+    
+    let new_vertical_start = view.vertical_start.saturating_add(amount);
+
+    if new_vertical_start <= max_scrollable_position{
+        Ok(DisplayArea::new(view.horizontal_start, new_vertical_start, view.width, view.height))
+    }else{
+        Ok(DisplayArea::new(view.horizontal_start, max_scrollable_position, view.width, view.height))
+    }
+}
+
+/// Returns a new instance of [`View`] with `horizontal_start` decreased by specified amount.
+/// # Errors
+/// when `amount` is 0.
+/// when function would return a `View` with the same state.
+pub fn scroll_view_left(view: &DisplayArea, amount: usize) -> Result<DisplayArea, DisplayAreaError>{
+    if amount == 0{return Err(DisplayAreaError::InvalidInput);}
+    if view.horizontal_start == 0{return Err(DisplayAreaError::ResultsInSameState);}
+    Ok(DisplayArea::new(view.horizontal_start.saturating_sub(amount), view.vertical_start, view.width, view.height))
+}
+
+/// Returns a new instance of [`View`] with `horizontal_start` increased by specified amount.
+/// # Errors
+/// when `amount` is 0.
+/// when function would return a `View` with the same state.
+pub fn scroll_view_right(view: &DisplayArea, amount: usize, buffer: &crate::buffer::Buffer) -> Result<DisplayArea, DisplayAreaError>{
+    if amount == 0{return Err(DisplayAreaError::InvalidInput);}
+
+    // TODO: cache longest as a field in [`View`] struct to eliminate having to calculate this on each call
+    // Calculate the longest line width in a single pass
+    let longest = buffer./*inner.*/lines().enumerate()
+        .map(|(i, _)| buffer.line_width_chars(i, false))
+        .max()
+        .unwrap_or(0); // Handle the case where there are no lines
+
+    let new_horizontal_start = view.horizontal_start.saturating_add(amount);
+
+    if new_horizontal_start + view.width <= longest{
+        Ok(DisplayArea::new(new_horizontal_start, view.vertical_start, view.width, view.height))
+    }else{
+        //Ok(self.clone())
+        Err(DisplayAreaError::ResultsInSameState)
+    }
+}
+
+/// Returns an instance of [`View`] vertically centered around specified cursor.
+/// # Errors
+/// when function output would return a `View` with the same state.
+/// # Panics
+/// when `selection` is invalid.
+/// when `text` is invalid.
+pub fn center_view_vertically_around_cursor(
+    view: &DisplayArea, 
+    selection: &Selection, 
+    buffer: &crate::buffer::Buffer, 
+    semantics: CursorSemantics
+) -> Result<DisplayArea, DisplayAreaError>{
+    assert!(selection.cursor(buffer, semantics.clone()) <= buffer.len_chars());    //ensure selection is valid
+    assert!(buffer.len_lines() > 0);  //ensure text is not empty
+        
+    let current_line = buffer.char_to_line(selection.cursor(buffer, semantics.clone()));
+    //let view_is_even_numbered = self.height % 2 == 0;
+    let half_view_height = view.height / 2; //current impl will be biased towards the bottom of the view, if view is even numbered
+
+    //TODO: consider how even numbered view heights should be handled...
+    // maybe < half_view_height.saturating_sub(1)
+    if current_line <= half_view_height{return Err(DisplayAreaError::ResultsInSameState);} //maybe return error cursor before doc_start + half the view height
+    if current_line >= buffer.len_lines().saturating_sub(half_view_height){return Err(DisplayAreaError::ResultsInSameState);}    //maybe return error cursor after doc_end - half the view height
+
+    // Calculate the new vertical start position
+    let new_vertical_start = if current_line > half_view_height{
+        current_line.saturating_sub(half_view_height)
+    }else{
+        0
+    }.min(buffer.len_lines().saturating_sub(view.height));    //should self.height be half_view_height?
+
+    // if view_is_even_numbered && (current_line == new_vertical_start || current_line == new_vertical_start.saturating_sub(1)){return Err(ViewError::ResultsInSameState);}
+    //if current_line == new_vertical_start{return Err(ViewError::ResultsInSameState);}   //maybe return error already centered   //TODO: and test
+    //
+
+    let new_view = DisplayArea::new(view.horizontal_start, new_vertical_start, view.width, view.height);    
+    if new_view == view.clone(){return Err(DisplayAreaError::ResultsInSameState);} //can we catch this condition any earlier?...
+    Ok(new_view)
 }

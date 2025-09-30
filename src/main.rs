@@ -147,20 +147,20 @@ fn run_app(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, termi
     //TODO: pass a default config to start app
     //TODO: then update config from rc file. if an option is undefined in rc, it will already have a default value
     let config = edit::config::Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
-            semantics: edit::config::CURSOR_SEMANTICS,
-            use_full_file_path: edit::config::USE_FULL_FILE_PATH,
-            use_hard_tab: edit::config::USE_HARD_TAB,
-            tab_width: edit::config::TAB_WIDTH,
-            view_scroll_amount: edit::config::VIEW_SCROLL_AMOUNT,
-            show_cursor_column: edit::config::SHOW_CURSOR_COLUMN,
-            show_cursor_line: edit::config::SHOW_CURSOR_LINE,
-            keybinds: edit::keybind::default_keybinds()
+        user_options: std::collections::HashMap::new(),
+        user_commands: std::collections::HashMap::new(),
+        semantics: edit::selection::CursorSemantics::Block,
+        use_full_file_path: false,
+        use_hard_tab: false,
+        tab_width: 4,
+        view_scroll_amount: 1,
+        show_cursor_column: false,
+        show_cursor_line: true,
+        keybinds: edit::keybind::default_keybinds()
     };
-    let display_line_numbers_on_startup = edit::config::DISPLAY_LINE_NUMBERS_ON_STARTUP;
-    let display_status_bar_on_startup = edit::config::DISPLAY_STATUS_BAR_ON_STARTUP;
-    match Application::new(config, display_line_numbers_on_startup, display_status_bar_on_startup, buffer_text, file_path, read_only, terminal){
+    //let display_line_numbers_on_startup = edit::config::DISPLAY_LINE_NUMBERS_ON_STARTUP;
+    //let display_status_bar_on_startup = edit::config::DISPLAY_STATUS_BAR_ON_STARTUP;
+    match Application::new(config, /*display_line_numbers_on_startup, display_status_bar_on_startup, */buffer_text, file_path, read_only, terminal){
         Ok(mut app) => {
             //TODO: could pass column_number and line_number here, after verifying they are valid positions...
             if let Err(e) = app.run(terminal){

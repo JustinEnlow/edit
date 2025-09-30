@@ -5,14 +5,9 @@
 //TODO: impl cut/copy/paste for text box
 
 use crate::{
-    //range::Range,
-    //selection::{/*Movement, */Selection, /*ExtensionDirection*/}, 
-    config::CURSOR_SEMANTICS
-};
-use edit_core::{
+    buffer::Buffer,
     range::Range,
-    selection::Selection,
-    buffer::Buffer
+    selection::{self, Selection, CursorSemantics},
 };
 //use std::cmp::Ordering;
 
@@ -35,7 +30,7 @@ impl Default for InteractiveTextBox{
                 Range::new(0, /*1*/buffer.next_grapheme_char_index(0)), 
                 None,//ExtensionDirection::None, 
                 &buffer, 
-                CURSOR_SEMANTICS
+                CursorSemantics::Block
             ),
             display_area_horizontal_start: 0,
             display_area_vertical_start: 0
@@ -44,7 +39,7 @@ impl Default for InteractiveTextBox{
 }
 impl InteractiveTextBox{
     pub fn cursor_position(&self) -> u16{
-        self.selection.cursor(&self.buffer, CURSOR_SEMANTICS) as u16
+        self.selection.cursor(&self.buffer, CursorSemantics::Block) as u16
     }
     pub fn clear(&mut self){
         *self = Self::default();
@@ -63,9 +58,9 @@ impl InteractiveTextBox{
 
         // figure out how to use buffer.apply_insert/replace here...
         if self.selection.is_extended(){
-            self.buffer.apply_replace(&char.to_string(), &mut self.selection, CURSOR_SEMANTICS);
+            self.buffer.apply_replace(&char.to_string(), &mut self.selection, CursorSemantics::Block);
         }else{
-            self.buffer.apply_insert(&char.to_string(), &mut self.selection, CURSOR_SEMANTICS);
+            self.buffer.apply_insert(&char.to_string(), &mut self.selection, CursorSemantics::Block);
         }
         //
     }
@@ -137,18 +132,18 @@ impl InteractiveTextBox{
         //        }
         //    }
         //}
-        self.buffer.apply_delete(&mut self.selection, CURSOR_SEMANTICS);
+        self.buffer.apply_delete(&mut self.selection, CursorSemantics::Block);
         //
     }
     #[allow(clippy::collapsible_else_if)]
     pub fn backspace(&mut self){
-        let semantics = CURSOR_SEMANTICS;
+        let semantics = CursorSemantics::Block;
         if self.selection.is_extended(){
             self.delete();
         }else{
             if self.selection.cursor(&self.buffer, semantics) > 0{
                 //if let Ok(new_selection) = crate::utilities::move_cursor_left::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
-                if let Ok(new_selection) = edit_core::selection::move_cursor_left(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
+                if let Ok(new_selection) = selection::move_cursor_left(&self.selection, 1, &self.buffer, None, CursorSemantics::Block){
                     self.selection = new_selection;
                 }
                 self.delete();
@@ -160,49 +155,49 @@ impl InteractiveTextBox{
 
     pub fn extend_selection_end(&mut self){
         //if let Ok(new_selection) = crate::utilities::extend_selection_line_end::selection_impl(&self.selection, &self.buffer, CURSOR_SEMANTICS){
-        if let Ok(new_selection) = edit_core::selection::extend_selection_line_end(&self.selection, &self.buffer, CURSOR_SEMANTICS){
+        if let Ok(new_selection) = selection::extend_selection_line_end(&self.selection, &self.buffer, CursorSemantics::Block){
             self.selection = new_selection;
         }
     }
     pub fn extend_selection_home(&mut self){
         //if let Ok(new_selection) = crate::utilities::extend_selection_home::selection_impl(&self.selection, &self.buffer, CURSOR_SEMANTICS){
-        if let Ok(new_selection) = edit_core::selection::extend_selection_home(&self.selection, &self.buffer, CURSOR_SEMANTICS){
+        if let Ok(new_selection) = selection::extend_selection_home(&self.selection, &self.buffer, CursorSemantics::Block){
             self.selection = new_selection;
         }
     }
     pub fn extend_selection_left(&mut self){
         //if let Ok(new_selection) = crate::utilities::extend_selection_left::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
-        if let Ok(new_selection) = edit_core::selection::extend_selection_left(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
+        if let Ok(new_selection) = selection::extend_selection_left(&self.selection, 1, &self.buffer, None, CursorSemantics::Block){
             self.selection = new_selection;
         }
     }
     pub fn extend_selection_right(&mut self){
         //if let Ok(new_selection) = crate::utilities::extend_selection_right::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
-        if let Ok(new_selection) = edit_core::selection::extend_selection_right(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
+        if let Ok(new_selection) = selection::extend_selection_right(&self.selection, 1, &self.buffer, None, CursorSemantics::Block){
             self.selection = new_selection;
         }
     }
     pub fn move_cursor_left(&mut self){
         //if let Ok(new_selection) = crate::utilities::move_cursor_left::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
-        if let Ok(new_selection) = edit_core::selection::move_cursor_left(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
+        if let Ok(new_selection) = selection::move_cursor_left(&self.selection, 1, &self.buffer, None, CursorSemantics::Block){
             self.selection = new_selection;
         }
     }
     pub fn move_cursor_line_end(&mut self){
         //if let Ok(new_selection) = crate::utilities::move_cursor_line_end::selection_impl(&self.selection, &self.buffer, CURSOR_SEMANTICS){
-        if let Ok(new_selection) = edit_core::selection::move_cursor_line_end(&self.selection, &self.buffer, CURSOR_SEMANTICS){
+        if let Ok(new_selection) = selection::move_cursor_line_end(&self.selection, &self.buffer, CursorSemantics::Block){
             self.selection = new_selection;
         }
     }
     pub fn move_cursor_line_start(&mut self){
         //if let Ok(new_selection) = crate::utilities::move_cursor_home::selection_impl(&self.selection, &self.buffer, CURSOR_SEMANTICS){
-        if let Ok(new_selection) = edit_core::selection::move_cursor_home(&self.selection, &self.buffer, CURSOR_SEMANTICS){
+        if let Ok(new_selection) = selection::move_cursor_home(&self.selection, &self.buffer, CursorSemantics::Block){
             self.selection = new_selection;
         }
     }
     pub fn move_cursor_right(&mut self){
         //if let Ok(new_selection) = crate::utilities::move_cursor_right::selection_impl(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
-        if let Ok(new_selection) = edit_core::selection::move_cursor_right(&self.selection, 1, &self.buffer, None, CURSOR_SEMANTICS){
+        if let Ok(new_selection) = selection::move_cursor_right(&self.selection, 1, &self.buffer, None, CursorSemantics::Block){
             self.selection = new_selection;
         }
     }
