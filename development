@@ -26,9 +26,9 @@ use "cargo clippy -- -W clippy::pedantic" to run pedantic lints
 use "cargo doc --open" to view the documentation
 
 
-how to debug:   //this was taken from 'edit_core'. may not reflect actual use with 'edit'
+how to debug:
 type:
-    "rust-gdb ./target/debug/deps/edit_core-ee4" then 'tab' to complete the hash
+    "rust-gdb ./target/debug/deps/edit-f36d8ee3c61fdca0"    //or 'edit-f' then 'tab' to complete the hash
 inside gdb
     "break <module-name>::<sub-module-name>::tests::<full-unit-test-name>"
     "run <module-name>::<sub-module-name>::tests::<full-unit-test-name>"
@@ -36,3 +36,7 @@ then hit <ctrl-x> then a, to enter tui mode with test source        or type "lay
 hit <ctrl-l> to repaint screen, if ncurses prints some funky shit in the tui
 and <ctrl-p> to redo a command in the history, since the tui source code window hijacks the <up> arrow
 
+
+extra utilities:
+    github.com/rust-lang/miri               //undefined behavior detection tool
+    github.com/sourcefrog/cargo-mutants     //finds places where bugs can be inserted without causing any tests to fail     //WARNING: be sure to read mutants.rs/cautions.html before use to avoid unintended consequences!!!

@@ -22,7 +22,8 @@ pub fn application_impl(app: &mut Application, _use_hard_tab: bool, _tab_width: 
         if selection.is_extended(){
             let change = app.buffer.apply_delete(selection, semantics.clone());
             if let Operation::Insert{inserted_text} = change.inverse(){
-                app.selections.shift_subsequent_selections_backward(i, inserted_text.len());
+                //app.selections.shift_subsequent_selections_backward(i, inserted_text.len());
+                app.selections.shift_subsequent_selections_backward(i, inserted_text.chars().count());
             }
             changes.push(change);
         }else{

@@ -2,7 +2,7 @@ use crate::{
     action::EditAction::InsertChar,
     mode::Mode,
     range::Range,
-    selection::{Selection, CursorSemantics::Block},
+    selection::{Selection, CursorSemantics::Block, Direction},
     display_area::DisplayArea,
     config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, /*READ_ONLY_BUFFER, */Config},
     keybind::default_keybinds
@@ -98,3 +98,57 @@ use crate::tests::edit_actions::test_edit_action;
         ""
     );
 }
+
+#[test] fn with_multibyte_grapheme(){
+    test_edit_action(
+        Config::default(), 
+        InsertChar('⏎'), 
+        false, 
+        false, 
+        false, 
+        DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
+        "idk\nsome\nshit\n", 
+        vec![
+            Selection::new_unchecked(Range::new(3, 4), None, None)
+        ], 
+        0, 
+        "", 
+        "idk⏎\nsome\nshit\n", 
+        Mode::Insert, 
+        vec![
+            Selection::new_unchecked(Range::new(4, 5), None, Some(4))
+        ], 
+        0, 
+        ""
+    );
+}
+//TODO: with multichar grapheme
+//TODO: with wide grapheme
+//TODO: with zero width grapheme
+
+#[test] fn replace_with_multibyte_grapheme(){
+    test_edit_action(
+        Config::default(), 
+        InsertChar('⏎'), 
+        false, 
+        false, 
+        false, 
+        DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
+        "idk\nsome\nshit\n", 
+        vec![
+            Selection::new_unchecked(Range::new(0, 3), Some(Direction::Forward), None)
+        ], 
+        0, 
+        "", 
+        "⏎\nsome\nshit\n", 
+        Mode::Insert, 
+        vec![
+            Selection::new_unchecked(Range::new(1, 2), None, Some(1))   //although, i am considering having selections after replacement be equivalent to before, with replacement text still selected...
+        ], 
+        0, 
+        ""
+    );
+}
+//TODO: replace with multichar grapheme
+//TODO: replace with wide grapheme
+//TODO: replace with zero width grapheme

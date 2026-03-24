@@ -29,6 +29,7 @@ pub fn default_keybinds() -> /*HashMap*/IndexMap<(Mode, KeyEvent), Action>{
     //
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('w'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::EvaluateClipboardAsCommand));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('e'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::EvaluateSelectionAsCommand));
+    keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('i'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::EvaluateSelectionAsLookObject));
     //
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL)), Action::SelectionAction(SelectionAction::FlipDirection, 1));
     keybinds.insert((Mode::Insert, KeyEvent::new(KeyCode::Char('g'), KeyModifiers::CONTROL)), Action::EditorAction(EditorAction::ModePush(Mode::Goto, None)));

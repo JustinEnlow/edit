@@ -12,6 +12,7 @@
     //OpenNewTerminalWindow,
     EvaluateSelectionAsCommand,
     EvaluateClipboardAsCommand,
+    EvaluateSelectionAsLookObject,
 }
 impl EditorAction{
     fn action_name(&self) -> String{
@@ -28,7 +29,8 @@ impl EditorAction{
             EditorAction::ToggleLineNumbers => "toggle line numbers",
             EditorAction::ToggleStatusBar => "toggle status bar",
             EditorAction::EvaluateSelectionAsCommand => "evaluate selection as command",
-            EditorAction::EvaluateClipboardAsCommand => "evaluate clipbaord as command"
+            EditorAction::EvaluateClipboardAsCommand => "evaluate clipboard as command",
+            EditorAction::EvaluateSelectionAsLookObject => "look"
         };
         name.to_string()
     }

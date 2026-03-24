@@ -21,14 +21,16 @@ pub fn application_impl(app: &mut Application, semantics: CursorSemantics) -> Re
                 Operation::Insert{inserted_text} => {
                     //let _ = Application::apply_insert(&mut app.buffer, &inserted_text, selection, semantics.clone());
                     let _ = app.buffer.apply_insert(&inserted_text, selection, semantics.clone());
-                    app.selections.shift_subsequent_selections_forward(i, inserted_text.len());
+                    //app.selections.shift_subsequent_selections_forward(i, inserted_text.len());
+                    app.selections.shift_subsequent_selections_forward(i, inserted_text.chars().count());
                 }
                 Operation::Delete => {
                     *selection = change.selection_before_change();
                     //let change = Application::apply_delete(&mut app.buffer, selection, semantics.clone());
                     let change = app.buffer.apply_delete(selection, semantics.clone());
                     if let Operation::Insert{inserted_text} = change.inverse(){
-                        app.selections.shift_subsequent_selections_backward(i, inserted_text.len());
+                        //app.selections.shift_subsequent_selections_backward(i, inserted_text.len());
+                        app.selections.shift_subsequent_selections_backward(i, inserted_text.chars().count());
                     }
                 }
                 Operation::Replace{replacement_text} => {
@@ -36,9 +38,22 @@ pub fn application_impl(app: &mut Application, semantics: CursorSemantics) -> Re
                     //let change = Application::apply_replace(&mut app.buffer, &inserted_text, selection, semantics.clone());
                     let change = app.buffer.apply_replace(&inserted_text, selection, semantics.clone());
                     if let Operation::Replace{replacement_text} = change.inverse(){   //destructure to get currently selected text
-                        match replacement_text.len().cmp(&inserted_text.len()){    //old selected text vs new text
-                            Ordering::Greater => {app.selections.shift_subsequent_selections_backward(i, replacement_text.len().saturating_sub(inserted_text.len()));}
-                            Ordering::Less => {app.selections.shift_subsequent_selections_forward(i, inserted_text.len().saturating_sub(replacement_text.len()));}
+                        //match replacement_text.len().cmp(&inserted_text.len()){    //old selected text vs new text
+                        match replacement_text.chars().count().cmp(&inserted_text.chars().count()){
+                            Ordering::Greater => {
+                                //app.selections.shift_subsequent_selections_backward(i, replacement_text.len().saturating_sub(inserted_text.len()));
+                                app.selections.shift_subsequent_selections_backward(
+                                    i, 
+                                    replacement_text.chars().count().saturating_sub(inserted_text.chars().count())
+                                );
+                            }
+                            Ordering::Less => {
+                                //app.selections.shift_subsequent_selections_forward(i, inserted_text.len().saturating_sub(replacement_text.len()));
+                                app.selections.shift_subsequent_selections_forward(
+                                    i, 
+                                    inserted_text.chars().count().saturating_sub(replacement_text.chars().count())
+                                );
+                            }
                             Ordering::Equal => {}   // no change to subsequent selections
                         }
                     }

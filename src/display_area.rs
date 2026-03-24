@@ -1,3 +1,8 @@
+//TODO: make a DisplayMap structure to hold any relevant data for display, 
+//and impl text() and highlights() fns...
+//could pass buffer, expansions, + display_area into DisplayMap::new()...
+//DisplayMap would need to be updated any time those inputs are modified
+
 //use ropey::Rope;
 use crate::range::Range;
 use crate::selection::{CursorSemantics, Selection};

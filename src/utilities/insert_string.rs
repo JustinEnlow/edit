@@ -48,24 +48,40 @@ pub fn application_impl(app: &mut Application, string: &str, use_hard_tab: bool,
 
     Ok(())
 }
+//TODO: string lengths need to use char count, not length in bytes
 fn handle_insert_replace(app: &mut Application, current_selection_index: usize, semantics: CursorSemantics, new_text: &str) -> Change{
     use std::cmp::Ordering;
     let selection = app.selections.nth_mut(current_selection_index);
     //let change = Application::apply_replace(&mut app.buffer, new_text, selection, semantics);
     let change = app.buffer.apply_replace(new_text, selection, semantics);
     if let Operation::Replace{replacement_text} = change.inverse(){
-        match replacement_text.len().cmp(&new_text.len()){    //old selected text vs new text
-            Ordering::Greater => {app.selections.shift_subsequent_selections_backward(current_selection_index, replacement_text.len().saturating_sub(new_text.len()));}
-            Ordering::Less => {app.selections.shift_subsequent_selections_forward(current_selection_index, new_text.len().saturating_sub(replacement_text.len()));}
+        //match replacement_text.len().cmp(&new_text.len()){    //old selected text vs new text
+        match replacement_text.chars().count().cmp(&new_text.chars().count()){
+            Ordering::Greater => {
+                app.selections.shift_subsequent_selections_backward(
+                    current_selection_index, 
+                    //replacement_text.len().saturating_sub(new_text.len())
+                    replacement_text.chars().count().saturating_sub(new_text.chars().count())
+                );
+            }
+            Ordering::Less => {
+                app.selections.shift_subsequent_selections_forward(
+                    current_selection_index, 
+                    //new_text.len().saturating_sub(replacement_text.len())
+                    new_text.chars().count().saturating_sub(replacement_text.chars().count())
+                );
+            }
             Ordering::Equal => {}   // no change to subsequent selections
         }
     }
     change
 }
+//TODO: string lengths need to use char count, not length in bytes
 fn handle_insert(app: &mut Application, string: &str, current_selection_index: usize, semantics: CursorSemantics) -> Change{
     let selection = app.selections.nth_mut(current_selection_index);
     //let change = Application::apply_insert(&mut app.buffer, string, selection, semantics);
     let change = app.buffer.apply_insert(string, selection, semantics);
-    app.selections.shift_subsequent_selections_forward(current_selection_index, string.len());
+    //app.selections.shift_subsequent_selections_forward(current_selection_index, string.len());
+    app.selections.shift_subsequent_selections_forward(current_selection_index, string.chars().count());
     change
 }

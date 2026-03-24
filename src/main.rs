@@ -13,6 +13,18 @@ use std::path::PathBuf;
 use std::io::Stdout;
 
 
+//TODO: support navigating to specific locations by appending certain characters at end of provided file name
+    //edit file_name.rs:10:15
+    //edit file_name.rs:/regex/
+    //edit -t file_name.rs:0        //this won't work because -t requires '< file_name.rs'
+    //edit -t < file_name.rs:0      //this won't work because ...
+    //edit --tutor:/regex/          //should this be supported?...
+//passing flags instead would support more cases
+    //edit --line 10 --column 15 file_name.rs
+    //edit --search <regex> file_name.rs
+    //edit --line 0 -t file_name.rs
+    //edit --line 0 -t < file_name.rs
+    //edit --search <regex> --tutor
 
 //edit file_name.rs                 //open named buffer, the contents of which are the contents of file_name.rs
 //edit file_name.rs -l 420 -c 69    //open named buffer, the constents of which are the contents of file_name.rs, with the cursor at :420:69
@@ -103,9 +115,9 @@ fn main() -> Result<(), String>{
             //anything else will always be interpreted as a file path...
             path => {
                 if let Ok(_file_path) = std::path::PathBuf::from(path).canonicalize(){
-                    if _file_path.is_dir(){
-                        return pre_terminal_setup_error("path must be to a file, not a directory");
-                    }
+                    //if _file_path.is_dir(){
+                    //    return pre_terminal_setup_error("path must be to a file, not a directory");
+                    //}
                     file_path = Some(_file_path);
                 }else{return pre_terminal_setup_error("invalid file path");}
             }
@@ -115,7 +127,7 @@ fn main() -> Result<(), String>{
 
     let mut terminal = match setup_terminal(){
         Ok(term) => term,
-        Err(e) => return Err(format!("{e}"))
+        Err(e) => return Err(format!("{e}"))    //TODO: return pre/post terminal setup error
     };
         
     if open_tutorial{   //init app with buffer from tutorial file
@@ -123,7 +135,10 @@ fn main() -> Result<(), String>{
         //run_app(&crate::tutorial::tutorial_text(), file_path, read_only, &mut terminal)
     }else if temp_buffer{   //init app with buffer from stdin
         let mut buffer_text = String::new();
-        if let Err(e) = io::stdin().read_to_string(&mut buffer_text){return Err(format!("{e}"));}
+        //if let Err(e) = io::stdin().read_to_string(&mut buffer_text){return Err(format!("{e}"));}
+        if let Err(e) = io::stdin().read_to_string(&mut buffer_text){
+            return post_terminal_setup_error(&format!("{e}"), true, &mut terminal);
+        }
         
         //TODO: strip ansi escape codes from buffer_text (some utilities will write text containing ansi escape codes to their stdout, which messes up edit's display. these need to be removed...)
         //this may only matter for TUI client implementation... //wouldn't be needed if terminals didn't operate using ansi escape codes
@@ -133,9 +148,37 @@ fn main() -> Result<(), String>{
             Some(file_path) => file_path,
             None => {return post_terminal_setup_error("invalid or no arguments provided", true, &mut terminal);}
         };
-        let buffer_text = match std::fs::read_to_string(verified_file_path){
-            Ok(text) => text,
-            Err(e) => return Err(format!("{e}"))
+        //let buffer_text = match std::fs::read_to_string(verified_file_path){
+        //    Ok(text) => text,
+        //    //Err(e) => return Err(format!("{e}"))
+        //    Err(e) => return post_terminal_setup_error(&format!("{e}"), true, &mut terminal),
+        //};
+        let buffer_text = if verified_file_path.is_file(){
+            match std::fs::read_to_string(verified_file_path){
+                Ok(text) => text,
+                Err(e) => return post_terminal_setup_error(&format!("{e}"), true, &mut terminal),
+            }
+        }else{
+            let mut buf = String::new();
+            let dir_content = match std::fs::read_dir(verified_file_path){
+                Err(e) => return post_terminal_setup_error(&format!("{e}"), true, &mut terminal),
+                Ok(dir_content) => dir_content
+            };
+            //TODO?: should we change out .to_string_lossy, and guarantee valid UTF-8?...
+            //TODO?: sort entries for deterministic output
+            //TODO?: include full entry paths using entry.path() instead of entry.file_name()
+            for entry in dir_content{
+                let entry = match entry{
+                    Err(e) => return post_terminal_setup_error(&format!("{e}"), true, &mut terminal),
+                    Ok(entry) => entry
+                };
+                buf.insert_str(buf.len(), entry.file_name().to_string_lossy().as_ref());
+                if entry.path().is_dir(){
+                    buf.push('/');  //or platform specific separator...
+                }
+                buf.push('\n');
+            }
+            buf
         };
         //TODO: ensure buffer_text doesn't contain any \t(and maybe others) chars, because it messes up edit's display
         //these should be converted to TAB_WIDTH number of spaces
@@ -144,8 +187,6 @@ fn main() -> Result<(), String>{
 }
 
 fn run_app(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<(), String>{
-    //TODO: pass a default config to start app
-    //TODO: then update config from rc file. if an option is undefined in rc, it will already have a default value
     let config = edit::config::Config{
         user_options: std::collections::HashMap::new(),
         user_commands: std::collections::HashMap::new(),
@@ -158,9 +199,9 @@ fn run_app(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, termi
         show_cursor_line: true,
         keybinds: edit::keybind::default_keybinds()
     };
-    //let display_line_numbers_on_startup = edit::config::DISPLAY_LINE_NUMBERS_ON_STARTUP;
-    //let display_status_bar_on_startup = edit::config::DISPLAY_STATUS_BAR_ON_STARTUP;
-    match Application::new(config, /*display_line_numbers_on_startup, display_status_bar_on_startup, */buffer_text, file_path, read_only, terminal){
+    //TODO: pass a default config to start app
+    //TODO: then update config from rc file. if an option is undefined in rc, it will already have a default value
+    match Application::new(config, buffer_text, file_path, read_only, terminal){
         Ok(mut app) => {
             //TODO: could pass column_number and line_number here, after verifying they are valid positions...
             if let Err(e) = app.run(terminal){

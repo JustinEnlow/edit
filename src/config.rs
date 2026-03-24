@@ -36,6 +36,22 @@ use std::collections::HashMap;
     //maybe message display modes?...
     //maybe others...
 }
+impl Default for Config{
+    fn default() -> Self{
+        Self{
+            user_options: std::collections::HashMap::new(),
+            user_commands: std::collections::HashMap::new(),
+            semantics: CursorSemantics::Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false,
+            keybinds: crate::keybind::default_keybinds()
+        }
+    }
+}
 //display_line_numbers_on_startup can be passed to Application::new() separately, since it doesn't need to be stored
 //display_status_bar_on_startup can be passed to Application::new() separately, since it doesn't need to be stored
 

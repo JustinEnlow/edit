@@ -1,66 +1,89 @@
 edit aims to be a generic text editing component of a computing system, 
-that allows for composability with other programs to extend its abilities/usability.
+that allows for composability with other programs to extend its abilities.
 
 Currently, Edit is intended to be used inside a terminal that supports keyboard enhancement(tested with alacritty).
 if using a terminal without keyboard enhancement, you may have to rebind the default keybindings...
 
 Goal Features:
     File Server Interface (for asynchronous interaction)
-        //9p file system
-            // command file     //on write, edit performs commands
-            //%sh{ cat date > $buffer }      //write date to buffer file, which inserts date's output at every selection(replacing selection content if extended)
-            // write to /mnt/edit/id/buffer would insert/replace at/in place of the currently selected text for all selections
-            // write to /mnt/edit/id/selections/selection_num would insert/replace at/in place of the selected text for that selection only
-            // /mnt/edit/id/selections/leading/selection_num, /mnt/edit/id/selections/primary, /mnt/edit/id/selections/trailing/selection_num if using alternate selections impl
-            // selection_num files would only be served if that selection number exists
+        expose internal state as files on a virtual, non-persistent, mountable file system(FUSE? v9fs? other?), interacted with using 9p protocol
+                    //virtual file system
+                        // command file     //on write, edit performs commands
+                        //%sh{ cat date > $buffer }      //write date to buffer file, which inserts date's output at every selection(replacing selection content if extended)
+                        // write to /mnt/edit/id/buffer would insert/replace at/in place of the currently selected text for all selections
+                        // write to /mnt/edit/id/selections/selection_num would insert/replace at/in place of the selected text for that selection only
+                        // /mnt/edit/id/selections/leading/selection_num, /mnt/edit/id/selections/primary, /mnt/edit/id/selections/trailing/selection_num if using alternate selections impl
+                        // selection_num files would only be served if that selection number exists
         files served:     //just for consideration. not set on this yet
             /mnt/edit/
-            |-----hooks                           //write to add hooks, read to list hooks
-            |-----command                         //writeable file for asynchronous command input
-            |-----events                          //readable file containing hook events
-            |-----display/
-            |     |---layout                      //writeable file to assign widget layout
-            |     |---vertical/                   //layout widget
-            |         |---horizontal/             //layout widget
-            |         |   |---text/               //text widget
-            |         |   |   |---show            //indicates whether the widget should be displayed
-            |         |   |   |---content         //readable file containing text widget content(line numbers)
-            |         |   |   |---fg_color        //rgb(0,0,0)/black/0x000000/etc...
-            |         |   |   |---bg_color
-            |         |   |   |---style           //bold/italic/etc..
-            |         |   |   |---alignment       //how to align content(left/right/center)
-            |         |   |   |---padding         //the space assigned for widget display(space_around/min/max/length/percentage)
-            |         |   |---text/
-            |         |   |   |---content         //readable file containing text widget content(text buffer display text)
-            |         |   |   |---fg_color        //rgb(0,0,0)/black/0x000000/etc...
-            |         |   |   |---bg_color
-            |         |   |   |---style           //bold/italic/etc..
-            |         |   |---scroll_bar/
-            |         |       |---thumb/
-            |         |       |---track/
-            |         |---horizontal/             //layout widget     //status bar
-            |         |---horizontal/             //layout widget     //util bar
-            |-----buffer/
-            |     |---events
-            |     |---raw_text
-            |     |---highlights
-            |     |---virtual_text
-            |     |---folds
-            |     |---wrap
-            |     |---display                 //readable file containing the buffer text after all virtual_text/folds/wrapping has been applied
-            |-----selections/
-                  |---selections/
-                  |   |---content                 //readable file containing a newline separated string of all selection's contents
-                  |   |                           //writeable file. if selection extended, replaces selection content with written text
-                  |   |                           //if selection not extended, inserts written text at cursor location
-                  |   |---buffer_offset
-                  |---enumerated/
-                      |---0/
-                      |   |---content             //readable file containing selection 0's content
-                      |   |                       //writeable file. if selection extended, replaces selection content with written text
-                      |   |                       //if selection not extended, inserts written text at cursor location
-                      |   |---buffer_offset       //readable file containing selection 0's anchor/head/cursor (grapheme/char/byte?)offsets from buffer start
-                      |---1/
+                sessions/
+                    <session_id>/       //each edit instance will have unique session_id. $session_id could be set as an environment variable for use in shell command execution...
+                    |---command                         //write to execute commands, read to ...        //command file may be redundant if each directory has a way to modify it through the filesystem interface
+                    |---events                          //readable file containing editor events
+                    |---options/
+                    |   |---cursor_semantics
+                    |   |---use_hard_tab
+                    |   |---tab_width
+                    |   |---view_scroll_amount
+                    |---registers/
+                    |   |---add                         //write to add register
+                    |   |---del                         //write to delete register
+                    |   |---a/
+                    |   |   |---content                 //write to set content. read to get content
+                    |---display/
+                    |   |---add_widget                  //write to add widget //format to be determined...
+                    |   |---remove_widget               
+                    |   |---vertical/                   //layout widget
+                    |       |---horizontal/             //layout widget
+                    |       |   |---text/               //text widget
+                    |       |   |   |---show            //indicates whether the widget should be displayed
+                    |       |   |   |---content         //readable file containing text widget content(line numbers)
+                    |       |   |   |---fg_color        //rgb(0,0,0)/black/0x000000/etc...
+                    |       |   |   |---bg_color
+                    |       |   |   |---style           //bold/italic/etc..
+                    |       |   |   |---alignment       //how to align content(left/right/center)
+                    |       |   |   |---padding         //the space assigned for widget display(space_around/min/max/length/percentage)
+                    |       |   |---text/                 //maybe this should be a buffer specific widget?...
+                    |       |   |   |---content         //readable file containing text widget content(text buffer display text)
+                    |       |   |   |---fg_color        //rgb(0,0,0)/black/0x000000/etc...
+                    |       |   |   |---bg_color
+                    |       |   |   |---style           //bold/italic/etc..
+                    |       |   |---scroll_bar/
+                    |       |       |---thumb/
+                    |       |       |---track/
+                    |       |---horizontal/             //layout widget     //status bar
+                    |       |---horizontal/             //layout widget     //util bar
+                    |   |---stack/                      //container widget to allow for tabbing multiple other widgets. not sure if i will support this yet...
+                    |---buffer/
+                    |   |---raw_text
+                    |   |---highlights
+                    |   |---virtual_text              //write to add virtual_text at a specified offset
+                    |   |---folds
+                    |   |---wrap                      //maybe wrap belongs in options?...
+                    |   |---display                 //readable file containing the buffer text after all virtual_text/folds/wrapping has been applied
+                    |---selections/
+                        |---selections/
+                        |   |---range_addresses         //read for addresses of all selection ranges in form per selection: <line>:<column>,<line>:<column>\n  //with first being range start, and second being range end (in which coordinate system should this be?...)
+                        |---primary/
+                        |   |---content                 //readable file containing selection 0's content
+                        |   |                           //writeable file. if selection extended, replaces selection content with written text
+                        |   |                           //if selection not extended, inserts written text at cursor location
+                        |   |---range_address
+                        |---0/
+                        |   |---content             //readable file containing selection 0's content
+                        |   |                       //writeable file. if selection extended, replaces selection content with written text
+                        |   |                       //if selection not extended, inserts written text at cursor location
+                        |   |---range_address
+                        |---n/                      //any other enumerated selection
+
+        events:
+            Key                 //could be read by a key_handler program that would read/write served files(may have to have some mode handling as well...)     //maybe edit should serve a modes directory?...
+            Mouse               //could be read by a mouse_handler program that would read/write served files(may have to have some mode handling as well...)
+            InsertText          //maybe the underlying buffer/undo/redo/etc could be completely detached from the editor process, and read/write the served files to keep state synched...
+            RemoveText
+            Error               //could be read by an error_handler program that would add/remove widget to show errors(may have to have some mode handling as well...)
+            Execute //although, these may just be better off being handled in Key/Mouse events
+            Plumb   //although, these may just be better off being handled in Key/Mouse events
     Extensible Command Interface (for synchronous interaction)(executable from within the text buffer)
         //TODO: describe command language
         built-in commands:

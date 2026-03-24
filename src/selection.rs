@@ -121,33 +121,71 @@ impl Selection{
     }
 
     #[cfg(test)] pub fn debug_over_buffer_content(&self, buffer: &Buffer, semantics: CursorSemantics) -> String{
-        use unicode_segmentation::UnicodeSegmentation;
+        //use unicode_segmentation::UnicodeSegmentation;
 
+        #[cfg(test)] println!("buffer char count: {}", buffer.len_chars());
         let mut debug_string = String::new();
-        //for (i, char) in buffer./*inner.*/chars().enumerate(){
-        for (i, grapheme) in buffer.to_string().graphemes(true).enumerate(){
+        for (i, char) in buffer./*inner.*/chars().enumerate(){
+        //for (i, grapheme) in buffer.to_string().graphemes(true).enumerate(){
+            #[cfg(test)] println!("considering char: {:?}, at char index: {}", char, i);
             if self.anchor() == i{
                 debug_string.push('|');
+                #[cfg(test)] println!("added char: {}", '|');
             }
             if semantics == CursorSemantics::Block && (self.extension_direction == None || self.extension_direction == Some(Direction::Forward)){
                 if self.cursor(buffer, semantics.clone()) == i{
                     debug_string.push(':');
+                    #[cfg(test)] println!("added char: {}", ':');
                 }
             }
             if self.head() == i{
                 match self.extension_direction{
                     None | Some(Direction::Forward) => {
                         debug_string.push('>');
+                        #[cfg(test)] println!("added char: {}", '>');
                     }
                     Some(Direction::Backward) => {
                         debug_string.push('<');
+                        #[cfg(test)] println!("added char: {}", '<');
                     }
                 }
             }
-            //debug_string.push(char);
-            debug_string.push_str(grapheme);
+            debug_string.push(char);
+            #[cfg(test)] println!("added char: {:?}", char);
+            //debug_string.push_str(grapheme);
         }
+        // handle cursor past buffer end
+        if self.anchor() == buffer.len_chars(){
+            debug_string.push('|');
+            #[cfg(test)] println!("added char: {}", '|');
+        }
+        if self.head() == buffer.len_chars(){
+            debug_string.push('>');
+            #[cfg(test)] println!("added char: {}", '>');
+        }
+        if self.head() == buffer.len_chars().saturating_add(1){
+            debug_string.push(':');
+            #[cfg(test)] println!("added char: {}", ':');
+            debug_string.push(' ');
+            #[cfg(test)] println!("added char: {}", ' ');
+            debug_string.push('>');
+            #[cfg(test)] println!("added char: {}", '>');
+        }
+        //
         debug_string
+    }
+
+    //TODO
+    pub fn convert_semantics(&self, from: CursorSemantics) -> Selection{    //not intended for use in TUI
+        match from{
+            CursorSemantics::Bar => {}
+            CursorSemantics::Block => {
+                //no extension          //head and anchor = anchor
+                //extension forward     //anchor = anchor, head = head
+                //extension backward    //head = head, anchor = anchor
+            }
+        }
+        self.clone()
     }
 
     pub fn anchor(&self) -> usize{
@@ -1232,6 +1270,8 @@ fn get_matching_closing_bracket(char: char) -> char{    //TODO: this should prob
 }
 
 /// Returns a [`Vec`] of [`Selection`]s where the underlying text is a match for the `input` search string.
+//TODO: this, and related functions, should prob be made to work over just a string slice from a buffer.
+//caller should handle slicing according to selection, and this fn should be agnostic to selections...
 #[must_use] pub fn incremental_search_in_selection(
     selection: &Selection, 
     input: &str, 

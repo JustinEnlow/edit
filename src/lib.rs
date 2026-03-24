@@ -19,6 +19,7 @@ pub mod selection;
 pub mod selection2d;
 pub mod selections;
 pub mod display_area;
+//pub mod display_map;
 pub mod keybind;
 pub mod ui;
 pub mod config;

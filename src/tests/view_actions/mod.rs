@@ -24,8 +24,8 @@ pub fn test_view_action(
     config: Config,
     view_action: ViewAction,
     //semantics: CursorSemantics,
-    render_line_numbers: bool,
-    render_status_bar: bool,
+    _render_line_numbers: bool,
+    _render_status_bar: bool,
     //This may differ from buffer_display_area if line numbers or status bar are shown
     terminal_display_area: DisplayArea,
     starting_mode: Mode,
@@ -38,7 +38,7 @@ pub fn test_view_action(
     expected_buffer_display_area: DisplayArea,
 ){
     //set up app
-    match set_up_test_application(config.clone(), terminal_display_area.clone(), buffer_text, false, render_line_numbers, render_status_bar){
+    match set_up_test_application(config.clone(), terminal_display_area.clone(), buffer_text, false/*, render_line_numbers, render_status_bar*/){
         Ok(mut app) => {
             let selections = generate_selections(selections, primary, &app.buffer, config.semantics.clone());
             

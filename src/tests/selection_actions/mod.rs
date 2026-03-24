@@ -52,8 +52,8 @@ pub fn test_selection_action(
     config: Config,
     selection_action: SelectionAction,
     //semantics: CursorSemantics,
-    render_line_numbers: bool,
-    render_status_bar: bool,
+    _render_line_numbers: bool,
+    _render_status_bar: bool,
     terminal_display_area: DisplayArea,
     buffer_text: &str,
     //TODO: starting_expected_buffer_display_area: DisplayArea,
@@ -70,7 +70,7 @@ pub fn test_selection_action(
     //TODO: expected_buffer_display_area_text: &str,
 ){
     //set up app
-    match set_up_test_application(config.clone(), terminal_display_area, buffer_text, false, render_line_numbers, render_status_bar/* TODO: , starting_expected_buffer_display_area */){
+    match set_up_test_application(config.clone(), terminal_display_area, buffer_text, false/*, render_line_numbers, render_status_bar*//* TODO: , starting_expected_buffer_display_area */){
         Ok(mut app) => {
             let expected_selections = generate_selections(expected_selections, expected_primary, &app.buffer, config.semantics.clone()); 
             let selections = generate_selections(selections, primary, &app.buffer, config.semantics.clone());

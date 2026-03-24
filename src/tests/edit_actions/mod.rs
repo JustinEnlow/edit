@@ -30,8 +30,8 @@ pub fn test_edit_action(
     config: Config,
     edit_action: EditAction,
     //semantics: CursorSemantics,
-    render_line_numbers: bool,
-    render_status_bar: bool,
+    _render_line_numbers: bool,
+    _render_status_bar: bool,
     read_only: bool,
     terminal_display_area: DisplayArea,
     buffer_text: &str,
@@ -48,7 +48,7 @@ pub fn test_edit_action(
     expected_primary: usize,
     expected_clipboard: &str
 ){
-    match set_up_test_application(config.clone(), terminal_display_area, buffer_text, read_only, render_line_numbers, render_status_bar){
+    match set_up_test_application(config.clone(), terminal_display_area, buffer_text, read_only/*, render_line_numbers, render_status_bar*/){
         Ok(mut app) => {
             let selections = generate_selections(selections, primary, &app.buffer, config.semantics.clone());
             let expected_buffer = Buffer::new(expected_buffer_text, None, read_only);

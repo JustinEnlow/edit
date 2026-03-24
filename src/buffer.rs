@@ -10,6 +10,23 @@ use crate::{
 };
 //
 
+//TODO: index rope by utf8 bytes. set flag chunk_contains_multibyte_grapheme. if flag not set, we can save processing next_grapheme_byte_index and just += 1
+//selection range will index by utf8 bytes too...
+
+//TODO: use explicit index type in fns  //index = from start of buffer, offset = from start of line
+//struct IndexByteUtf8(usize)
+//struct IndexChar(usize);          //IndexCodePoint
+//struct IndexGrapheme(usize);
+//struct IndexLine(usize);
+//struct IndexDisplayLine(usize);   //0 based line for terminal cell
+//struct IndexDisplayCell(usize);   //0 based column for terminal cell
+//struct IndexTemporal(usize, TimeStamp)    //this would be like zed "Anchor"s. resolves to another index type for the current buffer state
+
+//struct Bytes
+//struct Chars
+//struct Graphemes
+//struct Lines
+
 /// Abstraction over a stringy data type, to allow for the underlying data type to be changed as desired
 // passing this structure as a reference has no added cost compared to passing inner as a reference. they are both just the architecture pointer size
 #[derive(Clone, Debug, PartialEq)]
@@ -56,8 +73,15 @@ impl Buffer{
     pub fn is_modified(&self) -> bool{
         match &self.file_path{
             Some(path) => {
-                let file_text = Rope::from(std::fs::read_to_string(path).unwrap());
-                self.inner != file_text
+                //let file_text = Rope::from(std::fs::read_to_string(path).unwrap());
+                //self.inner != file_text
+                if path.is_file(){
+                    let file_text = Rope::from(std::fs::read_to_string(path).unwrap());
+                    self.inner != file_text
+                }else{
+                    //maybe a better way to do this...
+                    false
+                }
             }
             None => {false} //is it reasonable to say that a buffer with no file_path is always considered unmodified?...   //we can always quit without a modified warning
         }
@@ -186,32 +210,41 @@ impl Buffer{
 
     //TODO: should this eventually be Option<usize>?, and not saturate at buffer end
     #[must_use] pub fn next_grapheme_char_index(&self, current_index: usize) -> usize{
-        let text = self.inner.slice(current_index..).to_string();
-        let mut grapheme_indices = text.grapheme_indices(true).skip(1);
-        let diff = match grapheme_indices.next(){
-            Some((byte_idx, _str)) => self.inner.byte_to_char(byte_idx),
+        //let text = self.inner.slice(current_index..).to_string();
+        //let mut grapheme_indices = text.grapheme_indices(true).skip(1);
+        //let diff = match grapheme_indices.next(){
+        //    Some((byte_idx, _str)) => self.inner.byte_to_char(byte_idx),
+        //    None => 1   //+1 to allow for the additional space after text end for new text insertion
+        //};
+        //current_index.saturating_add(diff).min(self.inner.len_chars().saturating_add(1))
+        let sub_string = self.inner.slice(current_index..).to_string();
+        let mut grapheme_indices = sub_string.grapheme_indices(true);
+        let _skip_first = grapheme_indices.next();  //because first would be our current grapheme, and we want the next
+        let char_diff = match grapheme_indices.next(){
+            Some((_byte_idx, str)) => str.chars().count(),
             None => 1   //+1 to allow for the additional space after text end for new text insertion
         };
-        current_index.saturating_add(diff).min(self.inner.len_chars().saturating_add(1))
+        let new_char_index = current_index.saturating_add(char_diff);
+        let max_chars = self.inner.len_chars().saturating_add(1);   //+1 to allow for the additional space after text end for new text insertion
+        usize::min(new_char_index, max_chars)
     }
     
     //TODO: should this eventually be Option<usize>?, and not saturate at buffer start
     #[must_use] pub fn previous_grapheme_char_index(&self, current_index: usize) -> usize{
         if current_index == self.len_chars().saturating_add(1){return current_index.saturating_sub(1);}
-        let text = self.inner.slice(..current_index).to_string();
-        let mut rev_grapheme_indices = text.grapheme_indices(true).rev();
-        match rev_grapheme_indices.next(){
-            Some((byte_idx, _str)) => self.inner.byte_to_char(byte_idx),
+        //let text = self.inner.slice(..current_index).to_string();
+        //let mut rev_grapheme_indices = text.grapheme_indices(true).rev();
+        //match rev_grapheme_indices.next(){
+        //    Some((byte_idx, _str)) => self.inner.byte_to_char(byte_idx),
+        //    None => 0
+        //}
+        let sub_string = self.inner.slice(..current_index).to_string();
+        let mut rev_grapheme_indices = sub_string.grapheme_indices(true).rev();
+        let char_diff = match rev_grapheme_indices.next(){
+            Some((_byte_idx, str)) => str.chars().count(),
             None => 0
-        }
-    }
-
-    fn is_word_char(char: char) -> bool{
-        char.is_alphabetic() || char.is_numeric()/* || char == '_'*/
-    }
-    
-    fn is_whitespace(char: char) -> bool{
-        char == ' ' || char == '\t' || char == '\n'
+        };
+        current_index.saturating_sub(char_diff)
     }
     
     /// Returns the index of the next word boundary
@@ -221,13 +254,13 @@ impl Buffer{
         let mut index = current_position;
     
         // Skip any leading whitespace
-        while index < self.len_chars() && Self::is_whitespace(self.inner.char(index)){
+        while index < self.len_chars() && is_whitespace(self.inner.char(index)){
             index = self.next_grapheme_char_index(index);
         }
     
         // Skip to end of word chars, if any
         let mut found_word_char = false;
-        while index < self.len_chars() && Self::is_word_char(self.inner.char(index)){
+        while index < self.len_chars() && is_word_char(self.inner.char(index)){
             index = self.next_grapheme_char_index(index);
             found_word_char = true;
         }
@@ -242,8 +275,8 @@ impl Buffer{
         //}
         if !found_word_char
         && index < self.len_chars()
-        && !Self::is_word_char(self.inner.char(index))
-        && !Self::is_whitespace(self.inner.char(index)){
+        && !is_word_char(self.inner.char(index))
+        && !is_whitespace(self.inner.char(index)){
             index = self.next_grapheme_char_index(index);
         }
     
@@ -261,13 +294,13 @@ impl Buffer{
         let mut index = current_position;
     
         // Skip any trailing whitespace
-        while index > 0 && Self::is_whitespace(self.inner.char(self.previous_grapheme_char_index(index))){
+        while index > 0 && is_whitespace(self.inner.char(self.previous_grapheme_char_index(index))){
             index = self.previous_grapheme_char_index(index);
         }
     
         // Skip to start of word chars, if any
         let mut found_word_char = false;
-        while index > 0 && Self::is_word_char(self.inner.char(self.previous_grapheme_char_index(index))){
+        while index > 0 && is_word_char(self.inner.char(self.previous_grapheme_char_index(index))){
             index = self.previous_grapheme_char_index(index);
             found_word_char = true;
         }
@@ -275,8 +308,8 @@ impl Buffer{
         // if no word chars, set index before next single non word char
         if !found_word_char{    //&& !found_whitespace
             if index > 0
-            && !Self::is_word_char(self.inner.char(self.previous_grapheme_char_index(index))) 
-            && !Self::is_whitespace(self.inner.char(self.previous_grapheme_char_index(index))){
+            && !is_word_char(self.inner.char(self.previous_grapheme_char_index(index))) 
+            && !is_whitespace(self.inner.char(self.previous_grapheme_char_index(index))){
                 index = self.previous_grapheme_char_index(index);
             }
         }
@@ -309,6 +342,7 @@ impl Buffer{
         )
     }
     // TODO: test. should test rope is edited correctly and selection is moved correctly, not necessarily the returned change. behavior, not impl
+    //TODO: string lengths need to use char count, not length in bytes
     pub fn apply_insert(
         &mut self, 
         string: &str, 
@@ -318,7 +352,8 @@ impl Buffer{
         let old_selection = selection.clone();
         //self.insert(selection.cursor(self, semantics.clone()), string);
         self.inner.insert(selection.cursor(self, semantics.clone()), string);
-        for _ in 0..string.len(){
+        //for _ in 0..string.len(){
+        for _ in 0..string.chars().count(){
             if let Ok(new_selection) = crate::selection::move_cursor_right(selection, 1, self, None, semantics.clone()){
                 *selection = new_selection;
             }
@@ -343,13 +378,20 @@ impl Buffer{
         let original_text = self.clone();
 
         let (start, end, new_cursor) = match selection.cursor(self, semantics.clone()).cmp(&selection.anchor()){
-            Ordering::Less => {(selection.head(), selection.anchor(), selection.cursor(self, semantics.clone()))}
+            Ordering::Less => {
+                (selection.head(), selection.anchor(), selection.cursor(self, semantics.clone()))
+            }
             Ordering::Greater => {
                 match semantics{
-                    CursorSemantics::Bar => {(selection.anchor(), selection.head(), selection.anchor())}
+                    CursorSemantics::Bar => {
+                        (selection.anchor(), selection.head(), selection.anchor())
+                    }
                     CursorSemantics::Block => {
-                        if selection.cursor(self, semantics.clone()) == self.len_chars(){(selection.anchor(), selection.cursor(self, semantics.clone()), selection.anchor())}
-                        else{(selection.anchor(), selection.head(), selection.anchor())}
+                        if selection.cursor(self, semantics.clone()) == self.len_chars(){
+                            (selection.anchor(), selection.cursor(self, semantics.clone()), selection.anchor())
+                        }else{
+                            (selection.anchor(), selection.head(), selection.anchor())
+                        }
                     }
                 }
             }
@@ -364,8 +406,12 @@ impl Buffer{
                 }
                 
                 match semantics.clone(){
-                    CursorSemantics::Bar => {(selection.head(), selection.head().saturating_add(1), selection.anchor())}
-                    CursorSemantics::Block => {(selection.anchor(), selection.head(), selection.anchor())}
+                    CursorSemantics::Bar => {
+                        (selection.head(), selection.head().saturating_add(1), selection.anchor())
+                    }
+                    CursorSemantics::Block => {
+                        (selection.anchor(), selection.head(), selection.anchor())
+                    }
                 }
             }
         };
@@ -386,11 +432,18 @@ impl Buffer{
         )
     }
 }
-
 impl std::fmt::Display for Buffer{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result{
         write!(f, "{}", self.inner)
     }
+}
+
+fn is_word_char(char: char) -> bool{
+    char.is_alphabetic() || char.is_numeric()/* || char == '_'*/
+}
+
+fn is_whitespace(char: char) -> bool{
+    char == ' ' || char == '\t' || char == '\n'
 }
 
 
@@ -400,5 +453,7 @@ mod tests{
     #[test] fn verify_unicode_width_behaves_as_expected(){
         assert_eq!(1, "a̐".width());
         assert_eq!(1, "\r\n".width());
+        //TODO: zero width grapheme
+        //TODO: wide grapheme
     }
 }

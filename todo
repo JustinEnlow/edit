@@ -22,6 +22,11 @@ bug fix:
     [ ] add selection above/below only copies the primary selection, not any other selections on the same line as primary
     [x] edit panics if evaluate command called at buffer end(with no text under cursor)
     [ ] backspace on tab(space expanded) no longer deleting previous tab_width spaces
+    [x] copy/paste '⏎' on new/empty line then undo deletes some content on previous line, and resultant selection is wrong
+    [x] copy/paste '⏎' to multiple new/empty lines, extend selections to encompass all '⏎'s, delete, then undo result in garbled text/selections
+        (seems to work with ascii text. maybe multibyte graphemes are the issue...)
+        (also seems to work with multibyte graphemes on a single line/with single selection)
+        (same behavior occurs with manual delete)
 
 
 other/maybe:

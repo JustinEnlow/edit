@@ -96,7 +96,8 @@ impl Application{
                         },
                         None, 
                         &buffer, 
-                        config.semantics.clone())
+                        config.semantics.clone()
+                    )
                 ], 
                 0, 
                 &buffer, 
@@ -135,13 +136,13 @@ impl Application{
         //eval commands from rc file
         #[cfg(not(test))]
         match std::fs::read_to_string("/home/j/software/edit_suite/edit/config"){
-            Err(e) => handle_message(self, DisplayMode::Error, &format!("{}", e)),
+            Err(e) => handle_message(self, DisplayMode::Error, &e.to_string()),
             Ok(content) => {
                 match parse_command(content){
-                    Err(e) => handle_message(self, DisplayMode::Error, &format!("{}", e)),
+                    Err(e) => handle_message(self, DisplayMode::Error, &e.to_string()),
                     Ok(parsed_commands) => {
                         if let Err(e) = execute_parsed_commands(self, parsed_commands){
-                            handle_message(self, DisplayMode::Error, &format!("{}", e))
+                            handle_message(self, DisplayMode::Error, &e.to_string())
                         }
                     }
                 }
@@ -952,22 +953,39 @@ impl Application{
                     EditorAction::Save => {
                         //possible modes are Insert and Command + any mode with fallthrough to insert
                         assert!(matches!(self.mode(), Mode::Insert | Mode::Command | Mode::Warning | Mode::Notify | Mode::Info));
-                        if self.buffer.file_path.is_none(){
-                            pop_to_insert(self);
-                            handle_message(self, DisplayMode::Error, "cannot save unnamed buffer");
-                        }
-                        else if self.buffer.read_only{
-                            pop_to_insert(self);
-                            handle_message(self, READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER);
-                        }
-                        else{
-                            match crate::utilities::save::application_impl(self){
-                                Ok(()) => {
-                                    pop_to_insert(self);
-                                    self.update_ui_data_document();
-                                }
-                                //this could maybe benefit from passing the io error up to this fn...
-                                Err(_) => {handle_message(self, FILE_SAVE_FAILED_DISPLAY_MODE, FILE_SAVE_FAILED);}
+                        //if self.buffer.file_path.is_none(){
+                        //    pop_to_insert(self);
+                        //    handle_message(self, DisplayMode::Error, "cannot save unnamed buffer");
+                        //}
+                        //else if self.buffer.read_only{
+                        //    pop_to_insert(self);
+                        //    handle_message(self, READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER);
+                        //}
+                        //else{
+                        //    match crate::utilities::save::application_impl(self){
+                        //        Ok(()) => {
+                        //            pop_to_insert(self);
+                        //            self.update_ui_data_document();
+                        //        }
+                        //        //this could maybe benefit from passing the io error up to this fn...
+                        //        Err(_) => {handle_message(self, FILE_SAVE_FAILED_DISPLAY_MODE, FILE_SAVE_FAILED);}
+                        //    }
+                        //}
+                        match crate::utilities::save::application_impl(self){
+                            Ok(()) => {
+                                pop_to_insert(self);
+                                self.update_ui_data_document();
+                            }
+                            Err(e) => {
+                                pop_to_insert(self);
+                                handle_message(self, 
+                                    match e.as_str(){
+                                        READ_ONLY_BUFFER => READ_ONLY_BUFFER_DISPLAY_MODE,
+                                        SAME_STATE => SAME_STATE_DISPLAY_MODE,
+                                        _ => DisplayMode::Error
+                                    }, 
+                                    &e
+                                );
                             }
                         }
                     }
@@ -1050,6 +1068,22 @@ impl Application{
                             handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, &error);
                         }
                     }
+                    // new
+                    EditorAction::EvaluateSelectionAsLookObject => {
+                        if self.mode() != Mode::Insert{pop_to_insert(self);}    //handle insert fallthrough
+                        //TODO: figure out best way to handle multiple selections...
+                        if self.selections.count() > 1{
+                            handle_application_error(self, ApplicationError::SelectionsError(SelectionsError::MultipleSelections));
+                        }else{
+                            //expand selection, if needed
+                            //try interpret as file
+                            //try search in document        //what if valid plumb message exists in multiple locations in same buf? this would just match it in a search
+                            //try plumb (for non file)      //but plumb can't happen first, because search candidates would prob match some plumb rule
+                            //warn/error if all else fails
+                            handle_message(self, DisplayMode::Error, "Look unimplemented");   
+                        }
+                    }
+                    //
                 }
             }
             Action::SelectionAction(selection_action, count) => {
@@ -2192,10 +2226,16 @@ fn execute_parsed_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> R
             }
         }
         //fn expand_register() -> Result<String, ()>{Err(())}
-        fn expand_shell(command_string: String) -> Result<String, String>{
+        fn expand_shell(command_string: String, app: &Application) -> Result<String, String>{
             //check content for $values, and set as environment variables
             let mut environment_variables = std::collections::HashMap::new();
-            environment_variables.insert("MY_VAR", "environment variable content");
+            //environment_variables.insert("MY_VAR", "environment variable content");
+            if command_string.contains("$EDIT_OPT_SHOW_LINE_NUMBERS"){  //env vars can also be lower case...
+                environment_variables.insert("EDIT_OPT_SHOW_LINE_NUMBERS", app.ui.document_viewport.line_number_widget.show.to_string());
+            }
+            if command_string.contains("$EDIT_OPT_SHOW_STATUS_BAR"){
+                environment_variables.insert("EDIT_OPT_SHOW_STATUS_BAR", app.ui.status_bar.show.to_string());
+            }
             
             let output = std::process::Command::new("sh"/*"bash"*/) //TODO: should this be calling the first arg in command string instead?...
                 .arg("-c")
@@ -2233,7 +2273,7 @@ fn execute_parsed_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> R
                 Err("register expansion unimplemented".to_string())
             }
             ExpansionType::Shell => {
-                expand_shell(word_content.to_string())
+                expand_shell(word_content.to_string(), app)
             }
             ExpansionType::Value => {
                 Err("value expansion unimplemented".to_string())
@@ -2743,6 +2783,10 @@ fn execute_parsed_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> R
                                     Ok(parsed_value) => {
                                         //TODO?: if app.mode() == Mode::Command{app.pop_to_insert()/*although, this fn is scoped within action()...*/}
                                         app.ui.document_viewport.line_number_widget.show = parsed_value;
+                                        //
+                                        app.update_layouts();
+                                        app.update_ui_data_document();
+                                        //
                                         handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
                                     }
                                 }
@@ -2753,6 +2797,10 @@ fn execute_parsed_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> R
                                     Ok(parsed_value) => {
                                         //TODO?: if app.mode() == Mode::Command{app.pop_to_insert()/*although, this fn is scoped within action()...*/}
                                         app.ui.status_bar.show = parsed_value;
+                                        //
+                                        app.update_layouts();
+                                        app.update_ui_data_document();
+                                        //
                                         handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
                                     }
                                 }
