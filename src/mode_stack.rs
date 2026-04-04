@@ -8,6 +8,9 @@ pub struct ModeStack{
     top_message: Option<String>,
 }
 impl ModeStack{
+    //TODO: we may need to store a(n) repeat/occurance value along with mode, because when a mode with same message as last is encountered, we currently
+    //just push it onto the mode stack, and if too many of these stack up, we overflow on pop (this logic may actually be in application instead of here...)
+    //ui may need to count repeats/occurances instead of just displaying mode_stack.len() for count of modes
     pub fn push(&mut self, new_top: Mode, new_top_message: Option<String>){
         self.stack.push(self.top.clone());
         self.message_stack.push(self.top_message.clone());

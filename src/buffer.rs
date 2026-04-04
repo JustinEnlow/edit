@@ -51,20 +51,20 @@ impl Buffer{
     }
 
     pub fn file_path(&self) -> Option<String>{
-        //match &self.file_path{
-        //    Some(path) => {Some(path.to_string_lossy().to_string())}
-        //    None => None
-        //}
-        self.file_path.as_ref().map(|path| path.to_string_lossy().to_string())
+        match &self.file_path{
+            Some(path) => {Some(path.to_string_lossy().to_string())}
+            None => None
+        }
+        //self.file_path.as_ref().map(|path| path.to_string_lossy().to_string())
     }
     pub fn file_name(&self) -> Option<String>{
         match &self.file_path{
             Some(path) => {
-                //match path.file_name(){
-                //    Some(file_name) => {Some(file_name.to_string_lossy().to_string())}
-                //    None => None
-                //}
-                path.file_name().map(|file_name| file_name.to_string_lossy().to_string())
+                match path.file_name(){
+                    Some(file_name) => {Some(file_name.to_string_lossy().to_string())}
+                    None => None
+                }
+                //path.file_name().map(|file_name| file_name.to_string_lossy().to_string())
             }
             None => None
         }

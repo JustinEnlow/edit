@@ -187,18 +187,19 @@ fn main() -> Result<(), String>{
 }
 
 fn run_app(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<(), String>{
-    let config = edit::config::Config{
-        user_options: std::collections::HashMap::new(),
-        user_commands: std::collections::HashMap::new(),
-        semantics: edit::selection::CursorSemantics::Block,
-        use_full_file_path: false,
-        use_hard_tab: false,
-        tab_width: 4,
-        view_scroll_amount: 1,
-        show_cursor_column: false,
-        show_cursor_line: true,
-        keybinds: edit::keybind::default_keybinds()
-    };
+    //let config = edit::config::Config{
+    //    user_options: std::collections::HashMap::new(),
+    //    user_commands: std::collections::HashMap::new(),
+    //    semantics: edit::selection::CursorSemantics::Block,
+    //    use_full_file_path: false,
+    //    use_hard_tab: false,
+    //    tab_width: 4,
+    //    view_scroll_amount: 1,
+    //    show_cursor_column: false,
+    //    show_cursor_line: true,
+    //    keybinds: edit::keybind::default_keybinds()
+    //};
+    let config = edit::config::Config::default();
     //TODO: pass a default config to start app
     //TODO: then update config from rc file. if an option is undefined in rc, it will already have a default value
     match Application::new(config, buffer_text, file_path, read_only, terminal){

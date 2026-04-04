@@ -1,3 +1,13 @@
+#TODO: rename this file to edit_start
+# new acme style for posix shell
+if ! echo "Hello, world" > /tmp/test; then
+    echo "Error: failed to write to file" >&2
+    exit 1
+fi
+#
+#TODO: remove the following...
+
+
 #set_option cursor_semantics Block      #Block | Bar
 #set_option use_full_file_path false    #true | false
 #set_option use_hard_tab false          #true | false   #indicates whether to use '\t' literal or spaces for indentation

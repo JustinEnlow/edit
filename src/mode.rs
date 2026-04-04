@@ -1,3 +1,4 @@
+//TODO: this my need to be ModeType, and make Mode{mode_type: ModeType, message: Option<String>, repeat/occurance: usize, etc...}
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum Mode{
     /// for editing text and moving/extending selections

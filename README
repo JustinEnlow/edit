@@ -177,3 +177,26 @@ to uninstall:
 for a tutorial:
     in the directory you cloned the repo to, run:
         edit --tutor
+
+
+
+
+
+
+
+
+
+//random ideas
+keybinds customizable at run time via file system interface and/or executable command
+    write command:  echo "right move_cursor_right" > /mnt/edit/<id>/keybinds/add
+    or shell:       echo "ctrl+g edit_mode_controller g" > /mnt/edit/<id>/keybinds/add
+                    echo "ctrl+g" > /mnt/edit/<id>/keybinds/del
+config is a list of commands to run at start up (example command: 9pfuse /tmp/edit/<id> ~/user_mount/edit/<id>)(mount edit instance's served file system)
+    or maybe is interpreted as a single command to run. would basically run whole config text through a subshell
+    populate environment variables list with relevant env vars
+widgets as external utilities reading from/writing to served file system
+
+differentiate between 
+    DisplayBuffer - the resultant buffer after inlays,wrapping,folding,etc have been applied
+    Buffer - the logical text to be operated on(rope)
+
