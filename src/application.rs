@@ -134,14 +134,13 @@ impl Application{
         //}
 
         //eval command from config file
-        //#[cfg(not(test))]
-        //match std::fs::read_to_string("/home/j/software/edit_suite/edit/config"){
+        //#[cfg(not(test))] match std::fs::read_to_string("/home/j/software/edit_suite/edit/config"){
         //    Err(e) => handle_message(self, DisplayMode::Error, &e.to_string()),
         //    Ok(content) => {
         //        match parse_command(content){
         //            Err(e) => handle_message(self, DisplayMode::Error, &e.to_string()),
         //            Ok(parsed_commands) => {
-        //                if let Err(e) = execute_parsed_commands(self, parsed_commands){
+        //                if let Err(e) = execute_parsed_command(self, parsed_commands){
         //                    handle_message(self, DisplayMode::Error, &e.to_string())
         //                }
         //            }
@@ -1042,7 +1041,7 @@ impl Application{
                             let parse_result = parse_command(self.selections.primary.to_string(&self.buffer));
                             if Result::is_ok(&parse_result){
                                 let commands = Result::unwrap(parse_result);
-                                let execute_result = execute_parsed_commands(self, commands);
+                                let execute_result = execute_parsed_command(self, commands);
                                 if Result::is_err(&execute_result){
                                     let error = Result::unwrap_err(execute_result);
                                     handle_message(self, DisplayMode::Error, &error);
@@ -1061,7 +1060,7 @@ impl Application{
                         let parse_result = parse_command(self.clipboard.clone());
                         if Result::is_ok(&parse_result){
                             let commands = Result::unwrap(parse_result);
-                            let execute_result = execute_parsed_commands(self, commands);
+                            let execute_result = execute_parsed_command(self, commands);
                             if Result::is_err(&execute_result){
                                 let error = Result::unwrap_err(execute_result);
                                 handle_message(self, DisplayMode::Error, &error);
@@ -1384,7 +1383,7 @@ impl Application{
                                 let parse_result = parse_command(self.ui.util_bar.utility_widget.text_box.buffer.to_string());
                                 if Result::is_ok(&parse_result){
                                     let commands = Result::unwrap(parse_result);
-                                    let execute_result = execute_parsed_commands(self, commands);
+                                    let execute_result = execute_parsed_command(self, commands);
                                     if Result::is_ok(&execute_result){
                                         //only checking command mode because parsed resultant fn may need to enter error/warning/notify/info mode, and user should see that
                                         if self.mode() == Mode::Command{pop_to_insert(self);}
@@ -1692,9 +1691,8 @@ fn handle_application_error(app: &mut Application, e: ApplicationError){    //->
 #[derive(PartialEq, Debug, Clone)] pub struct Word{content: String}
 //at the extreme, i think every action could end up being a command
 //in that sense, the editor is just a command parser, with command specific response behavior
-pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, String>{     //TODO: this should be able to return Result<Vec<Word>, String> now...
+pub fn parse_command(command_string: String) -> Result<Vec<Word>, String>{  //TODO: i think we should be able to skip "parsing" entirely...because currently we are losing potentially important '\t' and '\n' context
     if command_string.is_empty(){return Err(String::from("cannot parse empty string"));}
-    let mut commands = Vec::new();
     let mut command = Vec::new();
     let mut word = String::new();
     #[cfg(test)] println!("command string:\n{}\n", command_string);
@@ -1721,14 +1719,7 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, String>{ 
         #[cfg(test)] println!("word pushed to command: {:?}", word);
         command.push(Word{content: word});
     }
-    if !command.is_empty(){
-        #[cfg(test)] println!("command pushed to commands: {:?}", command);
-        commands.push(command);
-    }
-    if commands.is_empty(){return Err(String::from("failed to parse string as commands"));}
-    #[cfg(test)] println!("commands: {:?}", commands);
-    #[cfg(test)] println!("");
-    Ok(commands)    
+    Ok(command)
 }
 #[test]fn empty_command_string_should_error(){
     assert_eq!(Err(String::from("cannot parse empty string")), parse_command(String::from("")));
@@ -1737,14 +1728,8 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, String>{ 
     //idk
     assert_eq!(
         Ok(
-            vec![//commands
-                vec![//command
-                    //String::from("idk") //word
-                    Word{
-                        //word_type: WordType::Unquoted,
-                        content: String::from("idk")
-                    }
-                ]
+            vec![//command
+                Word{content: String::from("idk")}
             ]
         ), 
         parse_command(String::from("idk"))
@@ -1754,17 +1739,11 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, String>{ 
     //command --flag flag_item positional
     assert_eq!(
         Ok(
-            vec![//commands
-                vec![//command
-                    //String::from("command"),    //word
-                    Word{/*word_type: WordType::Unquoted, */content: String::from("command")},
-                    //String::from("--flag"),     //word
-                    Word{/*word_type: WordType::Unquoted, */content: String::from("--flag")},
-                    //String::from("flag_item"),  //word
-                    Word{/*word_type: WordType::Unquoted, */content: String::from("flag_item")},
-                    //String::from("positional")  //word
-                    Word{/*word_type: WordType::Unquoted, */content: String::from("positional")},
-                ]
+            vec![//command
+                Word{content: String::from("command")},
+                Word{content: String::from("--flag")},
+                Word{content: String::from("flag_item")},
+                Word{content: String::from("positional")},
             ]
         ), 
         parse_command(String::from("command --flag flag_item positional"))
@@ -1773,17 +1752,11 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, String>{ 
 #[test] fn multiple_unquoted_words_separated_by_tabs(){
     assert_eq!(
         Ok(
-            vec![//commands
-                vec![//command
-                    //String::from("this"),       //word
-                    Word{/*word_type: WordType::Unquoted, */content: String::from("this")},
-                    //String::from("command"),    //word
-                    Word{/*word_type: WordType::Unquoted, */content: String::from("command")},
-                    //String::from("contains"),   //word
-                    Word{/*word_type: WordType::Unquoted, */content: String::from("contains")},
-                    //String::from("tabs"),       //word
-                    Word{/*word_type: WordType::Unquoted, */content: String::from("tabs")}
-                ]
+            vec![//command
+                Word{content: String::from("this")},
+                Word{content: String::from("command")},
+                Word{content: String::from("contains")},
+                Word{content: String::from("tabs")}
             ]
         ),
         parse_command(String::from("this\tcommand\tcontains\ttabs"))
@@ -1792,36 +1765,18 @@ pub fn parse_command(command_string: String) -> Result<Vec<Vec<Word>>, String>{ 
 #[test] fn multiple_words_separated_by_newlines(){
     assert_eq!(
         Ok(
-            vec![//commands
-                vec![//command
-                    Word{content: String::from("this")},
-                    Word{content: String::from("command")},
-                    Word{content: String::from("contains")},
-                    Word{content: String::from("newlines")}
-                ]
+            vec![//command
+                Word{content: String::from("this")},
+                Word{content: String::from("command")},
+                Word{content: String::from("contains")},
+                Word{content: String::from("newlines")}
             ]
         ),
         parse_command(String::from("this\ncommand\ncontains\nnewlines"))
     )
 }
 
-fn execute_parsed_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> Result<(), String>{
-//    //thinking this should be useful to help with handling possible expansion on each command_words.next()
-//    fn resolve_potential_expansion(app: &Application, word: Word) -> Result<String, String>{
-//        match &word.word_type{
-//            WordType::Expansion(expansion_type) => {
-//                match expand(app, &word.content, expansion_type){
-//                    Ok(output) => Ok(output),
-//                    Err(error) => Err(error)
-//                }
-//            }
-//            _ => Ok(word.content)
-//        }
-//    }
-    fn resolve_potential_expansion(_app: &Application, word: Word) -> Result<String, String>{
-        Ok(word.content)
-    }
-
+fn execute_parsed_command(app: &mut Application, command: Vec<Word>) -> Result<(), String>{
     fn run_shell_command(app: &Application, stdin: Option<String>, command: String) -> Result<String, String>{
         let mut environment_variables = std::collections::HashMap::new();
         //environment_variables.insert("MY_VAR", "environment variable content");
@@ -1870,312 +1825,278 @@ fn execute_parsed_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> R
         }
     }
 
-    for command in commands{    //TODO: remove. execute no longer operates on list of commands
-        let mut command_words = command.into_iter();
-        let first = match command_words.next(){
-            None => return Err(String::from("no command to execute")),
-            Some(word) => {
-                match resolve_potential_expansion(app, word){
-                    Err(error) => return Err(error),
-                    Ok(first) => first
-                }
-            }
-        };
-        match first.as_str(){
-            //"echo" => {       //don't want to use "echo" because it would clash with existing echo program
-            "diagnostic" => {
-                //echo [diagnostic_mode] <message>
-                let mut display_mode = DisplayMode::Info;
-                let message = match command_words.next(){
-                    None => return Err(String::from("too few arguments: echo [diagnostic_mode] <message>")),
-                    Some(word) => {
-                        match resolve_potential_expansion(app, word){
-                            Err(error) => return Err(error),
-                            Ok(word_content) => {
-                                let mut process_next_word = true;
-                                match word_content.as_str(){
-                                    "--error" => display_mode = DisplayMode::Error,
-                                    "--warning" => display_mode = DisplayMode::Warning,
-                                    "--notify" => display_mode = DisplayMode::Notify,
-                                    "--info" => {/* already set to info mode */}
-                                    _ => {process_next_word = false;}
-                                }
-                                if process_next_word{
-                                    match command_words.next(){
-                                        None => return Err(String::from("too few arguments: echo [diagnostic_mode] <message>")),
-                                        Some(word) => {
-                                            match resolve_potential_expansion(app, word){
-                                                Err(error) => return Err(error),
-                                                Ok(message) => message
-                                            }
-                                        }
-                                    }
-                                }else{word_content}
-                            }
+    let mut command_words = command.into_iter();
+    let first = match command_words.next(){
+        None => return Err(String::from("no command to execute")),
+        Some(word) => word.content
+    };
+    match first.as_str(){
+        //"echo" => {       //don't want to use "echo" because it would clash with existing echo program
+        "diagnostic" => {
+            //diagnostic [diagnostic_mode] <message>
+            let mut display_mode = DisplayMode::Info;
+            let message = match command_words.next(){
+                None => return Err(String::from("too few arguments: diagnostic [diagnostic_mode] <message>")),
+                Some(word) => {
+                    let word_content = word.content;
+                    let mut process_next_word = true;
+                    match word_content.as_str(){
+                        "--error" => display_mode = DisplayMode::Error,
+                        "--warning" => display_mode = DisplayMode::Warning,
+                        "--notify" => display_mode = DisplayMode::Notify,
+                        "--info" => {/* already set to info mode */}
+                        _ => {process_next_word = false;}
+                    }
+                    if process_next_word{
+                        match command_words.next(){
+                            None => return Err(String::from("too few arguments: diagnostic [diagnostic_mode] <message>")),
+                            Some(word) => word.content
                         }
-                    }
-                };
-                match command_words.next(){
-                    Some(_) => return Err(String::from("too many arguments: echo [diagnostic_mode] <message>")),
-                    None => {
-                        handle_message(app, display_mode.clone(), &message);
-                    }
+                    }else{word_content}
+                }
+            };
+            match command_words.next(){
+                Some(_) => return Err(String::from("too many arguments: diagnostic [diagnostic_mode] <message>")),
+                None => {
+                    handle_message(app, display_mode.clone(), &message);
                 }
             }
+        }
+
+        //"term" | "t" => app.action(Action::EditorAction(EditorAction::OpenNewTerminalWindow)),
+
+        //can currently just: set_option show_line_numbers true|false
+        "toggle_line_numbers" | "ln" => app.action(Action::EditorAction(EditorAction::ToggleLineNumbers)),  //these will prob end up using set-option command...
+
+        //can currently just: set_option show_status_bar true|false
+        "toggle_status_bar" | "sb" => app.action(Action::EditorAction(EditorAction::ToggleStatusBar)),      //these will prob end up using set-option command...
             
-            //TODO: replace with user command: add_command term 'no_op %sh{nohup alacritty >/dev/null 2>&1 &}' 'opens a new alacritty window'
-            //"term" | "t" => app.action(Action::EditorAction(EditorAction::OpenNewTerminalWindow)),
+        "quit" | "q" => app.action(Action::EditorAction(EditorAction::Quit)),
+        "quit!" | "q!" => app.action(Action::EditorAction(EditorAction::QuitIgnoringChanges)),
+        //write buffer contents to file //should this optionally take a filepath to save to? then we don't need to implement save as    //would have to split util bar text on ' ' into separate args
+        "write" | "w" => app.action(Action::EditorAction(EditorAction::Save)),
 
-            //TODO: replace with user command: add_command toggle_line_numbers %sh{#some logic} 'toggles the display of line numbers'
-            //can currently just: set_option show_line_numbers true|false
-            "toggle_line_numbers" | "ln" => app.action(Action::EditorAction(EditorAction::ToggleLineNumbers)),  //these will prob end up using set-option command...
-
-            //TODO: replace with user command: add_command toggle_status_bar %sh{#some logic} 'toggles the display of the status bar'
-            //can currently just: set_option show_status_bar true|false
-            "toggle_status_bar" | "sb" => app.action(Action::EditorAction(EditorAction::ToggleStatusBar)),      //these will prob end up using set-option command...
-            
-            "quit" | "q" => app.action(Action::EditorAction(EditorAction::Quit)),
-            "quit!" | "q!" => app.action(Action::EditorAction(EditorAction::QuitIgnoringChanges)),
-            //write buffer contents to file //should this optionally take a filepath to save to? then we don't need to implement save as    //would have to split util bar text on ' ' into separate args
-            "write" | "w" => app.action(Action::EditorAction(EditorAction::Save)),
-            "search" => {
-                //search <regex>
-                let regex = match command_words.next(){
-                    None => return Err(String::from("too few args: search <regex>")),
-                    Some(word) => {
-                        match resolve_potential_expansion(app, word){
-                            Err(error) => return Err(error),
-                            Ok(regex) => regex
-                        }
-                    }
-                };
-                match command_words.next(){
-                    Some(_) => return Err(String::from("too many args: search <regex>")),
-                    None => {
-                        //match crate::utilities::incremental_search_in_selection::selections_impl(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
-                        match selections::incremental_search_in_selection(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
-                            Err(_) => return Err(String::from("no matching regex")),
-                            Ok(new_selections) => {
-                                app.selections = new_selections;
-                                app.checked_scroll_and_update(
-                                    &app.selections.primary.clone(), 
-                                    Application::update_ui_data_document, 
-                                    Application::update_ui_data_selections
-                                );
-                            }
+        //"search" => {}    //search whole buffer
+        "search_selection" => {
+            //search <regex>
+            let regex = match command_words.next(){
+                None => return Err(String::from("too few args: search <regex>")),
+                Some(word) => word.content
+            };
+            match command_words.next(){
+                Some(_) => return Err(String::from("too many args: search <regex>")),
+                None => {
+                    //match crate::utilities::incremental_search_in_selection::selections_impl(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
+                    match selections::incremental_search_in_selection(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
+                        Err(_) => return Err(String::from("no matching regex")),
+                        Ok(new_selections) => {
+                            app.selections = new_selections;
+                            app.checked_scroll_and_update(
+                                &app.selections.primary.clone(), 
+                                Application::update_ui_data_document, 
+                                Application::update_ui_data_selections
+                            );
                         }
                     }
                 }
             }
-            "split" => {    //we may need to take certain regexes in quotes. i would assume the same applies to search
-                //split <regex>
-                let regex = match command_words.next(){
-                    None => return Err(String::from("too few args: split <regex>")),
-                    Some(word) => {
-                        match resolve_potential_expansion(app, word){
-                            Err(error) => return Err(error),
-                            Ok(regex) => regex
-                        }
-                    }
-                };
-                match command_words.next(){
-                    Some(_) => return Err(String::from("too many args: split <regex>")),
-                    None => {
-                        //match crate::utilities::incremental_split_in_selection::selections_impl(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
-                        match selections::incremental_split_in_selection(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
-                            Err(_) => return Err(String::from("no matching regex")),
-                            Ok(new_selections) => {
-                                app.selections = new_selections;
-                                app.checked_scroll_and_update(
-                                    &app.selections.primary.clone(), 
-                                    Application::update_ui_data_document, 
-                                    Application::update_ui_data_selections
-                                );
-                            }
+        }
+        //"split" => {} //split whole buffer
+        "split_selection" => {  //we may need to take certain regexes in quotes. i would assume the same applies to search
+            //split <regex>
+            let regex = match command_words.next(){
+                None => return Err(String::from("too few args: split <regex>")),
+                Some(word) => word.content
+            };
+            match command_words.next(){
+                Some(_) => return Err(String::from("too many args: split <regex>")),
+                None => {
+                    //match crate::utilities::incremental_split_in_selection::selections_impl(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
+                    match selections::incremental_split_in_selection(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
+                        Err(_) => return Err(String::from("no matching regex")),
+                        Ok(new_selections) => {
+                            app.selections = new_selections;
+                            app.checked_scroll_and_update(
+                                &app.selections.primary.clone(), 
+                                Application::update_ui_data_document, 
+                                Application::update_ui_data_selections
+                            );
                         }
                     }
                 }
             }
+        }
                 
-            //add_keybind <mode> <keybind> <command>
-            //"add_keybind" => {
-            //    let mode = Mode::Insert;    //get mode from positional args
-            //    let keycode = crossterm::event::KeyCode::Char('n'); //get mode from positional args
-            //    let modifiers = crossterm::event::KeyModifiers::CONTROL;    //get mode from positional args
-            //    let key_event = crossterm::event::KeyEvent::new(keycode, modifiers);
-            //    let _command = "idk some shit".to_string();  //get mode from positional args
-            //    if app.config.keybinds.contains_key(&(mode, key_event)){
-            //        return Err(String::from("this keybind has already been mapped"))
-            //    }else{
-            //        //app.config.keybinds.insert((mode, key_event), Action::EditorAction(EditorAction::EvalCommand(command)));
-            //        handle_message(app, DisplayMode::Info, "keybind added");
-            //    }
-            //}
-            //remove_keybind <keybind>
+        //add_keybind <mode> <keybind> <command>
+        //"add_keybind" => {
+        //    let mode = Mode::Insert;    //get mode from positional args
+        //    let keycode = crossterm::event::KeyCode::Char('n'); //get mode from positional args
+        //    let modifiers = crossterm::event::KeyModifiers::CONTROL;    //get mode from positional args
+        //    let key_event = crossterm::event::KeyEvent::new(keycode, modifiers);
+        //    let _command = "idk some shit".to_string();  //get mode from positional args
+        //    if app.config.keybinds.contains_key(&(mode, key_event)){
+        //        return Err(String::from("this keybind has already been mapped"))
+        //    }else{
+        //        //app.config.keybinds.insert((mode, key_event), Action::EditorAction(EditorAction::EvalCommand(command)));
+        //        handle_message(app, DisplayMode::Info, "keybind added");
+        //    }
+        //}
+        //remove_keybind <keybind>
 
-            //TODO: maybe change to "set"
-            "set_option" => {
-                //set_option <name> <value>
-                let name = match command_words.next(){
-                    None => return Err(String::from("too few args: set_option <name> <value>")),
-                    Some(word) => {
-                        match resolve_potential_expansion(app, word){
-                            Err(error) => return Err(error),
-                            Ok(name) => name
+        //this will eventually be echo -n <value> > /mnt/edit/<instance_id>/settings/<setting>, when filesystem interface impled
+        //TODO: maybe change to "set"
+        //"set_option" => {
+        "set" => {
+            //set_option <name> <value>
+            let name = match command_words.next(){
+                None => return Err(String::from("too few args: set_option <name> <value>")),
+                Some(word) => word.content
+            };
+            let value = match command_words.next(){
+                None => return Err(String::from("too few args: set_option <name> <value>")),
+                Some(word) => word.content
+            };
+            match command_words.next(){
+                Some(_) => return Err(String::from("too many args: set_option <name> <value>")),
+                None => {
+                    match name.as_ref(){
+                        //NOTE: may not allow setting cursor semantics for TUI, because terminal cannot currently handle multicursor bar cursor display...
+                        "cursor_semantics" => { //TODO: maybe return error results in same state if already set to provided value. maybe do that for all options...
+                            match value.as_str(){
+                                "Bar" | "bar" => {
+                                    if app.config.semantics == CursorSemantics::Bar{handle_message(app, SAME_STATE_DISPLAY_MODE, SAME_STATE);}
+                                    else{
+                                        app.config.semantics = CursorSemantics::Bar;
+                                        //TODO: change selections from Block to Bar
+                                        handle_message(app, DisplayMode::Notify, &format!("cursor_semantics set to {}", value));
+                                    }
+                                }
+                                "Block" | "block" => {
+                                    if app.config.semantics == CursorSemantics::Block{handle_message(app, SAME_STATE_DISPLAY_MODE, SAME_STATE);}
+                                    else{
+                                        app.config.semantics = CursorSemantics::Block;
+                                        //TODO: change selections from Bar to Block
+                                        handle_message(app, DisplayMode::Notify, &format!("cursor_semantics set to {}", value));
+                                    }
+                                }
+                                _ => return Err(format!("{} is not a valid value for cursor_semantics", value))
+                            }
                         }
-                    }
-                };
-                let value = match command_words.next(){
-                    None => return Err(String::from("too few args: set_option <name> <value>")),
-                    Some(word) => {
-                        match resolve_potential_expansion(app, word){
-                            Err(error) => return Err(error),
-                            Ok(value) => value
+                        "use_full_file_path" => {
+                            match value.parse::<bool>(){
+                                Err(error) => return Err(format!("{}", error)),
+                                Ok(parsed_value) => {
+                                    app.config.use_full_file_path = parsed_value;
+                                    if app.config.use_full_file_path{
+                                        app.ui.status_bar.file_name_widget.text = app.buffer.file_path().unwrap_or_default();
+                                    }else{
+                                        app.ui.status_bar.file_name_widget.text = app.buffer.file_name().unwrap_or_default();
+                                    }
+                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
+                                }
+                            }
                         }
-                    }
-                };
-                match command_words.next(){
-                    Some(_) => return Err(String::from("too many args: set_option <name> <value>")),
-                    None => {
-                        match name.as_ref(){
-                            //NOTE: may not allow setting cursor semantics for TUI, because terminal cannot currently handle multicursor bar cursor display...
-                            "cursor_semantics" => { //TODO: maybe return error results in same state if already set to provided value. maybe do that for all options...
-                                match value.as_str(){
-                                    "Bar" | "bar" => {
-                                        if app.config.semantics == CursorSemantics::Bar{handle_message(app, SAME_STATE_DISPLAY_MODE, SAME_STATE);}
-                                        else{
-                                            app.config.semantics = CursorSemantics::Bar;
-                                            //TODO: change selections from Block to Bar
-                                            handle_message(app, DisplayMode::Notify, &format!("cursor_semantics set to {}", value));
-                                        }
-                                    }
-                                    "Block" | "block" => {
-                                        if app.config.semantics == CursorSemantics::Block{handle_message(app, SAME_STATE_DISPLAY_MODE, SAME_STATE);}
-                                        else{
-                                            app.config.semantics = CursorSemantics::Block;
-                                            //TODO: change selections from Bar to Block
-                                            handle_message(app, DisplayMode::Notify, &format!("cursor_semantics set to {}", value));
-                                        }
-                                    }
-                                    _ => return Err(format!("{} is not a valid value for cursor_semantics", value))
+                        "use_hard_tab" => {
+                            match value.parse::<bool>(){
+                                Err(error) => return Err(format!("{}", error)),
+                                Ok(parsed_value) => {
+                                    app.config.use_hard_tab = parsed_value;
+                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
                                 }
                             }
-                            "use_full_file_path" => {
-                                match value.parse::<bool>(){
-                                    Err(error) => return Err(format!("{}", error)),
-                                    Ok(parsed_value) => {
-                                        app.config.use_full_file_path = parsed_value;
-                                        if app.config.use_full_file_path{
-                                            app.ui.status_bar.file_name_widget.text = app.buffer.file_path().unwrap_or_default();
-                                        }else{
-                                            app.ui.status_bar.file_name_widget.text = app.buffer.file_name().unwrap_or_default();
-                                        }
-                                        handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
-                                    }
+                        }
+                        "tab_width" => {
+                            match value.parse::<usize>(){
+                                Err(error) => return Err(format!("{}", error)),
+                                Ok(parsed_value) => {
+                                    app.config.tab_width = parsed_value;
+                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
                                 }
                             }
-                            "use_hard_tab" => {
-                                match value.parse::<bool>(){
-                                    Err(error) => return Err(format!("{}", error)),
-                                    Ok(parsed_value) => {
-                                        app.config.use_hard_tab = parsed_value;
-                                        handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
-                                    }
+                        }
+                        "view_scroll_amount" => {
+                            match value.parse::<usize>(){
+                                Err(error) => return Err(format!("{}", error)),
+                                Ok(parsed_value) => {
+                                    app.config.view_scroll_amount = parsed_value;
+                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
                                 }
                             }
-                            "tab_width" => {
-                                match value.parse::<usize>(){
-                                    Err(error) => return Err(format!("{}", error)),
-                                    Ok(parsed_value) => {
-                                        app.config.tab_width = parsed_value;
-                                        handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
-                                    }
+                        }
+                        "show_cursor_column" => {
+                            match value.parse::<bool>(){
+                                Err(error) => return Err(format!("{}", error)),
+                                Ok(parsed_value) => {
+                                    app.config.show_cursor_column = parsed_value;
+                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
                                 }
                             }
-                            "view_scroll_amount" => {
-                                match value.parse::<usize>(){
-                                    Err(error) => return Err(format!("{}", error)),
-                                    Ok(parsed_value) => {
-                                        app.config.view_scroll_amount = parsed_value;
-                                        handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
-                                    }
+                        }
+                        "show_cursor_line" => {
+                            match value.parse::<bool>(){
+                                Err(error) => return Err(format!("{}", error)),
+                                Ok(parsed_value) => {
+                                    app.config.show_cursor_line = parsed_value;
+                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
                                 }
                             }
-                            "show_cursor_column" => {
-                                match value.parse::<bool>(){
-                                    Err(error) => return Err(format!("{}", error)),
-                                    Ok(parsed_value) => {
-                                        app.config.show_cursor_column = parsed_value;
-                                        handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
-                                    }
+                        }
+                        "show_line_numbers" => {
+                            match value.parse::<bool>(){
+                                Err(error) => return Err(format!("{}", error)),
+                                Ok(parsed_value) => {
+                                    //TODO?: if app.mode() == Mode::Command{app.pop_to_insert()/*although, this fn is scoped within action()...*/}
+                                    app.ui.document_viewport.line_number_widget.show = parsed_value;
+                                    //
+                                    app.update_layouts();
+                                    app.update_ui_data_document();
+                                    //
+                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
                                 }
                             }
-                            "show_cursor_line" => {
-                                match value.parse::<bool>(){
-                                    Err(error) => return Err(format!("{}", error)),
-                                    Ok(parsed_value) => {
-                                        app.config.show_cursor_line = parsed_value;
-                                        handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
-                                    }
+                        }
+                        "show_status_bar" => {
+                            match value.parse::<bool>(){
+                                Err(error) => return Err(format!("{}", error)),
+                                Ok(parsed_value) => {
+                                    //TODO?: if app.mode() == Mode::Command{app.pop_to_insert()/*although, this fn is scoped within action()...*/}
+                                    app.ui.status_bar.show = parsed_value;
+                                    //
+                                    app.update_layouts();
+                                    app.update_ui_data_document();
+                                    //
+                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
                                 }
                             }
-                            "show_line_numbers" => {
-                                match value.parse::<bool>(){
-                                    Err(error) => return Err(format!("{}", error)),
-                                    Ok(parsed_value) => {
-                                        //TODO?: if app.mode() == Mode::Command{app.pop_to_insert()/*although, this fn is scoped within action()...*/}
-                                        app.ui.document_viewport.line_number_widget.show = parsed_value;
-                                        //
-                                        app.update_layouts();
-                                        app.update_ui_data_document();
-                                        //
-                                        handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
-                                    }
-                                }
-                            }
-                            "show_status_bar" => {
-                                match value.parse::<bool>(){
-                                    Err(error) => return Err(format!("{}", error)),
-                                    Ok(parsed_value) => {
-                                        //TODO?: if app.mode() == Mode::Command{app.pop_to_insert()/*although, this fn is scoped within action()...*/}
-                                        app.ui.status_bar.show = parsed_value;
-                                        //
-                                        app.update_layouts();
-                                        app.update_ui_data_document();
-                                        //
-                                        handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
-                                    }
-                                }
-                            }
-                            _ => {
-                                match app.config.user_options.get(&name){
-                                    None => return Err(format!("user options does not contain {}", &name)),
-                                    Some(option_type) => {
-                                        match option_type{
-                                            OptionType::Bool(_) => {
-                                                let maybe_parsed_value: Result<bool, std::str::ParseBoolError> = value.parse();
-                                                match maybe_parsed_value{
-                                                    Ok(parsed_value) => {
-                                                        app.config.user_options.insert(name.clone(), OptionType::Bool(parsed_value));
-                                                        handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
-                                                    }
-                                                    Err(error) => return Err(format!("{}", error))
+                        }
+                        _ => {
+                            match app.config.user_options.get(&name){
+                                None => return Err(format!("user options does not contain {:?}", &name)),
+                                Some(option_type) => {
+                                    match option_type{
+                                        OptionType::Bool(_) => {
+                                            let maybe_parsed_value: Result<bool, std::str::ParseBoolError> = value.parse();
+                                            match maybe_parsed_value{
+                                                Ok(parsed_value) => {
+                                                    app.config.user_options.insert(name.clone(), OptionType::Bool(parsed_value));
+                                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
                                                 }
+                                                Err(error) => return Err(format!("{}", error))
                                             }
-                                            OptionType::U8(_) => {
-                                                let maybe_parsed_value: Result<u8, std::num::ParseIntError> = value.parse();//word.content.parse();
-                                                match maybe_parsed_value{
-                                                    Ok(parsed_value) => {
-                                                        app.config.user_options.insert(name.clone(), OptionType::U8(parsed_value));
-                                                        handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
-                                                    }
-                                                    Err(error) => return Err(format!("{}", error))
+                                        }
+                                        OptionType::U8(_) => {
+                                            let maybe_parsed_value: Result<u8, std::num::ParseIntError> = value.parse();//word.content.parse();
+                                            match maybe_parsed_value{
+                                                Ok(parsed_value) => {
+                                                    app.config.user_options.insert(name.clone(), OptionType::U8(parsed_value));
+                                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
                                                 }
+                                                Err(error) => return Err(format!("{}", error))
                                             }
-                                            OptionType::String(_) => {
-                                                app.config.user_options.insert(name.clone(), OptionType::String(value.clone()));
-                                                handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, value));
-                                            }
+                                        }
+                                        OptionType::String(_) => {
+                                            app.config.user_options.insert(name.clone(), OptionType::String(value.clone()));
+                                            handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, value));
                                         }
                                     }
                                 }
@@ -2184,102 +2105,101 @@ fn execute_parsed_commands(app: &mut Application, commands: Vec<Vec<Word>>) -> R
                     }
                 }
             }
-            "|" => {
-                //TODO: actually, the way we parse commands into words is bad, because we lose '\t and '\n' when we recombine...
-                //which could be important for shell script meaning?...
-                //maybe just don't parse the string, and instead do .starts_with() or split on whitespace
-                let command = {
-                    let mut command = String::new();
-                    for word in command_words{
-                        command.push(' ');  //i think this is needed to separate words again...
-                        command.push_str(&word.content);
+        }
+        "|" => {
+            //TODO: actually, the way we parse commands into words is bad, because we lose '\t and '\n' when we recombine...
+            //which could be important for shell script meaning?...
+            //maybe just don't parse the string, and instead do .starts_with() or split on whitespace
+            let command = {
+                let mut command = String::new();
+                for word in command_words{
+                    command.push(' ');  //i think this is needed to separate words again...
+                    command.push_str(&word.content);
+                }
+                command
+            };
+            let stdin = if app.selections.primary.to_string(&app.buffer).is_empty(){
+                None
+            }else{
+                Some(app.selections.primary.to_string(&app.buffer))
+            };
+            match run_shell_command(app, stdin, command){
+                Err(error) => {
+                    if error.is_empty(){
+                        handle_message(app, DisplayMode::Error, "shell command failed with empty error string");
+                    }else{
+                        handle_message(app, DisplayMode::Error, &format!("{error}"));
                     }
-                    command
-                };
-                let stdin = if app.selections.primary.to_string(&app.buffer).is_empty(){
-                    None
-                }else{
-                    Some(app.selections.primary.to_string(&app.buffer))
-                };
-                match run_shell_command(app, stdin, command){
-                    Err(error) => {
-                        if error.is_empty(){
-                            handle_message(app, DisplayMode::Error, "shell command failed with empty error string");
-                        }else{
-                            handle_message(app, DisplayMode::Error, &format!("{error}"));
-                        }
-                    }
-                    Ok(output) => {
-                        if output.is_empty(){
-                            handle_message(app, DisplayMode::Warning, "shell command succeeded with empty output string");
-                        }else{
-                            //TODO: this works, but i would like to replace selections in one go...
-                            for char in output.trim().chars(){
-                                app.action(Action::EditAction(EditAction::InsertChar(char)));
-                            }
+                }
+                Ok(output) => {
+                    if output.is_empty(){
+                        //TODO: maybe just do the normal replace, which would replace the selection with ""
+                        handle_message(app, DisplayMode::Warning, "shell command succeeded with empty output string");
+                    }else{
+                        //TODO: this works, but i would like to replace selections in one go...
+                        for char in output.trim().chars(){
+                            app.action(Action::EditAction(EditAction::InsertChar(char)));
                         }
                     }
                 }
             }
-            ">" => {return Err(String::from("> not yet supported"));}
-            "<" => {
-                let command = {
-                    let mut command = String::new();
-                    for word in command_words{
-                        command.push(' ');  //i think this is needed to separate words again...
-                        command.push_str(&word.content);
+        }
+        ">" => {return Err(String::from("> not yet supported"));}
+        "<" => {
+            let command = {
+                let mut command = String::new();
+                for word in command_words{
+                    command.push(' ');  //i think this is needed to separate words again...
+                    command.push_str(&word.content);
+                }
+                command
+            };
+            match run_shell_command(app, None, command){
+                Err(error) => {
+                    if error.is_empty(){
+                        handle_message(app, DisplayMode::Error, "shell command failed with empty error string");
+                    }else{
+                        handle_message(app, DisplayMode::Error, &format!("{error}"));
                     }
-                    command
-                };
-                match run_shell_command(app, None, command){
-                    Err(error) => {
-                        if error.is_empty(){
-                            handle_message(app, DisplayMode::Error, "shell command failed with empty error string");
-                        }else{
-                            handle_message(app, DisplayMode::Error, &format!("{error}"));
-                        }
-                    }
-                    Ok(output) => {
-                        if output.is_empty(){
-                            handle_message(app, DisplayMode::Warning, "shell command succeeded with empty output string");
-                        }else{
-                            //TODO: this works, but i would like to replace selections in one go...
-                            for char in output.trim().chars(){
-                                app.action(Action::EditAction(EditAction::InsertChar(char)));
-                            }
+                }
+                Ok(output) => {
+                    if output.is_empty(){
+                        handle_message(app, DisplayMode::Warning, "shell command succeeded with empty output string");
+                    }else{
+                        //TODO: this works, but i would like to replace selections in one go...
+                        for char in output.trim().chars(){
+                            app.action(Action::EditAction(EditAction::InsertChar(char)));
                         }
                     }
                 }
-                //return Err(String::from("< not yet supported"));
             }
-            "!" => {return Err(String::from("! not yet supported"));}
-            _ => {
-                //run anything else as shell command
-                let command = {
-                    let mut command = String::new();
-                    command.push_str(&first);
-                    for word in command_words{
-                        command.push(' ');  //i think this is needed to separate words again...
-                        command.push_str(&word.content);
+        }
+        "!" => {return Err(String::from("! not yet supported"));}
+        _ => {
+            //run anything else as shell command
+            let command = {
+                let mut command = String::new();
+                command.push_str(&first);
+                for word in command_words{
+                    command.push(' ');  //i think this is needed to separate words again...
+                    command.push_str(&word.content);
+                }
+                command
+            };
+            match run_shell_command(app, None, command){
+                Err(error) => {
+                    if error.is_empty(){
+                        handle_message(app, DisplayMode::Error, "shell command failed with empty error string");
+                    }else{
+                        handle_message(app, DisplayMode::Error, &format!("{error}"));
                     }
-                    command
-                };
-                
-                match run_shell_command(app, None, command){
-                    Err(error) => {
-                        if error.is_empty(){
-                            handle_message(app, DisplayMode::Error, "shell command failed with empty error string");
-                        }else{
-                            handle_message(app, DisplayMode::Error, &format!("{error}"));
-                        }
-                    }
-                    Ok(output) => {
-                        if output.is_empty(){
-                            handle_message(app, DisplayMode::Warning, "shell command succeeded with empty output string");
-                        }else{
-                            //TODO: open new edit window with stdout in temp buffer, don't display in diagnostic panel
-                            handle_message(app, DisplayMode::Info, "stdout sent to new window");
-                        }
+                }
+                Ok(output) => {
+                    if output.is_empty(){
+                        handle_message(app, DisplayMode::Warning, "shell command succeeded with empty output string");
+                    }else{
+                        //TODO: open new edit window with stdout in temp buffer, don't display in diagnostic panel
+                        handle_message(app, DisplayMode::Info, "stdout sent to new window");
                     }
                 }
             }

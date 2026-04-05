@@ -182,10 +182,18 @@ fn main() -> Result<(), String>{
         };
         //TODO: ensure buffer_text doesn't contain any \t(and maybe others) chars, because it messes up edit's display
         //these should be converted to TAB_WIDTH number of spaces
+        //actually, we need to handle '\t' properly...
         run_app(&buffer_text, file_path, read_only, &mut terminal)
     }
 }
 
+/* TODO: have input and 9p on separate threads, editor on main. send events via mpsc channel.   also, possibly add "tick" thread for timed events such as cursor blink...
+pub enum Event{
+    Input(input_event_kind),    //this would just be crossterm events
+    NineP(message_kind, nine_p_receiver),
+    Tick(timed_event_kind),
+}
+*/
 fn run_app(buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<(), String>{
     //let config = edit::config::Config{
     //    user_options: std::collections::HashMap::new(),

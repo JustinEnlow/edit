@@ -1,67 +1,68 @@
 #TODO: rename this file to edit_start
-# new acme style for posix shell
-if ! echo "Hello, world" > /tmp/test; then
-    echo "Error: failed to write to file" >&2
-    exit 1
-fi
+# start up command for posix shell
 #
+# testing
+exit 1
+#| date
+#
+#
+#
+#if ! echo "Hello, world" > /tmp/test; then
+#    echo "Error: failed to write to file" >&2
+#    exit 1
+#fi
+#
+#instance_root = ~/edit/$EDIT_INSTANCE
+#
+#if ! echo block > $instance_root/settings/cursor_semantics; then      # block | bar
+#   echo "Error: failed to set cursor_semantics" >&2
+#   exit 1
+#fi
+#
+#if ! echo true > $instance_root/settings/use_full_file_path; then      # true | false
+#   echo "Error: failed to set use_full_file_path" >&2
+#   exit 1
+#fi
+#
+#if ! echo false > /$instance_root/settings/use_hard_tab; then      # true | false  #indicates whether to use '\t' literal or spaces for indentation
+#   echo "Error: failed to set use_hard_tab" >&2
+#   exit 1
+#fi
+#
+#if ! echo 4 > $instance_root/settings/tab_width; then      #the number of terminal cells to next tab stop
+#   echo "Error: failed to set tab_width" >&2
+#   exit 1
+#fi
+#
+#if ! echo 1 > $instance_root/settings/view_scroll_amount; then      #the number of lines/columns to scroll
+#   echo "Error: failed to set view_scroll_amount" >&2
+#   exit 1
+#fi
+#
+#if ! echo false > $instance_root/settings/show_cursor_column; then      # true | false    #indicates whether to highlight the whole column of the primary cursor (for visibility)
+#   echo "Error: failed to set show_cursor_column" >&2
+#   exit 1
+#fi
+#
+#if ! echo true > $instance_root/settings/show_cursor_line; then      # true | false   #indicates whether to highlight the whole line of the primary cursor (for visibility)
+#   echo "Error: failed to set show_cursor_line" >&2
+#   exit 1
+#fi
+#
+#if ! echo true > $instance_root/settings/show_line_numbers; then      # true | false
+#   echo "Error: failed to set show_line_numbers" >&2
+#   exit 1
+#fi
+#
+#if ! echo true > $instance_root/settings/show_status_bar; then      # true | false
+#   echo "Error: failed to set show_status_bar" >&2
+#   exit 1
+#fi
+
+
+
+
 #TODO: remove the following...
-
-
-#set_option cursor_semantics Block      #Block | Bar
-#set_option use_full_file_path false    #true | false
-#set_option use_hard_tab false          #true | false   #indicates whether to use '\t' literal or spaces for indentation
-#set_option tab_width 4                 #the number of terminal cells to next tab stop
-#set_option view_scroll_amount          #the number of lines/columns to scroll
-#set_option show_cursor_column false    #true | false   #indicates whether to highlight the whole column of the primary cursor (for visibility)
-#set_option show_cursor_line true       #true | false   #indicates whether to highlight the whole line of the primary cursor (for visibility)
-
-set_option show_line_numbers true
-set_option show_status_bar true
-
-#add_command toggle_line_numbers 'set_option show_line_numbers %sh{\
-#    #add toggle logic here\
-#}' 'toggles the display of buffer line numbers'
-
-#in this case, edit_toggle_line_numbers directly looks up the evironment variable, and we must add the variable in a comment to let edit to know to use it
-#add_command toggle_line_numbers 'evaluate_commands %sh{edit_toggle_line_numbers #$EDIT_OPT_SHOW_LINE_NUMBERS}' 'toggles the display of buffer line numbers'
-
-#in this case, edit_toggle_line_numbers takes an argument(expanded by the shell)
-#add_command toggle_line_numbers 'evaluate_commands %sh{edit_toggle_line_numbers $EDIT_OPT_SHOW_LINE_NUMBERS}' 'toggles the display of buffer line numbers'
-
-#in this case, the more generalized program 'edit_toggle_boolean_option' takes a boolean input(possibly shell expanded) and the name of an option to set
-add_command toggle_line_numbers 'evaluate_commands %sh{edit_toggle_boolean_option $EDIT_OPT_SHOW_LINE_NUMBERS show_line_numbers}' 'toggles the display of buffer line numbers'
-add_command toggle_status_bar 'evaluate_commands %sh{edit_toggle_boolean_option $EDIT_OPT_SHOW_STATUS_BAR show_status_bar}' 'toggles the display of the status bar'
-add_command fail_toggle 'evaluate_commands %sh{edit_toggle_boolean_option idk show_line_numbers}' 'fail'
-add_command 'quoted command' 'echo "hello from quoted"' 'does something in response to a quoted command'
-
-#another option would be to let edit_toggle_boolean write to edit's command file, then we don't need to eval_commands manually. could trigger shell call to fail if command file doesn't exist
-#add_command toggle_line_numbers %sh{edit_toggle_boolean_option $EDIT_OPT_SHOW_LINE_NUMBERS show_line_numbers} 'toggles the display of buffer line numbers'
-
-
-
-#alternatively, could all executed commands be ran through a shell? look more into acme editor
-#we could still support environment variables specific to this edit instance
-#   edit_toggle_boolean_option $EDIT_OPT_SHOW_STATUS_BAR show_status_bar | /mnt/edit/$CLIENT_ID/ctl
-    #actually, this would probably become:
-    #   edit_toggle_boolean_option /mnt/edit/$CLIENT_ID/options/show_status_bar
-#we could pipe output to a new instance of edit
-#   ls -l | edit -t     #although, we would have to open a new window first somehow...
-#insert output to the current instance
-#   ls -l | /mnt/edit/$CLIENT_ID/body
-#send diagnostics to diagnostic files
-#   echo "you fucked up" | /mnt/edit/$CLIENT_ID/diagnostics/error
-#how should we route the shells stdout/stderr by default?...    //or maybe errors should be served as events?...
-#maybe stdout can pipe to /mnt/edit/$CLIENT_ID/execution_output
-#stderr can pipe to /mnt/edit/$CLIENT_ID/diagnostics/error
-#
-#using this system, our "config" is just a normal shell script that is ran at editor start up(which can enable control flow as well)
-#options could be set by writing to /mnt/edit/$CLIENT_ID/options/<option_name>, or read from at the same location
-#values can be read by reading from /mnt/edit/$CLIENT_ID/values/<value_name>    //although, this may be redundant with so much already exposed as a file system...
-#registers can be set by writing to /mnt/edit/$CLIENT_ID/registers/<register_name>, or read from at the same location
-#should/would it be possible to add options/registers/etc by cding to /mnt/edit/$CLIENT_ID/options then touch <new_option_name>?...
-#maybe adding modes can be accomplished that way? cd /mnt/edit/$CLIENT_ID/modes/; touch insert
-#these should probably not be permanent additions to the file system. they should be part of edit's served virtual file system
 
 #interactive modes like search/command/goto could prob be accomplished by an external dmenu like program interacting with our served filesystem...
 
@@ -80,7 +81,3 @@ add_command 'quoted command' 'echo "hello from quoted"' 'does something in respo
 
 #commands could be scripts/program binaries located at ~/edit/bin. at startup edit can bind that directory to PATH
 #can name collisions be avoided by binding before anything else, so that the first match is our command and not another util with same name?...
-
-
-
-#maybe diagnostic messages should be held in edit's virtual filesystem...(file content could be updated automatically as modes with related diagnostics are push/popped from the mode stack)
