@@ -133,21 +133,6 @@ impl Application{
         //    self.ui.status_bar.file_name_widget.text = String::new();
         //}
 
-        //eval command from config file
-        //#[cfg(not(test))] match std::fs::read_to_string("/home/j/software/edit_suite/edit/config"){
-        //    Err(e) => handle_message(self, DisplayMode::Error, &e.to_string()),
-        //    Ok(content) => {
-        //        match parse_command(content){
-        //            Err(e) => handle_message(self, DisplayMode::Error, &e.to_string()),
-        //            Ok(parsed_commands) => {
-        //                if let Err(e) = execute_parsed_command(self, parsed_commands){
-        //                    handle_message(self, DisplayMode::Error, &e.to_string())
-        //                }
-        //            }
-        //        }
-        //    }
-        //};
-
         self.update_ui_data_mode();
         self.update_layouts();
         self.checked_scroll_and_update(
@@ -156,6 +141,16 @@ impl Application{
             Application::update_ui_data_document    //should this be update_selections?...
         );
         self.update_ui_data_util_bar(); //needed for util bar cursor to render the first time it is triggered   //TODO?: does this belong before update_layouts()?...
+
+        //eval command from config file
+        #[cfg(not(test))] match std::fs::read_to_string("/home/j/software/edit_suite/edit/config"){
+            Err(e) => handle_message(self, DisplayMode::Error, &e.to_string()),
+            Ok(content) => {
+                if let Err(e) = execute_command(self, &content){
+                    handle_message(self, DisplayMode::Error, &format!("start file execution failed with error: {e}"));
+                }
+            }
+        };
     }
 
     pub fn buffer_display_area(&self) -> DisplayArea{
@@ -543,8 +538,6 @@ impl Application{
         self.ui.popups.add_surround.rect = /*crate::ui::*/sized_centered_rect(self.ui.popups.add_surround.widest_element_len, self.ui.popups.add_surround.num_elements, self.ui.terminal_size);
     }
     
-    //TODO: error/warning/notify/info mode(or maybe all modes) popup titles should include the mode stack count, so repeated modes can be seen if status bar hidden
-    //set widget text elsewhere, so that it doesn't need to be reset every time in this fn...
     pub fn render(&self, terminal: &mut Terminal<impl Backend>) -> Result<(), String>{
         fn generate_widget(text: &str, alignment: Alignment, bold: bool, background_color: Color, foreground_color: Color) -> ratatui::widgets::Paragraph<'_>{
             if bold{Paragraph::new(text).style(Style::default().bg(background_color).fg(foreground_color)).alignment(alignment).bold()}
@@ -846,7 +839,6 @@ impl Application{
     }
 
     //TODO?: should each action result in a new app state, or an error state?... can these be made more purely functional?...
-    //this may be impossible to do with event hooks.
     pub fn action(&mut self, action: Action){
         //impl helper functions here to manage scope of exposure
         //fn esc_handle(app: &mut Application){
@@ -1038,18 +1030,10 @@ impl Application{
                         if self.selections.count() > 1{
                             handle_application_error(self, ApplicationError::SelectionsError(SelectionsError::MultipleSelections));
                         }else{
-                            let parse_result = parse_command(self.selections.primary.to_string(&self.buffer));
-                            if Result::is_ok(&parse_result){
-                                let commands = Result::unwrap(parse_result);
-                                let execute_result = execute_parsed_command(self, commands);
-                                if Result::is_err(&execute_result){
-                                    let error = Result::unwrap_err(execute_result);
-                                    handle_message(self, DisplayMode::Error, &error);
-                                }
-                            }else{
-                                //handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);
-                                let error = Result::unwrap_err(parse_result);
-                                handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, &error);
+                            let execute_result = execute_command(self, &self.selections.primary.to_string(&self.buffer));
+                            if Result::is_err(&execute_result){
+                                let error = Result::unwrap_err(execute_result);
+                                handle_message(self, DisplayMode::Error, &error);
                             }
                         }
                     }
@@ -1057,18 +1041,10 @@ impl Application{
                     //evaluate_command %val{clipboard}
                     EditorAction::EvaluateClipboardAsCommand => {
                         if self.mode() != Mode::Insert{pop_to_insert(self);}    //handle insert fallthrough
-                        let parse_result = parse_command(self.clipboard.clone());
-                        if Result::is_ok(&parse_result){
-                            let commands = Result::unwrap(parse_result);
-                            let execute_result = execute_parsed_command(self, commands);
-                            if Result::is_err(&execute_result){
-                                let error = Result::unwrap_err(execute_result);
-                                handle_message(self, DisplayMode::Error, &error);
-                            }
-                        }else{
-                            //handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED);
-                            let error = Result::unwrap_err(parse_result);
-                            handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, &error);
+                        let execute_result = execute_command(self, &self.clipboard.clone());
+                        if Result::is_err(&execute_result){
+                            let error = Result::unwrap_err(execute_result);
+                            handle_message(self, DisplayMode::Error, &error);
                         }
                     }
                     // new
@@ -1203,7 +1179,7 @@ impl Application{
                 //TODO: impl application_impl here, instead of in utilities...
                 use crate::utilities::*;
                 //possible modes are Insert and AddSurround + any mode with fallthrough to insert
-                assert!(matches!(self.mode(), Mode::Insert | Mode::AddSurround | Mode::Warning | Mode::Notify | Mode::Info));
+                assert!(matches!(self.mode(), Mode::Command | Mode::Insert | Mode::AddSurround | Mode::Warning | Mode::Notify | Mode::Info));
 
                 if self.buffer.read_only{handle_message(self, READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER);}
                 else{
@@ -1380,21 +1356,16 @@ impl Application{
                                 else{handle_message(self, INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}
                             }
                             Mode::Command => {
-                                let parse_result = parse_command(self.ui.util_bar.utility_widget.text_box.buffer.to_string());
-                                if Result::is_ok(&parse_result){
-                                    let commands = Result::unwrap(parse_result);
-                                    let execute_result = execute_parsed_command(self, commands);
-                                    if Result::is_ok(&execute_result){
-                                        //only checking command mode because parsed resultant fn may need to enter error/warning/notify/info mode, and user should see that
-                                        if self.mode() == Mode::Command{pop_to_insert(self);}
-                                    }else{
-                                        let error = Result::unwrap_err(execute_result);
-                                        handle_message(self, DisplayMode::Error, &error);
-                                    }
+                                let execute_result = execute_command(
+                                    self, 
+                                    &self.ui.util_bar.utility_widget.text_box.buffer.to_string()
+                                );
+                                if Result::is_ok(&execute_result){
+                                    //only checking command mode because parsed resultant fn may need to enter error/warning/notify/info mode, and user should see that
+                                    if self.mode() == Mode::Command{pop_to_insert(self);}
                                 }else{
-                                    //handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, COMMAND_PARSE_FAILED)
-                                    let error = Result::unwrap_err(parse_result);
-                                    handle_message(self, COMMAND_PARSE_FAILED_DISPLAY_MODE, &error);
+                                    let error = Result::unwrap_err(execute_result);
+                                    handle_message(self, DisplayMode::Error, &error);
                                 }
                             }
                             Mode::Find | Mode::Split => self.action(Action::EditorAction(EditorAction::ModePop)),
@@ -1536,10 +1507,6 @@ impl Application{
     }
 }
 
-
-
-
-
 fn handle_message(app: &mut Application, display_mode: DisplayMode, message: &/*'static */str){ //-> Action
     match display_mode{
         DisplayMode::Error => app.action(Action::EditorAction(EditorAction::ModePush(Mode::Error, Some(message.to_string())))),
@@ -1584,7 +1551,7 @@ fn handle_application_error(app: &mut Application, e: ApplicationError){    //->
         //map keybind to a shell command
         ctrl-s, Mode::Insert -> Action::EditorAction(EditorAction::ExecuteShellCommand("save"))
         //external program impl
-            //TODO
+            // echo -n /edit/$EDIT_INSTANCE_ID/buffer/content > $EDIT_FILE_PATH
 
     //should mode logic be external?
     //how would other programs, such as save, query mode state from external mode handling program?...
@@ -1688,96 +1655,10 @@ fn handle_application_error(app: &mut Application, e: ApplicationError){    //->
 // so config file(should rename to edit_start or similar) will not be a list of commands to run, but is a single command sent to user defined shell
 // prob don't use any prefixes in that file...
 
-#[derive(PartialEq, Debug, Clone)] pub struct Word{content: String}
 //at the extreme, i think every action could end up being a command
 //in that sense, the editor is just a command parser, with command specific response behavior
-pub fn parse_command(command_string: String) -> Result<Vec<Word>, String>{  //TODO: i think we should be able to skip "parsing" entirely...because currently we are losing potentially important '\t' and '\n' context
-    if command_string.is_empty(){return Err(String::from("cannot parse empty string"));}
-    let mut command = Vec::new();
-    let mut word = String::new();
-    #[cfg(test)] println!("command string:\n{}\n", command_string);
-    #[cfg(test)] println!("command string length: {}\n", command_string.len());
-    //TODO: for grapheme in command_string.graphemes(true){
-    for (_i, char) in command_string.chars().enumerate(){
-        #[cfg(test)] println!("char: {char}, index: {_i}");
-        match char{
-            ' ' | '\t' | '\n' => {
-                if !word.is_empty(){
-                    #[cfg(test)] println!("word pushed to command: {:?}", word);
-                    command.push(Word{content: word});
-                    //reset
-                    word = String::new();
-                }
-            }
-            _ => {
-                #[cfg(test)] println!("char pushed to word: {char}");
-                word.push(char);
-            }
-        }
-    }
-    if !word.is_empty(){
-        #[cfg(test)] println!("word pushed to command: {:?}", word);
-        command.push(Word{content: word});
-    }
-    Ok(command)
-}
-#[test]fn empty_command_string_should_error(){
-    assert_eq!(Err(String::from("cannot parse empty string")), parse_command(String::from("")));
-}
-#[test] fn single_unquoted_word(){
-    //idk
-    assert_eq!(
-        Ok(
-            vec![//command
-                Word{content: String::from("idk")}
-            ]
-        ), 
-        parse_command(String::from("idk"))
-    );
-}
-#[test] fn multiple_unquoted_words_separated_by_spaces(){
-    //command --flag flag_item positional
-    assert_eq!(
-        Ok(
-            vec![//command
-                Word{content: String::from("command")},
-                Word{content: String::from("--flag")},
-                Word{content: String::from("flag_item")},
-                Word{content: String::from("positional")},
-            ]
-        ), 
-        parse_command(String::from("command --flag flag_item positional"))
-    );
-}
-#[test] fn multiple_unquoted_words_separated_by_tabs(){
-    assert_eq!(
-        Ok(
-            vec![//command
-                Word{content: String::from("this")},
-                Word{content: String::from("command")},
-                Word{content: String::from("contains")},
-                Word{content: String::from("tabs")}
-            ]
-        ),
-        parse_command(String::from("this\tcommand\tcontains\ttabs"))
-    )
-}
-#[test] fn multiple_words_separated_by_newlines(){
-    assert_eq!(
-        Ok(
-            vec![//command
-                Word{content: String::from("this")},
-                Word{content: String::from("command")},
-                Word{content: String::from("contains")},
-                Word{content: String::from("newlines")}
-            ]
-        ),
-        parse_command(String::from("this\ncommand\ncontains\nnewlines"))
-    )
-}
-
-fn execute_parsed_command(app: &mut Application, command: Vec<Word>) -> Result<(), String>{
-    fn run_shell_command(app: &Application, stdin: Option<String>, command: String) -> Result<String, String>{
+fn execute_command(app: &mut Application, command: &str) -> Result<(), String>{
+    fn run_shell_command(app: &Application, stdin: Option<String>, command: &str) -> Result<String, String>{
         let mut environment_variables = std::collections::HashMap::new();
         //environment_variables.insert("MY_VAR", "environment variable content");
         //TODO: maybe options/settings should start with $EDIT_SETTING_
@@ -1825,42 +1706,36 @@ fn execute_parsed_command(app: &mut Application, command: Vec<Word>) -> Result<(
         }
     }
 
-    let mut command_words = command.into_iter();
-    let first = match command_words.next(){
-        None => return Err(String::from("no command to execute")),
-        Some(word) => word.content
-    };
-    match first.as_str(){
+    let mut split = command.trim_start().splitn(2, char::is_whitespace);
+    let first = split.next().unwrap_or("");
+    if first.is_empty(){return Err(String::from("cannot execute empty command string"));}
+    match first{
         //"echo" => {       //don't want to use "echo" because it would clash with existing echo program
-        "diagnostic" => {
+        "diagnostic" => {   //diagnostic may become an external gui program
+            let args = split.next().unwrap_or("");
+            if args.is_empty(){return Err(String::from("too few arguments: diagnostic [diagnostic_mode] <message>"));}
+            if command.contains('\n'){return Err(String::from("diagnostic message cannot contain newlines"));}
             //diagnostic [diagnostic_mode] <message>
             let mut display_mode = DisplayMode::Info;
-            let message = match command_words.next(){
-                None => return Err(String::from("too few arguments: diagnostic [diagnostic_mode] <message>")),
-                Some(word) => {
-                    let word_content = word.content;
-                    let mut process_next_word = true;
-                    match word_content.as_str(){
-                        "--error" => display_mode = DisplayMode::Error,
-                        "--warning" => display_mode = DisplayMode::Warning,
-                        "--notify" => display_mode = DisplayMode::Notify,
-                        "--info" => {/* already set to info mode */}
-                        _ => {process_next_word = false;}
-                    }
-                    if process_next_word{
-                        match command_words.next(){
-                            None => return Err(String::from("too few arguments: diagnostic [diagnostic_mode] <message>")),
-                            Some(word) => word.content
-                        }
-                    }else{word_content}
-                }
-            };
-            match command_words.next(){
-                Some(_) => return Err(String::from("too many arguments: diagnostic [diagnostic_mode] <message>")),
-                None => {
-                    handle_message(app, display_mode.clone(), &message);
-                }
+            let mut split = args.trim_start().splitn(2, char::is_whitespace);
+            let optional_diagnostic_mode = split.next().unwrap_or("");
+            if optional_diagnostic_mode.is_empty(){return Err(String::from("too few arguments: diagnostic [diagnostic_mode] <message>"));}
+            let mut process_next_word = true;
+            match optional_diagnostic_mode{
+                "--error" => display_mode = DisplayMode::Error,
+                "--warning" => display_mode = DisplayMode::Warning,
+                "--notify" => display_mode = DisplayMode::Notify,
+                "--info" => {/* already set to info mode */}
+                _ => {process_next_word = false;}
             }
+            if process_next_word{
+                let maybe_message = split.next().unwrap_or("");
+                //get next word
+                let mut split = maybe_message.trim_start().splitn(2, char::is_whitespace);
+                let message = split.next().unwrap_or("");
+                if message.is_empty(){return Err(String::from("too few arguments: diagnostic [diagnostic_mode] <message>"));}
+                else{handle_message(app, display_mode, maybe_message);}
+            }else{handle_message(app, display_mode, args);}
         }
 
         //"term" | "t" => app.action(Action::EditorAction(EditorAction::OpenNewTerminalWindow)),
@@ -1878,51 +1753,35 @@ fn execute_parsed_command(app: &mut Application, command: Vec<Word>) -> Result<(
 
         //"search" => {}    //search whole buffer
         "search_selection" => {
+            let regex = split.next().unwrap_or("");
+            if regex.is_empty(){return Err(String::from("too few arguments: search_selection <regex>"));}
             //search <regex>
-            let regex = match command_words.next(){
-                None => return Err(String::from("too few args: search <regex>")),
-                Some(word) => word.content
-            };
-            match command_words.next(){
-                Some(_) => return Err(String::from("too many args: search <regex>")),
-                None => {
-                    //match crate::utilities::incremental_search_in_selection::selections_impl(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
-                    match selections::incremental_search_in_selection(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
-                        Err(_) => return Err(String::from("no matching regex")),
-                        Ok(new_selections) => {
-                            app.selections = new_selections;
-                            app.checked_scroll_and_update(
-                                &app.selections.primary.clone(), 
-                                Application::update_ui_data_document, 
-                                Application::update_ui_data_selections
-                            );
-                        }
-                    }
+            match selections::incremental_search_in_selection(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
+                Err(_) => return Err(String::from("no matching regex")),
+                Ok(new_selections) => {
+                    app.selections = new_selections;
+                    app.checked_scroll_and_update(
+                        &app.selections.primary.clone(), 
+                        Application::update_ui_data_document, 
+                        Application::update_ui_data_selections
+                    );
                 }
             }
         }
         //"split" => {} //split whole buffer
-        "split_selection" => {  //we may need to take certain regexes in quotes. i would assume the same applies to search
+        "split_selection" => {
+            let regex = split.next().unwrap_or("");
+            if regex.is_empty(){return Err(String::from("too few arguments: search_selection <regex>"));}
             //split <regex>
-            let regex = match command_words.next(){
-                None => return Err(String::from("too few args: split <regex>")),
-                Some(word) => word.content
-            };
-            match command_words.next(){
-                Some(_) => return Err(String::from("too many args: split <regex>")),
-                None => {
-                    //match crate::utilities::incremental_split_in_selection::selections_impl(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
-                    match selections::incremental_split_in_selection(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
-                        Err(_) => return Err(String::from("no matching regex")),
-                        Ok(new_selections) => {
-                            app.selections = new_selections;
-                            app.checked_scroll_and_update(
-                                &app.selections.primary.clone(), 
-                                Application::update_ui_data_document, 
-                                Application::update_ui_data_selections
-                            );
-                        }
-                    }
+            match selections::incremental_split_in_selection(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
+                Err(_) => return Err(String::from("no matching regex")),
+                Ok(new_selections) => {
+                    app.selections = new_selections;
+                    app.checked_scroll_and_update(
+                        &app.selections.primary.clone(), 
+                        Application::update_ui_data_document, 
+                        Application::update_ui_data_selections
+                    );
                 }
             }
         }
@@ -1944,180 +1803,146 @@ fn execute_parsed_command(app: &mut Application, command: Vec<Word>) -> Result<(
         //remove_keybind <keybind>
 
         //this will eventually be echo -n <value> > /mnt/edit/<instance_id>/settings/<setting>, when filesystem interface impled
-        //TODO: maybe change to "set"
         //"set_option" => {
         "set" => {
+            let args = split.next().unwrap_or("");
+            if args.is_empty(){return Err(String::from("too few arguments: set <setting> <value>"));}
             //set_option <name> <value>
-            let name = match command_words.next(){
-                None => return Err(String::from("too few args: set_option <name> <value>")),
-                Some(word) => word.content
-            };
-            let value = match command_words.next(){
-                None => return Err(String::from("too few args: set_option <name> <value>")),
-                Some(word) => word.content
-            };
-            match command_words.next(){
-                Some(_) => return Err(String::from("too many args: set_option <name> <value>")),
-                None => {
-                    match name.as_ref(){
-                        //NOTE: may not allow setting cursor semantics for TUI, because terminal cannot currently handle multicursor bar cursor display...
-                        "cursor_semantics" => { //TODO: maybe return error results in same state if already set to provided value. maybe do that for all options...
-                            match value.as_str(){
-                                "Bar" | "bar" => {
-                                    if app.config.semantics == CursorSemantics::Bar{handle_message(app, SAME_STATE_DISPLAY_MODE, SAME_STATE);}
-                                    else{
-                                        app.config.semantics = CursorSemantics::Bar;
-                                        //TODO: change selections from Block to Bar
-                                        handle_message(app, DisplayMode::Notify, &format!("cursor_semantics set to {}", value));
-                                    }
-                                }
-                                "Block" | "block" => {
-                                    if app.config.semantics == CursorSemantics::Block{handle_message(app, SAME_STATE_DISPLAY_MODE, SAME_STATE);}
-                                    else{
-                                        app.config.semantics = CursorSemantics::Block;
-                                        //TODO: change selections from Bar to Block
-                                        handle_message(app, DisplayMode::Notify, &format!("cursor_semantics set to {}", value));
-                                    }
-                                }
-                                _ => return Err(format!("{} is not a valid value for cursor_semantics", value))
+
+            //let name = match command_words.next(){
+            //    None => return Err(String::from("too few args: set_option <name> <value>")),
+            //    Some(word) => word.content
+            //};
+            let mut split = args.splitn(2, char::is_whitespace);
+            let name = split.next().unwrap_or("");
+            if name.is_empty(){return Err(String::from("too few arguments: set <setting> <value>"));}
+            //let value = match command_words.next(){
+            //    None => return Err(String::from("too few args: set_option <name> <value>")),
+            //    Some(word) => word.content
+            //};
+            let rest = split.next().unwrap_or("");
+            if rest.is_empty(){return Err(String::from("too few arguments: set <setting> <value>"));}
+            let mut split = rest.splitn(2, char::is_whitespace);
+            let value = split.next().unwrap_or("");
+            if value.is_empty(){return Err(String::from("too few arguments: set <setting> <value>"));}
+            let rest = split.next().unwrap_or("");
+            if !rest.is_empty(){return Err(String::from("too many arguments: set <setting> <value>"));}
+            match name{
+                //NOTE: may not allow setting cursor semantics for TUI, because terminal cannot currently handle multicursor bar cursor display...
+                "cursor_semantics" => { //TODO: maybe return error results in same state if already set to provided value. maybe do that for all options...
+                    match value{
+                        "Bar" | "bar" => {
+                            if app.config.semantics == CursorSemantics::Bar{handle_message(app, SAME_STATE_DISPLAY_MODE, SAME_STATE);}
+                            else{
+                                app.config.semantics = CursorSemantics::Bar;
+                                //TODO: change selections from Block to Bar
+                                handle_message(app, DisplayMode::Notify, &format!("cursor_semantics set to {}", value));
                             }
                         }
-                        "use_full_file_path" => {
-                            match value.parse::<bool>(){
-                                Err(error) => return Err(format!("{}", error)),
-                                Ok(parsed_value) => {
-                                    app.config.use_full_file_path = parsed_value;
-                                    if app.config.use_full_file_path{
-                                        app.ui.status_bar.file_name_widget.text = app.buffer.file_path().unwrap_or_default();
-                                    }else{
-                                        app.ui.status_bar.file_name_widget.text = app.buffer.file_name().unwrap_or_default();
-                                    }
-                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
-                                }
+                        "Block" | "block" => {
+                            if app.config.semantics == CursorSemantics::Block{handle_message(app, SAME_STATE_DISPLAY_MODE, SAME_STATE);}
+                            else{
+                                app.config.semantics = CursorSemantics::Block;
+                                //TODO: change selections from Bar to Block
+                                handle_message(app, DisplayMode::Notify, &format!("cursor_semantics set to {}", value));
                             }
                         }
-                        "use_hard_tab" => {
-                            match value.parse::<bool>(){
-                                Err(error) => return Err(format!("{}", error)),
-                                Ok(parsed_value) => {
-                                    app.config.use_hard_tab = parsed_value;
-                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
-                                }
+                        _ => return Err(format!("{} is not a valid value for cursor_semantics", value))
+                    }
+                }
+                "use_full_file_path" => {
+                    match value.parse::<bool>(){
+                        Err(error) => return Err(format!("{}", error)),
+                        Ok(parsed_value) => {
+                            app.config.use_full_file_path = parsed_value;
+                            if app.config.use_full_file_path{
+                                app.ui.status_bar.file_name_widget.text = app.buffer.file_path().unwrap_or_default();
+                            }else{
+                                app.ui.status_bar.file_name_widget.text = app.buffer.file_name().unwrap_or_default();
                             }
-                        }
-                        "tab_width" => {
-                            match value.parse::<usize>(){
-                                Err(error) => return Err(format!("{}", error)),
-                                Ok(parsed_value) => {
-                                    app.config.tab_width = parsed_value;
-                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
-                                }
-                            }
-                        }
-                        "view_scroll_amount" => {
-                            match value.parse::<usize>(){
-                                Err(error) => return Err(format!("{}", error)),
-                                Ok(parsed_value) => {
-                                    app.config.view_scroll_amount = parsed_value;
-                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
-                                }
-                            }
-                        }
-                        "show_cursor_column" => {
-                            match value.parse::<bool>(){
-                                Err(error) => return Err(format!("{}", error)),
-                                Ok(parsed_value) => {
-                                    app.config.show_cursor_column = parsed_value;
-                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
-                                }
-                            }
-                        }
-                        "show_cursor_line" => {
-                            match value.parse::<bool>(){
-                                Err(error) => return Err(format!("{}", error)),
-                                Ok(parsed_value) => {
-                                    app.config.show_cursor_line = parsed_value;
-                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
-                                }
-                            }
-                        }
-                        "show_line_numbers" => {
-                            match value.parse::<bool>(){
-                                Err(error) => return Err(format!("{}", error)),
-                                Ok(parsed_value) => {
-                                    //TODO?: if app.mode() == Mode::Command{app.pop_to_insert()/*although, this fn is scoped within action()...*/}
-                                    app.ui.document_viewport.line_number_widget.show = parsed_value;
-                                    //
-                                    app.update_layouts();
-                                    app.update_ui_data_document();
-                                    //
-                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
-                                }
-                            }
-                        }
-                        "show_status_bar" => {
-                            match value.parse::<bool>(){
-                                Err(error) => return Err(format!("{}", error)),
-                                Ok(parsed_value) => {
-                                    //TODO?: if app.mode() == Mode::Command{app.pop_to_insert()/*although, this fn is scoped within action()...*/}
-                                    app.ui.status_bar.show = parsed_value;
-                                    //
-                                    app.update_layouts();
-                                    app.update_ui_data_document();
-                                    //
-                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
-                                }
-                            }
-                        }
-                        _ => {
-                            match app.config.user_options.get(&name){
-                                None => return Err(format!("user options does not contain {:?}", &name)),
-                                Some(option_type) => {
-                                    match option_type{
-                                        OptionType::Bool(_) => {
-                                            let maybe_parsed_value: Result<bool, std::str::ParseBoolError> = value.parse();
-                                            match maybe_parsed_value{
-                                                Ok(parsed_value) => {
-                                                    app.config.user_options.insert(name.clone(), OptionType::Bool(parsed_value));
-                                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
-                                                }
-                                                Err(error) => return Err(format!("{}", error))
-                                            }
-                                        }
-                                        OptionType::U8(_) => {
-                                            let maybe_parsed_value: Result<u8, std::num::ParseIntError> = value.parse();//word.content.parse();
-                                            match maybe_parsed_value{
-                                                Ok(parsed_value) => {
-                                                    app.config.user_options.insert(name.clone(), OptionType::U8(parsed_value));
-                                                    handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
-                                                }
-                                                Err(error) => return Err(format!("{}", error))
-                                            }
-                                        }
-                                        OptionType::String(_) => {
-                                            app.config.user_options.insert(name.clone(), OptionType::String(value.clone()));
-                                            handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, value));
-                                        }
-                                    }
-                                }
-                            }
+                            handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
                         }
                     }
                 }
+                "use_hard_tab" => {
+                    match value.parse::<bool>(){
+                        Err(error) => return Err(format!("{}", error)),
+                        Ok(parsed_value) => {
+                            app.config.use_hard_tab = parsed_value;
+                            handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
+                        }
+                    }
+                }
+                "tab_width" => {
+                    match value.parse::<usize>(){
+                        Err(error) => return Err(format!("{}", error)),
+                        Ok(parsed_value) => {
+                            app.config.tab_width = parsed_value;
+                            handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
+                        }
+                    }
+                }
+                "view_scroll_amount" => {
+                    match value.parse::<usize>(){
+                        Err(error) => return Err(format!("{}", error)),
+                        Ok(parsed_value) => {
+                            app.config.view_scroll_amount = parsed_value;
+                            handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
+                        }
+                    }
+                }
+                "show_cursor_column" => {
+                    match value.parse::<bool>(){
+                        Err(error) => return Err(format!("{}", error)),
+                        Ok(parsed_value) => {
+                            app.config.show_cursor_column = parsed_value;
+                            handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
+                        }
+                    }
+                }
+                "show_cursor_line" => {
+                    match value.parse::<bool>(){
+                        Err(error) => return Err(format!("{}", error)),
+                        Ok(parsed_value) => {
+                            app.config.show_cursor_line = parsed_value;
+                            handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
+                        }
+                    }
+                }
+                "show_line_numbers" => {
+                    match value.parse::<bool>(){
+                        Err(error) => return Err(format!("{}", error)),
+                        Ok(parsed_value) => {
+                            //TODO?: if app.mode() == Mode::Command{app.pop_to_insert()/*although, this fn is scoped within action()...*/}
+                            app.ui.document_viewport.line_number_widget.show = parsed_value;
+                            //
+                            app.update_layouts();
+                            app.update_ui_data_document();
+                            //
+                            handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
+                        }
+                    }
+                }
+                "show_status_bar" => {
+                    match value.parse::<bool>(){
+                        Err(error) => return Err(format!("{}", error)),
+                        Ok(parsed_value) => {
+                            //TODO?: if app.mode() == Mode::Command{app.pop_to_insert()/*although, this fn is scoped within action()...*/}
+                            app.ui.status_bar.show = parsed_value;
+                            //
+                            app.update_layouts();
+                            app.update_ui_data_document();
+                            //
+                            handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
+                        }
+                    }
+                }
+                _ => return Err(format!("{:?} is not a valid setting", name))
             }
         }
         "|" => {
-            //TODO: actually, the way we parse commands into words is bad, because we lose '\t and '\n' when we recombine...
-            //which could be important for shell script meaning?...
-            //maybe just don't parse the string, and instead do .starts_with() or split on whitespace
-            let command = {
-                let mut command = String::new();
-                for word in command_words{
-                    command.push(' ');  //i think this is needed to separate words again...
-                    command.push_str(&word.content);
-                }
-                command
-            };
+            let command = split.next().unwrap_or("");
+            if command.is_empty(){return Err(String::from("too few arguments: | <shell_command>"));}
             let stdin = if app.selections.primary.to_string(&app.buffer).is_empty(){
                 None
             }else{
@@ -2146,14 +1971,8 @@ fn execute_parsed_command(app: &mut Application, command: Vec<Word>) -> Result<(
         }
         ">" => {return Err(String::from("> not yet supported"));}
         "<" => {
-            let command = {
-                let mut command = String::new();
-                for word in command_words{
-                    command.push(' ');  //i think this is needed to separate words again...
-                    command.push_str(&word.content);
-                }
-                command
-            };
+            let command = split.next().unwrap_or("");
+            if command.is_empty(){return Err(String::from("too few arguments: < <shell_command>"));}
             match run_shell_command(app, None, command){
                 Err(error) => {
                     if error.is_empty(){
@@ -2177,21 +1996,12 @@ fn execute_parsed_command(app: &mut Application, command: Vec<Word>) -> Result<(
         "!" => {return Err(String::from("! not yet supported"));}
         _ => {
             //run anything else as shell command
-            let command = {
-                let mut command = String::new();
-                command.push_str(&first);
-                for word in command_words{
-                    command.push(' ');  //i think this is needed to separate words again...
-                    command.push_str(&word.content);
-                }
-                command
-            };
             match run_shell_command(app, None, command){
                 Err(error) => {
                     if error.is_empty(){
-                        handle_message(app, DisplayMode::Error, "shell command failed with empty error string");
+                        return Err(String::from("shell command failed with empty error string"));
                     }else{
-                        handle_message(app, DisplayMode::Error, &format!("{error}"));
+                        return Err(error.to_string());
                     }
                 }
                 Ok(output) => {
@@ -2232,6 +2042,8 @@ split_selection idk
 some
 shit
 idk
+
+//also test from command mode. there seem to be some bad behaviors there...
 */
 
 //could we define a shell command that would display its output on our diagnostic bar, via the filesystem interface?...

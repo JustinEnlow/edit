@@ -1,29 +1,8 @@
 use crate::selection::CursorSemantics;
 use ratatui::style::Color;
-use std::collections::HashMap;
-
-#[derive(Clone)] pub enum OptionType{   //maybe UserOptionType
-    Bool(bool),
-    U8(u8),
-    String(String),
-}
-#[derive(Clone)] pub struct Command{    //maybe UserCommand
-    pub aliases: Vec<String>,
-    pub documentation: Option<String>,
-    pub command_body: Vec<Vec<crate::application::Word>>//String
-}
-//#[derive(Clone)] struct Hook{
-//    group: Option<String>,  //if no group, only run once
-//    event: AppEvent,    //the event type this hook responds to
-//    regex: String,  //regex that matches against file name (if no match, doesn't run)
-//    command: Vec<Vec<Word>> //response behavior
-//}
 
 //this should contain config options that could be changed at runtime
 #[derive(Clone)] pub struct Config{
-    pub user_options: HashMap<String, OptionType>,
-    pub user_commands: HashMap<String, Command>,    //or maybe: pub user_commands: Vec<Command>,
-    //pub user_hooks: Vec<Hook>,        //add/remove-hook   //can't be HashMap/IndexMap because multiple hooks can be assigned to group/event
     pub semantics: CursorSemantics,
     pub use_full_file_path: bool,
     pub use_hard_tab: bool, //TODO: replace to "replace_tabs_with_spaces". NOTE: the meaning is the exact opposite, so don't just rename...
@@ -31,7 +10,7 @@ use std::collections::HashMap;
     pub view_scroll_amount: usize,  //TODO: split into separate vertical/horizontal components
     pub show_cursor_column: bool,
     pub show_cursor_line: bool,
-    //TODO: indexmap::IndexMap<(crate::mode::Mode, crossterm::event::KeyEvent), Vec<Vec<Word>>,     //command instead of action
+    //TODO: indexmap::IndexMap<(crate::mode::Mode, crossterm::event::KeyEvent), String>,     //command instead of action
     pub keybinds: indexmap::IndexMap<(crate::mode::Mode, crossterm::event::KeyEvent), crate::action::Action>,   //maybe instead of value being an Action, it should be a command string...  //add/remove-keybind
     //maybe message display modes?...
     //maybe others...
@@ -39,8 +18,6 @@ use std::collections::HashMap;
 impl Default for Config{
     fn default() -> Self{
         Self{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: CursorSemantics::Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
