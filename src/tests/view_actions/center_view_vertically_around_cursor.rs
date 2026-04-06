@@ -20,8 +20,6 @@ use crate::tests::view_actions::test_view_action;
     // s h i t                                      // s h i t
     test_view_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -79,8 +77,6 @@ use crate::tests::view_actions::test_view_action;
     // s h i t                                      // s h i t
     test_view_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -116,8 +112,6 @@ use crate::tests::view_actions::test_view_action;
     // s h i t                                      // s h i t
     test_view_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -159,8 +153,6 @@ use crate::tests::view_actions::test_view_action;
     //|s h i|t      //<-- primary cursor here -->   //|s h i|t
     test_view_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -202,8 +194,6 @@ use crate::tests::view_actions::test_view_action;
     // s h i t                                      // s h i t
     test_view_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -245,8 +235,6 @@ use crate::tests::view_actions::test_view_action;
     // s h i t                                      // s h i t
     test_view_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -288,8 +276,6 @@ use crate::tests::view_actions::test_view_action;
     // s h i t                                      // s h i t
     test_view_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 

@@ -20,8 +20,6 @@ use crate::tests::selection_actions::test_selection_action;
     //                  //
     test_selection_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -55,8 +53,6 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn extends_to_doc_start_block_semantics(){
     test_selection_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -94,8 +90,6 @@ use crate::tests::selection_actions::test_selection_action;
     //
     test_selection_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -136,8 +130,6 @@ use crate::tests::selection_actions::test_selection_action;
     //| >               //
     test_selection_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -168,8 +160,6 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn errors_if_cursor_at_doc_start_block_semantics(){
     test_selection_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -209,8 +199,6 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn errors_if_already_extended_backward_at_doc_start_block_semantics(){
     test_selection_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 

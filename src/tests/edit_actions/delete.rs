@@ -12,8 +12,6 @@ use crate::tests::edit_actions::test_edit_action;
 #[test] fn with_non_extended_selections(){
     test_edit_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -54,8 +52,6 @@ use crate::tests::edit_actions::test_edit_action;
 #[test] fn with_extended_selections(){
     test_edit_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -97,8 +93,6 @@ use crate::tests::edit_actions::test_edit_action;
 #[test] fn with_valid_selection_and_cursor_at_doc_end(){
     test_edit_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -139,8 +133,6 @@ use crate::tests::edit_actions::test_edit_action;
 #[test] fn errors_if_single_cursor_at_doc_end(){
     test_edit_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -183,8 +175,6 @@ use crate::tests::edit_actions::test_edit_action;
 #[test] fn with_read_only_buffer_is_error(){
     test_edit_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 

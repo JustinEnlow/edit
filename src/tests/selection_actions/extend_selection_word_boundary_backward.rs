@@ -14,8 +14,6 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn with_multiple_valid_selections(){
     test_selection_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -53,8 +51,6 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn with_mixed_valid_and_invalid_selections(){
     test_selection_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -92,8 +88,6 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn extends_to_doc_start_if_no_other_word_boundaries(){
     test_selection_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -127,8 +121,6 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn shrinks_previously_forward_extended_selection(){
     test_selection_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -162,8 +154,6 @@ use crate::tests::selection_actions::test_selection_action;
 #[ignore] #[test] fn works_with_count(){
     test_selection_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -203,8 +193,6 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn errors_if_count_less_than_1(){
     test_selection_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -243,8 +231,6 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn errors_if_single_selection_at_doc_start(){
     test_selection_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -283,8 +269,6 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn errors_if_already_extended_backwards_to_doc_start(){
     test_selection_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 

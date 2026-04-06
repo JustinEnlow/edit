@@ -143,14 +143,17 @@ impl Application{
         self.update_ui_data_util_bar(); //needed for util bar cursor to render the first time it is triggered   //TODO?: does this belong before update_layouts()?...
 
         //eval command from config file
-        #[cfg(not(test))] match std::fs::read_to_string("/home/j/software/edit_suite/edit/config"){
-            Err(e) => handle_message(self, DisplayMode::Error, &e.to_string()),
-            Ok(content) => {
-                if let Err(e) = execute_command(self, &content){
-                    handle_message(self, DisplayMode::Error, &format!("start file execution failed with error: {e}"));
+        #[cfg(not(test))]
+        if false/*run_start_up_file_command*/{
+            match std::fs::read_to_string("/home/j/software/edit_suite/edit/config"){
+                Err(e) => handle_message(self, DisplayMode::Error, &e.to_string()),
+                Ok(content) => {
+                    if let Err(e) = execute_command(self, &content){
+                        handle_message(self, DisplayMode::Error, &format!("start file execution failed with error: {e}"));
+                    }
                 }
-            }
-        };
+            };
+        }
     }
 
     pub fn buffer_display_area(&self) -> DisplayArea{
@@ -1655,6 +1658,24 @@ fn handle_application_error(app: &mut Application, e: ApplicationError){    //->
 // so config file(should rename to edit_start or similar) will not be a list of commands to run, but is a single command sent to user defined shell
 // prob don't use any prefixes in that file...
 
+struct CommandParser<'a>{rest: &'a str} //TODO: rest: Option<&'a str>
+impl<'a> CommandParser<'a> {
+    fn new(input: &'a str) -> Self{
+        Self{rest: input.trim_start()}
+    }
+    fn next(&mut self) -> Option<&'a str>{  //TODO: could handle lexing values in "" here...
+        if self.rest.is_empty(){
+            return None;
+        }
+
+        let mut split = self.rest.splitn(2, char::is_whitespace);
+        let word = split.next().unwrap();
+        self.rest = split.next().unwrap_or("").trim_start();
+        Some(word)
+    }
+    fn rest(&self) -> &'a str{self.rest}    //TODO: maybe should return Option<&'a str>, returning None if self.rest.is_empty()
+}
+
 //at the extreme, i think every action could end up being a command
 //in that sense, the editor is just a command parser, with command specific response behavior
 fn execute_command(app: &mut Application, command: &str) -> Result<(), String>{
@@ -1706,36 +1727,31 @@ fn execute_command(app: &mut Application, command: &str) -> Result<(), String>{
         }
     }
 
-    let mut split = command.trim_start().splitn(2, char::is_whitespace);
-    let first = split.next().unwrap_or("");
-    if first.is_empty(){return Err(String::from("cannot execute empty command string"));}
+    let mut parser = CommandParser::new(command);
+    let first = match parser.next(){
+        None => return Err(String::from("cannot execute empty command string")),
+        Some(first) => first
+    };
     match first{
         //"echo" => {       //don't want to use "echo" because it would clash with existing echo program
         "diagnostic" => {   //diagnostic may become an external gui program
-            let args = split.next().unwrap_or("");
-            if args.is_empty(){return Err(String::from("too few arguments: diagnostic [diagnostic_mode] <message>"));}
-            if command.contains('\n'){return Err(String::from("diagnostic message cannot contain newlines"));}
-            //diagnostic [diagnostic_mode] <message>
-            let mut display_mode = DisplayMode::Info;
-            let mut split = args.trim_start().splitn(2, char::is_whitespace);
-            let optional_diagnostic_mode = split.next().unwrap_or("");
-            if optional_diagnostic_mode.is_empty(){return Err(String::from("too few arguments: diagnostic [diagnostic_mode] <message>"));}
-            let mut process_next_word = true;
-            match optional_diagnostic_mode{
-                "--error" => display_mode = DisplayMode::Error,
-                "--warning" => display_mode = DisplayMode::Warning,
-                "--notify" => display_mode = DisplayMode::Notify,
-                "--info" => {/* already set to info mode */}
-                _ => {process_next_word = false;}
+            let args = parser.rest();
+            let mut parser = CommandParser::new(args);
+            let optional_diagnostic_mode = match parser.next(){
+                None => return Err(String::from("too few arguments: diagnostic [diagnostic_mode] <message>")),
+                Some(mode) => mode
+            };
+            let (mode, message) = match optional_diagnostic_mode{
+                "--error" => (DisplayMode::Error, parser.rest()),
+                "--warning" => (DisplayMode::Warning, parser.rest()),
+                "--notify" => (DisplayMode::Notify, parser.rest()),
+                "--info" => (DisplayMode::Info, parser.rest()),
+                _ => (DisplayMode::Info, args) //default to info mode, and display all args as message
+            };
+            if message.trim().is_empty(){
+                return Err(String::from("too few arguments: diagnostic [diagnostic_mode] <message>"));
             }
-            if process_next_word{
-                let maybe_message = split.next().unwrap_or("");
-                //get next word
-                let mut split = maybe_message.trim_start().splitn(2, char::is_whitespace);
-                let message = split.next().unwrap_or("");
-                if message.is_empty(){return Err(String::from("too few arguments: diagnostic [diagnostic_mode] <message>"));}
-                else{handle_message(app, display_mode, maybe_message);}
-            }else{handle_message(app, display_mode, args);}
+            handle_message(app, mode, message);
         }
 
         //"term" | "t" => app.action(Action::EditorAction(EditorAction::OpenNewTerminalWindow)),
@@ -1753,7 +1769,7 @@ fn execute_command(app: &mut Application, command: &str) -> Result<(), String>{
 
         //"search" => {}    //search whole buffer
         "search_selection" => {
-            let regex = split.next().unwrap_or("");
+            let regex = parser.rest();
             if regex.is_empty(){return Err(String::from("too few arguments: search_selection <regex>"));}
             //search <regex>
             match selections::incremental_search_in_selection(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
@@ -1770,8 +1786,8 @@ fn execute_command(app: &mut Application, command: &str) -> Result<(), String>{
         }
         //"split" => {} //split whole buffer
         "split_selection" => {
-            let regex = split.next().unwrap_or("");
-            if regex.is_empty(){return Err(String::from("too few arguments: search_selection <regex>"));}
+            let regex = parser.rest();
+            if regex.is_empty(){return Err(String::from("too few arguments: split_selection <regex>"));}
             //split <regex>
             match selections::incremental_split_in_selection(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
                 Err(_) => return Err(String::from("no matching regex")),
@@ -1805,28 +1821,16 @@ fn execute_command(app: &mut Application, command: &str) -> Result<(), String>{
         //this will eventually be echo -n <value> > /mnt/edit/<instance_id>/settings/<setting>, when filesystem interface impled
         //"set_option" => {
         "set" => {
-            let args = split.next().unwrap_or("");
-            if args.is_empty(){return Err(String::from("too few arguments: set <setting> <value>"));}
             //set_option <name> <value>
-
-            //let name = match command_words.next(){
-            //    None => return Err(String::from("too few args: set_option <name> <value>")),
-            //    Some(word) => word.content
-            //};
-            let mut split = args.splitn(2, char::is_whitespace);
-            let name = split.next().unwrap_or("");
-            if name.is_empty(){return Err(String::from("too few arguments: set <setting> <value>"));}
-            //let value = match command_words.next(){
-            //    None => return Err(String::from("too few args: set_option <name> <value>")),
-            //    Some(word) => word.content
-            //};
-            let rest = split.next().unwrap_or("");
-            if rest.is_empty(){return Err(String::from("too few arguments: set <setting> <value>"));}
-            let mut split = rest.splitn(2, char::is_whitespace);
-            let value = split.next().unwrap_or("");
-            if value.is_empty(){return Err(String::from("too few arguments: set <setting> <value>"));}
-            let rest = split.next().unwrap_or("");
-            if !rest.is_empty(){return Err(String::from("too many arguments: set <setting> <value>"));}
+            let name = match parser.next(){
+                None => return Err(String::from("too few arguments: set <name> <value>")),
+                Some(name) => name,
+            };
+            let value = match parser.next(){
+                None => return Err(String::from("too few arguments: set <name> <value>")),
+                Some(value) => value,
+            };
+            if !parser.rest().is_empty(){return Err(String::from("too many arguments: set <name> <value>"));}
             match name{
                 //NOTE: may not allow setting cursor semantics for TUI, because terminal cannot currently handle multicursor bar cursor display...
                 "cursor_semantics" => { //TODO: maybe return error results in same state if already set to provided value. maybe do that for all options...
@@ -1941,14 +1945,12 @@ fn execute_command(app: &mut Application, command: &str) -> Result<(), String>{
             }
         }
         "|" => {
-            let command = split.next().unwrap_or("");
-            if command.is_empty(){return Err(String::from("too few arguments: | <shell_command>"));}
             let stdin = if app.selections.primary.to_string(&app.buffer).is_empty(){
                 None
             }else{
                 Some(app.selections.primary.to_string(&app.buffer))
             };
-            match run_shell_command(app, stdin, command){
+            match run_shell_command(app, stdin, parser.rest()){
                 Err(error) => {
                     if error.is_empty(){
                         handle_message(app, DisplayMode::Error, "shell command failed with empty error string");
@@ -1971,9 +1973,7 @@ fn execute_command(app: &mut Application, command: &str) -> Result<(), String>{
         }
         ">" => {return Err(String::from("> not yet supported"));}
         "<" => {
-            let command = split.next().unwrap_or("");
-            if command.is_empty(){return Err(String::from("too few arguments: < <shell_command>"));}
-            match run_shell_command(app, None, command){
+            match run_shell_command(app, None, parser.rest()){
                 Err(error) => {
                     if error.is_empty(){
                         handle_message(app, DisplayMode::Error, "shell command failed with empty error string");
@@ -2036,7 +2036,7 @@ search_selection idk
 split idk
 split_selection idk
 
-| printf "%s" $EDIT_OPT_SHOW_LINE_NUMBERS
+< printf "%s" $EDIT_OPT_SHOW_LINE_NUMBERS
 
 | sort
 some

@@ -14,8 +14,6 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn normal_use_block_semantics(){
     test_selection_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -52,8 +50,6 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn should_succeed_if_mixed_selection_spanning_multiple_lines_and_valid_selection(){
     test_selection_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -91,8 +87,6 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn errors_if_selection_spans_multiple_lines_block_semantics(){
     test_selection_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -133,8 +127,6 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn errors_if_results_in_same_state_block_semantics(){
     test_selection_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -175,8 +167,6 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn errors_if_at_doc_end_and_line_empty_block_semantics(){
     test_selection_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 

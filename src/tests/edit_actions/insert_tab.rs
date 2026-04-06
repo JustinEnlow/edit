@@ -14,8 +14,6 @@ const USE_HARD_TAB: bool = false;
 #[test] fn with_multiple_selections(){
     test_edit_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -65,8 +63,6 @@ const USE_HARD_TAB: bool = false;
 #[test] fn with_read_only_buffer_is_error(){
     test_edit_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 

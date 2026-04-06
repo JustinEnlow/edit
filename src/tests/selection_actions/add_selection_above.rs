@@ -25,8 +25,6 @@ use crate::tests::selection_actions::test_selection_action;
                 //                  //
                 test_selection_action(
                     Config{
-                        user_options: std::collections::HashMap::new(),
-                        user_commands: std::collections::HashMap::new(),
                         semantics: Block, 
                         use_full_file_path: false, 
                         use_hard_tab: false, 
@@ -66,8 +64,6 @@ use crate::tests::selection_actions::test_selection_action;
                 //                  //
                 test_selection_action(
                     Config{
-                        user_options: std::collections::HashMap::new(),
-                        user_commands: std::collections::HashMap::new(),
                         semantics: Block, 
                         use_full_file_path: false, 
                         use_hard_tab: false, 
@@ -115,8 +111,6 @@ use crate::tests::selection_actions::test_selection_action;
                 //              //
                 test_selection_action(
                     Config{
-                        user_options: std::collections::HashMap::new(),
-                        user_commands: std::collections::HashMap::new(),
                         semantics: Block, 
                         use_full_file_path: false, 
                         use_hard_tab: false, 
@@ -159,8 +153,6 @@ use crate::tests::selection_actions::test_selection_action;
                 //              //
                 test_selection_action(
                     Config{
-                        user_options: std::collections::HashMap::new(),
-                        user_commands: std::collections::HashMap::new(),
                         semantics: Block, 
                         use_full_file_path: false, 
                         use_hard_tab: false, 
@@ -210,8 +202,6 @@ use crate::tests::selection_actions::test_selection_action;
                 //              //
                 test_selection_action(
                     Config{
-                        user_options: std::collections::HashMap::new(),
-                        user_commands: std::collections::HashMap::new(),
                         semantics: Block, 
                         use_full_file_path: false, 
                         use_hard_tab: false, 
@@ -254,8 +244,6 @@ use crate::tests::selection_actions::test_selection_action;
                 //              //
                 test_selection_action(
                     Config{
-                        user_options: std::collections::HashMap::new(),
-                        user_commands: std::collections::HashMap::new(),
                         semantics: Block, 
                         use_full_file_path: false, 
                         use_hard_tab: false, 
@@ -303,8 +291,6 @@ use crate::tests::selection_actions::test_selection_action;
                 //              //
                 test_selection_action(
                     Config{
-                        user_options: std::collections::HashMap::new(),
-                        user_commands: std::collections::HashMap::new(),
                         semantics: Block, 
                         use_full_file_path: false, 
                         use_hard_tab: false, 
@@ -347,8 +333,6 @@ use crate::tests::selection_actions::test_selection_action;
                 //              //
                 test_selection_action(
                     Config{
-                        user_options: std::collections::HashMap::new(),
-                        user_commands: std::collections::HashMap::new(),
                         semantics: Block, 
                         use_full_file_path: false, 
                         use_hard_tab: false, 
@@ -430,8 +414,6 @@ use crate::tests::selection_actions::test_selection_action;
                 //
                 test_selection_action(
                     Config{
-                        user_options: std::collections::HashMap::new(),
-                        user_commands: std::collections::HashMap::new(),
                         semantics: Block, 
                         use_full_file_path: false, 
                         use_hard_tab: false, 
@@ -484,8 +466,6 @@ use crate::tests::selection_actions::test_selection_action;
                 //
                 test_selection_action(
                     Config{
-                        user_options: std::collections::HashMap::new(),
-                        user_commands: std::collections::HashMap::new(),
                         semantics: Block, 
                         use_full_file_path: false, 
                         use_hard_tab: false, 
@@ -532,8 +512,6 @@ use crate::tests::selection_actions::test_selection_action;
                 //
                 test_selection_action(
                     Config{
-                        user_options: std::collections::HashMap::new(),
-                        user_commands: std::collections::HashMap::new(),
                         semantics: Block, 
                         use_full_file_path: false, 
                         use_hard_tab: false, 
@@ -581,8 +559,6 @@ use crate::tests::selection_actions::test_selection_action;
             #[test] fn should_error_if_any_selection_is_multiline_with_direction_forward(){
                 test_selection_action(
                     Config{
-                        user_options: std::collections::HashMap::new(),
-                        user_commands: std::collections::HashMap::new(),
                         semantics: Block, 
                         use_full_file_path: false, 
                         use_hard_tab: false, 
@@ -622,8 +598,6 @@ use crate::tests::selection_actions::test_selection_action;
             #[test] fn should_error_if_any_selection_is_multiline_with_direction_backward(){
                 test_selection_action(
                     Config{
-                        user_options: std::collections::HashMap::new(),
-                        user_commands: std::collections::HashMap::new(),
                         semantics: Block, 
                         use_full_file_path: false, 
                         use_hard_tab: false, 

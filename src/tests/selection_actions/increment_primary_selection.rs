@@ -14,8 +14,6 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn with_multiple_selections(){
     test_selection_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -52,8 +50,6 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn wraps_if_primary_is_last(){
     test_selection_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
@@ -91,8 +87,6 @@ use crate::tests::selection_actions::test_selection_action;
 #[test] fn errors_if_single_selection(){
     test_selection_action(
         Config{
-            user_options: std::collections::HashMap::new(),
-            user_commands: std::collections::HashMap::new(),
             semantics: Block, 
             use_full_file_path: false, 
             use_hard_tab: false, 
