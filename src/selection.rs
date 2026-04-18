@@ -511,6 +511,127 @@ pub fn move_to_line_number(
     };
     selection.move_vertically(amount, buffer, movement, direction, semantics)
 }
+//#[cfg(test)]
+//mod move_to_line_number_tests{
+//    use crate::utilities::move_to_line_number;
+//    use crate::{
+//        application::Application,
+//        selections::Selections,
+//        selection::{Selection, CursorSemantics},
+//        display_area::DisplayArea,
+//    };
+//
+//    fn test(semantics: CursorSemantics, text: &str, line_number: usize, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize, tuple_expected_selections: Vec<(usize, usize, Option<usize>)>, expected_primary: usize){
+//        let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
+//
+//        let mut vec_expected_selections = Vec::new();
+//        for tuple in tuple_expected_selections{
+//            vec_expected_selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, &app.buffer, semantics.clone()));
+//        }
+//        let expected_selections = Selections::new(vec_expected_selections, expected_primary, &app.buffer, semantics.clone());
+//        
+//        let mut vec_selections = Vec::new();
+//        for tuple in tuple_selections{
+//            vec_selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, &app.buffer, semantics.clone()));
+//        }
+//        let selections = Selections::new(vec_selections, primary, &app.buffer, semantics.clone());
+//        
+//        app.selections = selections;
+//        
+//        let result = move_to_line_number::application_impl(&mut app, line_number, semantics.clone());
+//        assert!(!result.is_err());
+//        
+//        assert_eq!(expected_selections, app.selections);
+//        assert!(!app.buffer.is_modified());
+//    }
+//    fn test_error(semantics: CursorSemantics, text: &str, line_number: usize, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize){
+//        let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
+//        
+//        let mut vec_selections = Vec::new();
+//        for tuple in tuple_selections{
+//            vec_selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, &app.buffer, semantics.clone()));
+//        }
+//        let selections = Selections::new(vec_selections, primary, &app.buffer, semantics.clone());
+//        
+//        app.selections = selections;
+//        
+//        assert!(move_to_line_number::application_impl(&mut app, line_number, semantics).is_err());
+//        assert!(!app.buffer.is_modified());
+//    }
+//
+//    //TODO: restricts cursor to line end, when stored line position > line width
+//
+//    #[test] fn moves_to_line_number_bar_semantics(){
+//        test(
+//            CursorSemantics::Bar, 
+//            "idk\nsome\nshit\n", 
+//            2, 
+//            vec![
+//                (0, 0, None),
+//                (4, 4, None)
+//            ], 0, 
+//            vec![
+//                (9, 9, Some(0))
+//            ], 0
+//        );
+//    }
+//    #[test] fn moves_to_line_number_block_semantics(){
+//        test(
+//            CursorSemantics::Block, 
+//            "idk\nsome\nshit\n", 
+//            2, 
+//            vec![
+//                (0, 1, None),
+//                (4, 5, None)
+//            ], 0, 
+//            vec![
+//                (9, 10, Some(0))
+//            ], 0
+//        );
+//    }
+//
+//    #[test] fn errors_if_already_at_line_number_bar_semantics(){
+//        test_error(
+//            CursorSemantics::Bar, 
+//            "idk\nsome\nshit\n", 
+//            1, 
+//            vec![
+//                (4, 4, None)
+//            ], 0
+//        );
+//    }
+//    #[test] fn errors_if_already_at_line_number_block_semantics(){
+//        test_error(
+//            CursorSemantics::Block, 
+//            "idk\nsome\nshit\n", 
+//            1, 
+//            vec![
+//                (4, 5, None)
+//            ], 0
+//        );
+//    }
+//    
+//    #[test] fn errors_if_invalid_line_number_bar_semantics(){   //0 is valid, since backend line numbers are 0 based
+//        test_error(
+//            CursorSemantics::Bar, 
+//            "idk\nsome\nshit\n", 
+//            500, 
+//            vec![
+//                (0, 0, None)
+//            ], 0
+//        );
+//    }
+//    #[test] fn errors_if_invalid_line_number_block_semantics(){
+//        test_error(
+//            CursorSemantics::Block, 
+//            "idk\nsome\nshit\n", 
+//            500, 
+//            vec![
+//                (0, 1, None)
+//            ], 0
+//        );
+//    }
+//}
 
 /// Returns a new instance of [`Selection`] with cursor moved up.
 pub fn move_cursor_up(
@@ -643,6 +764,7 @@ pub fn move_cursor_word_boundary_backward(
 }
 
 /// Returns a new instance of [`Selection`] with cursor moved to end of line text.
+//TODO: maybe rename to move_cursor_line_text_end
 pub fn move_cursor_line_end(selection: &Selection, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> Result<Selection, SelectionError>{
     let mut selection = selection.clone();
     assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
@@ -681,6 +803,107 @@ pub fn move_cursor_line_start(
     if selection.cursor(buffer, semantics.clone()) == line_start && !selection.is_extended(){return Err(SelectionError::ResultsInSameState);}
     selection.put_cursor(line_start, buffer, Movement::Move, semantics.clone(), true)
 }
+//#[cfg(test)]
+//mod move_cursor_line_start_tests{
+//    use crate::utilities::move_cursor_line_start;
+//    use crate::{
+//        application::Application,
+//        selections::Selections,
+//        selection::{Selection, CursorSemantics},
+//        display_area::DisplayArea,
+//    };
+//
+//    //TODO: could take a view as arg, and verify that cursor movement moves the view correctly as well
+//    fn test(semantics: CursorSemantics, text: &str, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize, tuple_expected_selections: Vec<(usize, usize, Option<usize>)>, expected_primary: usize){
+//        let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
+//
+//        let mut vec_expected_selections = Vec::new();
+//        for tuple in tuple_expected_selections{
+//            vec_expected_selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, &app.buffer, semantics.clone()));
+//        }
+//        let expected_selections = Selections::new(vec_expected_selections, expected_primary, &app.buffer, semantics.clone());
+//        
+//        let mut vec_selections = Vec::new();
+//        for tuple in tuple_selections{
+//            vec_selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, &app.buffer, semantics.clone()));
+//        }
+//        let selections = Selections::new(vec_selections, primary, &app.buffer, semantics.clone());
+//        
+//        app.selections = selections;
+//        
+//        let result = move_cursor_line_start::application_impl(&mut app, semantics.clone());
+//        assert!(!result.is_err());
+//        
+//        assert_eq!(expected_selections, app.selections);
+//        assert!(!app.buffer.is_modified());
+//    }
+//    fn test_error(semantics: CursorSemantics, text: &str, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize){
+//        let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
+//        
+//        let mut vec_selections = Vec::new();
+//        for tuple in tuple_selections{
+//            vec_selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, &app.buffer, semantics.clone()));
+//        }
+//        let selections = Selections::new(vec_selections, primary, &app.buffer, semantics.clone());
+//        
+//        app.selections = selections;
+//        
+//        assert!(move_cursor_line_start::application_impl(&mut app, semantics).is_err());
+//        assert!(!app.buffer.is_modified());
+//    }
+//
+//    #[test] fn with_mixed_valid_and_invalid_selections_bar_semantics(){
+//        test(
+//            CursorSemantics::Bar, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (0, 0, None),   //invalid
+//                (6, 6, None),   //from middle of line
+//                (13, 13, None)  //from end of line
+//            ], 0, 
+//            vec![
+//                (0, 0, None),
+//                (4, 4, Some(0)),
+//                (9, 9, Some(0))
+//            ], 0
+//        );
+//    }
+//    #[test] fn with_mixed_valid_and_invalid_selections_block_semantics(){
+//        test(
+//            CursorSemantics::Block, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (0, 1, None),   //invalid
+//                (6, 7, None),   //from middle of line
+//                (13, 14, None)  //from end of line
+//            ], 0, 
+//            vec![
+//                (0, 1, None),
+//                (4, 5, Some(0)),
+//                (9, 10, Some(0))
+//            ], 0
+//        );
+//    }
+//
+//    #[test] fn errors_when_single_selection_at_line_start_bar_semantics(){
+//        test_error(
+//            CursorSemantics::Bar, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (0, 0, None)
+//            ], 0
+//        );
+//    }
+//    #[test] fn errors_when_single_selection_at_line_start_block_semantics(){
+//        test_error(
+//            CursorSemantics::Block, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (0, 1, None)
+//            ], 0
+//        );
+//    }
+//}
 
 /// Returns a new instance of [`Selection`] with cursor moved to line text start.
 pub fn move_cursor_line_text_start(
@@ -698,6 +921,110 @@ pub fn move_cursor_line_text_start(
     if selection.cursor(buffer, semantics.clone()) == text_start && !selection.is_extended(){return Err(SelectionError::ResultsInSameState);}
     selection.put_cursor(text_start, buffer, Movement::Move, semantics, true)
 }
+//#[cfg(test)]
+//mod move_cursor_line_text_start_tests{
+//    use crate::utilities::move_cursor_line_text_start;
+//    use crate::{
+//        application::Application,
+//        selections::Selections,
+//        selection::{Selection, CursorSemantics},
+//        display_area::DisplayArea,
+//    };
+//
+//    //TODO: could take a view as arg, and verify that cursor movement moves the view correctly as well
+//    fn test(semantics: CursorSemantics, text: &str, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize, tuple_expected_selections: Vec<(usize, usize, Option<usize>)>, expected_primary: usize){
+//        let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
+//
+//        let mut vec_expected_selections = Vec::new();
+//        for tuple in tuple_expected_selections{
+//            vec_expected_selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, &app.buffer, semantics.clone()));
+//        }
+//        let expected_selections = Selections::new(vec_expected_selections, expected_primary, &app.buffer, semantics.clone());
+//        
+//        let mut vec_selections = Vec::new();
+//        for tuple in tuple_selections{
+//            vec_selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, &app.buffer, semantics.clone()));
+//        }
+//        let selections = Selections::new(vec_selections, primary, &app.buffer, semantics.clone());
+//        
+//        app.selections = selections;
+//        
+//        let result = move_cursor_line_text_start::application_impl(&mut app, semantics.clone());
+//        assert!(!result.is_err());
+//        
+//        assert_eq!(expected_selections, app.selections);
+//        assert!(!app.buffer.is_modified());
+//    }
+//    fn test_error(semantics: CursorSemantics, text: &str, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize){
+//        let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
+//        
+//        let mut vec_selections = Vec::new();
+//        for tuple in tuple_selections{
+//            vec_selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, &app.buffer, semantics.clone()));
+//        }
+//        let selections = Selections::new(vec_selections, primary, &app.buffer, semantics.clone());
+//        
+//        app.selections = selections;
+//        
+//        assert!(move_cursor_line_text_start::application_impl(&mut app, semantics).is_err());
+//        assert!(!app.buffer.is_modified());
+//    }
+//
+//    //TODO: actually test with whitespace at line start
+//
+//    #[test] fn with_mixed_valid_and_invalid_selections_bar_semantics(){
+//        test(
+//            CursorSemantics::Bar, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (0, 0, None),   //invalid
+//                (6, 6, None),   //from middle of line
+//                (13, 13, None)  //from end of line
+//            ], 0, 
+//            vec![
+//                (0, 0, None),
+//                (4, 4, Some(0)),
+//                (9, 9, Some(0))
+//            ], 0
+//        );
+//    }
+//    #[test] fn with_mixed_valid_and_invalid_selections_block_semantics(){
+//        test(
+//            CursorSemantics::Block, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (0, 1, None),   //invalid
+//                (6, 7, None),   //from middle of line
+//                (13, 14, None)  //from end of line
+//            ], 0, 
+//            vec![
+//                (0, 1, None),
+//                (4, 5, Some(0)),
+//                (9, 10, Some(0))
+//            ], 0
+//        );
+//    }
+//
+//    #[test] fn errors_when_single_selection_at_line_start_bar_semantics(){
+//        test_error(
+//            CursorSemantics::Bar, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (0, 0, None)
+//            ], 0
+//        );
+//    }
+//    #[test] fn errors_when_single_selection_at_line_start_block_semantics(){
+//        test_error(
+//            CursorSemantics::Block, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (0, 1, None)
+//            ], 0
+//        );
+//    }
+//}
+
 
 /// Returns a new instance of [`Selection`] with cursor between absolute start of line and line text start.
 pub fn move_cursor_home(
@@ -926,6 +1253,7 @@ pub fn extend_selection_word_boundary_forward(
 }
 
 /// Returns a new instance of [`Selection`] with the [`Selection`] extended to the end of the current line.
+//TODO: rename to extend_selection_line_text_end
 pub fn extend_selection_line_end(
     selection: &Selection, 
     buffer: &Buffer, 
@@ -971,6 +1299,149 @@ pub fn extend_selection_line_start(
     if selection.cursor(buffer, semantics.clone()) == line_start{return Err(SelectionError::ResultsInSameState);}
     selection.put_cursor(line_start, buffer, Movement::Extend, semantics, true)
 }
+//#[cfg(test)]
+//mod extend_selection_line_start_tests{
+//    use crate::utilities::extend_selection_line_start;
+//    use crate::{
+//        application::Application,
+//        selections::Selections,
+//        selection::{Selection, CursorSemantics},
+//        display_area::DisplayArea,
+//    };
+//
+//    fn test(semantics: CursorSemantics, text: &str, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize, tuple_expected_selections: Vec<(usize, usize, Option<usize>)>, expected_primary: usize){
+//        let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
+//
+//        let mut vec_expected_selections = Vec::new();
+//        for tuple in tuple_expected_selections{
+//            vec_expected_selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, &app.buffer, semantics.clone()));
+//        }
+//        let expected_selections = Selections::new(vec_expected_selections, expected_primary, &app.buffer, semantics.clone());
+//        
+//        let mut vec_selections = Vec::new();
+//        for tuple in tuple_selections{
+//            vec_selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, &app.buffer, semantics.clone()));
+//        }
+//        let selections = Selections::new(vec_selections, primary, &app.buffer, semantics.clone());
+//        
+//        app.selections = selections;
+//        
+//        let result = extend_selection_line_start::application_impl(&mut app, semantics.clone());
+//        assert!(!result.is_err());
+//        
+//        assert_eq!(expected_selections, app.selections);
+//        assert!(!app.buffer.is_modified());
+//    }
+//    fn test_error(semantics: CursorSemantics, text: &str, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize){
+//        let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
+//        
+//        let mut vec_selections = Vec::new();
+//        for tuple in tuple_selections{
+//            vec_selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, &app.buffer, semantics.clone()));
+//        }
+//        let selections = Selections::new(vec_selections, primary, &app.buffer, semantics.clone());
+//        
+//        app.selections = selections;
+//        
+//        assert!(extend_selection_line_start::application_impl(&mut app, semantics).is_err());
+//        assert!(!app.buffer.is_modified());
+//    }
+//
+//    #[test] fn extend_line_start_bar_semantics(){
+//        test(
+//            CursorSemantics::Bar, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (3, 3, None),
+//                (8, 8, None)
+//            ], 0, 
+//            vec![
+//                (3, 0, Some(0)),
+//                (8, 4, Some(0))
+//            ], 0
+//        );
+//    }
+//    #[test] fn extend_line_start_block_semantics(){
+//        test(
+//            CursorSemantics::Block, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (2, 3, None),
+//                (7, 8, None)
+//            ], 0, 
+//            vec![
+//                (3, 0, Some(0)),
+//                (8, 4, Some(0))
+//            ], 0
+//        );
+//    }
+//    
+//    //This applies to block semantics only...
+//    #[test] fn when_extending_from_line_end_clips_new_selection_before_newline_char(){
+//        test(
+//            CursorSemantics::Block, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (3, 4, None),
+//                (8, 9, None)
+//            ], 0, 
+//            vec![
+//                (3, 0, Some(0)),
+//                (8, 4, Some(0))
+//            ], 0
+//        );
+//    }
+//    
+//    #[test] fn with_mixed_valid_and_invalid_selections_bar_semantics(){
+//        test(
+//            CursorSemantics::Bar, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (0, 0, None),
+//                (6, 6, None)
+//            ], 0, 
+//            vec![
+//                (0, 0, None),
+//                (6, 4, Some(0))
+//            ], 0
+//        );
+//    }
+//    #[test] fn with_mixed_valid_and_invalid_selections_block_semantics(){
+//        test(
+//            CursorSemantics::Block, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (0, 1, None),
+//                (6, 7, None)
+//            ], 0, 
+//            vec![
+//                (0, 1, None),
+//                (7, 4, Some(0))
+//            ], 0
+//        );
+//    }
+//    
+//    #[test] fn errors_if_already_at_line_start_bar_semantics(){
+//        test_error(
+//            CursorSemantics::Bar, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (0, 0, None),
+//                (4, 4, None)
+//            ], 0
+//        );
+//    }
+//    #[test] fn errors_if_already_at_line_start_block_semantics(){
+//        test_error(
+//            CursorSemantics::Block, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (0, 1, None),
+//                (4, 5, None)
+//            ], 0
+//        );
+//    }
+//}
 
 /// Returns a new instance of [`Selection`] with the [`Selection`] extended to the start of the text on the current line.
 pub fn extend_selection_line_text_start(
@@ -987,6 +1458,149 @@ pub fn extend_selection_line_text_start(
     if selection.cursor(buffer, semantics.clone()) == text_start{return Err(SelectionError::ResultsInSameState);}
     selection.put_cursor(text_start, buffer, Movement::Extend, semantics, true)
 }
+//#[cfg(test)]
+//mod extend_selection_line_text_start_tests{
+//    use crate::utilities::extend_selection_line_text_start;
+//    use crate::{
+//        application::Application,
+//        selections::Selections,
+//        selection::{Selection, CursorSemantics},
+//        display_area::DisplayArea,
+//    };
+//
+//    fn test(semantics: CursorSemantics, text: &str, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize, tuple_expected_selections: Vec<(usize, usize, Option<usize>)>, expected_primary: usize){
+//        let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
+//
+//        let mut vec_expected_selections = Vec::new();
+//        for tuple in tuple_expected_selections{
+//            vec_expected_selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, &app.buffer, semantics.clone()));
+//        }
+//        let expected_selections = Selections::new(vec_expected_selections, expected_primary, &app.buffer, semantics.clone());
+//        
+//        let mut vec_selections = Vec::new();
+//        for tuple in tuple_selections{
+//            vec_selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, &app.buffer, semantics.clone()));
+//        }
+//        let selections = Selections::new(vec_selections, primary, &app.buffer, semantics.clone());
+//        
+//        app.selections = selections;
+//        
+//        let result = extend_selection_line_text_start::application_impl(&mut app, semantics.clone());
+//        assert!(!result.is_err());
+//        
+//        assert_eq!(expected_selections, app.selections);
+//        assert!(!app.buffer.is_modified());
+//    }
+//    fn test_error(semantics: CursorSemantics, text: &str, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize){
+//        let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
+//        
+//        let mut vec_selections = Vec::new();
+//        for tuple in tuple_selections{
+//            vec_selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, &app.buffer, semantics.clone()));
+//        }
+//        let selections = Selections::new(vec_selections, primary, &app.buffer, semantics.clone());
+//        
+//        app.selections = selections;
+//        
+//        assert!(extend_selection_line_text_start::application_impl(&mut app, semantics).is_err());
+//        assert!(!app.buffer.is_modified());
+//    }
+//
+//    #[test] fn extend_line_text_start_bar_semantics(){
+//        test(
+//            CursorSemantics::Bar, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (3, 3, None),
+//                (8, 8, None)
+//            ], 0, 
+//            vec![
+//                (3, 0, Some(0)),
+//                (8, 4, Some(0))
+//            ], 0
+//        );
+//    }
+//    #[test] fn extend_line_text_start_block_semantics(){
+//        test(
+//            CursorSemantics::Block, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (2, 3, None),
+//                (7, 8, None)
+//            ], 0, 
+//            vec![
+//                (3, 0, Some(0)),
+//                (8, 4, Some(0))
+//            ], 0
+//        );
+//    }
+//    
+//    //This applies to block semantics only...
+//    #[test] fn when_extending_from_line_end_clips_new_selection_before_newline_char(){
+//        test(
+//            CursorSemantics::Block, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (3, 4, None),
+//                (8, 9, None)
+//            ], 0, 
+//            vec![
+//                (3, 0, Some(0)),
+//                (8, 4, Some(0))
+//            ], 0
+//        );
+//    }
+//    
+//    #[test] fn with_mixed_valid_and_invalid_selections_bar_semantics(){
+//        test(
+//            CursorSemantics::Bar, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (0, 0, None),
+//                (6, 6, None)
+//            ], 0, 
+//            vec![
+//                (0, 0, None),
+//                (6, 4, Some(0))
+//            ], 0
+//        );
+//    }
+//    #[test] fn with_mixed_valid_and_invalid_selections_block_semantics(){
+//        test(
+//            CursorSemantics::Block, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (0, 1, None),
+//                (6, 7, None)
+//            ], 0, 
+//            vec![
+//                (0, 1, None),
+//                (7, 4, Some(0))
+//            ], 0
+//        );
+//    }
+//    
+//    #[test] fn errors_if_already_at_line_text_start_bar_semantics(){
+//        test_error(
+//            CursorSemantics::Bar, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (0, 0, None),
+//                (4, 4, None)
+//            ], 0
+//        );
+//    }
+//    #[test] fn errors_if_already_at_line_text_start_block_semantics(){
+//        test_error(
+//            CursorSemantics::Block, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (0, 1, None),
+//                (4, 5, None)
+//            ], 0
+//        );
+//    }
+//}
 
 /// Returns a new instance of [`Selection`] with the [`Selection`] extended to absolute start of line, or line text start, depending on [`Selection`] `head` position.
 pub fn extend_selection_home(
@@ -1269,74 +1883,74 @@ fn get_matching_closing_bracket(char: char) -> char{    //TODO: this should prob
     else{panic!();} //TODO: maybe return None, or an error?...
 }
 
-/// Returns a [`Vec`] of [`Selection`]s where the underlying text is a match for the `input` search string.
-//TODO: this, and related functions, should prob be made to work over just a string slice from a buffer.
-//caller should handle slicing according to selection, and this fn should be agnostic to selections...
-#[must_use] pub fn incremental_search_in_selection(
-    selection: &Selection, 
-    input: &str, 
-    buffer: &Buffer
-) -> Vec<Selection>{   //text should be the text within a selection, not the whole document text       //TODO: -> Result<Vec<Selection>>
-    let mut selections = Vec::new();
-    let start = selection.range.start;
-    if let Ok(regex) = regex::Regex::new(input){
-        //regex returns byte indices, and the current Selection impl uses char indices...
-        for search_match in regex.find_iter(&buffer.to_string()[start..selection.range.end.min(buffer.len_chars())]){
-            let mut new_selection = selection.clone();
-            //if we used char indexing instead of byte indexing, we could use buffer.byte_to_char(search_match.start()).saturating_add(start)
-            //new_selection.range.start = search_match.start().saturating_add(start);
-            new_selection.range.start = buffer.byte_to_char(search_match.start()).saturating_add(start);
-            //new_selection.range.end = search_match.end().saturating_add(start);
-            new_selection.range.end = buffer.byte_to_char(search_match.end()).saturating_add(start);
-            //new_selection.extension_direction = Some(Direction::Forward);//ExtensionDirection::Forward;
-            new_selection.extension_direction = if buffer.next_grapheme_char_index(new_selection.range.start) == new_selection.range.end{None}
-            else{Some(Direction::Forward)};
-            selections.push(new_selection);
-        }
-    }
-    //else{/*return error FailedToParseRegex*/} //no match found if regex parse fails
-    selections  //if selections empty, no match found
-}
+//  /// Returns a [`Vec`] of [`Selection`]s where the underlying text is a match for the `input` search string.
+//  //TODO: this, and related functions, should prob be made to work over just a string slice from a buffer.
+//  //caller should handle slicing according to selection, and this fn should be agnostic to selections...
+//  #[must_use] pub fn incremental_search_in_selection(
+//      selection: &Selection, 
+//      input: &str, 
+//      buffer: &Buffer
+//  ) -> Vec<Selection>{   //text should be the text within a selection, not the whole document text       //TODO: -> Result<Vec<Selection>>
+//      let mut selections = Vec::new();
+//      let start = selection.range.start;
+//      if let Ok(regex) = regex::Regex::new(input){
+//          //regex returns byte indices, and the current Selection impl uses char indices...
+//          for search_match in regex.find_iter(&buffer.to_string()[start..selection.range.end.min(buffer.len_chars())]){
+//              let mut new_selection = selection.clone();
+//              //if we used char indexing instead of byte indexing, we could use buffer.byte_to_char(search_match.start()).saturating_add(start)
+//              //new_selection.range.start = search_match.start().saturating_add(start);
+//              new_selection.range.start = buffer.byte_to_char(search_match.start()).saturating_add(start);
+//              //new_selection.range.end = search_match.end().saturating_add(start);
+//              new_selection.range.end = buffer.byte_to_char(search_match.end()).saturating_add(start);
+//              //new_selection.extension_direction = Some(Direction::Forward);//ExtensionDirection::Forward;
+//              new_selection.extension_direction = if buffer.next_grapheme_char_index(new_selection.range.start) == new_selection.range.end{None}
+//              else{Some(Direction::Forward)};
+//              selections.push(new_selection);
+//          }
+//      }
+//      //else{/*return error FailedToParseRegex*/} //no match found if regex parse fails
+//      selections  //if selections empty, no match found
+//  }
 
-/// Returns a [`Vec`] of [`Selection`]s containing each part of the current selection except the split pattern.
-#[must_use] pub fn incremental_split_in_selection(
-    selection: &Selection, 
-    pattern: &str, 
-    buffer: &Buffer
-) -> Vec<Selection>{
-    let mut selections = Vec::new();
-    if let Ok(regex) = regex::Regex::new(pattern){
-        let mut start = selection.range.start; //0;
-        let mut found_split = false;
-        // Iter over each split, and push the retained selection before it, if any...       TODO: test split at start of selection
-        for split in regex.find_iter(&buffer./*inner.*/to_string()[selection.range.start..selection.range.end.min(buffer.len_chars())]){
-            found_split = true;
-            let selection_range = Range::new(start, split.start().saturating_add(selection.range.start));
-            if selection_range.start < selection_range.end{
-                let mut new_selection = selection.clone();
-                new_selection.range.start = selection_range.start;
-                new_selection.range.end = selection_range.end;
-                //new_selection.extension_direction = Some(Direction::Forward);
-                new_selection.extension_direction = if buffer.next_grapheme_char_index(new_selection.range.start) == new_selection.range.end{None}
-                else{Some(Direction::Forward)};
-                selections.push(new_selection);
-            }
-            start = split.end().saturating_add(selection.range.start);
-        }
-        // Handle any remaining text after the last split
-        //if split found and end of last split < selection end
-        if found_split && start < selection.range.end.min(buffer.len_chars()){
-            let mut new_selection = selection.clone();
-            new_selection.range.start = start;
-            new_selection.range.end = selection.range.end.min(buffer.len_chars());
-            //new_selection.extension_direction = Some(Direction::Forward);
-            new_selection.extension_direction = if buffer.next_grapheme_char_index(new_selection.range.start) == new_selection.range.end{None}
-            else{Some(Direction::Forward)};
-            selections.push(new_selection);
-        }
-    }
-    selections
-}
+//  /// Returns a [`Vec`] of [`Selection`]s containing each part of the current selection except the split pattern.
+//  #[must_use] pub fn incremental_split_in_selection(
+//      selection: &Selection, 
+//      pattern: &str, 
+//      buffer: &Buffer
+//  ) -> Vec<Selection>{
+//      let mut selections = Vec::new();
+//      if let Ok(regex) = regex::Regex::new(pattern){
+//          let mut start = selection.range.start; //0;
+//          let mut found_split = false;
+//          // Iter over each split, and push the retained selection before it, if any...       TODO: test split at start of selection
+//          for split in regex.find_iter(&buffer./*inner.*/to_string()[selection.range.start..selection.range.end.min(buffer.len_chars())]){
+//              found_split = true;
+//              let selection_range = Range::new(start, split.start().saturating_add(selection.range.start));
+//              if selection_range.start < selection_range.end{
+//                  let mut new_selection = selection.clone();
+//                  new_selection.range.start = selection_range.start;
+//                  new_selection.range.end = selection_range.end;
+//                  //new_selection.extension_direction = Some(Direction::Forward);
+//                  new_selection.extension_direction = if buffer.next_grapheme_char_index(new_selection.range.start) == new_selection.range.end{None}
+//                  else{Some(Direction::Forward)};
+//                  selections.push(new_selection);
+//              }
+//              start = split.end().saturating_add(selection.range.start);
+//          }
+//          // Handle any remaining text after the last split
+//          //if split found and end of last split < selection end
+//          if found_split && start < selection.range.end.min(buffer.len_chars()){
+//              let mut new_selection = selection.clone();
+//              new_selection.range.start = start;
+//              new_selection.range.end = selection.range.end.min(buffer.len_chars());
+//              //new_selection.extension_direction = Some(Direction::Forward);
+//              new_selection.extension_direction = if buffer.next_grapheme_char_index(new_selection.range.start) == new_selection.range.end{None}
+//              else{Some(Direction::Forward)};
+//              selections.push(new_selection);
+//          }
+//      }
+//      selections
+//  }
 
 //TODO: we should allow collapsing to anchor, or collapse to anchor collapse(&self, text: &Rope, semantics: CursorSemantics, collapse_target: Anchor)
 /// Returns a new instance of [`Selection`] with `anchor` aligned with cursor.

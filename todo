@@ -1,7 +1,187 @@
-TODO
-    impl cut/copy/paste in util bar
-    client/server, so single backend instance can process multiple frontend applications
-    selection history(undo/redo but for selection movement instead of text edited)
+//TODO: for each TODO item in this file, prepend with a "tag <#>", so that we can place a "// edit/todo:/tag <#>" comment in the rest of our
+//source files that can be plumbed(as a regex search) to navigate to the associated todo item.
+//we could also leave a brief(no more than 1 line) todo item description, next to the "edit/todo:/tag <#>" comment in that source file
+//format:
+//  tag <#>     todo type(bugfix/new_behavior/other)    checkbox    description
+//  tag 0       new_behavior                            [ ]         impl line/column/regex search flags in init arg parsing, pass to application, and handle appropriately
+
+//[ ] todo item not implemented and tested
+//[x] todo item successfully implemented and tested
+//[-] todo item discarded (maybe leave explanation in description as to why)
+
+
+
+//GENERAL
+    //execute text  (perform command)
+    //look text (open window or search in current)
+    [ ] make performant (trying, but i honestly have no clue what i am doing...)
+    [ ] user config file
+    [ ] custom keybinds
+    [ ] edit_server backend
+    [ ] selection history(undo/redo but for selection movement instead of text edited)
+
+//9P FS
+    //which files to serve and why
+    //enable external program interaction through generic fs interfaces
+    //impl
+
+//INIT
+    //arg parsing
+    //setup
+    //input handling (threaded/async?)
+
+//DISPLAY BUFFER
+    //ui
+        [ ] tag 1       core        layout
+        [ ]                         display map: map between display coords and buffer coords(accounting for inlays, folds, character expansions, wrapping)
+        [ ]                         render ascii text
+        [ ]                         render utf-8 text
+        [ ]                         render cursors/selections
+        [ ]                         render cursor line (highlight the line primary cursor is on)
+        [ ]                         render cursor column (highlight the column primary cursor is on)
+        [ ]                         render suggestions/completion(from previously used words)
+    //behavior
+        //movement/edits    //maybe these belong in general(they should be implemented for all widgets with text input)
+        [x]                         Close/quit
+        [ ]                         move cursor(s) up/down (accounting for line ends, display offsets, grapheme display widths)
+        [ ]                         move cursor(s) left/right (accounting for line start/end)
+        [ ]                         move cursor(s) home/end
+        [ ]                         move cursor(s) sub word forward/backward    (a-z only. no '-', '_', ',', '.', etc)
+        [ ]                         move cursor(s) word boundary forward/backward
+        [ ]                         move cursor(s) page up/down
+        [ ]                         move cursor buffer start/end
+        [ ]                         goto line(absolute/relative)
+        [ ]                         extend selection(s) up/down (accounting for line ends, display offsets, grapheme display widths)
+        [ ]                         extend selection(s) left/right (accounting for line start/end)
+        [ ]                         extend selection(s) home/end
+        [ ]                         extend selection(s) sub word forward/backward    (a-z only. no '-', '_', ',', '.', etc)
+        [ ]                         extend selection(s) word boundary forward/backward
+        [ ]                         extend selection(s) page up/down
+        [ ]                         extend selection buffer start/end
+        [ ]                         select line
+        [ ]                         select all
+        [ ]                         collapse selection to cursor
+        [ ]                         collapse selection to anchor
+        [ ]                         flip selection direction
+        [ ]                         scroll display area up/down
+        [ ]                         scroll display area left/right
+        [ ]                         align display area centered vertically on primary selection
+        [ ]                         align display area centered horizontally on primary selection
+        [ ]                         align display area with primary selection at top
+        [ ]                         align display area with primary selection on bottom
+        [ ]                         insert/remove(delete/backspace) text
+        [ ]                         cut/copy/paste
+        //
+        [ ]                         undo/redo
+        [ ]                         add surrounding pair around selection(s)("[]", "{}", "()", "<>")
+        [x]                         Save
+        [ ]                         add selection above/below
+        [ ]                         add selections around current selection(s)   (for easy "", '', etc)
+        [ ]                         remove primary selection (only if >1 selection)
+        [ ]                         increment/decrement primary selection   (only if >1 selection)
+        [ ]                         clear non-primary selections (only if >1 selection)
+
+//SCROLL BAR(s)  (shows relative location in document)(handle should be proportional to display area size and backdrop should be proportional to doc len)
+    //ui
+        [ ]                     layout
+        [ ]                     render
+    //behavior
+        [ ]                     up/down/left/right
+
+//LINE NUMBERS
+    //ui
+        [ ]                     layout
+        [ ]                     render absolute (incremental list of line numbers accounting for folds/wrapping)
+        [ ]                     render relative (5, 4, 3, 2, 1, primary_line, 1, 2, 3, 4, 5)
+        [ ]                     toggle visibility
+    //behavior
+        [ ]                     move with buffer
+
+//STATUS BAR
+    //ui
+        [ ]                     layout
+        [ ]                     render
+        [ ]             core    file name widget(layout/render)
+        [ ]             core    modified indicator widget(layout/render)
+        [ ]             core    read only indicator widget(layout/render)
+        [ ]             core    mode indicator(layout/render)   (+count of modes on mode stack)//Mode: Insert, Stack: 1
+        [ ]             core    selection indicator(layout/render)  (1/1 = primary cursor is the only one, 3/125 = primary cursor is the 3rd selection of 125)
+        [ ]             core    primary cursor location indicator(layout/render)    (line num:column num)
+
+//UTILITY BAR(mode specific) (should utils have suggestions/completion?)
+    [ ] impl cut/copy/paste in all modes
+    //Go to Mode  (should have popup with available commands?...)
+        //ui
+            [ ] layout
+            [ ] render
+        //behavior
+            [x] use input as line number
+            [x] use input as amount for following relative motion command (up, down, left, right, etc.)
+            [ ] to matching surround
+    //Command mode    (should provide list of available commands)
+        //ui
+            [ ] layout
+            [ ] render
+        //behavior
+            [x] built in and custom commands
+    //Search Mode (+ Search Selection)
+        //ui
+            [ ] layout
+            [ ] render
+        //behavior
+            [x] search inside extended selections
+            [ ] search whole document if no selection extended
+            [x] match regex pattern
+            [x] incremental search
+    //Split Mode    (+ Split Selection)
+        //ui
+            [ ] layout
+            [ ] render
+        //behavior
+            [x] match regex pattern
+            [x] incremental split
+    //Error Mode(blocking display of error messages/visual responses to input)
+        //ui
+        //behavior
+    //Warning Mode(non-blocking display of warning messages/visual responses to input)
+        //ui
+        //behavior
+    //Notify Mode(non-blocking display of notifications/visual responses to input)
+        //ui
+        //behavior
+    //Information Mode(non-blocking display of informational messages/visual responses to input)
+        //ui
+        //behavior
+            [x] File modified
+            [x] Save failed
+            [x] Command parse failed
+            [x] Single selection
+            [x] Multiple selections
+            [x] Invalid input
+            [x] Same state
+            [x] Unhandled error
+            [x] Unhandled keypress
+            [x] Unhandled event
+            [x] Selection action out of view (inform user of non visible selection actions)
+            [x] Text copied
+                //any of the above message types can be assigned to Error/Warning/Notify/Info mode, depending on user display/behavior preference
+
+//POPUPS(mode specific)(should be hideable from config)
+    //View Mode
+                [x] scroll up, down, left, right
+                [x] center view vertically around primary cursor
+                [ ] center view horizontally around primary cursor
+                [ ] align view with primary cursor at top
+                [ ] align view with primary cursor at bottom
+    //Object Mode (for text object selection)
+                [ ] word
+                [ ] sentence
+                [ ] paragraph
+                [x] surrounding pair
+                [ ] exclusive surrounding pair
+                [ ] inclusive surrounding pair
+    
+
 
 
 
@@ -10,6 +190,7 @@ bug fix:
     [x] util_bar interactive text box cursor goes wonky when text inserted past util_bar width      documented at util_bar.rs:141:73
     [x] util_bar interactive text box selection gets stuck if extended left from end of line, and try to extend selection right
         //same happens in document when extended left from buffer end...
+    [x] hitting accept in Find mode with invalid regex does not enter Error mode. it just reverts back to insert
     [ ] when status bar hidden, with cursor at bottom buffer line in view, if find/split mode(but not goto/command) entered, then exited, the view is moved down
         one line, when it should remain the same...
     [x] when upward extended selection from line end extended back down, the resultant selection is wrong
@@ -38,96 +219,3 @@ other/maybe:
     [ ] make undo/redo work with several subsequent grapheme insertions/deletions, not just single insertion/deletion. (undo/redo typed words)
 
     [x] if buffer is read only, don't allow edit actions to modify the buffer. selection actions and others should still work...
-
-Features:
-    Editing and movement features implemented in edit_core
-        [x]
-    User Interface(all elements themeable):
-        [ ] Text Document
-            [x] ascii text rendering
-            [ ] utf-8 text rendering
-            [x] cursor/selection rendering(done for document, still WIP in utilities)
-            [x] cursor line (highlight the line the primary cursor is on)
-            [x] cursor column (highlight the column the primary cursor is on)
-            [ ] suggestions/completion(from previously used words)
-        [ ] Scroll bar(shows relative location in document)(handle should be proportional to view size and backdrop should be proportional to doc len)
-        [x] Toggleable Line Numbers
-            [x] absolute(works with raw text. annotations/collapsing/other display decorations is WIP)
-            [ ] relative
-        [x] Toggleable Status Bar
-            [x] File name
-            [x] Modified Indicator
-            [x] Read Only Indicator
-            [x] Mode Indicator/count of modes on mode stack     [Mode: Insert | Stack: 1]
-            [x] Selection Indicator(1/1 = primary cursor is the only one, 3/125 = primary cursor is the 3rd selection of 125)
-            [x] primary cursor location indicator(line num:column num)
-        [ ] Utility Bar(mode specific) (should utils have suggestions/completion?)
-            [x] Go to Mode  (should have popup with available commands?...)
-                [x] use input as line number
-                [x] use input as amount for following relative motion command (up, down, left, right, etc.)
-                [ ] to matching surround
-            [x] Command mode    (should provide list of available commands)
-                [x] built in and custom commands
-            [ ] Search Mode
-                [x] search inside extended selections
-                [ ] search whole document if no selection extended
-                [x] match regex pattern
-                [x] incremental search
-            [x] Split Mode
-                [x] match regex pattern
-                [x] incremental split
-            [x] Error Mode(blocking display of error messages/visual responses to input)
-            [x] Warning Mode(non-blocking display of warning messages/visual responses to input)
-            [x] Notify Mode(non-blocking display of notifications/visual responses to input)
-            [x] Information Mode(non-blocking display of informational messages/visual responses to input)
-                [x] File modified
-                [x] Save failed
-                [x] Command parse failed
-                [x] Single selection
-                [x] Multiple selections
-                [x] Invalid input
-                [x] Same state
-                [x] Unhandled error
-                [x] Unhandled keypress
-                [x] Unhandled event
-                [x] Selection action out of view (inform user of non visible selection actions)
-                [x] Text copied
-                    //any of the above message types can be assigned to Error/Warning/Notify/Info mode, depending on user display/behavior preference
-            [ ] Shell Mode
-                [ ] pipe selection(s) to external utility and replace selection(s) with utility output
-                [ ] call external utility and insert at/replace selection(s) with utility output
-        [ ] Popups(mode specific)(should be hideable from config)
-            [ ] View Mode
-                [x] scroll up, down, left, right
-                [x] center view vertically around primary cursor
-                [ ] center view horizontally around primary cursor
-                [ ] align view with primary cursor at top
-                [ ] align view with primary cursor at bottom
-            [ ] Object Mode (for text object selection)
-                [ ] word
-                [ ] sentence
-                [ ] paragraph
-                [x] surrounding pair
-                [ ] exclusive surrounding pair
-                [ ] inclusive surrounding pair
-
-    
-    File Operations
-        [x] Open (from command line)
-        [x] Close
-        [x] Save
-    Performance
-        [ ] make performant (trying, but i honestly have no clue what i am doing...)
-
-    Customization and Extensibility
-        [ ] user config file
-        [ ] custom keybinds
-
-Future Features:
-    edit_server/daemon mode?
-    Code Editing:
-        [ ] LSP
-        [ ] TreeSitter
-        [ ] DAP
-        [ ] ...more
-    interactive keybind/command re-binding?

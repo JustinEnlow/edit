@@ -46,12 +46,12 @@ pub fn test_view_action(
             //app.mode_push(Mode::View);
             if starting_mode != Mode::Insert{
                 //app.mode_push(starting_mode);
-                app.action(crate::action::Action::EditorAction(crate::action::EditorAction::ModePush(starting_mode, None)));
+                app.update(crate::action::Action::EditorAction(crate::action::EditorAction::ModePush(starting_mode, None)));
             }
 
             //call action specific test(selection/view/edit/etc)
             //app.view_action(&view_action);
-            app.action(crate::action::Action::ViewAction(view_action));
+            app.update(crate::action::Action::ViewAction(view_action));
             
             assert_eq!(expected_mode, app.mode());
             assert_eq!(expected_buffer_display_area_text, app.buffer_display_area().text(&app.buffer));

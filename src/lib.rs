@@ -19,13 +19,10 @@ pub mod selection;
 pub mod selection2d;
 pub mod selections;
 pub mod display_area;
-//pub mod display_map;
 pub mod keybind;
 pub mod ui;
 pub mod config;
 pub mod tutorial;
 pub mod mode_stack;
-//mod kakoune_style_commands;
 
-pub mod utilities;
 #[cfg(test)] mod tests;

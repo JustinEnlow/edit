@@ -32,7 +32,7 @@ use crate::{
 #[derive(Clone, Debug, PartialEq)]
 pub struct Buffer{
     inner: Rope, 
-    pub file_path: Option<PathBuf>,  //None if scratch buffer, Some(path) if from file
+    pub file_path: Option<PathBuf>,  //None if scratch buffer, Some(path) if from file/dir  //terminal's current dir will be used as file path for commands/plumber for temp buffers(file_path: None)
     pub read_only: bool
 }
 impl Buffer{

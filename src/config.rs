@@ -8,6 +8,10 @@ use ratatui::style::Color;
     pub use_hard_tab: bool, //TODO: replace to "replace_tabs_with_spaces". NOTE: the meaning is the exact opposite, so don't just rename...
     pub tab_width: usize,   //is this in display cells or graphemes?...
     pub view_scroll_amount: usize,  //TODO: split into separate vertical/horizontal components
+    //pub view_scroll_horizontal_amount: usize, //# of columns to scroll
+    //pub view_scroll_vertical_amount: usize,   //# of lines to scroll
+    //pub mouse_view_scroll_horizontal_amount: usize,
+    //pub mouse_view_scroll_vertical_amount: usize,
     pub show_cursor_column: bool,
     pub show_cursor_line: bool,
     //TODO: indexmap::IndexMap<(crate::mode::Mode, crossterm::event::KeyEvent), String>,     //command instead of action
@@ -29,6 +33,12 @@ impl Default for Config{
         }
     }
 }
+pub const START_FILE: &'static str = "/home/j/software/edit_suite/edit/start";
+pub const SHELL: &'static str = "sh";
+pub const SHELL_COMMAND_FLAG: &'static str = "-c";
+pub const EDIT_DIR: &'static str = "home/j/edit";   //maybe create on start, if doesn't exist
+    //TODO: serve 9p socket at EDIT_DIR/<instance_id>.sock
+    //TODO: mount 9p fs at EDIT_DIR/<instance_id>/          //maybe have const AUTO_MOUNT: bool = true|false, and init accordingly
 //display_line_numbers_on_startup can be passed to Application::new() separately, since it doesn't need to be stored
 //display_status_bar_on_startup can be passed to Application::new() separately, since it doesn't need to be stored
 
@@ -151,6 +161,9 @@ impl Default for Config{
 
     pub const SPANS_MULTIPLE_LINES: &str = "Requested action cannot be performed on a selection that spans multiple lines";
     pub const SPANS_MULTIPLE_LINES_DISPLAY_MODE: DisplayMode = DisplayMode::Warning;
+
+    pub const NO_SEARCH_MATCH: &str = "No match in search";
+    pub const NO_SEARCH_MATCH_DISPLAY_MODE: DisplayMode = DisplayMode::Error;
 //
 
 // whether to display a popup menu showing mode specific keybinds   //TODO: need to add status bar Mode indicator, for when this is set to false, so user can see what mode they are in

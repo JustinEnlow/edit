@@ -380,3 +380,8 @@ pub fn center_view_vertically_around_cursor(
     if new_view == view.clone(){return Err(DisplayAreaError::ResultsInSameState);} //can we catch this condition any earlier?...
     Ok(new_view)
 }
+
+//TODO:
+//center_view_horizontally_around_cursor
+//align_view_with_cursor_at_top
+//align_view_with_cursor_at_bottom

@@ -35,7 +35,7 @@ pub fn set_up_test_application(
                     app.buffer_horizontal_start = terminal_display_area.horizontal_start;
                     app.buffer_vertical_start = terminal_display_area.vertical_start;
 
-                    app.update_layouts();
+                    app.layout();
                     //TODO: figure out how to print terminal buffer for debugging...
                     //TODO: assert_eq!(expected_buffer_display_area, app.buffer_display_area());
                     Ok(app)

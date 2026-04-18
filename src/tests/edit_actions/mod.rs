@@ -58,7 +58,7 @@ pub fn test_edit_action(
             app.selections = selections;
             //call action specific test(selection/view/edit/etc)
             //app.edit_action(&edit_action);
-            app.action(crate::action::Action::EditAction(edit_action));
+            app.update(crate::action::Action::EditAction(edit_action));
 
             assert_eq!(expected_mode, app.mode());
             assert_eq!(expected_selections, app.selections);

@@ -1,24 +1,13 @@
-// insert <text>
-    //hooks.run(InsertTextPre)  //hook just before text insertion
-        //if text is not the same word type as previous changes in changeset || if selection count has changed
-            //push pending changeset to history
-            //let mut pending_changeset = ChangeSet::new(); //create new changeset
-        //else
-            //following steps should append existing pending changeset
-    //for selection in selections{
-        //insert text at/replacing selection (depends on selection extension)
-        //hooks.run(InsertText)
-            //if text.len() > 1 //extend selection to encompass text (extension direction could be input language dependent(like arabic could be backwards))
-            //if text.len() == 1 //move cursor (movement direction could be input language dependent(like arabic could be backwards))
-            //update subsequent selection positions to reflect new changes
-            //add change to pending changeset (figure out how to group related subsequent changes(like type each char in a word) in to one single changeset)
-    //}
-    //if selections have changed run hooks for SelectionsModified
-    //hooks.run(InsertTextPost) //hook just after text insertion
-        //push changeset to history
+//TODO: serve events to events file for interested external programs to read. 
+//certain events may require blocking until all readers send some sort of acknowledge indication 
+//to let edit know to continue with it's usual behavior, or a reader may modify whatever it needs 
+//via filesystem interface, then send some finished indication.
+//only after edit has received a continue or finished indication, should it unblock
+//TODO: research how acme handles events and coordinating response behavior
 
-use std::{io::Write, path::PathBuf};
-use crossterm::event;
+//TODO: research how acme uses Send + Win to allow a buffer to be used as an interactive command line interface
+
+use std::{io::Write, path::{Path, PathBuf}};
 use ratatui::{
     prelude::*,
     widgets::*
@@ -37,7 +26,22 @@ use crate::{
     history::ChangeSet,
 };
 
-//TODO: maybe Mode, ModeStack, and Action + related actually do belong in this file...
+
+
+pub enum WindowEvent{
+    Resize{width: u16, height: u16},
+    FocusLost,
+    FocusGained,
+}
+pub enum Event{ //TODO: need to disambiguate these events from events in 9p served events file  //System/Editor, Input/Output, External/Internal, ...
+    KeyboardInput(crossterm::event::KeyEvent),
+    MouseInput(crossterm::event::MouseEvent),
+    NineP(serve9p::file_system::FsRequest),
+    Window(WindowEvent),
+    //Tick(timed_event_kind),   //maybe for cursor blink or similar...
+}
+
+
 
 pub enum ApplicationError{
     ReadOnlyBuffer,
@@ -48,13 +52,11 @@ pub enum ApplicationError{
     SelectionsError(SelectionsError),
 }
 pub struct Application{
-    //these will be client constructs when client/server architecture impled...
     should_quit: bool,
     mode_stack: ModeStack,
     pub ui: UserInterface, 
     pub buffer_horizontal_start: usize,
     pub buffer_vertical_start: usize,
-    //these will be server constructs when client/server architecture impled...
     config: Config,
     pub buffer: Buffer, 
     preserved_selections: Option<Selections>, 
@@ -64,13 +66,7 @@ pub struct Application{
     pub clipboard: String,
 }
 impl Application{
-    pub fn new(
-        config: Config, 
-        buffer_text: &str, 
-        file_path: Option<PathBuf>, 
-        read_only: bool, 
-        terminal: &Terminal<impl Backend>
-    ) -> Result<Self, String>{
+    pub fn new(config: Config, buffer_text: &str, file_path: Option<PathBuf>, read_only: bool, terminal: &Terminal<impl Backend>) -> Result<Self, String>{
         let terminal_size = match terminal.size(){
             Ok(size) => size,
             Err(e) => return Err(format!("{}", e))
@@ -112,6 +108,7 @@ impl Application{
 
         Ok(instance)
     }
+    //start_selection: StartSelection{Point{line: u16, column: u16}, Regex{regex: String}}
     fn setup(&mut self/*TODO:, cursor_line_number: usize, cursor_column_number: usize */){
         if self.buffer.read_only{
             self.ui.status_bar.read_only_widget.show = true;
@@ -134,26 +131,13 @@ impl Application{
         //}
 
         self.update_ui_data_mode();
-        self.update_layouts();
+        self.layout();
         self.checked_scroll_and_update(
             &self.selections.primary.clone(),
             Application::update_ui_data_document, 
             Application::update_ui_data_document    //should this be update_selections?...
         );
         self.update_ui_data_util_bar(); //needed for util bar cursor to render the first time it is triggered   //TODO?: does this belong before update_layouts()?...
-
-        //eval command from config file
-        #[cfg(not(test))]
-        if false/*run_start_up_file_command*/{
-            match std::fs::read_to_string("/home/j/software/edit_suite/edit/config"){
-                Err(e) => handle_message(self, DisplayMode::Error, &e.to_string()),
-                Ok(content) => {
-                    if let Err(e) = execute_command(self, &content){
-                        handle_message(self, DisplayMode::Error, &format!("start file execution failed with error: {e}"));
-                    }
-                }
-            };
-        }
     }
 
     pub fn buffer_display_area(&self) -> DisplayArea{
@@ -230,7 +214,7 @@ impl Application{
         }
     }
 
-    pub fn update_layouts(&mut self){   //-> Result<(), String>{ //to handle terminal.size() error
+    pub fn layout(&mut self){   //-> Result<(), String>{ //to handle terminal.size() error
         fn layout_terminal(app: &Application, terminal_size: Rect) -> std::rc::Rc<[Rect]>{       //TODO: maybe rename layout_terminal_vertical_ui_components
             // layout of the whole terminal screen
             Layout::default()
@@ -527,18 +511,18 @@ impl Application{
         self.ui.util_bar.prompt.rect = util_rect[0];
         self.ui.util_bar.utility_widget.rect = util_rect[1];
             
-        self.ui.popups.goto.rect = /*crate::ui::*/sized_centered_rect(self.ui.popups.goto.widest_element_len, self.ui.popups.goto.num_elements, self.ui.terminal_size);
-        self.ui.popups.command.rect = /*crate::ui::*/sized_centered_rect(self.ui.popups.command.widest_element_len, self.ui.popups.command.num_elements, self.ui.terminal_size);
-        self.ui.popups.find.rect = /*crate::ui::*/sized_centered_rect(self.ui.popups.find.widest_element_len, self.ui.popups.find.num_elements, self.ui.terminal_size);
-        self.ui.popups.split.rect = /*crate::ui::*/sized_centered_rect(self.ui.popups.split.widest_element_len, self.ui.popups.split.num_elements, self.ui.terminal_size);
-        self.ui.popups.error.rect = /*crate::ui::*/sized_centered_rect(self.ui.popups.error.widest_element_len, self.ui.popups.error.num_elements, self.ui.terminal_size);
-        self.ui.popups.modified_error.rect = /*crate::ui::*/sized_centered_rect(self.ui.popups.modified_error.widest_element_len, self.ui.popups.modified_error.num_elements, self.ui.terminal_size);
-        self.ui.popups.warning.rect = /*crate::ui::*/sized_centered_rect(self.ui.popups.warning.widest_element_len, self.ui.popups.warning.num_elements, self.ui.terminal_size);
-        self.ui.popups.notify.rect = /*crate::ui::*/sized_centered_rect(self.ui.popups.notify.widest_element_len, self.ui.popups.notify.num_elements, self.ui.terminal_size);
-        self.ui.popups.info.rect = /*crate::ui::*/sized_centered_rect(self.ui.popups.info.widest_element_len, self.ui.popups.info.num_elements, self.ui.terminal_size);
-        self.ui.popups.view.rect = /*crate::ui::*/sized_centered_rect(self.ui.popups.view.widest_element_len, self.ui.popups.view.num_elements, self.ui.terminal_size);
-        self.ui.popups.object.rect = /*crate::ui::*/sized_centered_rect(self.ui.popups.object.widest_element_len, self.ui.popups.object.num_elements, self.ui.terminal_size);
-        self.ui.popups.add_surround.rect = /*crate::ui::*/sized_centered_rect(self.ui.popups.add_surround.widest_element_len, self.ui.popups.add_surround.num_elements, self.ui.terminal_size);
+        self.ui.popups.goto.rect = sized_centered_rect(self.ui.popups.goto.widest_element_len, self.ui.popups.goto.num_elements, self.ui.terminal_size);
+        self.ui.popups.command.rect = sized_centered_rect(self.ui.popups.command.widest_element_len, self.ui.popups.command.num_elements, self.ui.terminal_size);
+        self.ui.popups.find.rect = sized_centered_rect(self.ui.popups.find.widest_element_len, self.ui.popups.find.num_elements, self.ui.terminal_size);
+        self.ui.popups.split.rect = sized_centered_rect(self.ui.popups.split.widest_element_len, self.ui.popups.split.num_elements, self.ui.terminal_size);
+        self.ui.popups.error.rect = sized_centered_rect(self.ui.popups.error.widest_element_len, self.ui.popups.error.num_elements, self.ui.terminal_size);
+        self.ui.popups.modified_error.rect = sized_centered_rect(self.ui.popups.modified_error.widest_element_len, self.ui.popups.modified_error.num_elements, self.ui.terminal_size);
+        self.ui.popups.warning.rect = sized_centered_rect(self.ui.popups.warning.widest_element_len, self.ui.popups.warning.num_elements, self.ui.terminal_size);
+        self.ui.popups.notify.rect = sized_centered_rect(self.ui.popups.notify.widest_element_len, self.ui.popups.notify.num_elements, self.ui.terminal_size);
+        self.ui.popups.info.rect = sized_centered_rect(self.ui.popups.info.widest_element_len, self.ui.popups.info.num_elements, self.ui.terminal_size);
+        self.ui.popups.view.rect = sized_centered_rect(self.ui.popups.view.widest_element_len, self.ui.popups.view.num_elements, self.ui.terminal_size);
+        self.ui.popups.object.rect = sized_centered_rect(self.ui.popups.object.widest_element_len, self.ui.popups.object.num_elements, self.ui.terminal_size);
+        self.ui.popups.add_surround.rect = sized_centered_rect(self.ui.popups.add_surround.widest_element_len, self.ui.popups.add_surround.num_elements, self.ui.terminal_size);
     }
     
     pub fn render(&self, terminal: &mut Terminal<impl Backend>) -> Result<(), String>{
@@ -776,11 +760,45 @@ impl Application{
         }
     }
 
+/*
+    Mouse behavior                                      keyboard equivalent
+    standard behavior:
+    Button one -> select text                           normal selection movement/extension behavior
+        double click -> select word under cursor        normal selection movement/extension behavior
+            if at line start/end, select whole line
+    Button two -> execute text                          execute selection or word(if non extended selection)
+    Button three -> plumb                               plumb selection or word(if non extended selection)
+        if plumb fails, search for next occurrance          if plumb fails, search buffer for all occurrances of text
+        of text
+
+    for each button
+    click + drag - select text                          normal movement/extension behavior
+
+    combination uses:
+    left + middle                                       save command string to clipboard
+        select text with left, middle click command     select text
+        sends selected text through command             execute clipboard as command, with selected text as command input
+
+    left + right                                        select text as normal
+        select text with left, right click look         trigger look(whole buffer, not search within selection)
+        looks for selected text in buffer
+
+    chords:
+    after selecting with button one and while still holding button one down (these chords also word with text selected by double-clicking, 
+        the double-click expansion happens when the second click starts, not when it ends)
+        - clicking button two cuts
+        - clicking button three pastes (can be reverted by clicking button two immediately afterwards)
+        - to copy, click button two immediately followed by button three
+    while holding down button 2 on text to be executed as a command, clicking button 1 appends the text last pointed by button 1 as a
+        distinct final argument. (for example, to search for literal text one may execute Look text with button 2 or instead point at
+        text with button 1 in any window, release button 1, then execute Look, clicking button 1 while 2 is held down)
+*/
+
     //TODO: have handle_event return Result<Option<Action>, String>, instead of triggering the action directly
     //Option<Action> because the next step may need to update the same variable if subsequent actions need to be performed
     //though this should always return Some(Action), unless an error is encountered in event reading...
     //alternatively, the next step could do: let action = Some(self.handle_event()?);
-    fn handle_event(&mut self) -> Result<(), String>{
+    fn handle_event(&mut self, event_rx: &std::sync::mpsc::Receiver<Event>) -> Result<(), String>{
         // This is needed because generic keypresses cannot be inserted into keybind hashmap
         fn handle_char_insert(mode: Mode, key_event: crossterm::event::KeyEvent) -> Action{
             use crossterm::event::{KeyCode, KeyModifiers};
@@ -793,11 +811,12 @@ impl Application{
                 _ => Action::EditorAction(EditorAction::NoOpKeypress)
             }
         }
-        match event::read(){
+        //match event_rx.recv(){  //or maybe try_recv() and match error?...
+        match event_rx.recv_timeout(std::time::Duration::from_millis(30)){  //still hanging up randomly on quit...
             Ok(event) => {
                 match event{
-                    event::Event::Key(key_event) => {
-                        self.action(
+                    Event::KeyboardInput(key_event) => {
+                        self.update(
                             match self.config.keybinds.get(&(self.mode(), key_event)).cloned(){
                                 Some(action) => action,
                                 None => {
@@ -819,30 +838,78 @@ impl Application{
                             }
                         );
                     },
-                    event::Event::Mouse(_mouse_event) => self.action(Action::EditorAction(EditorAction::NoOpEvent)),
-                    event::Event::Resize(width, height) => {
-                        self.ui.set_terminal_size(width, height);
-                        self.update_layouts();
-                        self.update_ui_data_util_bar(); //TODO: can this be called later in fn impl?
-                        // scrolling so cursor is in a reasonable place, and updating so any ui changes render correctly
-                        self.checked_scroll_and_update(
-                            &self.selections.primary.clone(),
-                            Application::update_ui_data_document, 
-                            Application::update_ui_data_document
-                        );
+                    //TODO: figure out how to add mouse events to config.keybinds
+                    //TODO: figure out how to accomplish acme style mouse chords
+                    Event::MouseInput(mouse_event) => {//self.action(Action::EditorAction(EditorAction::NoOpEvent)),
+                        let crossterm::event::MouseEvent{kind, column, row, modifiers} = mouse_event;
+                        use crossterm::event::{MouseEventKind, KeyModifiers, MouseButton};
+                        match kind{
+                            MouseEventKind::Down(mouse_button) => {
+                                if modifiers == KeyModifiers::NONE{
+                                    if mouse_button == MouseButton::Left{
+                                        //TODO: need to impl display coords to buffer coords
+                                    }else{}
+                                }
+                                else if modifiers == KeyModifiers::CONTROL{
+                                    if mouse_button == MouseButton::Left{
+                                        //TODO: add cursor at click location
+                                    }else{}
+                                }
+                                else{}
+                            }
+                            MouseEventKind::Up(mouse_button) => {
+
+                            }
+                            MouseEventKind::ScrollDown => {
+                                if modifiers == KeyModifiers::NONE{
+                                    self.update(Action::ViewAction(ViewAction::ScrollDown));
+                                }
+                                else if modifiers == KeyModifiers::CONTROL{
+                                    self.update(Action::ViewAction(ViewAction::ScrollRight));
+                                }
+                                else{}
+                            }
+                            MouseEventKind::ScrollUp => {
+                                if modifiers == KeyModifiers::NONE{
+                                    self.update(Action::ViewAction(ViewAction::ScrollUp));
+                                }
+                                else if modifiers == KeyModifiers::CONTROL{
+                                    self.update(Action::ViewAction(ViewAction::ScrollLeft));
+                                }
+                                else{}
+                            }
+                            MouseEventKind::Drag(mouse_button) => {}
+                            MouseEventKind::Moved => {}
+                        }
                     }
-                    event::Event::FocusLost => self.action(Action::EditorAction(EditorAction::NoOpEvent)), //maybe quit displaying cursor(s)/selection(s)?...
-                    event::Event::FocusGained => self.action(Action::EditorAction(EditorAction::NoOpEvent)),   //display cursor(s)/selection(s)?...
-                    event::Event::Paste(_) => self.action(Action::EditorAction(EditorAction::NoOpEvent))
+                    Event::Window(window_event) => {
+                        match window_event{
+                            WindowEvent::Resize { width, height } => {
+                                self.ui.set_terminal_size(width, height);
+                                self.layout();
+                                self.update_ui_data_util_bar(); //TODO: can this be called later in fn impl?
+                                // scrolling so cursor is in a reasonable place, and updating so any ui changes render correctly
+                                self.checked_scroll_and_update(
+                                    &self.selections.primary.clone(),
+                                    Application::update_ui_data_document, 
+                                    Application::update_ui_data_document
+                                );
+                            }
+                            WindowEvent::FocusLost => {self.update(Action::EditorAction(EditorAction::NoOpEvent))}  //maybe quit displaying cursor(s)/selection(s)?...
+                            WindowEvent::FocusGained => {self.update(Action::EditorAction(EditorAction::NoOpEvent))}    //display cursor(s)/selection(s)?...
+                        }
+                    }
+                    Event::NineP(fs_request) => {}
                 }
                 Ok(())
             }
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {Ok(())}
             Err(e) => Err(format!("{e}"))
         }
     }
 
     //TODO?: should each action result in a new app state, or an error state?... can these be made more purely functional?...
-    pub fn action(&mut self, action: Action){
+    pub fn update(&mut self, action: Action){
         //impl helper functions here to manage scope of exposure
         //fn esc_handle(app: &mut Application){
         //    assert!(app.mode() == Mode::Insert);
@@ -853,7 +920,7 @@ impl Application{
         //}
         fn pop_to_insert(app: &mut Application){    //helper function for insert fallthrough
             //pop until insert mode, because of fallthrough
-            while app.mode() != Mode::Insert{app.action(Action::EditorAction(EditorAction::ModePop));}
+            while app.mode() != Mode::Insert{app.update(Action::EditorAction(EditorAction::ModePop));}
         }
         match action{
             Action::EditorAction(editor_action) => {
@@ -861,7 +928,7 @@ impl Application{
                     EditorAction::ModePop => {
                         fn perform_shared_behavior(app: &mut Application){
                             //update layouts and document
-                            app.update_layouts();
+                            app.layout();
                             app.update_ui_data_document();
                             // clear util bar text
                             app.ui.util_bar.utility_widget.text_box.clear();
@@ -871,7 +938,7 @@ impl Application{
                         if let Ok((popped_mode, popped_text)) = self.mode_stack.pop(){
                             if popped_mode == self.mode() && popped_text == self.mode_stack.top_message(){
                                 //continue popping until self.mode() is something else (this would clean up repeated error messages/etc.)
-                                self.action(Action::EditorAction(EditorAction::ModePop));
+                                self.update(Action::EditorAction(EditorAction::ModePop));
                                 return; //only the final ModePop should run any follow up code
                             }
                             match popped_mode{
@@ -890,7 +957,7 @@ impl Application{
                     EditorAction::ModePush(to_mode, message) => {
                         fn perform_shared_behavior(app: &mut Application){
                             //update layouts and document
-                            app.update_layouts();
+                            app.layout();
                             app.update_ui_data_document();
                             //update util bar
                             app.update_ui_data_util_bar();
@@ -929,14 +996,14 @@ impl Application{
                         assert!(matches!(self.mode(), Mode::Insert | Mode::Command | Mode::Error | Mode::Warning | Mode::Notify | Mode::Info));
                         if self.buffer.is_modified(){
                             if self.mode() == Mode::Error && self.mode_stack.top_message().unwrap() == FILE_MODIFIED{
-                                self.action(Action::EditorAction(EditorAction::QuitIgnoringChanges));
+                                self.update(Action::EditorAction(EditorAction::QuitIgnoringChanges));
                             }
                             else{
                                 handle_message(self, DisplayMode::Error, FILE_MODIFIED);
                             }
                         }
                         else{
-                            if self.mode() == Mode::Error{self.action(Action::EditorAction(EditorAction::NoOpKeypress));}
+                            if self.mode() == Mode::Error{self.update(Action::EditorAction(EditorAction::NoOpKeypress));}
                             else{self.should_quit = true;}
                         }
                     }
@@ -969,7 +1036,7 @@ impl Application{
                         //        Err(_) => {handle_message(self, FILE_SAVE_FAILED_DISPLAY_MODE, FILE_SAVE_FAILED);}
                         //    }
                         //}
-                        match crate::utilities::save::application_impl(self){
+                        match save(self){
                             Ok(()) => {
                                 pop_to_insert(self);
                                 self.update_ui_data_document();
@@ -990,7 +1057,7 @@ impl Application{
                     EditorAction::Copy => {
                         //possible modes are Insert + any mode with fallthrough to insert
                         assert!(matches!(self.mode(), Mode::Insert | Mode::Warning | Mode::Notify | Mode::Info));
-                        match crate::utilities::copy::application_impl(self){
+                        match copy(self){
                             Ok(()) => {
                                 pop_to_insert(self);
                                 handle_message(self, COPIED_TEXT_DISPLAY_MODE, COPIED_TEXT);
@@ -1016,14 +1083,14 @@ impl Application{
                         //TODO: this may need to handle insert fallthrough
                         assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
                         self.ui.document_viewport.line_number_widget.show = !self.ui.document_viewport.line_number_widget.show;
-                        self.update_layouts();
+                        self.layout();
                         self.update_ui_data_document();
                     }
                     EditorAction::ToggleStatusBar => {
                         //TODO: this may need to handle insert fallthrough
                         assert!(self.mode() == Mode::Insert || self.mode() == Mode::Command);
                         self.ui.status_bar.show = !self.ui.status_bar.show;
-                        self.update_layouts();
+                        self.layout();
                         self.update_ui_data_document();
                     }
                     //could become a command: evaluate_command %val{selection}
@@ -1041,7 +1108,6 @@ impl Application{
                         }
                     }
                     //this, in combination with copy, is the keyboard centric version of plan9's acme's 2-1 mouse chording
-                    //evaluate_command %val{clipboard}
                     EditorAction::EvaluateClipboardAsCommand => {
                         if self.mode() != Mode::Insert{pop_to_insert(self);}    //handle insert fallthrough
                         let execute_result = execute_command(self, &self.clipboard.clone());
@@ -1050,22 +1116,49 @@ impl Application{
                             handle_message(self, DisplayMode::Error, &error);
                         }
                     }
-                    // new
                     EditorAction::EvaluateSelectionAsLookObject => {
                         if self.mode() != Mode::Insert{pop_to_insert(self);}    //handle insert fallthrough
                         //TODO: figure out best way to handle multiple selections...
                         if self.selections.count() > 1{
                             handle_application_error(self, ApplicationError::SelectionsError(SelectionsError::MultipleSelections));
                         }else{
-                            //expand selection, if needed
-                            //try interpret as file
-                            //try search in document        //what if valid plumb message exists in multiple locations in same buf? this would just match it in a search
-                            //try plumb (for non file)      //but plumb can't happen first, because search candidates would prob match some plumb rule
+                            //expand selection, if not extended
+                            //try interpret as file, if looks like file, plumb
+                            //try search in document
+                                //should we only select next occurrance(like acme), or select all occurrances(this seems more our style...)
                             //warn/error if all else fails
-                            handle_message(self, DisplayMode::Error, "Look unimplemented");
+                            //handle_message(self, DisplayMode::Error, "Look unimplemented");
+
+                            let current_primary = &self.selections.primary;
+                            let input = &self.selections.primary.to_string(&self.buffer);
+                            let input = input.trim();   //handle calling with '\n' or ' '. should not be necessary when .is_extended() checked...
+                            match search(input, &self.buffer, self.config.semantics.clone()){
+                                Err(error) => handle_application_error(self, ApplicationError::SelectionsError(error)),
+                                Ok(mut new_selections) => {
+                                    //figure out new primary selection here, so that we don't pollute search fn with the idea that this needs to always happen
+                                    //for example, we wouldn't want this when we copy the command "search idk" to clipboard, delete, and then evaluate it
+                                    //there is prob a more efficient way to accomplish this
+                                    for (i, new_selection) in new_selections.clone().iter().enumerate(){
+                                        if new_selection.range == current_primary.range{
+                                            new_selections = Selections::new(new_selections.flatten(), i, &self.buffer, self.config.semantics.clone());
+                                        }
+                                    }
+                                    //TODO: this is failing to trigger because stored line offset in new_selections is None.
+                                    //when we transition to sum_tree style buffer, stored_line_offset will not be part of Selection,
+                                    //and instead be part of DisplayMap, so this should be resolved
+                                    if new_selections == self.selections{handle_application_error(self, ApplicationError::SelectionsError(SelectionsError::ResultsInSameState));}
+                                    else{
+                                        self.selections = new_selections;
+                                        self.checked_scroll_and_update(
+                                            &self.selections.primary.clone(), 
+                                            Application::update_ui_data_document, 
+                                            Application::update_ui_data_selections
+                                        );
+                                    }
+                                }
+                            }
                         }
                     }
-                    //
                 }
             }
             Action::SelectionAction(selection_action, count) => {
@@ -1179,24 +1272,22 @@ impl Application{
                 }
             }
             Action::EditAction(edit_action) => {
-                //TODO: impl application_impl here, instead of in utilities...
-                use crate::utilities::*;
                 //possible modes are Insert and AddSurround + any mode with fallthrough to insert
                 assert!(matches!(self.mode(), Mode::Command | Mode::Insert | Mode::AddSurround | Mode::Warning | Mode::Notify | Mode::Info));
 
                 if self.buffer.read_only{handle_message(self, READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER);}
                 else{
                     let result = match edit_action{
-                        EditAction::InsertChar(c) => insert_string::application_impl(self, &c.to_string(), self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
-                        EditAction::InsertNewline => insert_string::application_impl(self, "\n", self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
-                        EditAction::InsertTab => insert_string::application_impl(self, "\t", self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
-                        EditAction::Delete => delete::application_impl(self, self.config.semantics.clone()),
-                        EditAction::Backspace => backspace::application_impl(self, self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
-                        EditAction::Cut => cut::application_impl(self, self.config.semantics.clone()),
-                        EditAction::Paste => paste::application_impl(self, self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
-                        EditAction::Undo => undo::application_impl(self, self.config.semantics.clone()),   // TODO: undo takes a long time to undo when whole text deleted. see if this can be improved
-                        EditAction::Redo => redo::application_impl(self, self.config.semantics.clone()),
-                        EditAction::AddSurround(l, t) => add_surrounding_pair::application_impl(self, l, t, self.config.semantics.clone()),
+                        EditAction::InsertChar(c) => insert_string(self, &c.to_string(), self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
+                        EditAction::InsertNewline => insert_string(self, "\n", self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
+                        EditAction::InsertTab => insert_string(self, "\t", self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
+                        EditAction::Delete => delete(self, self.config.semantics.clone()),
+                        EditAction::Backspace => backspace(self, self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
+                        EditAction::Cut => cut(self, self.config.semantics.clone()),
+                        EditAction::Paste => paste(self, self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
+                        EditAction::Undo => undo(self, self.config.semantics.clone()),   // TODO: undo takes a long time to undo when whole text deleted. see if this can be improved
+                        EditAction::Redo => redo(self, self.config.semantics.clone()),
+                        EditAction::AddSurround(l, t) => add_surrounding_pair(self, l, t, self.config.semantics.clone()),
                     };
                     match result{
                         Ok(()) => {
@@ -1276,7 +1367,7 @@ impl Application{
                         self.buffer_vertical_start = vertical_start;
                     
                         self.update_ui_data_document();
-                        if self.mode() == Mode::View && should_exit{self.action(Action::EditorAction(EditorAction::ModePop));}
+                        if self.mode() == Mode::View && should_exit{self.update(Action::EditorAction(EditorAction::ModePop));}
                     }
                     Err(e) => {
                         match e{
@@ -1336,7 +1427,7 @@ impl Application{
                                                         Application::update_ui_data_selections, 
                                                         Application::update_ui_data_selections
                                                     ); //TODO: pretty sure one of these should be update_ui_data_document
-                                                    self.action(Action::EditorAction(EditorAction::ModePop));
+                                                    self.update(Action::EditorAction(EditorAction::ModePop));
                                                     // center view vertically around new primary, if possible
                                                     //if let Ok(new_view) = crate::utilities::center_view_vertically_around_cursor::view_impl(&self.buffer_display_area(), self.selections.primary(), &self.buffer, self.config.semantics.clone()){
                                                     if let Ok(new_view) = display_area::center_view_vertically_around_cursor(&self.buffer_display_area(), &self.selections.primary, &self.buffer, self.config.semantics.clone()){
@@ -1371,7 +1462,14 @@ impl Application{
                                     handle_message(self, DisplayMode::Error, &error);
                                 }
                             }
-                            Mode::Find | Mode::Split => self.action(Action::EditorAction(EditorAction::ModePop)),
+                            //Mode::Find | Mode::Split => self.update(Action::EditorAction(EditorAction::ModePop)),
+                            Mode::Find | Mode::Split => {
+                                if self.ui.util_bar.utility_widget.text_box.text_is_valid{
+                                    self.update(Action::EditorAction(EditorAction::ModePop));
+                                }else{
+                                    handle_message(self, DisplayMode::Error, "invalid regex");
+                                }
+                            }
                             Mode::AddSurround | Mode::Insert | Mode::Object | Mode::View | Mode::Error | Mode::Warning | Mode::Notify | Mode::Info => {unreachable!()}
                         }
                         perform_follow_up_behavior = false;
@@ -1386,9 +1484,9 @@ impl Application{
                                     Application::update_ui_data_document, 
                                     Application::update_ui_data_selections
                                 );
-                                self.action(Action::EditorAction(EditorAction::ModePop));
+                                self.update(Action::EditorAction(EditorAction::ModePop));
                             }
-                            _ => {self.action(Action::EditorAction(EditorAction::ModePop));}
+                            _ => {self.update(Action::EditorAction(EditorAction::ModePop));}
                         }
                         perform_follow_up_behavior = false;
                     }
@@ -1396,9 +1494,9 @@ impl Application{
                         //TODO?: add go to matching surrounding char(curly, square, paren, single quote, double quote, etc)?
                         assert!(self.mode() == Mode::Goto);
                         if let Ok(count) = self.ui.util_bar.utility_widget.text_box.buffer.to_string().parse::<usize>(){
-                            self.action(Action::EditorAction(EditorAction::ModePop));
+                            self.update(Action::EditorAction(EditorAction::ModePop));
                             assert!(self.mode() == Mode::Insert);
-                            self.action(Action::SelectionAction(selection_action, count));
+                            self.update(Action::SelectionAction(selection_action, count));
                         }else{handle_message(self, INVALID_INPUT_DISPLAY_MODE, INVALID_INPUT);}  //TODO: this may benefit from a specific error, maybe stating why the input is invalid...empty/non number input string...//"action requires non-empty, numeric input string"
                         //also, this doesn't work with goto_mode_text_validity_check
                         perform_follow_up_behavior = false;
@@ -1431,8 +1529,7 @@ impl Application{
                         Mode::Find => {
                             match &self.preserved_selections{
                                 Some(selections_before_search) => {
-                                    //match crate::utilities::incremental_search_in_selection::selections_impl(
-                                    match selections::incremental_search_in_selection(
+                                    match search_selection(
                                         selections_before_search, 
                                         &self.ui.util_bar.utility_widget.text_box.buffer.to_string(),
                                         &self.buffer, 
@@ -1459,8 +1556,7 @@ impl Application{
                         Mode::Split => {
                             match &self.preserved_selections{
                                 Some(selections_before_split) => {
-                                    //match crate::utilities::incremental_split_in_selection::selections_impl(
-                                    match selections::incremental_split_in_selection(
+                                    match split_selection(
                                         selections_before_split, 
                                         &self.ui.util_bar.utility_widget.text_box.buffer.to_string(),
                                         &self.buffer, 
@@ -1491,19 +1587,43 @@ impl Application{
         }
     }
 
-    pub fn run(&mut self, terminal: &mut Terminal<impl Backend>) -> Result<(), String>{
+    pub fn run(&mut self, terminal: &mut Terminal<impl Backend>, event_rx: std::sync::mpsc::Receiver<Event>) -> Result<(), String>{
+        //eval command from start file, if it exists
+        #[cfg(not(test))] match std::fs::metadata(Path::new(START_FILE)){
+            Err(_) => {/*path does not exist on file system*/}
+            Ok(metadata) => {
+                if metadata.is_file(){
+                    match std::fs::read_to_string(START_FILE){
+                        Err(e) => handle_message(self, DisplayMode::Error, &e.to_string()),
+                        Ok(content) => {
+                            if let Err(e) = execute_command(self, &content){
+                                handle_message(self, DisplayMode::Error, &format!("start file execution failed with error: {e}"));
+                            }
+                        }
+                    }
+                }else{/*path is not a file*/}
+            }
+        }
+
+        //TODO?: maybe handle input/9p threads here?...
+
         while !self.should_quit{
             //derive User Interface from Application state
-            self.update_layouts();  //TODO: does update_layouts always need to be called, or can this be called only from actions that require it?...
+            self.layout();  //TODO: does update_layouts always need to be called, or can this be called only from actions that require it?...
             self.render(terminal)?;            
+            
             //update Application state
-            self.handle_event()?;
-            //TODO: let mut action = self.handle_event()?;
-            //while action.is_some(){
-            //  //log beginning state
-            //  //log action
-            //  action = self.perform_action(action.unwrap());
-            //  //log ending state
+            self.handle_event(&event_rx)?;  //maybe create self.actions: Vec<Action>, and push to this
+
+            //if input_thread_handle.is_finished(){
+            //  match input_thread_handle.join(){
+            //      Err(e) => {}
+            //      Ok(_) => {}
+            //  }
+            //}
+
+            //for action in self.actions{
+                /*self.update()*/               //can push more actions to self.actions
             //}
         }
         Ok(())
@@ -1512,10 +1632,10 @@ impl Application{
 
 fn handle_message(app: &mut Application, display_mode: DisplayMode, message: &/*'static */str){ //-> Action
     match display_mode{
-        DisplayMode::Error => app.action(Action::EditorAction(EditorAction::ModePush(Mode::Error, Some(message.to_string())))),
-        DisplayMode::Warning => app.action(Action::EditorAction(EditorAction::ModePush(Mode::Warning, Some(message.to_string())))),
-        DisplayMode::Notify => app.action(Action::EditorAction(EditorAction::ModePush(Mode::Notify, Some(message.to_string())))),
-        DisplayMode::Info => app.action(Action::EditorAction(EditorAction::ModePush(Mode::Info, Some(message.to_string())))),
+        DisplayMode::Error => app.update(Action::EditorAction(EditorAction::ModePush(Mode::Error, Some(message.to_string())))),
+        DisplayMode::Warning => app.update(Action::EditorAction(EditorAction::ModePush(Mode::Warning, Some(message.to_string())))),
+        DisplayMode::Notify => app.update(Action::EditorAction(EditorAction::ModePush(Mode::Notify, Some(message.to_string())))),
+        DisplayMode::Info => app.update(Action::EditorAction(EditorAction::ModePush(Mode::Info, Some(message.to_string())))),
         DisplayMode::Ignore => {/* do nothing */}
     }
 }
@@ -1535,7 +1655,7 @@ fn handle_application_error(app: &mut Application, e: ApplicationError){    //->
                 SelectionsError::CannotAddSelectionBelow => {handle_message(app, SAME_STATE_DISPLAY_MODE, SAME_STATE);}
                 SelectionsError::MultipleSelections => {handle_message(app, MULTIPLE_SELECTIONS_DISPLAY_MODE, MULTIPLE_SELECTIONS);}
                 SelectionsError::SingleSelection => {handle_message(app, SINGLE_SELECTION_DISPLAY_MODE, SINGLE_SELECTION);}
-                SelectionsError::NoSearchMatches |
+                SelectionsError::NoSearchMatches => handle_message(app, NO_SEARCH_MATCH_DISPLAY_MODE, NO_SEARCH_MATCH),
                 SelectionsError::SpansMultipleLines => handle_message(app, SPANS_MULTIPLE_LINES_DISPLAY_MODE, SPANS_MULTIPLE_LINES),
             }
         }
@@ -1564,38 +1684,6 @@ fn handle_application_error(app: &mut Application, e: ApplicationError){    //->
         ideally, all external gui programs would render themselves, and the window manager would handle placing associated programs together visually
         but for now, i think we will need to implement some way for us to render their visual data by assigning some render area, 
         piping keyboard/mouse events in that area, then displaying their output in that area...
-*/
-
-/*
-    mouse behavior                                      keyboard behavior
-    left click                                          normal movement/extension behavior
-        single click - put cursor at click location     normal movement/extension behavior
-        double click - select word                      specific keybind or separate mode + keybind(should eventually be enabled via external program)
-        triple click - select line                      specific keybind or separate mode + keybind(should eventually be enabled via external program)
-        quad click   - select paragraph                 specific keybind or separate mode + keybind(should eventually be enabled via external program)
-        5 click      - select whole buffer              specific keybind or separate mode + keybind(should eventually be enabled via external program)
-        click + drag - select text                      normal movement/extension behavior
-    middle click
-        single click -                                  execute selection or word(if cursor)
-            execute selection or word(if cursor)
-        click + drag - execute selection                execute selection
-    right click
-        single click -                                  if file like, plumb text, else look for selection or word(if cursor) (or maybe we should prefer separate Plumb/Look for kb, and combine them for mouse...)
-            if file-like, plumb text
-            else look for selection or word(if cursor)
-        click + drag - same                             same
-    
-    combination uses:
-    left + middle                                       save command string to clipboard
-        select text with left, middle click command     select text
-        sends selected text through command             execute clipboard as command, with selected text as command input
-
-    left + right                                        select text as normal
-        select text with left, right click look         trigger look(whole buffer, not search within selection)
-        looks for selected text in buffer
-
-    mouse chords:
-
 */
 
 //TODO: replace old kakoune style command handling with acme style command handling
@@ -1642,22 +1730,6 @@ fn handle_application_error(app: &mut Application, e: ApplicationError){    //->
 //  <       | no                    | yes                       | no                    | yes                                       | insert
 //  !       | no                    | no                        | no                    | ?                                         | do?
 //
-//
-//
-//  maybe need to create: so user can define their desired shell
-//      const SHELL: &'static str = "bash"
-//      const SHELL_COMMAND_FLAG: &'static str = "-c"
-// then we can run shell commands with:
-//      let mut child = Command::new(SHELL).arg(SHELL_COMMAND_FLAG).arg(command).stdin(Stdio::piped()).stdout(Stdio::piped())
-// and depending on prefix, we can use .output(), .status(), etc. and handle stdin/stdout
-//      let stdin = child.stdin.as_mut()
-//      let stdout = child.stdout
-//
-//
-//
-// so config file(should rename to edit_start or similar) will not be a list of commands to run, but is a single command sent to user defined shell
-// prob don't use any prefixes in that file...
-
 struct CommandParser<'a>{rest: &'a str} //TODO: rest: Option<&'a str>
 impl<'a> CommandParser<'a> {
     fn new(input: &'a str) -> Self{
@@ -1678,8 +1750,10 @@ impl<'a> CommandParser<'a> {
 
 //at the extreme, i think every action could end up being a command
 //in that sense, the editor is just a command parser, with command specific response behavior
-fn execute_command(app: &mut Application, command: &str) -> Result<(), String>{
+fn execute_command(app: &mut Application, command: &str) -> Result<(), String>{ //-> Result<Option<Action>, String>?
+    //TODO: this should prob be threaded/async
     fn run_shell_command(app: &Application, stdin: Option<String>, command: &str) -> Result<String, String>{
+        //TODO: if temp file(has no file path), get terminal current_dir, and pass that as the current dir for command. (and later plumber...)
         let mut environment_variables = std::collections::HashMap::new();
         //environment_variables.insert("MY_VAR", "environment variable content");
         //TODO: maybe options/settings should start with $EDIT_SETTING_
@@ -1702,8 +1776,8 @@ fn execute_command(app: &mut Application, command: &str) -> Result<(), String>{
         //    //.stderr(std::process::Stdio::piped()) //i think this is the default with .output()
         //    .output()
         //    .expect("failed to execute process");
-        let mut child_process = std::process::Command::new("sh")
-            .arg("-c")
+        let mut child_process = std::process::Command::new(SHELL)
+            .arg(SHELL_COMMAND_FLAG)
             .arg(command)
             //.env("MY_VAR", "environment variable content")
             .envs(&environment_variables)
@@ -1757,22 +1831,37 @@ fn execute_command(app: &mut Application, command: &str) -> Result<(), String>{
         //"term" | "t" => app.action(Action::EditorAction(EditorAction::OpenNewTerminalWindow)),
 
         //can currently just: set_option show_line_numbers true|false
-        "toggle_line_numbers" | "ln" => app.action(Action::EditorAction(EditorAction::ToggleLineNumbers)),  //these will prob end up using set-option command...
+        "toggle_line_numbers" | "ln" => app.update(Action::EditorAction(EditorAction::ToggleLineNumbers)),  //these will prob end up using set-option command...
 
         //can currently just: set_option show_status_bar true|false
-        "toggle_status_bar" | "sb" => app.action(Action::EditorAction(EditorAction::ToggleStatusBar)),      //these will prob end up using set-option command...
+        "toggle_status_bar" | "sb" => app.update(Action::EditorAction(EditorAction::ToggleStatusBar)),      //these will prob end up using set-option command...
             
-        "quit" | "q" => app.action(Action::EditorAction(EditorAction::Quit)),
-        "quit!" | "q!" => app.action(Action::EditorAction(EditorAction::QuitIgnoringChanges)),
+        "quit" | "q" => app.update(Action::EditorAction(EditorAction::Quit)),
+        "quit!" | "q!" => app.update(Action::EditorAction(EditorAction::QuitIgnoringChanges)),
         //write buffer contents to file //should this optionally take a filepath to save to? then we don't need to implement save as    //would have to split util bar text on ' ' into separate args
-        "write" | "w" => app.action(Action::EditorAction(EditorAction::Save)),
+        "write" | "w" => app.update(Action::EditorAction(EditorAction::Save)),
 
-        //"search" => {}    //search whole buffer
+        "search" => {
+            let regex = parser.rest();
+            if regex.is_empty(){return Err(String::from("too few arguments: search <regex>"));}
+            //search <regex>
+            match search(regex, &app.buffer, app.config.semantics.clone()){
+                Err(_) => return Err(String::from("no matching regex")),
+                Ok(new_selections) => {
+                    app.selections = new_selections;
+                    app.checked_scroll_and_update(
+                        &app.selections.primary.clone(), 
+                        Application::update_ui_data_document, 
+                        Application::update_ui_data_selections
+                    );
+                }
+            }
+        }
         "search_selection" => {
             let regex = parser.rest();
             if regex.is_empty(){return Err(String::from("too few arguments: search_selection <regex>"));}
-            //search <regex>
-            match selections::incremental_search_in_selection(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
+            //search_selection <regex>
+            match search_selection(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
                 Err(_) => return Err(String::from("no matching regex")),
                 Ok(new_selections) => {
                     app.selections = new_selections;
@@ -1788,8 +1877,8 @@ fn execute_command(app: &mut Application, command: &str) -> Result<(), String>{
         "split_selection" => {
             let regex = parser.rest();
             if regex.is_empty(){return Err(String::from("too few arguments: split_selection <regex>"));}
-            //split <regex>
-            match selections::incremental_split_in_selection(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
+            //split_selection <regex>
+            match split_selection(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
                 Err(_) => return Err(String::from("no matching regex")),
                 Ok(new_selections) => {
                     app.selections = new_selections;
@@ -1818,6 +1907,8 @@ fn execute_command(app: &mut Application, command: &str) -> Result<(), String>{
         //}
         //remove_keybind <keybind>
 
+        //TODO: bug: when these are called from command mode, a success diagnostic is displayed stacked on top of command mode
+        //command mode should exit to insert then display the diagnostic...
         //this will eventually be echo -n <value> > /mnt/edit/<instance_id>/settings/<setting>, when filesystem interface impled
         //"set_option" => {
         "set" => {
@@ -1920,7 +2011,7 @@ fn execute_command(app: &mut Application, command: &str) -> Result<(), String>{
                             //TODO?: if app.mode() == Mode::Command{app.pop_to_insert()/*although, this fn is scoped within action()...*/}
                             app.ui.document_viewport.line_number_widget.show = parsed_value;
                             //
-                            app.update_layouts();
+                            app.layout();
                             app.update_ui_data_document();
                             //
                             handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
@@ -1934,7 +2025,7 @@ fn execute_command(app: &mut Application, command: &str) -> Result<(), String>{
                             //TODO?: if app.mode() == Mode::Command{app.pop_to_insert()/*although, this fn is scoped within action()...*/}
                             app.ui.status_bar.show = parsed_value;
                             //
-                            app.update_layouts();
+                            app.layout();
                             app.update_ui_data_document();
                             //
                             handle_message(app, DisplayMode::Notify, &format!("{} set to {}", name, parsed_value));
@@ -1965,7 +2056,7 @@ fn execute_command(app: &mut Application, command: &str) -> Result<(), String>{
                     }else{
                         //TODO: this works, but i would like to replace selections in one go...
                         for char in output.trim().chars(){
-                            app.action(Action::EditAction(EditAction::InsertChar(char)));
+                            app.update(Action::EditAction(EditAction::InsertChar(char)));
                         }
                     }
                 }
@@ -1987,7 +2078,7 @@ fn execute_command(app: &mut Application, command: &str) -> Result<(), String>{
                     }else{
                         //TODO: this works, but i would like to replace selections in one go...
                         for char in output.trim().chars(){
-                            app.action(Action::EditAction(EditAction::InsertChar(char)));
+                            app.update(Action::EditAction(EditAction::InsertChar(char)));
                         }
                     }
                 }
@@ -2008,8 +2099,8 @@ fn execute_command(app: &mut Application, command: &str) -> Result<(), String>{
                     if output.is_empty(){
                         handle_message(app, DisplayMode::Warning, "shell command succeeded with empty output string");
                     }else{
-                        //TODO: open new edit window with stdout in temp buffer, don't display in diagnostic panel
-                        handle_message(app, DisplayMode::Info, "stdout sent to new window");
+                        //TODO: open new edit window with output in temp buffer, don't display in diagnostic panel
+                        handle_message(app, DisplayMode::Info, &format!("unpiped command output \"{}\" will be sent to new window(not yet implemented)", output));
                     }
                 }
             }
@@ -2046,7 +2137,932 @@ idk
 //also test from command mode. there seem to be some bad behaviors there...
 */
 
-//could we define a shell command that would display its output on our diagnostic bar, via the filesystem interface?...
-//message = printf "%s" $EDIT_OPT_SHOW_LINE_NUMBERS
-//message = diagnostic --info message
-//echo message > /edit/command
+
+
+//TODO: change Find mode to SearchSelection mode, and create Search mode for this full buffer search (ctrl+shift+/)
+pub fn search(
+    input: &str, 
+    buffer: &Buffer, 
+    semantics: CursorSemantics
+) -> Result<Selections, SelectionsError>{
+    if input.is_empty(){return Err(SelectionsError::NoSearchMatches);}
+    let mut new_selections = Vec::new();
+    if let Ok(regex) = regex::Regex::new(input){
+        //regex returns byte indices, and the current Selection impl uses char indices...
+        for search_match in regex.find_iter(&buffer.to_string()[..]){
+            let start_char_index = buffer.byte_to_char(search_match.start());
+            let end_char_index = buffer.byte_to_char(search_match.end());
+            let new_selection = Selection::new_from_range(
+                Range::new(start_char_index, end_char_index), 
+                if buffer.next_grapheme_char_index(start_char_index) == end_char_index{None}    //this works for block semantics only...
+                else{Some(selection::Direction::Forward)}, 
+                buffer, 
+                semantics.clone()
+            );
+            new_selections.push(new_selection);
+        }
+    }
+    if new_selections.is_empty(){Err(SelectionsError::NoSearchMatches)}
+    else{
+        Ok(Selections::new(new_selections, 0, buffer, semantics))
+    }
+}
+/// # Errors
+/// when no matches.
+//TODO: this, and related functions, should prob be made to work over just a string slice from a buffer.
+//caller should handle slicing according to selection, and this fn should be agnostic to selections...
+pub fn search_selection(
+    selections: &Selections, 
+    input: &str, 
+    buffer: &Buffer, 
+    semantics: CursorSemantics
+) -> Result<Selections, SelectionsError>{
+    if input.is_empty(){return Err(SelectionsError::NoSearchMatches);}
+    let mut new_selections = Vec::new();
+    let mut num_pushed: usize = 0;
+    let primary_selection = &selections.primary;
+    //let mut primary_selection_index = self.primary_selection_index;
+    let mut primary_selection_index = 0;
+    
+    for selection in &selections.flatten(){  //self.selections.iter(){   //change suggested by clippy lint
+        //let matches = incremental_search_in_selection(selection, input, buffer);
+        let matches = {
+            let mut match_selections = Vec::new();
+            let start = selection.range.start;
+            if let Ok(regex) = regex::Regex::new(input){
+                //regex returns byte indices, and the current Selection impl uses char indices...
+                for search_match in regex.find_iter(&buffer.to_string()[start..selection.range.end.min(buffer.len_chars())]){
+                    let mut new_selection = selection.clone();
+                    new_selection.range.start = buffer.byte_to_char(search_match.start()).saturating_add(start);
+                    new_selection.range.end = buffer.byte_to_char(search_match.end()).saturating_add(start);
+                    new_selection.extension_direction = if buffer.next_grapheme_char_index(new_selection.range.start) == new_selection.range.end{None}
+                    else{Some(selection::Direction::Forward)};
+                    match_selections.push(new_selection);
+                }
+            }
+            //else{/*return error FailedToParseRegex*/} //no match found if regex parse fails
+            match_selections  //if selections empty, no match found
+        };
+        if selection == primary_selection{
+            primary_selection_index = num_pushed.saturating_sub(1);
+        }
+        for search_match in matches{
+            new_selections.push(search_match);
+            num_pushed = num_pushed + 1;
+        }
+    }
+
+    if new_selections.is_empty(){Err(SelectionsError::NoSearchMatches)}
+    else{
+        Ok(Selections::new(new_selections, primary_selection_index, buffer, semantics))
+    }
+}
+//TODO: impl tests
+pub fn split_selection(
+    selections: &Selections, 
+    input: &str, 
+    buffer: &Buffer, 
+    semantics: CursorSemantics
+) -> Result<Selections, SelectionsError>{
+    if input.is_empty(){return Err(SelectionsError::NoSearchMatches);}
+    let mut new_selections = Vec::new();
+    let mut num_pushed: usize = 0;
+    let primary_selection = &selections.primary;
+    let mut primary_selection_index = 0;
+    
+    for selection in &selections.flatten(){
+        let matches = {
+            let mut match_selections = Vec::new();
+            if let Ok(regex) = regex::Regex::new(input){
+                let mut start = selection.range.start; //0;
+                let mut found_split = false;
+                // Iter over each split, and push the retained selection before it, if any...       TODO: test split at start of selection
+                for split in regex.find_iter(&buffer./*inner.*/to_string()[selection.range.start..selection.range.end.min(buffer.len_chars())]){
+                    found_split = true;
+                    let selection_range = Range::new(start, split.start().saturating_add(selection.range.start));
+                    if selection_range.start < selection_range.end{
+                        let mut new_selection = selection.clone();
+                        new_selection.range.start = selection_range.start;
+                        new_selection.range.end = selection_range.end;
+                        //new_selection.extension_direction = Some(Direction::Forward);
+                        new_selection.extension_direction = if buffer.next_grapheme_char_index(new_selection.range.start) == new_selection.range.end{None}
+                        else{Some(selection::Direction::Forward)};
+                        match_selections.push(new_selection);
+                    }
+                    start = split.end().saturating_add(selection.range.start);
+                }
+                // Handle any remaining text after the last split
+                //if split found and end of last split < selection end
+                if found_split && start < selection.range.end.min(buffer.len_chars()){
+                    let mut new_selection = selection.clone();
+                    new_selection.range.start = start;
+                    new_selection.range.end = selection.range.end.min(buffer.len_chars());
+                    new_selection.extension_direction = if buffer.next_grapheme_char_index(new_selection.range.start) == new_selection.range.end{None}
+                    else{Some(selection::Direction::Forward)};
+                    match_selections.push(new_selection);
+                }
+            }
+            match_selections
+        };
+        if matches.is_empty(){
+            if selections.count() == 1{return Err(SelectionsError::NoSearchMatches);}
+            if selection == primary_selection{
+                primary_selection_index = num_pushed.saturating_sub(1);
+            }
+            new_selections.push(selection.clone());
+            num_pushed = num_pushed + 1;
+        }
+        else{
+            if selection == primary_selection{
+                primary_selection_index = num_pushed.saturating_sub(1);
+            }
+            for search_match in matches{
+                new_selections.push(search_match);
+                num_pushed = num_pushed + 1;
+            }
+        }
+    }
+
+    let new_selections = Selections::new(new_selections, primary_selection_index, buffer, semantics.clone());
+    if new_selections == *selections{return Err(SelectionsError::ResultsInSameState);}
+
+    Ok(new_selections)
+}
+//TODO: also test Bar semantics
+#[cfg(test)]
+mod search_tests{
+    use crate::{
+        selection::{Selection, Direction, CursorSemantics},
+        selections::Selections,
+        range::Range,
+        buffer::Buffer,
+        application::search_selection,
+        application::split_selection,
+        application::search,
+    };
+
+    //search
+    #[test] fn test_search(){
+        let input = "idk";
+        //                01234567890123456
+        let text = "idk some shit idk";
+        let buffer = Buffer::new(text, None, true);
+        let semantics = CursorSemantics::Block;
+        assert_eq!(
+            Selections::new(
+                vec![
+                    Selection::new_unchecked(Range::new(0, 0+input.chars().count()), Some(Direction::Forward), None),
+                    Selection::new_unchecked(Range::new(14, 14+input.chars().count()), Some(Direction::Forward), None)
+                ], 
+                0, 
+                &buffer, 
+                semantics.clone()
+            ),
+            search(input, &buffer, semantics).unwrap()
+        );
+    }
+
+    //search_selection
+    #[test] fn search_hard_tab(){
+        let buffer_text = "\tidk\nsome\nshit\n";
+        let buffer = Buffer::new(buffer_text, None, false);
+        let semantics = CursorSemantics::Block;
+        let selection = Selection::new_unchecked(Range::new(0, buffer.chars().count()), Some(Direction::Forward), None);
+        let selections = Selections::new(vec![selection], 0, &buffer, semantics.clone());
+        let expected_selections = vec![
+            //Selection::new_unchecked(Range::new(0, 1), None, None)
+            Selection::new_unchecked(Range::new(0, "\t".chars().count()), None, None)
+        ];
+        let expected_selections = Selections::new(expected_selections, 0, &buffer, semantics.clone());
+        assert_eq!(expected_selections, search_selection(&selections, "\t", &buffer, semantics).unwrap());
+    }
+
+    #[test] fn search_multibyte_grapheme(){
+        let buffer_text = "a̐éö̲\r\n";
+        let buffer = Buffer::new(buffer_text, None, false);
+        let semantics = CursorSemantics::Block;
+        let selection = Selection::new_unchecked(Range::new(0, buffer_text.chars().count()), Some(Direction::Forward), None);
+        let selections = Selections::new(vec![selection], 0, &buffer, semantics.clone());
+        let expected_selections = vec![
+            //Selection::new_unchecked(Range::new(0, 2), None, None)    //a̐ is 2 chars(unicode code points)
+            Selection::new_unchecked(Range::new(0, "a̐".chars().count()), None, None)
+        ];
+        let expected_selections = Selections::new(expected_selections, 0, &buffer, semantics.clone());
+        assert_eq!(expected_selections, search_selection(&selections, "a̐", &buffer, semantics).unwrap());
+    }
+
+    //TODO: impl tests for split_selection
+}
+
+
+
+use crate::{history::{Change, Operation}};
+/// Inserts provided string into text at each selection.
+pub fn insert_string(app: &mut Application, string: &str, use_hard_tab: bool, tab_width: usize, semantics: CursorSemantics) -> Result<(), ApplicationError>{
+    //TODO: string lengths need to use char count, not length in bytes
+    fn handle_insert_replace(app: &mut Application, current_selection_index: usize, semantics: CursorSemantics, new_text: &str) -> Change{
+        use std::cmp::Ordering;
+        let selection = app.selections.nth_mut(current_selection_index);
+        //let change = Application::apply_replace(&mut app.buffer, new_text, selection, semantics);
+        let change = app.buffer.apply_replace(new_text, selection, semantics);
+        if let Operation::Replace{replacement_text} = change.inverse(){
+            //match replacement_text.len().cmp(&new_text.len()){    //old selected text vs new text
+            match replacement_text.chars().count().cmp(&new_text.chars().count()){
+                Ordering::Greater => {
+                    app.selections.shift_subsequent_selections_backward(
+                        current_selection_index, 
+                        //replacement_text.len().saturating_sub(new_text.len())
+                        replacement_text.chars().count().saturating_sub(new_text.chars().count())
+                    );
+                }
+                Ordering::Less => {
+                    app.selections.shift_subsequent_selections_forward(
+                        current_selection_index, 
+                        //new_text.len().saturating_sub(replacement_text.len())
+                        new_text.chars().count().saturating_sub(replacement_text.chars().count())
+                    );
+                }
+                Ordering::Equal => {}   // no change to subsequent selections
+            }
+        }
+        change
+    }
+    //TODO: string lengths need to use char count, not length in bytes
+    fn handle_insert(app: &mut Application, string: &str, current_selection_index: usize, semantics: CursorSemantics) -> Change{
+        let selection = app.selections.nth_mut(current_selection_index);
+        //let change = Application::apply_insert(&mut app.buffer, string, selection, semantics);
+        let change = app.buffer.apply_insert(string, selection, semantics);
+        //app.selections.shift_subsequent_selections_forward(current_selection_index, string.len());
+        app.selections.shift_subsequent_selections_forward(current_selection_index, string.chars().count());
+        change
+    }
+    if app.buffer.read_only{return Err(ApplicationError::ReadOnlyBuffer);}
+    if string.is_empty(){return Err(ApplicationError::InvalidInput);}
+    
+    let selections_before_changes = app.selections.clone();
+    let mut changes = Vec::new();
+
+    for i in 0..app.selections.count(){
+        let selection = app.selections.nth_mut(i);
+        let change = match string{
+            //"\n" => {}    //handle behavior specific to pressing "enter". auto-indent, etc... //TODO: create tests for newline behavior...
+            "\t" => {   //handle behavior specific to pressing "tab".
+                if use_hard_tab{
+                    if selection.is_extended(){handle_insert_replace(app, i, semantics.clone(), "\t")}
+                    else{handle_insert(app, "\t", i, semantics.clone())}
+                }
+                else{
+                    let tab_distance = app.buffer.distance_to_next_multiple_of_tab_width(selection, semantics.clone(), tab_width);
+                    let modified_tab_width = if tab_distance > 0 && tab_distance < tab_width{tab_distance}else{tab_width};
+                    let soft_tab = " ".repeat(modified_tab_width);
+
+                    if selection.is_extended(){handle_insert_replace(app, i, semantics.clone(), &soft_tab)}
+                    else{handle_insert(app, &soft_tab, i, semantics.clone())}
+                }
+            }
+            //handle any other inserted string
+            _ => {
+                if selection.is_extended(){handle_insert_replace(app, i, semantics.clone(), string)}
+                else{handle_insert(app, string, i, semantics.clone())}
+            }
+        };
+
+        changes.push(change);
+    }
+
+    // push change set to undo stack
+    app.undo_stack.push(ChangeSet::new(changes, selections_before_changes, app.selections.clone()));
+
+    // clear redo stack. new actions invalidate the redo history
+    app.redo_stack.clear();
+
+    Ok(())
+}
+
+//TODO: can this function and backspace be combined?...
+/// Deletes text inside each [`Selection`] in [`Selections`], or if [`Selection`] not extended, the next character, and pushes changes to undo stack.
+pub fn delete(app: &mut Application, semantics: CursorSemantics) -> Result<(), ApplicationError>{
+    let selections_before_changes = app.selections.clone();
+    let mut changes = Vec::new();
+    let mut cannot_delete = false;
+    for i in 0..app.selections.count(){
+        let selection = app.selections.nth_mut(i);
+        //handles cursor at doc end
+        if selection.anchor() == app.buffer.len_chars() && selection.cursor(&app.buffer, semantics.clone()) == app.buffer.len_chars(){
+            cannot_delete = true; //don't modify text buffer here...
+            let change = Change::new(Operation::NoOp, selection.clone(), selection.clone(), Operation::NoOp);
+            changes.push(change);
+        }
+        else{   //apply the delete
+            //let change = Application::apply_delete(&mut app.buffer, selection, semantics.clone());
+            let change = app.buffer.apply_delete(selection, semantics.clone());
+            if let Operation::Insert{inserted_text} = change.inverse(){
+                //app.selections.shift_subsequent_selections_backward(i, inserted_text.len());
+                app.selections.shift_subsequent_selections_backward(i, inserted_text.chars().count());
+            }
+            changes.push(change);
+        }
+    }
+
+    if app.selections.count() == 1 && cannot_delete{return Err(ApplicationError::SelectionAtDocBounds);}
+    else{
+        // push change set to undo stack
+        app.undo_stack.push(ChangeSet::new(changes, selections_before_changes, app.selections.clone()));
+
+        // clear redo stack. new actions invalidate the redo history
+        app.redo_stack.clear();
+    }
+
+    Ok(())
+}
+
+//TODO: combine backspace with delete (make delete take a direction::Forward/Backward)
+/// Deletes the previous character, or deletes selection if extended.
+/// #### Invariants:
+/// - will not delete past start of doc
+/// - at start of line, appends current line to end of previous line
+/// - removes previous soft tab, if `TAB_WIDTH` spaces are before cursor
+/// - deletes selection if selection extended
+pub fn backspace(app: &mut Application, _use_hard_tab: bool, _tab_width: usize, semantics: CursorSemantics) -> Result<(), ApplicationError>{
+    let selections_before_changes = app.selections.clone();
+    let mut changes = Vec::with_capacity(app.selections.count());
+    let mut cannot_delete = false;
+
+    for i in 0..app.selections.count(){
+        let selection = app.selections.nth_mut(i);
+        if selection.is_extended(){
+            let change = app.buffer.apply_delete(selection, semantics.clone());
+            if let Operation::Insert{inserted_text} = change.inverse(){
+                //app.selections.shift_subsequent_selections_backward(i, inserted_text.len());
+                app.selections.shift_subsequent_selections_backward(i, inserted_text.chars().count());
+            }
+            changes.push(change);
+        }else{
+            if selection.anchor() == 0 && selection.cursor(&app.buffer, semantics.clone()) == 0{
+                cannot_delete = true; //don't modify text buffer here...
+                let change = Change::new(Operation::NoOp, selection.clone(), selection.clone(), Operation::NoOp);
+                changes.push(change);
+            }
+            else{
+                //let offset_from_line_start = app.buffer.offset_from_line_start(selection.cursor(&app.buffer, semantics.clone()));
+                    //let line = app.buffer.inner.line(app.buffer.char_to_line(selection.cursor(&app.buffer, semantics.clone())));
+                //let is_deletable_soft_tab = !use_hard_tab 
+                //                                && offset_from_line_start >= tab_width
+                //                                // handles case where user adds a space after a tab, and wants to delete only the space
+                //                                && offset_from_line_start % tab_width == 0
+                //                                // if previous tab_width chars are spaces, delete tab_width. otherwise, use default behavior
+                //                                && app.buffer.slice_is_all_spaces(
+                //                                    offset_from_line_start.saturating_sub(tab_width), 
+                //                                    offset_from_line_start
+                //                                );
+
+                //NOTE: commenting this until i have time to get it working correctly again...
+                //if is_deletable_soft_tab{
+                //    selection.shift_and_extend(tab_width, &app.buffer, semantics.clone());
+                //    changes.push(app.buffer.apply_delete(selection, semantics.clone()));
+                //    app.selections.shift_subsequent_selections_backward(i, tab_width);
+                //}
+                //else{
+                    //if let Ok(new_selection) = crate::utilities::move_cursor_left::selection_impl(selection, 1, &app.buffer, None, semantics.clone()){
+                    if let Ok(new_selection) = selection::move_cursor_left(selection, 1, &app.buffer, None, semantics.clone()){
+                        *selection = new_selection;
+                    }   //TODO: handle error    //first for loop guarantees no selection is at doc bounds, so this should be ok to ignore...
+                    changes.push(app.buffer.apply_delete(selection, semantics.clone()));
+                    app.selections.shift_subsequent_selections_backward(i, 1);
+                //}
+            }
+        }
+    }
+
+    if app.selections.count() == 1 && cannot_delete{return Err(ApplicationError::SelectionAtDocBounds);}
+    else{
+        // push changes to undo stack
+        app.undo_stack.push(ChangeSet::new(changes, selections_before_changes, app.selections.clone()));
+
+        // clear redo stack. new actions invalidate the redo history
+        app.redo_stack.clear();
+    }
+
+    Ok(())
+}
+
+/// Cut single selection.
+/// Copies text to clipboard and removes selected text from document.
+/// Ensure single selection when calling this function.
+pub fn cut(app: &mut Application, semantics: CursorSemantics) -> Result<(), ApplicationError>{
+    if app.selections.count() > 1{
+        return Err(
+            ApplicationError::SelectionsError(
+                //crate::selections::SelectionsError::MultipleSelections
+                SelectionsError::MultipleSelections
+            )
+        )
+    }
+
+    //let selection = app.selections.primary_mut();
+    let selection = &app.selections.primary;
+    // Copy the selected text to the clipboard
+    app.clipboard = app.buffer.slice(selection.range.start, selection.range.end).to_string();
+    delete(app, semantics)   //notice this is returning the result from delete
+}
+
+/// Insert clipboard contents at cursor position(s).
+pub fn paste(app: &mut Application, use_hard_tab: bool, tab_width: usize, semantics: CursorSemantics) -> Result<(), ApplicationError>{
+    insert_string(app, &app.clipboard.clone(), use_hard_tab, tab_width, semantics)
+}
+
+use std::cmp::Ordering;
+/// Reverts the last set of changes made to the document.
+pub fn undo(app: &mut Application, semantics: CursorSemantics) -> Result<(), ApplicationError>{
+    // Check if there is something to undo
+    if let Some(change_set) = app.undo_stack.pop(){
+        let changes = change_set.changes();
+        
+        app.selections = change_set.clone().selections_after_changes();    //set selections to selections_after_changes to account for any selection movements that may have occurred since edit
+        assert!(app.selections.count() == changes.len());
+
+        for (i, change) in changes.iter().enumerate().take(app.selections.count()){
+            let selection = app.selections.nth_mut(i);
+            match change.operation(){
+                Operation::Insert{inserted_text} => {
+                    //selection.shift_and_extend(inserted_text.len(), &app.buffer, semantics.clone());
+                    selection.shift_and_extend(inserted_text.chars().count(), &app.buffer, semantics.clone());
+                    //let _ = Application::apply_delete(&mut app.buffer, selection, semantics.clone());
+                    let _ = app.buffer.apply_delete(selection, semantics.clone());
+                    //app.selections.shift_subsequent_selections_backward(i, inserted_text.len());
+                    app.selections.shift_subsequent_selections_backward(i, inserted_text.chars().count());
+                }
+                Operation::Delete => {
+                    if let Operation::Insert{inserted_text} = change.inverse(){
+                        //let _ = Application::apply_insert(&mut app.buffer, &inserted_text, selection, semantics.clone());   //apply inverse operation
+                        let _ = app.buffer.apply_insert(&inserted_text, selection, semantics.clone());  //apply inverse operation
+                        //app.selections.shift_subsequent_selections_forward(i, inserted_text.len());
+                        app.selections.shift_subsequent_selections_forward(i, inserted_text.chars().count());
+                    }
+                }
+                Operation::Replace{replacement_text} => {
+                    let inserted_text = replacement_text;
+                    if let Operation::Replace{replacement_text} = change.inverse(){
+                        //selection.shift_and_extend(inserted_text.len(), &app.buffer, semantics.clone());
+                        selection.shift_and_extend(inserted_text.chars().count(), &app.buffer, semantics.clone());
+                        //let _ = Application::apply_replace(&mut app.buffer, &replacement_text, selection, semantics.clone());
+                        let _ = app.buffer.apply_replace(&replacement_text, selection, semantics.clone());
+                        //match inserted_text.len().cmp(&replacement_text.len()){    //old selected text vs new text
+                        match inserted_text.chars().count().cmp(&replacement_text.chars().count()){
+                            Ordering::Greater => {
+                                //app.selections.shift_subsequent_selections_backward(i, inserted_text.len().saturating_sub(replacement_text.len()));
+                                app.selections.shift_subsequent_selections_backward(
+                                    i, 
+                                    inserted_text.chars().count().saturating_sub(replacement_text.chars().count())
+                                );
+                            }
+                            Ordering::Less => {
+                                //app.selections.shift_subsequent_selections_forward(i, replacement_text.len().saturating_sub(inserted_text.len()));
+                                app.selections.shift_subsequent_selections_forward(
+                                    i, 
+                                    replacement_text.chars().count().saturating_sub(inserted_text.chars().count())
+                                );
+                            }
+                            Ordering::Equal => {}   // no change to subsequent selections
+                        }
+                    }
+                }
+                Operation::NoOp => {}
+            }
+        }
+        // selections should be the same as they were before changes were made, because we are restoring that previous state
+        app.selections = change_set.selections_before_changes();
+
+        // Push inverted changes onto redo stack
+        app.redo_stack.push(change_set);
+
+        Ok(())
+    }else{Err(ApplicationError::NoChangesToUndo)}
+}
+//#[cfg(test)]
+//mod undo_tests{
+//    use crate::utilities::undo;
+//    use crate::{
+//        application::Application,
+//        selections::Selections,
+//        selection::{Selection, CursorSemantics, ExtensionDirection},
+//        view::View,
+//        history::{Change, ChangeSet, Operation},
+//        range::Range,
+//        buffer::Buffer
+//    };
+//
+//    fn test(semantics: CursorSemantics, text: &str, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize, undo_stack: Vec<ChangeSet>, expected_text: &str, tuple_expected_selections: Vec<(usize, usize, Option<usize>)>, expected_primary: usize){
+//        let mut app = Application::new_test_app(text, None, false, &View::new(0, 0, 80, 200));
+//
+//        let expected_buffer = crate::buffer::Buffer::new(expected_text, None, false);
+//        let mut vec_expected_selections = Vec::new();
+//        for tuple in tuple_expected_selections{
+//            vec_expected_selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, &expected_buffer, semantics.clone()));
+//        }
+//        let expected_selections = Selections::new(vec_expected_selections, expected_primary, &expected_buffer, semantics.clone());
+//        
+//        let mut vec_selections = Vec::new();
+//        for tuple in tuple_selections{
+//            vec_selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, &app.buffer, semantics.clone()));
+//        }
+//        let selections = Selections::new(vec_selections, primary, &app.buffer, semantics.clone());
+//        
+//        app.selections = selections;
+//        app.undo_stack = undo_stack;
+//        
+//        let result = undo::application_impl(&mut app, semantics);
+//        assert!(!result.is_err());
+//        
+//        assert_eq!(expected_buffer, app.buffer);
+//        assert_eq!(expected_selections, app.selections);
+//        //println!("expected: {:?}\ngot: {:?}", expected_buffer, app.buffer);
+//        //assert!(app.buffer.is_modified());    //is modified doesn't work with tests, because it now checks against a persistent file, which tests don't have
+//    }
+//    fn test_error(semantics: CursorSemantics, text: &str, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize, undo_stack: Vec<ChangeSet>){
+//        let mut app = Application::new_test_app(text, None, false, &View::new(0, 0, 80, 200));
+//        
+//        let mut vec_selections = Vec::new();
+//        for tuple in tuple_selections{
+//            vec_selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, &app.buffer, semantics.clone()));
+//        }
+//        let selections = Selections::new(vec_selections, primary, &app.buffer, semantics.clone());
+//        
+//        app.selections = selections;
+//        app.undo_stack = undo_stack;
+//        
+//        assert!(undo::application_impl(&mut app, semantics).is_err());
+//        assert!(!app.buffer.is_modified());
+//    }
+//
+//    #[test] fn with_insert_change_on_stack(){
+//        test(
+//            CursorSemantics::Block, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (9, 10, None)
+//            ], 0, 
+//            vec![
+//                //TODO: figure out how to move this changeset setup into the test fn...
+//                ChangeSet::new(
+//                    vec![
+//                        Change::new(
+//                            Operation::Insert{inserted_text: "some\n".to_string()}, 
+//                            Selection::new(Range::new(4, 5), ExtensionDirection::Forward), 
+//                            Selection::new(Range::new(9, 10), ExtensionDirection::Forward), 
+//                            Operation::Delete
+//                        )
+//                    ], 
+//                    Selections::new(
+//                        vec![
+//                            Selection::new(
+//                                Range::new(4, 5), 
+//                                ExtensionDirection::Forward
+//                            )
+//                        ], 
+//                        0, 
+//                        //&Rope::from("idk\nshit\n"), 
+//                        &Buffer::new("idk\nshit\n", None, false),
+//                        CursorSemantics::Block
+//                    ), 
+//                    Selections::new(
+//                        vec![
+//                            Selection::new(
+//                                Range::new(9, 10), 
+//                                ExtensionDirection::Forward
+//                            )
+//                        ], 
+//                        0, 
+//                        //&Rope::from("idk\nsome\nshit\n"), 
+//                        &Buffer::new("idk\nsome\nshit\n", None, false),
+//                        CursorSemantics::Block
+//                    )
+//                )
+//            ], 
+//            "idk\nshit\n", 
+//            //"idk\nshit\n", 
+//            vec![
+//                (4, 5, None)
+//            ], 0
+//        );
+//    }
+//
+//    //TODO: test with delete_change_on_stack
+//    //TODO: test with replace change on stack
+//    //TODO: test with no_op change on stack
+//
+//    //TODO: test with multiple selections/changes
+//
+//    #[test] fn undo_with_nothing_on_stack_errors(){
+//        //test_error(CursorSemantics::Block);
+//        test_error(
+//            CursorSemantics::Block, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (0, 1, None)
+//            ], 
+//            0, 
+//            Vec::new()
+//        );
+//        //test_error(CursorSemantics::Bar);
+//        test_error(
+//            CursorSemantics::Bar, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (0, 0, None)
+//            ], 
+//            0, 
+//            Vec::new()
+//        );
+//    }
+//}
+
+/// Re-applies the last undone changes to the document.
+// Make sure to clear the redo stack in every edit fn. new actions invalidate the redo history
+pub fn redo(app: &mut Application, semantics: CursorSemantics) -> Result<(), ApplicationError>{
+    // Check if there is something to redo
+    if let Some(change_set) = app.redo_stack.pop(){
+        let changes = change_set.changes();
+
+        app.selections = change_set.clone().selections_before_changes();    //set selections to selections_before_changes to account for any selection movements that may have occurred since undo
+        assert!(app.selections.count() == changes.len());   //num selections should match num changes
+
+        for (i, change) in changes.iter().enumerate().take(app.selections.count()){
+            let selection = app.selections.nth_mut(i);
+            match change.operation(){
+                Operation::Insert{inserted_text} => {
+                    //let _ = Application::apply_insert(&mut app.buffer, &inserted_text, selection, semantics.clone());
+                    let _ = app.buffer.apply_insert(&inserted_text, selection, semantics.clone());
+                    //app.selections.shift_subsequent_selections_forward(i, inserted_text.len());
+                    app.selections.shift_subsequent_selections_forward(i, inserted_text.chars().count());
+                }
+                Operation::Delete => {
+                    *selection = change.selection_before_change();
+                    //let change = Application::apply_delete(&mut app.buffer, selection, semantics.clone());
+                    let change = app.buffer.apply_delete(selection, semantics.clone());
+                    if let Operation::Insert{inserted_text} = change.inverse(){
+                        //app.selections.shift_subsequent_selections_backward(i, inserted_text.len());
+                        app.selections.shift_subsequent_selections_backward(i, inserted_text.chars().count());
+                    }
+                }
+                Operation::Replace{replacement_text} => {
+                    let inserted_text = replacement_text;
+                    //let change = Application::apply_replace(&mut app.buffer, &inserted_text, selection, semantics.clone());
+                    let change = app.buffer.apply_replace(&inserted_text, selection, semantics.clone());
+                    if let Operation::Replace{replacement_text} = change.inverse(){   //destructure to get currently selected text
+                        //match replacement_text.len().cmp(&inserted_text.len()){    //old selected text vs new text
+                        match replacement_text.chars().count().cmp(&inserted_text.chars().count()){
+                            Ordering::Greater => {
+                                //app.selections.shift_subsequent_selections_backward(i, replacement_text.len().saturating_sub(inserted_text.len()));
+                                app.selections.shift_subsequent_selections_backward(
+                                    i, 
+                                    replacement_text.chars().count().saturating_sub(inserted_text.chars().count())
+                                );
+                            }
+                            Ordering::Less => {
+                                //app.selections.shift_subsequent_selections_forward(i, inserted_text.len().saturating_sub(replacement_text.len()));
+                                app.selections.shift_subsequent_selections_forward(
+                                    i, 
+                                    inserted_text.chars().count().saturating_sub(replacement_text.chars().count())
+                                );
+                            }
+                            Ordering::Equal => {}   // no change to subsequent selections
+                        }
+                    }
+                }
+                Operation::NoOp => {}
+            }
+        }
+        assert!(app.selections == change_set.clone().selections_after_changes());
+
+        // Push changes back onto the undo stack
+        app.undo_stack.push(change_set);
+
+        Ok(())
+    }else{Err(ApplicationError::NoChangesToRedo)}
+}
+
+//TODO: i think all edit actions + apply replace/insert/delete should prob be made purely functional...
+//had to make the following public
+    //Document.text
+    //Document.selections
+    //Document.undo_stack
+    //Document.redo_stack
+    //Document::apply_replace
+//is this easing of encapsulation acceptable?...
+pub fn add_surrounding_pair(app: &mut Application, leading_char: char, trailing_char: char, semantics: CursorSemantics) -> Result<(), ApplicationError>{
+    let selections_before_changes = app.selections.clone();
+    let mut changes = Vec::new();
+    let mut cannot_add_surrounding_pair = false;  //to handle cursor at doc end...
+    for i in 0..app.selections.count(){
+        let selection = app.selections.nth_mut(i);
+        //handles cursor at doc end
+        if selection.anchor() == app.buffer.len_chars() && selection.cursor(&app.buffer, semantics.clone()) == app.buffer.len_chars(){
+            cannot_add_surrounding_pair = true; //don't modify text buffer here...
+            let change = Change::new(Operation::NoOp, selection.clone(), selection.clone(), Operation::NoOp);
+            changes.push(change);
+        }
+        else{   //replace each selection with its text contents + leading and trailing char added
+            //let mut contents = selection.contents_as_string(&document.text);
+            let mut contents = selection.to_string(&app.buffer);
+            contents.insert(0, leading_char);
+            contents.push(trailing_char);
+            //let change = Application::apply_replace(&mut app.buffer, &contents, selection, CursorSemantics::Block);
+            let change = app.buffer.apply_replace(&contents, selection, semantics.clone());
+            changes.push(change);
+            app.selections.shift_subsequent_selections_forward(i, 2);  //TODO: could this be handled inside apply_replace and similar functions?...
+        }
+    }
+
+    if app.selections.count() == 1 && cannot_add_surrounding_pair{return Err(ApplicationError::InvalidInput);}
+    else{
+        // push change set to undo stack
+        app.undo_stack.push(ChangeSet::new(changes, selections_before_changes, app.selections.clone()));
+    
+        // clear redo stack. new actions invalidate the redo history
+        app.redo_stack.clear();
+    }
+    
+    Ok(())
+}
+
+//TODO:
+//swap selected text with line above
+//swap selected text with line below
+//align selected text vertically
+//rotate text between selections
+
+
+
+
+/// Copy single selection to clipboard.
+/// Ensure single selection when calling this function.
+pub fn copy(app: &mut Application) -> Result<(), ApplicationError>{
+    if app.selections.count() > 1{return Err(ApplicationError::SelectionsError(SelectionsError::MultipleSelections));}
+    
+    let selection = app.selections.primary.clone();
+    // Copy the selected text to the clipboard
+    app.clipboard = app.buffer.slice(selection.range.start, selection.range.end).to_string();
+
+    Ok(())
+}
+//#[cfg(test)]
+//mod copy_tests{
+//    use crate::utilities::copy;
+//    use crate::{
+//        application::Application,
+//        selections::Selections,
+//        selection::{Selection, CursorSemantics},
+//        display_area::DisplayArea,
+//    };
+//
+//    //TODO: could take a view as arg, and verify that cursor movement moves the view correctly as well
+//    fn test(semantics: CursorSemantics, text: &str, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize, expected_clipboard: &str){
+//        let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
+//        
+//        let mut vec_selections = Vec::new();
+//        for tuple in tuple_selections{
+//            vec_selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, &app.buffer, semantics.clone()));
+//        }
+//        let selections = Selections::new(vec_selections, primary, &app.buffer, semantics.clone());
+//        
+//        app.selections = selections;
+//        
+//        let result = copy::application_impl(&mut app);
+//        assert!(!result.is_err());
+//        
+//        assert_eq!(expected_clipboard, app.clipboard);
+//        assert!(!app.buffer.is_modified());
+//    }
+//    fn test_error(semantics: CursorSemantics, text: &str, tuple_selections: Vec<(usize, usize, Option<usize>)>, primary: usize){
+//        let mut app = Application::new_test_app(text, None, false, &DisplayArea::new(0, 0, 80, 200));
+//        
+//        let mut vec_selections = Vec::new();
+//        for tuple in tuple_selections{
+//            vec_selections.push(Selection::new_from_components(tuple.0, tuple.1, tuple.2, &app.buffer, semantics.clone()));
+//        }
+//        let selections = Selections::new(vec_selections, primary, &app.buffer, semantics.clone());
+//        
+//        app.selections = selections;
+//        
+//        assert!(copy::application_impl(&mut app).is_err());
+//        assert!(!app.buffer.is_modified());
+//    }
+//
+//    //TODO: copy with no selection extension
+//        //should fail with bar semantics?...
+//        //should copy single char with block semantics
+//
+//    #[test] fn copy_with_selection_direction_forward_block_semantics(){
+//        test(
+//            CursorSemantics::Block, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (4, 9, None)
+//            ], 0, 
+//            "some\n"
+//        );
+//    }
+//    #[test] fn copy_with_selection_direction_forward_bar_semantics(){
+//        test(
+//            CursorSemantics::Bar, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (4, 9, None)
+//            ], 0, 
+//            "some\n"
+//        );
+//    }
+//
+//    #[test] fn copy_with_selection_direction_backward_block_semantics(){
+//        test(
+//            CursorSemantics::Block, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (9, 4, None)
+//            ], 0, 
+//            "some\n"
+//        );
+//    }
+//    #[test] fn copy_with_selection_direction_backward_bar_semantics(){
+//        test(
+//            CursorSemantics::Bar, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (9, 4, None)
+//            ], 0, 
+//            "some\n"
+//        );
+//    }
+//
+//    #[test] fn copy_with_multiple_selections_should_error(){
+//        test_error(
+//            CursorSemantics::Block, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (0, 1, None),
+//                (4, 5, None)
+//            ], 0
+//        );
+//        test_error(
+//            CursorSemantics::Bar, 
+//            "idk\nsome\nshit\n", 
+//            vec![
+//                (0, 0, None),
+//                (4, 4, None)
+//            ], 0
+//        );
+//    }
+//}
+
+
+
+use std::fs;
+use std::io::BufWriter;
+/// Saves the document's content to its file path.
+pub fn save(app: &mut Application) -> Result<(), /*Box<dyn Error>*/String>{
+    //if let Some(path) = &app.buffer.file_path{ // does nothing if path is None    //maybe return Err(()) instead?
+    //    //app.buffer./*inner.*/write_to(BufWriter::new(fs::File::create(path)?))?;
+    //    if app.buffer.is_modified(){
+    //        app.buffer.write_to(BufWriter::new(fs::File::create(path)?))?;
+    //    }else{
+    //        //do nothing. we are already synched with file state.   //maybe return a same state error
+    //    }
+    //}
+    //else{
+    //    //return ApplicationError
+    //}
+    match &app.buffer.file_path{
+        None => return Err(String::from("cannot save unnamed buffer")),
+        Some(path) => {
+            if app.buffer.read_only{return Err(String::from(crate::config::READ_ONLY_BUFFER));}
+            //
+            else if path.is_dir(){return Err(String::from("cannot save buffer text to directory"))}
+            //
+            else{
+                if app.buffer.is_modified(){
+                    match fs::File::create(path){
+                        Err(e) => return Err(format!("{e}")),
+                        Ok(file) => {
+                            if let Err(e) = app.buffer.write_to(BufWriter::new(file)){
+                                return Err(format!("{e}"));
+                            }
+                        }
+                    }
+                }else{
+                    return Err(String::from(crate::config::SAME_STATE));
+                }
+            }
+        }
+    }
+    
+    Ok(())
+}
+
+
+
+/*
+TODO: research plan9port plumber utility and figure out how it can work with single edit instance, multiple edit instances, and/or single edit server instance
+i think instances would read from plumb/edit and wait for plumbed messages
+but how can we determine which instance should handle that message, and if relevant to none, can we have some fallback behavior to spawn a new instance?...maybe in a plumb rule?...
+*/

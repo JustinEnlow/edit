@@ -7,74 +7,56 @@ if using a terminal without keyboard enhancement, you may have to rebind the def
 Goal Features:
     File Server Interface (for asynchronous interaction)
         expose internal state as files on a virtual, non-persistent, mountable file system(FUSE? v9fs? other?), interacted with using 9p protocol
-                    //virtual file system
-                        // command file     //on write, edit performs commands
-                        //%sh{ cat date > $buffer }      //write date to buffer file, which inserts date's output at every selection(replacing selection content if extended)
-                        // write to /mnt/edit/id/buffer would insert/replace at/in place of the currently selected text for all selections
-                        // write to /mnt/edit/id/selections/selection_num would insert/replace at/in place of the selected text for that selection only
-                        // /mnt/edit/id/selections/leading/selection_num, /mnt/edit/id/selections/primary, /mnt/edit/id/selections/trailing/selection_num if using alternate selections impl
-                        // selection_num files would only be served if that selection number exists
         files served:     //just for consideration. not set on this yet
-            /mnt/edit/
-                sessions/
-                    <session_id>/       //each edit instance will have unique session_id. $session_id could be set as an environment variable for use in shell command execution...
-                    |---command                         //write to execute commands, read to ...        //command file may be redundant if each directory has a way to modify it through the filesystem interface
-                    |---events                          //readable file containing editor events
-                    |---options/
-                    |   |---cursor_semantics
-                    |   |---use_hard_tab
-                    |   |---tab_width
-                    |   |---view_scroll_amount
-                    |---registers/
-                    |   |---add                         //write to add register
-                    |   |---del                         //write to delete register
-                    |   |---a/
-                    |   |   |---content                 //write to set content. read to get content
-                    |---display/
-                    |   |---add_widget                  //write to add widget //format to be determined...
-                    |   |---remove_widget               
-                    |   |---vertical/                   //layout widget
-                    |       |---horizontal/             //layout widget
-                    |       |   |---text/               //text widget
-                    |       |   |   |---show            //indicates whether the widget should be displayed
-                    |       |   |   |---content         //readable file containing text widget content(line numbers)
-                    |       |   |   |---fg_color        //rgb(0,0,0)/black/0x000000/etc...
-                    |       |   |   |---bg_color
-                    |       |   |   |---style           //bold/italic/etc..
-                    |       |   |   |---alignment       //how to align content(left/right/center)
-                    |       |   |   |---padding         //the space assigned for widget display(space_around/min/max/length/percentage)
-                    |       |   |---text/                 //maybe this should be a buffer specific widget?...
-                    |       |   |   |---content         //readable file containing text widget content(text buffer display text)
-                    |       |   |   |---fg_color        //rgb(0,0,0)/black/0x000000/etc...
-                    |       |   |   |---bg_color
-                    |       |   |   |---style           //bold/italic/etc..
-                    |       |   |---scroll_bar/
-                    |       |       |---thumb/
-                    |       |       |---track/
-                    |       |---horizontal/             //layout widget     //status bar
-                    |       |---horizontal/             //layout widget     //util bar
-                    |   |---stack/                      //container widget to allow for tabbing multiple other widgets. not sure if i will support this yet...
-                    |---buffer/
-                    |   |---raw_text
-                    |   |---highlights
-                    |   |---virtual_text              //write to add virtual_text at a specified offset
-                    |   |---folds
-                    |   |---wrap                      //maybe wrap belongs in options?...
-                    |   |---display                 //readable file containing the buffer text after all virtual_text/folds/wrapping has been applied
-                    |---selections/
-                        |---selections/
-                        |   |---range_addresses         //read for addresses of all selection ranges in form per selection: <line>:<column>,<line>:<column>\n  //with first being range start, and second being range end (in which coordinate system should this be?...)
-                        |---primary/
-                        |   |---content                 //readable file containing selection 0's content
-                        |   |                           //writeable file. if selection extended, replaces selection content with written text
-                        |   |                           //if selection not extended, inserts written text at cursor location
-                        |   |---range_address
-                        |---0/
-                        |   |---content             //readable file containing selection 0's content
-                        |   |                       //writeable file. if selection extended, replaces selection content with written text
-                        |   |                       //if selection not extended, inserts written text at cursor location
-                        |   |---range_address
-                        |---n/                      //any other enumerated selection
+            ~/edit/
+                |---command                         //write to execute commands, read to ...
+                |---events                          //readable file containing editor events
+                |---settings/
+                |   |---cursor_semantics
+                |   |---use_hard_tab
+                |   |---tab_width
+                |   |---view_scroll_amount
+                |---registers/
+                |   |---add                         //write to add register
+                |   |---del                         //write to delete register
+                |   |---a/
+                |   |   |---content                 //write to set content. read to get content
+                |---display/                        //i would really like widgets to be separate programs, but for now, we prob need to support defining them dynamically and displaying them ourselves
+                |   |---add_widget                  //write to add widget //format to be determined...
+                |   |---remove_widget               
+                |   |---vertical/                   //layout widget
+                |       |---horizontal/             //layout widget
+                |       |   |---text/               //text widget
+                |       |   |   |---show            //indicates whether the widget should be displayed
+                |       |   |   |---content         //readable file containing text widget content(line numbers)
+                |       |   |   |---fg_color        //rgb(0,0,0)/black/0x000000/etc...
+                |       |   |   |---bg_color
+                |       |   |   |---style           //bold/italic/etc..
+                |       |   |   |---alignment       //how to align content(left/right/center)
+                |       |   |   |---padding         //the space assigned for widget display(space_around/min/max/length/percentage)
+                |       |   |---text/                 //maybe this should be a buffer specific widget?...
+                |       |   |   |---content         //readable file containing text widget content(text buffer display text)
+                |       |   |   |---fg_color        //rgb(0,0,0)/black/0x000000/etc...
+                |       |   |   |---bg_color
+                |       |   |   |---style           //bold/italic/etc..
+                |       |   |---scroll_bar/
+                |       |       |---thumb/
+                |       |       |---track/
+                |       |---horizontal/             //layout widget     //status bar
+                |       |---horizontal/             //layout widget     //util bar
+                |   |---stack/                      //container widget to allow for tabbing multiple other widgets. not sure if i will support this yet...
+                |---buffer/
+                |   |---raw_text
+                |   |---highlights
+                |   |---virtual_text              //write to add virtual_text at a specified offset
+                |   |---folds
+                |   |---wrap                      //maybe wrap belongs in options?...
+                |   |---display                 //readable file containing the buffer text after all virtual_text/folds/wrapping has been applied
+                |---selections/
+                    |---all/
+                    |   |---range_addresses         //read for addresses of all selection ranges in form per selection: <line>:<column>,<line>:<column>\n  //with first being range start, and second being range end (in which coordinate system should this be?...)
+                    |   |---content                 //read/write file containing selection text content (err if read with multiple selections), write to replace content in all selections
+                    |---primary_index
 
         events:
             Key                 //could be read by a key_handler program that would read/write served files(may have to have some mode handling as well...)     //maybe edit should serve a modes directory?...
@@ -84,66 +66,32 @@ Goal Features:
             Error               //could be read by an error_handler program that would add/remove widget to show errors(may have to have some mode handling as well...)
             Execute //although, these may just be better off being handled in Key/Mouse events
             Plumb   //although, these may just be better off being handled in Key/Mouse events
-    Extensible Command Interface (for synchronous interaction)(executable from within the text buffer)
+    Extensible Command Interface (executable from within the text buffer)
         //TODO: describe command language
         built-in commands:
             built in selection/movement/edit/editor functionality
-            search <regex>   //non interactive search within selections  //could interactive search be accomplished by integrating external utility instead of being built in?...
-            split <regex>    //non interactive split within selections   //could interactive split be accomplished by integrating external utility instead of being built in?...
-            pipe <program>    //pipe each selection through the given external program and replace the selection with its output
-            send <program>    //pipe each selection through the given external program and ignore its output
-            retain-successful <program>   //enter a shell command and pipe each selection's content to it. Selections whose shell command returns 0 will be kept, others will be dropped
-            add-command <name> <command>     //add-command open_terminal "alacritty &"    //if command ends in '&', spawn instead of status/output
-            remove-command <name>
-            // command aliases could be accomplished by defining a new command  //add-command <alias> <aliased-command>
-            // or may be better to just have an alias command... idk
-            add-keybind <mode> <keybind> <command>
-            remove-keybind <keybind>
-            add-option
-            remove-option
-            set-option
-            add-hook
-            remove-hook
+            search <regex>
+            split <regex>
+            set <setting> <value>
             //notification modes could be set through a command
-            echo [Flags] <message>      //which should be the default, if no flag passed?...
+            diagnostic [Flags] <message>      //info default if no flag passed?...
                 Flags:
                     --error
                     --warn
                     --notify
                     --info
-            evaluate-commands <commands>
-            menu     //for contextual popup menus
-            prompt   //for util text box
-            add-highlighter  //line/column/rope offset/range based?...    //pre virtual text or post?     //only single cell or vec of cells?...
-                // let user decide which coordinate scheme to use, but it should always resolve to a rope offset
-                // this will be pre virtual text, and accounted for in edit core/server before conversion to display coordinates
-                // all buffer highlights should be listed in offset coordinates and served at buffer/highlights
-                // visible buffer highlights should be listed in display coordinates and served at display_area/highlights
-                // highlighters may need a group parameter, so that a group can be cleared, if needed, and the rest left alone
-            add-virtual-text //line/column or rope offset?...    //should this have an associated color for highlighting?...
-            add-fold     //line or selection_range     //pre virtual text/highlighting or post?
-            //examples:
-                //integrate with external plumb utility
-                //%sh{cat /mnt/edit/$pid/selection/content | plumb}     //send content of primary selection to plumb utility    //response behavior is determined by predefined plumb rules
-                //%sh{cat $edit_selection | plumb}
-    Customizable UI with Widgets + Layout (definable through command/file interface)
-        //would it be possible to allow layout(and contents) to be defined using commands?
-        // add-widget text --start (0, 0) --dimensions (10, 20) --content %val{line_numbers} --bg Rgb(0, 0, 0) --fg(255, 255, 255) --name line_number_widget
-        // add-sub-widget scrollbar --parent file_text_buffer (+whatever other info would be needed)
-        //how could this be made to change dynamically(like during resize)
-    Modal Agnostic (only 1 mode by default, but expandable, if desired)
-        //maybe add Mode::User(mode_name) to let user add custom modes...
-    Event -> Command Hook System (assign commands to execute in response to events)
+            |   pipe selection text as stdin to shell command, and replace selection text with stdout
+            <   replace selection text with stdout of shell command
+            >   send selection text as stdin to shell command
+            !   runs shell command with no stdin, does not do anything with stdout
+            all else are used as the text of a shell command, whose output is sent to a new edit instance
+            any other behavior should be implemented as a standalone program, interacting with the fs interface, and called via the fallthrough command behavior
+    Modal Agnostic (only 1 mode by default, but expandable, if desired) //this can only happen when fs interface impled, and widgets/mode/utils are external programs
     Registers for text storage (system clipboard access through command interface)
     Tree Style Edit History(undo/redo)  (maybe selection history too)
     Config
-        //Config could be populated from an rc(run command) file, instead of deserializing from some config format
-        //the rc file would contain a list of '\n' or ';' separated commands to run(from top to bottom) at startup, to set up necessary data structures
-        //such as default keybinds:
-        //add-keybind <mode> <keybind> <command>   //command could be a built-in, or one defined earlier in the rc...
-        //or to set up options:
-        //set-option <option> <value>   //set-option use_full_file_path false
-        //config can contain line comments following a '#'
+        //Config could be populated from a start file, instead of deserializing from some config format
+        //the start file is interpreted as a single command. can be an entire shell script
     
 Desired Constraints:
     reduce the set of built in features to only those that cannot be built using external utilities or from combining existing commands
@@ -177,26 +125,3 @@ to uninstall:
 for a tutorial:
     in the directory you cloned the repo to, run:
         edit --tutor
-
-
-
-
-
-
-
-
-
-//random ideas
-keybinds customizable at run time via file system interface and/or executable command
-    write command:  echo "right move_cursor_right" > /mnt/edit/<id>/keybinds/add
-    or shell:       echo "ctrl+g edit_mode_controller g" > /mnt/edit/<id>/keybinds/add
-                    echo "ctrl+g" > /mnt/edit/<id>/keybinds/del
-config is a list of commands to run at start up (example command: 9pfuse /tmp/edit/<id> ~/user_mount/edit/<id>)(mount edit instance's served file system)
-    or maybe is interpreted as a single command to run. would basically run whole config text through a subshell
-    populate environment variables list with relevant env vars
-widgets as external utilities reading from/writing to served file system
-
-differentiate between 
-    DisplayBuffer - the resultant buffer after inlays,wrapping,folding,etc have been applied
-    Buffer - the logical text to be operated on(rope)
-

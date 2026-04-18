@@ -1,8 +1,8 @@
-#TODO: rename this file to edit_start
 # start up command for posix shell
 #
 # testing
-exit 1
+printf "%s" "hello world"
+exit 0
 #| date
 #
 #
