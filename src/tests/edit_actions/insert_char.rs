@@ -30,9 +30,9 @@ use crate::tests::edit_actions::test_edit_action;
         "some\nshit\n", 
         vec![
             //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
             //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), None, None),
+            Selection::new_unchecked(Range::new(5, 6), None, /*None*/0),
         ], 
         0, 
         "",
@@ -40,9 +40,9 @@ use crate::tests::edit_actions::test_edit_action;
         Mode::Insert, 
         vec![
             //(1, 2, Some(1)),
-            Selection::new_unchecked(Range::new(1, 2), None, Some(1)),
+            Selection::new_unchecked(Range::new(1, 2), None, /*Some(1)*/1),
             //(7, 8, Some(1))
-            Selection::new_unchecked(Range::new(7, 8), None, Some(1)),
+            Selection::new_unchecked(Range::new(7, 8), None, /*Some(1)*/1),
         ], 
         0,
         ""
@@ -70,9 +70,9 @@ use crate::tests::edit_actions::test_edit_action;
         "some\nshit\n", 
         vec![
             //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
             //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), None, None),
+            Selection::new_unchecked(Range::new(5, 6), None, /*None*/0),
         ], 
         0, 
         "",
@@ -86,9 +86,9 @@ use crate::tests::edit_actions::test_edit_action;
         }, 
         vec![
             //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
             //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), None, None),
+            Selection::new_unchecked(Range::new(5, 6), None, /*None*/0),
         ], 
         0,
         ""
@@ -105,14 +105,14 @@ use crate::tests::edit_actions::test_edit_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            Selection::new_unchecked(Range::new(3, 4), None, None)
+            Selection::new_unchecked(Range::new(3, 4), None, /*None*/3)
         ], 
         0, 
         "", 
         "idk⏎\nsome\nshit\n", 
         Mode::Insert, 
         vec![
-            Selection::new_unchecked(Range::new(4, 5), None, Some(4))
+            Selection::new_unchecked(Range::new(4, 5), None, /*Some(4)*/4)
         ], 
         0, 
         ""
@@ -132,14 +132,14 @@ use crate::tests::edit_actions::test_edit_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            Selection::new_unchecked(Range::new(0, 3), Some(Direction::Forward), None)
+            Selection::new_unchecked(Range::new(0, 3), Some(Direction::Forward), /*None*/2)
         ], 
         0, 
         "", 
         "⏎\nsome\nshit\n", 
         Mode::Insert, 
         vec![
-            Selection::new_unchecked(Range::new(1, 2), None, Some(1))   //although, i am considering having selections after replacement be equivalent to before, with replacement text still selected...
+            Selection::new_unchecked(Range::new(1, 2), None, /*Some(1)*/1)   //although, i am considering having selections after replacement be equivalent to before, with replacement text still selected...
         ], 
         0, 
         ""

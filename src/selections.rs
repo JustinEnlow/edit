@@ -466,7 +466,7 @@ pub fn surround(
     let mut primary_selection_index = selections.primary_selection_index();
     for selection in &selections.flatten(){
         //let surrounds = selection_impl(selection, buffer);
-        let surrounds = crate::selection::surround(selection, buffer);
+        let surrounds = crate::selection::surround(selection, buffer, semantics.clone());
         //if selection == primary_selection{
         //    primary_selection_index = num_pushed;//.saturating_sub(1);
         //}
@@ -511,7 +511,7 @@ pub fn nearest_surrounding_pair(
     let mut primary_selection_index = selections.primary_selection_index();
     for selection in &selections.flatten(){
         //let surrounds = selection_impl(selection, buffer);
-        let surrounds = crate::selection::nearest_surrounding_pair(selection, buffer);
+        let surrounds = crate::selection::nearest_surrounding_pair(selection, buffer, semantics.clone());
         if selection == primary_selection{
             primary_selection_index = num_pushed;
         }
@@ -606,6 +606,9 @@ pub fn add_selection_above(
     let mut selection = selections.primary.clone();
     selection.range.start = start;
     selection.range.end = end;
+    //
+    selection.preferred_visual_offset = buffer.offset_from_line_start(selection.cursor(buffer, semantics));
+    //
     Ok(selections.push_front(selection, false))
 }
 
@@ -669,6 +672,9 @@ pub fn add_selection_below(
     selection.range.start = start;
     selection.range.end = end;
     selection.extension_direction = selection.direction(buffer, semantics.clone());
+    //
+    selection.preferred_visual_offset = buffer.offset_from_line_start(selection.cursor(buffer, semantics));
+    //
     Ok(selections.push(selection, false))
 }
 

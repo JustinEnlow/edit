@@ -37,14 +37,14 @@ use crate::tests::selection_actions::test_selection_action;
         "idk\nsome\nshit\n", 
         vec![
             //(13, 14, None)
-            Selection::new_unchecked(Range::new(13, 14), None, None),
+            Selection::new_unchecked(Range::new(13, 14), None, /*None*/4),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
             //(13, 12, Some(3))
-            Selection::new_unchecked(Range::new(12, 14), Some(Direction::Backward), Some(3)),
+            Selection::new_unchecked(Range::new(12, 14), Some(Direction::Backward), /*Some(3)*/3),
         ], 
         0
     );
@@ -70,14 +70,14 @@ use crate::tests::selection_actions::test_selection_action;
         "idk\nsome\nshit\n", 
         vec![
             //(1, 2, None)
-            Selection::new_unchecked(Range::new(1, 2), None, None),
+            Selection::new_unchecked(Range::new(1, 2), None, /*None*/1),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
             //(2, 0, Some(0))
-            Selection::new_unchecked(Range::new(0, 2), Some(Direction::Backward), Some(0)),
+            Selection::new_unchecked(Range::new(0, 2), Some(Direction::Backward), /*Some(0)*/0),
         ], 
         0
     );
@@ -107,14 +107,14 @@ use crate::tests::selection_actions::test_selection_action;
         "idk\nsome\nshit\n", 
         vec![
             //(0, 14, None)
-            Selection::new_unchecked(Range::new(0, 14), Some(Direction::Forward), None),
+            Selection::new_unchecked(Range::new(0, 14), Some(Direction::Forward), /*None*/4),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
             //(0, 13, Some(3))
-            Selection::new_unchecked(Range::new(0, 13), Some(Direction::Forward), Some(3)),
+            Selection::new_unchecked(Range::new(0, 13), Some(Direction::Forward), /*Some(3)*/3),
         ], 
         0
     );
@@ -145,13 +145,13 @@ use crate::tests::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            Selection::new_unchecked(Range::new(14, 15), None, None)
+            Selection::new_unchecked(Range::new(14, 15), None, /*None*/0)
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
-            Selection::new_unchecked(Range::new(13, 14), None, Some(4))
+            Selection::new_unchecked(Range::new(13, 14), None, /*Some(4)*/4)
         ], 
         0
     );
@@ -177,7 +177,7 @@ use crate::tests::selection_actions::test_selection_action;
         "idk\nsome\nshit\n", 
         vec![
             //(0, 1, None)
-            Selection::new_unchecked(Range::new(0, 1), None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
         ], 
         0, 
         1, 
@@ -190,7 +190,7 @@ use crate::tests::selection_actions::test_selection_action;
         }, 
         vec![
             //(0, 1, None)
-            Selection::new_unchecked(Range::new(0, 1), None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
         ], 
         0
     );
@@ -216,7 +216,7 @@ use crate::tests::selection_actions::test_selection_action;
         "idk\nsome\nshit\n", 
         vec![
             //(14, 0, None)
-            Selection::new_unchecked(Range::new(0, 14), Some(Direction::Backward), None),
+            Selection::new_unchecked(Range::new(0, 14), Some(Direction::Backward), /*None*/0),
         ], 
         0, 
         1, 
@@ -229,7 +229,7 @@ use crate::tests::selection_actions::test_selection_action;
         }, 
         vec![
             //(14, 0, None)
-            Selection::new_unchecked(Range::new(0, 14), Some(Direction::Backward), None),
+            Selection::new_unchecked(Range::new(0, 14), Some(Direction::Backward), /*None*/0),
         ], 
         0
     );

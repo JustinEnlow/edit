@@ -37,38 +37,38 @@ use crate::tests::selection_actions::test_selection_action;
         "idk(some[] thing {}else) idk", 
         vec![
             //(0, 1, None),   //no pair
-            Selection::new_unchecked(Range::new(0, 1), None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
             //(5, 6, None),   //pair
-            Selection::new_unchecked(Range::new(5, 6), None, None),
+            Selection::new_unchecked(Range::new(5, 6), None, /*None*/5),
             //(8, 9, None),   //pair
-            Selection::new_unchecked(Range::new(8, 9), None, None),
+            Selection::new_unchecked(Range::new(8, 9), None, /*None*/8),
             //(13, 14, None), //pair
-            Selection::new_unchecked(Range::new(13, 14), None, None),
+            Selection::new_unchecked(Range::new(13, 14), None, /*None*/13),
             //(18, 19, None), //pair
-            Selection::new_unchecked(Range::new(18, 19), None, None),
+            Selection::new_unchecked(Range::new(18, 19), None, /*None*/18),
             //(26, 27, None)  //no pair
-            Selection::new_unchecked(Range::new(26, 27), None, None),
+            Selection::new_unchecked(Range::new(26, 27), None, /*None*/26),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
             //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
             //(3, 4, Some(3)),    //idk why these have stored line position and others don't
-            Selection::new_unchecked(Range::new(3, 4), None, Some(3)),
+            Selection::new_unchecked(Range::new(3, 4), None, /*Some(3)*/3),
             //(8, 9, None),
-            Selection::new_unchecked(Range::new(8, 9), None, None),
+            Selection::new_unchecked(Range::new(8, 9), None, /*None*/8),
             //(9, 10, None),
-            Selection::new_unchecked(Range::new(9, 10), None, None),
+            Selection::new_unchecked(Range::new(9, 10), None, /*None*/9),
             //(17, 18, None),
-            Selection::new_unchecked(Range::new(17, 18), None, None),
+            Selection::new_unchecked(Range::new(17, 18), None, /*None*/17),
             //(18, 19, None),
-            Selection::new_unchecked(Range::new(18, 19), None, None),
+            Selection::new_unchecked(Range::new(18, 19), None, /*None*/18),
             //(23, 24, Some(23)), //idk why these have stored line position and others don't
-            Selection::new_unchecked(Range::new(23, 24), None, Some(23)),
+            Selection::new_unchecked(Range::new(23, 24), None, /*Some(23)*/23),
             //(26, 27, None)
-            Selection::new_unchecked(Range::new(26, 27), None, None),
+            Selection::new_unchecked(Range::new(26, 27), None, /*None*/26),
             //TODO: merge overlapping in selection.rs causing the stored line position. only the overlapping selections have it
             //if so, this should def be fixed in merge_overlapping impl
             //or more correctly, every movement fn should update the stored line position...
@@ -99,7 +99,7 @@ use crate::tests::selection_actions::test_selection_action;
         "idk(some[] thing {}else) idk", 
         vec![
             //(0, 1, None)
-            Selection::new_unchecked(Range::new(0, 1), None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
         ], 
         0, 
         1, 
@@ -112,7 +112,7 @@ use crate::tests::selection_actions::test_selection_action;
         }, 
         vec![
             //(0, 1, None)
-            Selection::new_unchecked(Range::new(0, 1), None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
         ], 
         0
     );
@@ -139,16 +139,16 @@ use crate::tests::selection_actions::test_selection_action;
         "idk(some[] thing {}else) idk", 
         vec![
             //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), None, None),
+            Selection::new_unchecked(Range::new(5, 6), None, /*None*/5),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
             //(3, 4, None),
-            Selection::new_unchecked(Range::new(3, 4), None, None),
+            Selection::new_unchecked(Range::new(3, 4), None, /*None*/3),
             //(23, 24, None)
-            Selection::new_unchecked(Range::new(23, 24), None, None),
+            Selection::new_unchecked(Range::new(23, 24), None, /*None*/23),
         ], 
         0
     );
@@ -175,16 +175,16 @@ use crate::tests::selection_actions::test_selection_action;
         "idk(some[] thing {}else) idk", 
         vec![
             //(8, 9, None)
-            Selection::new_unchecked(Range::new(8, 9), None, None),
+            Selection::new_unchecked(Range::new(8, 9), None, /*None*/8),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
             //(8, 9, None),
-            Selection::new_unchecked(Range::new(8, 9), None, None),
+            Selection::new_unchecked(Range::new(8, 9), None, /*None*/8),
             //(9, 10, None)
-            Selection::new_unchecked(Range::new(9, 10), None, None),
+            Selection::new_unchecked(Range::new(9, 10), None, /*None*/9),
         ], 
         0
     );
@@ -211,16 +211,16 @@ use crate::tests::selection_actions::test_selection_action;
         "idk(some[] thing {}else) idk", 
         vec![
             //(13, 14, None)
-            Selection::new_unchecked(Range::new(13, 14), None, None),
+            Selection::new_unchecked(Range::new(13, 14), None, /*None*/13),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
             //(3, 4, None),
-            Selection::new_unchecked(Range::new(3, 4), None, None),
+            Selection::new_unchecked(Range::new(3, 4), None, /*None*/3),
             //(23, 24, None)
-            Selection::new_unchecked(Range::new(23, 24), None, None),
+            Selection::new_unchecked(Range::new(23, 24), None, /*None*/23),
         ], 
         0
     );
@@ -247,16 +247,16 @@ use crate::tests::selection_actions::test_selection_action;
         "idk(some[] thing {}else) idk", 
         vec![
             //(18, 19, None)
-            Selection::new_unchecked(Range::new(18, 19), None, None),
+            Selection::new_unchecked(Range::new(18, 19), None, /*None*/18),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
             //(17, 18, None),
-            Selection::new_unchecked(Range::new(17, 18), None, None),
+            Selection::new_unchecked(Range::new(17, 18), None, /*None*/17),
             //(18, 19, None)
-            Selection::new_unchecked(Range::new(18, 19), None, None),
+            Selection::new_unchecked(Range::new(18, 19), None, /*None*/18),
         ], 
         0
     );
@@ -283,7 +283,7 @@ use crate::tests::selection_actions::test_selection_action;
         "idk(some[] thing {}else) idk", 
         vec![
             //(26, 27, None)
-            Selection::new_unchecked(Range::new(26, 27), None, None),
+            Selection::new_unchecked(Range::new(26, 27), None, /*None*/26),
         ], 
         0, 
         1, 
@@ -296,7 +296,7 @@ use crate::tests::selection_actions::test_selection_action;
         }, 
         vec![
             //(26, 27, None)
-            Selection::new_unchecked(Range::new(26, 27), None, None),
+            Selection::new_unchecked(Range::new(26, 27), None, /*None*/26),
         ], 
         0
     );
@@ -323,7 +323,7 @@ use crate::tests::selection_actions::test_selection_action;
         "idk\nsomething)\n", 
         vec![
             //(3, 4, None)
-            Selection::new_unchecked(Range::new(3, 4), None, None),
+            Selection::new_unchecked(Range::new(3, 4), None, /*None*/3),
         ], 
         0, 
         1, 
@@ -336,7 +336,7 @@ use crate::tests::selection_actions::test_selection_action;
         }, 
         vec![
             //(3, 4, None)
-            Selection::new_unchecked(Range::new(3, 4), None, None),
+            Selection::new_unchecked(Range::new(3, 4), None, /*None*/3),
         ], 
         0
     );
@@ -361,7 +361,7 @@ use crate::tests::selection_actions::test_selection_action;
         "(idk\nsomething\n", 
         vec![
             //(3, 4, None)
-            Selection::new_unchecked(Range::new(3, 4), None, None),
+            Selection::new_unchecked(Range::new(3, 4), None, /*None*/3),
         ], 
         0, 
         1, 
@@ -374,7 +374,7 @@ use crate::tests::selection_actions::test_selection_action;
         }, 
         vec![
             //(3, 4, None)
-            Selection::new_unchecked(Range::new(3, 4), None, None),
+            Selection::new_unchecked(Range::new(3, 4), None, /*None*/3),
         ], 
         0
     );
@@ -401,16 +401,16 @@ use crate::tests::selection_actions::test_selection_action;
         "idk(some()t(h(i)n)g()else", 
         vec![
             //(12, 13, None)
-            Selection::new_unchecked(Range::new(12, 13), None, None),
+            Selection::new_unchecked(Range::new(12, 13), None, /*None*/12),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
             //(11, 12, None),
-            Selection::new_unchecked(Range::new(11, 12), None, None),
+            Selection::new_unchecked(Range::new(11, 12), None, /*None*/11),
             //(17, 18, None)
-            Selection::new_unchecked(Range::new(17, 18), None, None),
+            Selection::new_unchecked(Range::new(17, 18), None, /*None*/17),
         ], 
         0
     );

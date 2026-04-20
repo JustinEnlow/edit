@@ -33,22 +33,22 @@ use crate::tests::selection_actions::test_selection_action;
         "idk\nsome\nshit\n", 
         vec![
             //(0, 1, None),   //invalid
-            Selection::new_unchecked(Range::new(0, 1), None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
             //(6, 7, None),   //from middle of line
-            Selection::new_unchecked(Range::new(6, 7), None, None),
+            Selection::new_unchecked(Range::new(6, 7), None, /*None*/2),
             //(13, 14, None)  //from end of line
-            Selection::new_unchecked(Range::new(13, 14), None, None),
+            Selection::new_unchecked(Range::new(13, 14), None, /*None*/4),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
             //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
             //(4, 5, Some(0)),
-            Selection::new_unchecked(Range::new(4, 5), None, Some(0)),
+            Selection::new_unchecked(Range::new(4, 5), None, /*Some(0)*/0),
             //(9, 10, Some(0))
-            Selection::new_unchecked(Range::new(9, 10), None, Some(0)),
+            Selection::new_unchecked(Range::new(9, 10), None, /*Some(0)*/0),
         ], 
         0
     );
@@ -74,7 +74,7 @@ use crate::tests::selection_actions::test_selection_action;
         "idk\nsome\nshit\n", 
         vec![
             //(0, 1, None)
-            Selection::new_unchecked(Range::new(0, 1), None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
         ], 
         0, 
         1, 
@@ -87,7 +87,7 @@ use crate::tests::selection_actions::test_selection_action;
         }, 
         vec![
             //(0, 1, None)
-            Selection::new_unchecked(Range::new(0, 1), None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
         ], 
         0
     );

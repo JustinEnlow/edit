@@ -38,30 +38,30 @@ use crate::tests::selection_actions::test_selection_action;
         "    use error::Error;",    //len 21    text end: (20, 21)  doc end: (21, 22), 
         vec![
             //(4, 5, None),   //skips whitespace and moves to doc start if no other alphanumeric
-            Selection::new_unchecked(Range::new(4, 5), None, None),
+            Selection::new_unchecked(Range::new(4, 5), None, /*None*/4),
             //(8, 9, None),   //skips whitespace and moves to next starting word boundary
-            Selection::new_unchecked(Range::new(8, 9), None, None),
+            Selection::new_unchecked(Range::new(8, 9), None, /*None*/8),
             //(14, 15, None), //non alpha_numeric or whitespace jumps to previous non whitespace
-            Selection::new_unchecked(Range::new(14, 15), None, None),
+            Selection::new_unchecked(Range::new(14, 15), None, /*None*/14),
             //(20, 15, None), //extended collapses then moves normally
-            Selection::new_unchecked(Range::new(15, 20), Some(Direction::Backward), None),
+            Selection::new_unchecked(Range::new(15, 20), Some(Direction::Backward), /*None*/15),
             //(21, 22, None)  //common use
-            Selection::new_unchecked(Range::new(21, 22), None, None),
+            Selection::new_unchecked(Range::new(21, 22), None, /*None*/21),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
             //(0, 1, Some(0)),
-            Selection::new_unchecked(Range::new(0, 1), None, Some(0)),
+            Selection::new_unchecked(Range::new(0, 1), None, /*Some(0)*/0),
             //(4, 5, Some(4)),
-            Selection::new_unchecked(Range::new(4, 5), None, Some(4)),
+            Selection::new_unchecked(Range::new(4, 5), None, /*Some(4)*/4),
             //(13, 14, Some(13)),
-            Selection::new_unchecked(Range::new(13, 14), None, Some(13)),
+            Selection::new_unchecked(Range::new(13, 14), None, /*Some(13)*/13),
             //(14, 15, Some(14)),
-            Selection::new_unchecked(Range::new(14, 15), None, Some(14)),
+            Selection::new_unchecked(Range::new(14, 15), None, /*Some(14)*/14),
             //(20, 21, Some(20))
-            Selection::new_unchecked(Range::new(20, 21), None, Some(20)),
+            Selection::new_unchecked(Range::new(20, 21), None, /*Some(20)*/20),
         ], 
         0
     );
@@ -87,18 +87,18 @@ use crate::tests::selection_actions::test_selection_action;
         "idk\nsome\nshit\n",
         vec![
             //(0, 1, None),   //invalid
-            Selection::new_unchecked(Range::new(0, 1), None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
             //(9, 10, None)   //valid + line to line updates stored line position
-            Selection::new_unchecked(Range::new(9, 10), None, None),
+            Selection::new_unchecked(Range::new(9, 10), None, /*None*/0),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
             //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
             //(4, 5, Some(0))
-            Selection::new_unchecked(Range::new(4, 5), None, Some(0)),
+            Selection::new_unchecked(Range::new(4, 5), None, /*Some(0)*/0),
         ], 
         0
     );
@@ -124,7 +124,7 @@ use crate::tests::selection_actions::test_selection_action;
         "idk\nsome\nshit\n",
         vec![
             //(0, 1, None)
-            Selection::new_unchecked(Range::new(0, 1), None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
         ], 
         0, 
         1, 
@@ -137,7 +137,7 @@ use crate::tests::selection_actions::test_selection_action;
         }, 
         vec![
             //(0, 1, None)
-            Selection::new_unchecked(Range::new(0, 1), None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
         ], 
         0
     );

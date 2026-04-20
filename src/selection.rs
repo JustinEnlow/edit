@@ -14,9 +14,9 @@ use crate::{
     SelectionCursorPastBufferEnd,
 }
 
-#[derive(PartialEq, Clone, Debug)] pub enum Direction{Forward, Backward}
+#[derive(PartialEq, Clone, Debug)] pub enum Direction{Forward, Backward}    //ExtensionDirection{Forward, Backward, None}
 #[derive(PartialEq)] pub enum Movement{Extend, Move}
-#[derive(Debug, PartialEq, Clone)] pub enum CursorSemantics{Bar, Block}   //TODO?: change to SelectionSemantics{Exclusive, Inclusive}
+#[derive(Debug, PartialEq, Clone)] pub enum CursorSemantics{Bar, Block}   //TODO?: change to SelectionSemantics{Exclusive, Inclusive}, or RangeSemantics?...
 #[derive(Debug, PartialEq)] pub enum SelectionError{
     ResultsInSameState,
     NoOverlap,
@@ -28,18 +28,29 @@ use crate::{
 pub struct Selection{
     pub range: Range,   //TODO?: use std::ops::Range
     pub extension_direction: Option<Direction>,
-    /// char offset of the cursor from line start
-    //TODO?: this may need to become stored_visual_offset_from_line_start, where it represents the number of display cells offset from line start(to handle multicell graphemes)
-    pub stored_line_offset: Option<usize>,  //TODO: remove Option   //with buffer being passed in to new_from_range, we should be able to always derive stored_line_offset
+    /// terminal cell offset of the cursor from line start
+    pub preferred_visual_offset: usize,
 }
 impl Selection{
     // only use in tests, because this does not assert invariants
-    #[cfg(test)] #[must_use] pub fn new_unchecked(range: Range, extension_direction: Option<Direction>, stored_line_offset: Option<usize>) -> Self{
-        Self{range, extension_direction, stored_line_offset}
+    #[cfg(test)] #[must_use] pub fn new_unchecked(range: Range, extension_direction: Option<Direction>, stored_line_offset: usize) -> Self{
+        Self{range, extension_direction, preferred_visual_offset: stored_line_offset}
     }
     
     pub fn new_from_range(range: Range, extension_direction: Option<Direction>, buffer: &Buffer, semantics: CursorSemantics) -> Self{
-        let instance = Self{range, extension_direction, stored_line_offset: None};    //TODO: since we take buffer as an arg, we should determine stored_line_offset
+        let instance = Self{
+            range: range.clone(), 
+            extension_direction: extension_direction.clone(), 
+            preferred_visual_offset: buffer.offset_from_line_start(
+                match extension_direction{
+                    None | Some(Direction::Forward) => match semantics{
+                        CursorSemantics::Bar => range.end,
+                        CursorSemantics::Block => buffer.previous_grapheme_char_index(range.end),
+                    }
+                    Some(Direction::Backward) => range.start
+                }
+            )
+        };
         //instance.assert_invariants(buffer, semantics);
         assert_eq!(Ok(()), instance.invariants_hold(buffer, semantics));
         instance
@@ -80,6 +91,7 @@ impl Selection{
     //}
     //use this instead of assert_invariants, to get failures inside the calling fn
     pub fn invariants_hold(&self, buffer: &Buffer, semantics: CursorSemantics) -> Result<(), InvariantError>{
+        //TODO: can we make any guarantees about stored_line_offset?...should be <= line.len_chars()
         match semantics{
             CursorSemantics::Bar => {
                 if self.anchor() > buffer.len_chars(){return Err(InvariantError::SelectionAnchorPastBufferEnd);}
@@ -282,7 +294,7 @@ impl Selection{
                 buffer, 
                 semantics.clone()
             );
-            selection.stored_line_offset = Some(buffer.offset_from_line_start(selection.cursor(buffer, semantics.clone())));
+            selection.preferred_visual_offset = /*Some(*/buffer.offset_from_line_start(selection.cursor(buffer, semantics.clone()))/*)*/;
             
             // return merged selection
             Ok(selection)
@@ -366,9 +378,9 @@ impl Selection{
         let line_width = buffer.line_width_chars(goal_line_number, false);
     
         // Use the stored line offset or calculate it if None
-        let stored_line_offset = self.stored_line_offset.unwrap_or_else(|| {
+        let stored_line_offset = self.preferred_visual_offset/*.unwrap_or_else(|| {
             buffer.offset_from_line_start(self.cursor(buffer, semantics.clone()))
-        });
+        })*/;
 
         // Calculate the new position based on line width
         let new_position = if stored_line_offset < line_width{
@@ -377,7 +389,7 @@ impl Selection{
             start_of_line + line_width
         };
 
-        selection.stored_line_offset = Some(stored_line_offset);
+        selection.preferred_visual_offset = /*Some(*/stored_line_offset/*)*/;
         selection.put_cursor(new_position, buffer, movement, semantics.clone(), false)
     }
 
@@ -479,10 +491,10 @@ impl Selection{
             }
         };
 
-        selection.stored_line_offset = if update_stored_line_position{    //TODO: this really ought to be handled by calling fn...
-            Some(buffer.offset_from_line_start(selection.cursor(buffer, semantics.clone())))
+        selection.preferred_visual_offset = if update_stored_line_position{    //TODO: this really ought to be handled by calling fn...
+            /*Some(*/buffer.offset_from_line_start(selection.cursor(buffer, semantics.clone()))/*)*/
         }else{
-            self.stored_line_offset
+            self.preferred_visual_offset
         };
 
         //selection.assert_invariants(buffer, semantics.clone());   //TODO: invariants_hold fn should be called by caller of this fn...
@@ -783,7 +795,7 @@ pub fn move_cursor_line_end(selection: &Selection, buffer: &crate::buffer::Buffe
         CursorSemantics::Block => buffer.next_grapheme_char_index(line_end).min(buffer.len_chars().saturating_add(1))
     };
     selection.extension_direction = None;
-    selection.stored_line_offset = Some(buffer.offset_from_line_start(selection.cursor(buffer, semantics.clone())));
+    selection.preferred_visual_offset = /*Some(*/buffer.offset_from_line_start(selection.cursor(buffer, semantics.clone()))/*)*/;
     
     assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
 
@@ -1689,6 +1701,9 @@ pub fn select_line(
         selection.range.start = line_start;
         selection.range.end = line_end;
         selection.extension_direction = Some(Direction::Forward);
+        //
+        selection.preferred_visual_offset = buffer.offset_from_line_start(selection.cursor(buffer, semantics));
+        //
         //TODO?: maybe update stored line offset?...
         Ok(selection)
     }
@@ -1744,13 +1759,16 @@ pub fn flip_direction(
         Some(Direction::Forward)/*ExtensionDirection::Forward*/ => Some(Direction::Backward)/*ExtensionDirection::Backward*/,
         Some(Direction::Backward)/*ExtensionDirection::Backward*/ => Some(Direction::Forward)/*ExtensionDirection::Forward*/
     };
-    new_selection.stored_line_offset = Some(buffer.offset_from_line_start(new_selection.cursor(buffer, semantics)));
+    new_selection.preferred_visual_offset = /*Some(*/buffer.offset_from_line_start(new_selection.cursor(buffer, semantics))/*)*/;
     Ok(new_selection)
 }
 
 #[must_use] pub fn surround(
     selection: &Selection, 
-    buffer: &Buffer
+    buffer: &Buffer,
+    //
+    semantics: CursorSemantics
+    //
 ) -> Vec<Selection>{
     //TODO: selection.assert_invariants(text, semantics);
     let mut surround_selections = Vec::new();
@@ -1760,11 +1778,17 @@ pub fn flip_direction(
     first_selection.range.start = selection.range.start;
     first_selection.range.end = buffer.next_grapheme_char_index(selection.range.start);
     first_selection.extension_direction = None;//crate::selection::ExtensionDirection::None;
+    //
+    first_selection.preferred_visual_offset = buffer.offset_from_line_start(first_selection.cursor(buffer, semantics.clone()));
+    //
     //let second_selection = Selection::new(Range::new(selection.range.end, text_util::next_grapheme_index(selection.range.end, text)), Direction::Forward);
     let mut second_selection = selection.clone();
     second_selection.range.start = selection.range.end;
     second_selection.range.end = buffer.next_grapheme_char_index(selection.range.end);
     second_selection.extension_direction = None;//crate::selection::ExtensionDirection::None;
+    //
+    second_selection.preferred_visual_offset = buffer.offset_from_line_start(second_selection.cursor(buffer, semantics.clone()));
+    //
 
     surround_selections.push(first_selection);
     surround_selections.push(second_selection);
@@ -1784,7 +1808,10 @@ pub fn flip_direction(
 /// " "
 #[must_use] pub fn nearest_surrounding_pair(
     selection: &Selection, 
-    buffer: &Buffer
+    buffer: &Buffer,
+    //
+    semantics: CursorSemantics,
+    //
 ) -> Vec<Selection>{
     let mut rev_search_index = selection.range.start;
     'outer: loop{
@@ -1806,11 +1833,17 @@ pub fn flip_direction(
                             first_selection.range.start = rev_search_index;
                             first_selection.range.end = buffer.next_grapheme_char_index(rev_search_index);
                             first_selection.extension_direction = None;//crate::selection::ExtensionDirection::None;
+                            //
+                            first_selection.preferred_visual_offset = buffer.offset_from_line_start(first_selection.cursor(buffer, semantics.clone()));
+                            //
 
                             let mut second_selection = selection.clone();
                             second_selection.range.start = search_index;
                             second_selection.range.end = buffer.next_grapheme_char_index(search_index);
                             second_selection.extension_direction = None;//crate::selection::ExtensionDirection::None;
+                            //
+                            second_selection.preferred_visual_offset = buffer.offset_from_line_start(second_selection.cursor(buffer, semantics.clone()));
+                            //
                             return vec![
                                 //Selection::new(Range::new(rev_search_index, text_util::next_grapheme_index(rev_search_index, text)), Direction::Forward),
                                 first_selection,
@@ -1833,11 +1866,17 @@ pub fn flip_direction(
                                 first_selection.range.start = rev_search_index;
                                 first_selection.range.end = buffer.next_grapheme_char_index(rev_search_index);
                                 first_selection.extension_direction = None;//crate::selection::ExtensionDirection::None;
+                                //
+                                first_selection.preferred_visual_offset = buffer.offset_from_line_start(first_selection.cursor(buffer, semantics.clone()));
+                                //
 
                                 let mut second_selection = selection.clone();
                                 second_selection.range.start = search_index;
                                 second_selection.range.end = buffer.next_grapheme_char_index(search_index);
                                 second_selection.extension_direction = None;//crate::selection::ExtensionDirection::None;
+                                //
+                                second_selection.preferred_visual_offset = buffer.offset_from_line_start(second_selection.cursor(buffer, semantics));
+                                //
                                 return vec![
                                     //Selection::new(Range::new(rev_search_index, text_util::next_grapheme_index(rev_search_index, text)), Direction::Forward),
                                     first_selection,

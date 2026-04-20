@@ -2197,6 +2197,9 @@ pub fn search_selection(
                     new_selection.range.end = buffer.byte_to_char(search_match.end()).saturating_add(start);
                     new_selection.extension_direction = if buffer.next_grapheme_char_index(new_selection.range.start) == new_selection.range.end{None}
                     else{Some(selection::Direction::Forward)};
+                    //
+                    new_selection.preferred_visual_offset = buffer.offset_from_line_start(new_selection.cursor(buffer, semantics.clone()));
+                    //
                     match_selections.push(new_selection);
                 }
             }
@@ -2247,6 +2250,9 @@ pub fn split_selection(
                         //new_selection.extension_direction = Some(Direction::Forward);
                         new_selection.extension_direction = if buffer.next_grapheme_char_index(new_selection.range.start) == new_selection.range.end{None}
                         else{Some(selection::Direction::Forward)};
+                        //
+                        new_selection.preferred_visual_offset = buffer.offset_from_line_start(new_selection.cursor(buffer, semantics.clone()));
+                        //
                         match_selections.push(new_selection);
                     }
                     start = split.end().saturating_add(selection.range.start);
@@ -2259,6 +2265,9 @@ pub fn split_selection(
                     new_selection.range.end = selection.range.end.min(buffer.len_chars());
                     new_selection.extension_direction = if buffer.next_grapheme_char_index(new_selection.range.start) == new_selection.range.end{None}
                     else{Some(selection::Direction::Forward)};
+                    //
+                    new_selection.preferred_visual_offset = buffer.offset_from_line_start(new_selection.cursor(buffer, semantics.clone()));
+                    //
                     match_selections.push(new_selection);
                 }
             }
@@ -2311,8 +2320,8 @@ mod search_tests{
         assert_eq!(
             Selections::new(
                 vec![
-                    Selection::new_unchecked(Range::new(0, 0+input.chars().count()), Some(Direction::Forward), None),
-                    Selection::new_unchecked(Range::new(14, 14+input.chars().count()), Some(Direction::Forward), None)
+                    Selection::new_unchecked(Range::new(0, 0+input.chars().count()), Some(Direction::Forward), /*None*/buffer.offset_from_line_start(0+input.chars().count().saturating_sub(1))),  //-1 for block semantics
+                    Selection::new_unchecked(Range::new(14, 14+input.chars().count()), Some(Direction::Forward), /*None*/buffer.offset_from_line_start(14+input.chars().count().saturating_sub(1)))
                 ], 
                 0, 
                 &buffer, 
@@ -2327,11 +2336,11 @@ mod search_tests{
         let buffer_text = "\tidk\nsome\nshit\n";
         let buffer = Buffer::new(buffer_text, None, false);
         let semantics = CursorSemantics::Block;
-        let selection = Selection::new_unchecked(Range::new(0, buffer.chars().count()), Some(Direction::Forward), None);
+        let selection = Selection::new_unchecked(Range::new(0, buffer.chars().count()), Some(Direction::Forward), /*None*/buffer.offset_from_line_start(buffer.chars().count().saturating_sub(1)));
         let selections = Selections::new(vec![selection], 0, &buffer, semantics.clone());
         let expected_selections = vec![
             //Selection::new_unchecked(Range::new(0, 1), None, None)
-            Selection::new_unchecked(Range::new(0, "\t".chars().count()), None, None)
+            Selection::new_unchecked(Range::new(0, "\t".chars().count()), None, /*None*/0)
         ];
         let expected_selections = Selections::new(expected_selections, 0, &buffer, semantics.clone());
         assert_eq!(expected_selections, search_selection(&selections, "\t", &buffer, semantics).unwrap());
@@ -2341,11 +2350,15 @@ mod search_tests{
         let buffer_text = "a̐éö̲\r\n";
         let buffer = Buffer::new(buffer_text, None, false);
         let semantics = CursorSemantics::Block;
-        let selection = Selection::new_unchecked(Range::new(0, buffer_text.chars().count()), Some(Direction::Forward), None);
+        let selection = Selection::new_unchecked(
+            Range::new(0, buffer_text.chars().count()), 
+            Some(Direction::Forward), 
+            /*None*/buffer.offset_from_line_start(buffer_text.chars().count().saturating_sub(1))
+        );
         let selections = Selections::new(vec![selection], 0, &buffer, semantics.clone());
         let expected_selections = vec![
             //Selection::new_unchecked(Range::new(0, 2), None, None)    //a̐ is 2 chars(unicode code points)
-            Selection::new_unchecked(Range::new(0, "a̐".chars().count()), None, None)
+            Selection::new_unchecked(Range::new(0, "a̐".chars().count()), None, /*None*/0)
         ];
         let expected_selections = Selections::new(expected_selections, 0, &buffer, semantics.clone());
         assert_eq!(expected_selections, search_selection(&selections, "a̐", &buffer, semantics).unwrap());

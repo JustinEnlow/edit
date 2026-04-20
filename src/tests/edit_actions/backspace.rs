@@ -30,9 +30,9 @@ use crate::tests::edit_actions::test_edit_action;
         "idk\nsome\nshit\n", 
         vec![
             //(1, 2, None),
-            Selection::new_unchecked(Range::new(1, 2), /*ExtensionDirection::*/None, None),
+            Selection::new_unchecked(Range::new(1, 2), /*ExtensionDirection::*/None, /*None*/1),
             //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), /*ExtensionDirection::*/None, None),
+            Selection::new_unchecked(Range::new(5, 6), /*ExtensionDirection::*/None, /*None*/1),
         ], 
         0, 
         "",
@@ -40,9 +40,9 @@ use crate::tests::edit_actions::test_edit_action;
         Mode::Insert, 
         vec![
             //(0, 1, Some(0)),
-            Selection::new_unchecked(Range::new(0, 1), /*ExtensionDirection::*/None, Some(0)),
+            Selection::new_unchecked(Range::new(0, 1), /*ExtensionDirection::*/None, /*Some(0)*/0),
             //(3, 4, Some(0))
-            Selection::new_unchecked(Range::new(3, 4), /*ExtensionDirection::*/None, Some(0)),
+            Selection::new_unchecked(Range::new(3, 4), /*ExtensionDirection::*/None, /*Some(0)*/0),
         ], 
         0,
         ""
@@ -70,7 +70,7 @@ use crate::tests::edit_actions::test_edit_action;
         "idk\nsome\nshit\n", 
         vec![
             //(4, 5, None)
-            Selection::new_unchecked(Range::new(4, 5), /*ExtensionDirection::*/None, None),
+            Selection::new_unchecked(Range::new(4, 5), /*ExtensionDirection::*/None, /*None*/0),
         ], 
         0, 
         "",
@@ -78,7 +78,7 @@ use crate::tests::edit_actions::test_edit_action;
         Mode::Insert, 
         vec![
             //(3, 4, Some(3))
-            Selection::new_unchecked(Range::new(3, 4), /*ExtensionDirection::*/None, Some(3)),
+            Selection::new_unchecked(Range::new(3, 4), /*ExtensionDirection::*/None, /*Some(3)*/3),
         ], 
         0,
         ""
@@ -106,9 +106,9 @@ use crate::tests::edit_actions::test_edit_action;
         "idk\nsome\nshit\n", 
         vec![
             //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), /*ExtensionDirection::*/None, None),
+            Selection::new_unchecked(Range::new(0, 1), /*ExtensionDirection::*/None, /*None*/0),
             //(4, 5, None)
-            Selection::new_unchecked(Range::new(4, 5), /*ExtensionDirection::*/None, None),
+            Selection::new_unchecked(Range::new(4, 5), /*ExtensionDirection::*/None, /*None*/0),
         ], 
         0, 
         "",
@@ -116,9 +116,9 @@ use crate::tests::edit_actions::test_edit_action;
         Mode::Insert, 
         vec![
             //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), /*ExtensionDirection::*/None, None),
+            Selection::new_unchecked(Range::new(0, 1), /*ExtensionDirection::*/None, /*None*/0),
             //(3, 4, Some(3))
-            Selection::new_unchecked(Range::new(3, 4), /*ExtensionDirection::*/None, Some(3)),
+            Selection::new_unchecked(Range::new(3, 4), /*ExtensionDirection::*/None, /*Some(3)*/3),
         ], 
         0,
         ""
@@ -146,7 +146,7 @@ use crate::tests::edit_actions::test_edit_action;
         "idk\nsome\nshit\n", 
         vec![
             //(0, 4, None)
-            Selection::new_unchecked(Range::new(0, 4), Some(Direction::Forward)/*ExtensionDirection::Forward*/, None),
+            Selection::new_unchecked(Range::new(0, 4), Some(Direction::Forward)/*ExtensionDirection::Forward*/, /*None*/3),
         ], 
         0, 
         "",
@@ -154,7 +154,7 @@ use crate::tests::edit_actions::test_edit_action;
         Mode::Insert, 
         vec![
             //(0, 1, Some(0)),
-            Selection::new_unchecked(Range::new(0, 1), /*ExtensionDirection::*/None, Some(0)),
+            Selection::new_unchecked(Range::new(0, 1), /*ExtensionDirection::*/None, /*Some(0)*/0),
         ], 
         0,
         ""
@@ -182,7 +182,7 @@ use crate::tests::edit_actions::test_edit_action;
         "idk\nsome\nshit\n", 
         vec![
             //(0, 1, None)
-            Selection::new_unchecked(Range::new(0, 1), /*ExtensionDirection::*/None, None),
+            Selection::new_unchecked(Range::new(0, 1), /*ExtensionDirection::*/None, /*None*/0),
         ], 
         0, 
         "",
@@ -196,7 +196,7 @@ use crate::tests::edit_actions::test_edit_action;
         }, 
         vec![
             //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), /*ExtensionDirection::*/None, None),
+            Selection::new_unchecked(Range::new(0, 1), /*ExtensionDirection::*/None, /*None*/0),
         ], 
         0,
         ""
@@ -224,9 +224,9 @@ use crate::tests::edit_actions::test_edit_action;
         "some\nshit\n", 
         vec![
             //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), /*ExtensionDirection::*/None, None),
+            Selection::new_unchecked(Range::new(0, 1), /*ExtensionDirection::*/None, /*None*/0),
             //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), /*ExtensionDirection::*/None, None),
+            Selection::new_unchecked(Range::new(5, 6), /*ExtensionDirection::*/None, /*None*/0),
         ], 
         0, 
         "",
@@ -240,9 +240,9 @@ use crate::tests::edit_actions::test_edit_action;
         }, 
         vec![
             //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), /*ExtensionDirection::*/None, None),
+            Selection::new_unchecked(Range::new(0, 1), /*ExtensionDirection::*/None, /*None*/0),
             //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), /*ExtensionDirection::*/None, None),
+            Selection::new_unchecked(Range::new(5, 6), /*ExtensionDirection::*/None, /*None*/0),
         ], 
         0,
         ""

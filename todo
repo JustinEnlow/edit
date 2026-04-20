@@ -6,7 +6,7 @@
 //  tag 0       new_behavior                            [ ]         impl line/column/regex search flags in init arg parsing, pass to application, and handle appropriately
 
 //[ ] todo item not implemented and tested
-//[x] todo item successfully implemented and tested
+//[x] todo item successfully implemented and tested     //mark completed items with git commit info
 //[-] todo item discarded (maybe leave explanation in description as to why)
 
 

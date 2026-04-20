@@ -46,7 +46,7 @@ use crate::{
     assert_eq!(0, idk.range.start);
     assert_eq!(0, idk.range.end);
     assert_eq!(0, idk.cursor(buffer, semantics.clone()));
-    assert_eq!(None, idk.stored_line_offset);
+    assert_eq!(/*None*/0, idk.preferred_visual_offset);
     assert_eq!(None, idk.extension_direction);
     assert_eq!(None, idk.direction(buffer, semantics.clone()));
     assert_eq!(false, idk.is_extended());
@@ -58,7 +58,7 @@ use crate::{
     assert_eq!(0, idk.range.start);
     assert_eq!(1, idk.range.end);
     assert_eq!(0, idk.cursor(buffer, semantics.clone()));
-    assert_eq!(None, idk.stored_line_offset);
+    assert_eq!(/*None*/0, idk.preferred_visual_offset);
     assert_eq!(None, idk.extension_direction);
     assert_eq!(None, idk.direction(buffer, semantics.clone()));
     assert_eq!(false, idk.is_extended());
@@ -71,7 +71,7 @@ use crate::{
     assert_eq!(0, idk.range.start);
     assert_eq!(1, idk.range.end);
     assert_eq!(0, idk.cursor(buffer, semantics.clone()));
-    assert_eq!(None, idk.stored_line_offset);
+    assert_eq!(/*None*/0, idk.preferred_visual_offset);
     assert_eq!(Some(Direction::Backward), idk.extension_direction);
     assert_eq!(Some(Direction::Backward), idk.direction(buffer, semantics.clone()));
     assert_eq!(true, idk.is_extended());
@@ -83,7 +83,7 @@ use crate::{
     assert_eq!(0, idk.range.start);
     assert_eq!(2, idk.range.end);
     assert_eq!(0, idk.cursor(buffer, semantics.clone()));
-    assert_eq!(None, idk.stored_line_offset);
+    assert_eq!(/*None*/0, idk.preferred_visual_offset);
     assert_eq!(Some(Direction::Backward), idk.extension_direction);
     assert_eq!(Some(Direction::Backward), idk.direction(buffer, semantics.clone()));
     assert_eq!(true, idk.is_extended());
@@ -95,7 +95,7 @@ use crate::{
     assert_eq!(0, idk.range.start);
     assert_eq!(1, idk.range.end);
     assert_eq!(1, idk.cursor(buffer, semantics.clone()));
-    assert_eq!(None, idk.stored_line_offset);
+    assert_eq!(/*None*/1, idk.preferred_visual_offset);
     assert_eq!(Some(Direction::Forward), idk.extension_direction);
     assert_eq!(Some(Direction::Forward), idk.direction(buffer, semantics.clone()));
     assert_eq!(true, idk.is_extended());
@@ -107,7 +107,7 @@ use crate::{
     assert_eq!(0, idk.range.start);
     assert_eq!(2, idk.range.end);
     assert_eq!(1, idk.cursor(buffer, semantics.clone()));
-    assert_eq!(None, idk.stored_line_offset);
+    assert_eq!(/*None*/1, idk.preferred_visual_offset);
     assert_eq!(Some(Direction::Forward), idk.extension_direction);
     assert_eq!(Some(Direction::Forward), idk.direction(buffer, semantics.clone()));
     assert_eq!(true, idk.is_extended());

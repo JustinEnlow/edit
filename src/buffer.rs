@@ -203,9 +203,20 @@ impl Buffer{
 
     /// Returns the char offset of a given char from the start of a line of text.
     //TODO?: would a version of this using grapheme|cell width be useful?...
+    //#[must_use] pub fn offset_from_line_start(&self, point: usize) -> usize{
+    //    let line_start = self.line_to_char(self.char_to_line(point));
+    //    point.saturating_sub(line_start)
+    //}
+    //this should give us offset in terminal cells...
     #[must_use] pub fn offset_from_line_start(&self, point: usize) -> usize{
         let line_start = self.line_to_char(self.char_to_line(point));
-        point.saturating_sub(line_start)
+        let slice = self.slice(line_start, point);
+        let mut offset: usize = 0;
+        for grapheme in slice.graphemes(true){
+            //TODO: maybe need to handle \t specially, since it can be expanded visually...
+            offset = offset.saturating_add(unicode_width::UnicodeWidthStr::width(grapheme));
+        }
+        offset
     }
 
     //TODO: should this eventually be Option<usize>?, and not saturate at buffer end
@@ -322,6 +333,8 @@ impl Buffer{
     }
 
 
+    //TODO: maybe these apply methods should be impled in application.rs, take a &mut App, handle multiple selections, and handle pushing to history...
+    //or impl that and support with apply_replace_single, for single selection, and error if in some invalid state
     // TODO: test. should test rope is edited correctly and selection is moved correctly, not necessarily the returned change. behavior, not impl
     pub fn apply_replace(
         &mut self, 

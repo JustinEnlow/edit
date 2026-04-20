@@ -1,3 +1,5 @@
+//TODO: we may actually want to leave cursors over our inserted surrounding chars, instead of a single after our initial selection
+
 use crate::{
     action::EditAction::AddSurround,
     mode::Mode,
@@ -42,7 +44,7 @@ use crate::tests::edit_actions::test_edit_action;
         "idk\nsome\nshit\n", 
         vec![
             //(0, 3, None)
-            Selection::new_unchecked(Range::new(0, 3), Some(Direction::Forward)/*ExtensionDirection::Forward*/, None),
+            Selection::new_unchecked(Range::new(0, 3), Some(Direction::Forward)/*ExtensionDirection::Forward*/, /*None*/2),
         ], 
         0, 
         "", 
@@ -50,7 +52,7 @@ use crate::tests::edit_actions::test_edit_action;
         Mode::Insert, 
         vec![
             //(5, 6, Some(5))
-            Selection::new_unchecked(Range::new(5, 6), /*ExtensionDirection::*/None, Some(5)),
+            Selection::new_unchecked(Range::new(5, 6), /*ExtensionDirection::*/None, /*Some(5)*/5),
         ], 
         0, 
         ""
@@ -96,9 +98,9 @@ use crate::tests::edit_actions::test_edit_action;
         "idk\nsome\nshit\n", 
         vec![
             //(9, 11, None),
-            Selection::new_unchecked(Range::new(9, 11), Some(Direction::Forward)/*ExtensionDirection::Forward*/, None),
+            Selection::new_unchecked(Range::new(9, 11), Some(Direction::Forward)/*ExtensionDirection::Forward*/, /*None*/1),
             //(14, 15, None)
-            Selection::new_unchecked(Range::new(14, 15), /*ExtensionDirection::*/None, None),
+            Selection::new_unchecked(Range::new(14, 15), /*ExtensionDirection::*/None, /*None*/0),
         ], 
         0, 
         "", 
@@ -106,9 +108,9 @@ use crate::tests::edit_actions::test_edit_action;
         Mode::Insert, 
         vec![
             //(13, 14, Some(4)),
-            Selection::new_unchecked(Range::new(13, 14), /*ExtensionDirection::*/None, Some(4)),
+            Selection::new_unchecked(Range::new(13, 14), /*ExtensionDirection::*/None, /*Some(4)*/4),
             //(16, 17, None)
-            Selection::new_unchecked(Range::new(16, 17), /*ExtensionDirection::*/None, None),
+            Selection::new_unchecked(Range::new(16, 17), /*ExtensionDirection::*/None, /*None*/0),
         ], 
         0, 
         ""
@@ -144,7 +146,7 @@ use crate::tests::edit_actions::test_edit_action;
         "idk\nsome\nshit\n", 
         vec![
             //(14, 15, None)
-            Selection::new_unchecked(Range::new(14, 15), /*ExtensionDirection::*/None, None),
+            Selection::new_unchecked(Range::new(14, 15), /*ExtensionDirection::*/None, /*None*/0),
         ], 
         0, 
         "", 
@@ -158,7 +160,7 @@ use crate::tests::edit_actions::test_edit_action;
         }, 
         vec![
             //(14, 15, None)
-            Selection::new_unchecked(Range::new(14, 15), /*ExtensionDirection::*/None, None),
+            Selection::new_unchecked(Range::new(14, 15), /*ExtensionDirection::*/None, /*None*/0),
         ], 
         0, 
         ""
@@ -186,9 +188,9 @@ use crate::tests::edit_actions::test_edit_action;
         "some\nshit\n", 
         vec![
             //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), /*ExtensionDirection::*/None, None),
+            Selection::new_unchecked(Range::new(0, 1), /*ExtensionDirection::*/None, /*None*/0),
             //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), /*ExtensionDirection::*/None, None),
+            Selection::new_unchecked(Range::new(5, 6), /*ExtensionDirection::*/None, /*None*/0),
         ], 
         0, 
         "",
@@ -202,9 +204,9 @@ use crate::tests::edit_actions::test_edit_action;
         }, 
         vec![
             //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), /*ExtensionDirection::*/None, None),
+            Selection::new_unchecked(Range::new(0, 1), /*ExtensionDirection::*/None, /*None*/0),
             //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), /*ExtensionDirection::*/None, None),
+            Selection::new_unchecked(Range::new(5, 6), /*ExtensionDirection::*/None, /*None*/0),
         ], 
         0,
         ""

@@ -32,9 +32,9 @@ const USE_HARD_TAB: bool = false;
         "some\nshit\n", 
         vec![
             //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
             //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), None, None),
+            Selection::new_unchecked(Range::new(5, 6), None, /*None*/0),
         ], 
         0, 
         "",
@@ -43,16 +43,16 @@ const USE_HARD_TAB: bool = false;
         if USE_HARD_TAB{
             vec![   //\tsome\n\tshit\n
                 //(1, 2, Some(0)),
-                Selection::new_unchecked(Range::new(1, 2), None, Some(0)),
+                Selection::new_unchecked(Range::new(1, 2), None, /*Some(0)*/0),
                 //(7, 8, Some(0))
-                Selection::new_unchecked(Range::new(7, 8), None, Some(0)),
+                Selection::new_unchecked(Range::new(7, 8), None, /*Some(0)*/0),
             ]
         }else{
             vec![   //    some\n    shit\n      //this would depend on TAB_WIDTH as well...
                 //(4, 5, Some(4)),
-                Selection::new_unchecked(Range::new(4, 5), None, Some(4)),
+                Selection::new_unchecked(Range::new(4, 5), None, /*Some(4)*/4),
                 //(13, 14, Some(4))
-                Selection::new_unchecked(Range::new(13, 14), None, Some(4)),
+                Selection::new_unchecked(Range::new(13, 14), None, /*Some(4)*/4),
             ]
         },
         0,
@@ -81,9 +81,9 @@ const USE_HARD_TAB: bool = false;
         "some\nshit\n", 
         vec![
             //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
             //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), None, None),
+            Selection::new_unchecked(Range::new(5, 6), None, /*None*/0),
         ], 
         0, 
         "",
@@ -97,9 +97,9 @@ const USE_HARD_TAB: bool = false;
         }, 
         vec![
             //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), None, None),
+            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
             //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), None, None),
+            Selection::new_unchecked(Range::new(5, 6), None, /*None*/0),
         ], 
         0,
         ""
