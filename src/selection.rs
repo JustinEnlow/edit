@@ -1,8 +1,9 @@
 use crate::{
-    range::Range,
+    range::{Overlaps, Merge},
     buffer::Buffer,
     display_area::DisplayArea
 };
+use std::ops::Range;
 
 #[derive(PartialEq, Debug)] pub enum InvariantError{
     SelectionAnchorPastBufferEnd,
@@ -12,6 +13,7 @@ use crate::{
     ExtensionDirectionShouldBeForward,
     BlockSelectionAnchorSameAsHead,
     SelectionCursorPastBufferEnd,
+    InvalidRange,
 }
 
 #[derive(PartialEq, Clone, Debug)] pub enum Direction{Forward, Backward}    //ExtensionDirection{Forward, Backward, None}
@@ -23,21 +25,21 @@ use crate::{
     SpansMultipleLines,
     DirectionMismatch
 }
-//TODO: currently indices over collection of chars. should prob be over collection of graphemes
+//TODO: currently indices over collection of chars. should prob be over collection of bytes
 #[derive(PartialEq, Clone, Debug)]
 pub struct Selection{
-    pub range: Range,   //TODO?: use std::ops::Range
+    pub range: Range<usize>,
     pub extension_direction: Option<Direction>,
-    /// terminal cell offset of the cursor from line start
+    /// offset of the cursor from line start, counted in terminal cells (may appear as less than this value, if moved to shorter line)
     pub preferred_visual_offset: usize,
 }
 impl Selection{
     // only use in tests, because this does not assert invariants
-    #[cfg(test)] #[must_use] pub fn new_unchecked(range: Range, extension_direction: Option<Direction>, stored_line_offset: usize) -> Self{
-        Self{range, extension_direction, preferred_visual_offset: stored_line_offset}
+    #[cfg(test)] #[must_use] pub fn new_unchecked(range: Range<usize>, extension_direction: Option<Direction>, preferred_visual_offset: usize) -> Self{
+        Self{range, extension_direction, preferred_visual_offset}
     }
     
-    pub fn new_from_range(range: Range, extension_direction: Option<Direction>, buffer: &Buffer, semantics: CursorSemantics) -> Self{
+    pub fn new_from_range(range: Range<usize>, extension_direction: Option<Direction>, buffer: &Buffer, semantics: CursorSemantics) -> Self{
         let instance = Self{
             range: range.clone(), 
             extension_direction: extension_direction.clone(), 
@@ -92,6 +94,7 @@ impl Selection{
     //use this instead of assert_invariants, to get failures inside the calling fn
     pub fn invariants_hold(&self, buffer: &Buffer, semantics: CursorSemantics) -> Result<(), InvariantError>{
         //TODO: can we make any guarantees about stored_line_offset?...should be <= line.len_chars()
+        if self.range.start > self.range.end{return Err(InvariantError::InvalidRange);}
         match semantics{
             CursorSemantics::Bar => {
                 if self.anchor() > buffer.len_chars(){return Err(InvariantError::SelectionAnchorPastBufferEnd);}
@@ -279,7 +282,8 @@ impl Selection{
             // perform indiscriminate merge to get selection range
             let new_range = self.range.merge(&other.range);
             let mut selection = Selection::new_from_range(
-                Range::new(new_range.start, new_range.end), 
+                //Range::new(new_range.start, new_range.end), 
+                new_range,
                 match (self.extension_direction.clone(), other.extension_direction.clone()){
                     (None, None) => None,
                     (None, Some(Direction::Forward)) => Some(Direction::Forward),
@@ -322,6 +326,7 @@ impl Selection{
     }
 
     /// Translates a [`Selection`] to a [Selection2d].
+    //TODO: create buffer_offset_to_display_position() fn in display_area, and pass self.range.start and self.range.end instead...
     #[must_use] pub fn selection_to_selection2d(&self, buffer: &Buffer, semantics: CursorSemantics) -> crate::selection2d::Selection2d{
         let line_number_head = buffer./*inner.*/char_to_line(self.cursor(buffer, semantics.clone()));
         let line_number_anchor = buffer./*inner.*/char_to_line(self.anchor());

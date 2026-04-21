@@ -6,10 +6,8 @@
 
 use crate::{
     buffer::Buffer,
-    range::Range,
     selection::{self, Selection, CursorSemantics},
 };
-//use std::cmp::Ordering;
 
 
 
@@ -27,8 +25,8 @@ impl Default for InteractiveTextBox{
             buffer: buffer.clone(),
             text_is_valid: false,
             selection: Selection::new_from_range(
-                Range::new(0, /*1*/buffer.next_grapheme_char_index(0)), 
-                None,//ExtensionDirection::None, 
+                0..buffer.next_grapheme_char_index(0),
+                None,
                 &buffer, 
                 CursorSemantics::Block
             ),

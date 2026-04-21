@@ -1,7 +1,6 @@
 use crate::{
     action::EditAction::InsertTab,
     mode::Mode,
-    range::Range,
     selection::{Selection, CursorSemantics::Block},
     display_area::DisplayArea,
     config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, /*READ_ONLY_BUFFER, *//*USE_HARD_TAB, */Config},
@@ -24,35 +23,28 @@ const USE_HARD_TAB: bool = false;
             keybinds: default_keybinds()
         },
         InsertTab, 
-        //CursorSemantics::Block, 
         false, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "some\nshit\n", 
         vec![
-            //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
-            //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), None, /*None*/0),
+            Selection::new_unchecked(0..1, None, 0),
+            Selection::new_unchecked(5..6, None, 0),
         ], 
         0, 
         "",
-        if USE_HARD_TAB{"\tsome\n\tshit\n"}else{"    some\n    shit\n"},
         Mode::Insert, 
+        if USE_HARD_TAB{"\tsome\n\tshit\n"}else{"    some\n    shit\n"},
         if USE_HARD_TAB{
             vec![   //\tsome\n\tshit\n
-                //(1, 2, Some(0)),
-                Selection::new_unchecked(Range::new(1, 2), None, /*Some(0)*/0),
-                //(7, 8, Some(0))
-                Selection::new_unchecked(Range::new(7, 8), None, /*Some(0)*/0),
+                Selection::new_unchecked(1..2, None, 0),
+                Selection::new_unchecked(7..8, None, 0),
             ]
         }else{
             vec![   //    some\n    shit\n      //this would depend on TAB_WIDTH as well...
-                //(4, 5, Some(4)),
-                Selection::new_unchecked(Range::new(4, 5), None, /*Some(4)*/4),
-                //(13, 14, Some(4))
-                Selection::new_unchecked(Range::new(13, 14), None, /*Some(4)*/4),
+                Selection::new_unchecked(4..5, None, 4),
+                Selection::new_unchecked(13..14, None, 4),
             ]
         },
         0,
@@ -73,33 +65,28 @@ const USE_HARD_TAB: bool = false;
             keybinds: default_keybinds()
         },
         InsertTab, 
-        //CursorSemantics::Block, 
         false, 
         false, 
         true, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "some\nshit\n", 
         vec![
-            //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
-            //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), None, /*None*/0),
+            Selection::new_unchecked(0..1, None, 0),
+            Selection::new_unchecked(5..6, None, 0),
         ], 
         0, 
         "",
-        "some\nshit\n", 
         match READ_ONLY_BUFFER_DISPLAY_MODE{
-            DisplayMode::Error => {Mode::Error/*(READ_ONLY_BUFFER.to_string())*/}
-            DisplayMode::Warning => {Mode::Warning/*(READ_ONLY_BUFFER.to_string())*/}
-            DisplayMode::Notify => {Mode::Notify/*(READ_ONLY_BUFFER.to_string())*/}
-            DisplayMode::Info => {Mode::Info/*(READ_ONLY_BUFFER.to_string())*/}
+            DisplayMode::Error => {Mode::Error}
+            DisplayMode::Warning => {Mode::Warning}
+            DisplayMode::Notify => {Mode::Notify}
+            DisplayMode::Info => {Mode::Info}
             DisplayMode::Ignore => {Mode::Insert}
         }, 
+        "some\nshit\n", 
         vec![
-            //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
-            //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), None, /*None*/0),
+            Selection::new_unchecked(0..1, None, 0),
+            Selection::new_unchecked(5..6, None, 0),
         ], 
         0,
         ""

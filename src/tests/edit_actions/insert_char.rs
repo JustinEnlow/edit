@@ -1,7 +1,6 @@
 use crate::{
     action::EditAction::InsertChar,
     mode::Mode,
-    range::Range,
     selection::{Selection, CursorSemantics::Block, Direction},
     display_area::DisplayArea,
     config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, /*READ_ONLY_BUFFER, */Config},
@@ -22,27 +21,22 @@ use crate::tests::edit_actions::test_edit_action;
             keybinds: default_keybinds()
         },
         InsertChar('x'), 
-        //CursorSemantics::Block, 
         false, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "some\nshit\n", 
         vec![
-            //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
-            //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), None, /*None*/0),
+            Selection::new_unchecked(0..1, None, 0),
+            Selection::new_unchecked(5..6, None, 0),
         ], 
         0, 
         "",
-        "xsome\nxshit\n", 
         Mode::Insert, 
+        "xsome\nxshit\n", 
         vec![
-            //(1, 2, Some(1)),
-            Selection::new_unchecked(Range::new(1, 2), None, /*Some(1)*/1),
-            //(7, 8, Some(1))
-            Selection::new_unchecked(Range::new(7, 8), None, /*Some(1)*/1),
+            Selection::new_unchecked(1..2, None, 1),
+            Selection::new_unchecked(7..8, None, 1),
         ], 
         0,
         ""
@@ -62,33 +56,28 @@ use crate::tests::edit_actions::test_edit_action;
             keybinds: default_keybinds()
         },
         InsertChar('x'), 
-        //CursorSemantics::Block, 
         false, 
         false, 
         true, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "some\nshit\n", 
         vec![
-            //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
-            //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), None, /*None*/0),
+            Selection::new_unchecked(0..1, None, 0),
+            Selection::new_unchecked(5..6, None, 0),
         ], 
         0, 
         "",
-        "some\nshit\n", 
         match READ_ONLY_BUFFER_DISPLAY_MODE{
-            DisplayMode::Error => {Mode::Error/*(READ_ONLY_BUFFER.to_string())*/}
-            DisplayMode::Warning => {Mode::Warning/*(READ_ONLY_BUFFER.to_string())*/}
-            DisplayMode::Notify => {Mode::Notify/*(READ_ONLY_BUFFER.to_string())*/}
-            DisplayMode::Info => {Mode::Info/*(READ_ONLY_BUFFER.to_string())*/}
+            DisplayMode::Error => {Mode::Error}
+            DisplayMode::Warning => {Mode::Warning}
+            DisplayMode::Notify => {Mode::Notify}
+            DisplayMode::Info => {Mode::Info}
             DisplayMode::Ignore => {Mode::Insert}
         }, 
+        "some\nshit\n", 
         vec![
-            //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
-            //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), None, /*None*/0),
+            Selection::new_unchecked(0..1, None, 0),
+            Selection::new_unchecked(5..6, None, 0),
         ], 
         0,
         ""
@@ -105,14 +94,14 @@ use crate::tests::edit_actions::test_edit_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            Selection::new_unchecked(Range::new(3, 4), None, /*None*/3)
+            Selection::new_unchecked(3..4, None, 3)
         ], 
         0, 
         "", 
-        "idk⏎\nsome\nshit\n", 
         Mode::Insert, 
+        "idk⏎\nsome\nshit\n", 
         vec![
-            Selection::new_unchecked(Range::new(4, 5), None, /*Some(4)*/4)
+            Selection::new_unchecked(4..5, None, 4)
         ], 
         0, 
         ""
@@ -132,14 +121,14 @@ use crate::tests::edit_actions::test_edit_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            Selection::new_unchecked(Range::new(0, 3), Some(Direction::Forward), /*None*/2)
+            Selection::new_unchecked(0..3, Some(Direction::Forward), 2)
         ], 
         0, 
         "", 
-        "⏎\nsome\nshit\n", 
         Mode::Insert, 
+        "⏎\nsome\nshit\n", 
         vec![
-            Selection::new_unchecked(Range::new(1, 2), None, /*Some(1)*/1)   //although, i am considering having selections after replacement be equivalent to before, with replacement text still selected...
+            Selection::new_unchecked(1..2, None, 1)   //although, i am considering having selections after replacement be equivalent to before, with replacement text still selected...
         ], 
         0, 
         ""

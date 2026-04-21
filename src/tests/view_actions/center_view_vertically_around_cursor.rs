@@ -1,10 +1,9 @@
 use crate::{
     action::ViewAction,
     mode::Mode,
-    range::Range,
     selection::{Selection, CursorSemantics::Block},
     display_area::DisplayArea,
-    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, /*SAME_STATE, */Config},
+    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, Config},
     keybind::default_keybinds
 };
 use crate::tests::view_actions::test_view_action;
@@ -30,15 +29,13 @@ use crate::tests::view_actions::test_view_action;
             keybinds: default_keybinds()
         },
         ViewAction::CenterVerticallyAroundCursor, 
-        //CursorSemantics::Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 2, width: 3, height: 3}, 
         Mode::View,
         "idk\nyet\nsome\nmore\nother\nrandom\nshit\n", 
         vec![
-            //(8, 9, None)
-            Selection::new_unchecked(Range::new(8, 9), None, /*None*/0),
+            Selection::new_unchecked(8..9, None, 0),
         ], 
         0, 
         Mode::Insert, 
@@ -87,15 +84,13 @@ use crate::tests::view_actions::test_view_action;
             keybinds: default_keybinds()
         },
         ViewAction::CenterVerticallyAroundCursor, 
-        //CursorSemantics::Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 2, width: 3, height: 3}, 
         Mode::View,
         "idk\nyet\nsome\nmore\nother\nrandom\nshit\n", 
         vec![
-            //(18, 19, None)
-            Selection::new_unchecked(Range::new(18, 19), None, /*None*/0),
+            Selection::new_unchecked(18..19, None, 0),
         ], 
         0, 
         Mode::Insert, 
@@ -122,22 +117,20 @@ use crate::tests::view_actions::test_view_action;
             keybinds: default_keybinds()
         },
         ViewAction::CenterVerticallyAroundCursor, 
-        //CursorSemantics::Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 3, height: 3}, 
         Mode::View,
         "idk\nsome\nmore\nother\nshit\n", 
         vec![
-            //(0, 1, None)
-            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
+            Selection::new_unchecked(0..1, None, 0),
         ], 
         0, 
         match SAME_STATE_DISPLAY_MODE{
-            DisplayMode::Error => Mode::Error/*(SAME_STATE.to_string())*/,
-            DisplayMode::Warning => Mode::Warning/*(SAME_STATE.to_string())*/,
-            DisplayMode::Notify => Mode::Notify/*(SAME_STATE.to_string())*/,
-            DisplayMode::Info => Mode::Info/*(SAME_STATE.to_string())*/,
+            DisplayMode::Error => Mode::Error,
+            DisplayMode::Warning => Mode::Warning,
+            DisplayMode::Notify => Mode::Notify,
+            DisplayMode::Info => Mode::Info,
             DisplayMode::Ignore => Mode::Insert,
         },
         "idk\nsom\nmor\n", 
@@ -163,22 +156,20 @@ use crate::tests::view_actions::test_view_action;
             keybinds: default_keybinds()
         },
         ViewAction::CenterVerticallyAroundCursor, 
-        //CursorSemantics::Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 2, width: 3, height: 3}, 
         Mode::View,
         "idk\nsome\nmore\nother\nshit\n", 
         vec![
-            //(25, 26, None)
-            Selection::new_unchecked(Range::new(25, 26), None, /*None*/0),
+            Selection::new_unchecked(25..26, None, 0),
         ], 
         0, 
         match SAME_STATE_DISPLAY_MODE{
-            DisplayMode::Error => Mode::Error/*(SAME_STATE.to_string())*/,
-            DisplayMode::Warning => Mode::Warning/*(SAME_STATE.to_string())*/,
-            DisplayMode::Notify => Mode::Notify/*(SAME_STATE.to_string())*/,
-            DisplayMode::Info => Mode::Info/*(SAME_STATE.to_string())*/,
+            DisplayMode::Error => Mode::Error,
+            DisplayMode::Warning => Mode::Warning,
+            DisplayMode::Notify => Mode::Notify,
+            DisplayMode::Info => Mode::Info,
             DisplayMode::Ignore => Mode::Insert,
         },
         "mor\noth\nshi\n", 
@@ -204,22 +195,20 @@ use crate::tests::view_actions::test_view_action;
             keybinds: default_keybinds()
         },
         ViewAction::CenterVerticallyAroundCursor, 
-        //CursorSemantics::Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 1, width: 3, height: 3}, 
         Mode::View,
         "idk\nsome\nmore\nother\nshit\n", 
         vec![
-            //(9, 10, None)
-            Selection::new_unchecked(Range::new(9, 10), None, /*None*/0),
+            Selection::new_unchecked(9..10, None, 0),
         ], 
         0, 
         match SAME_STATE_DISPLAY_MODE{
-            DisplayMode::Error => Mode::Error/*(SAME_STATE.to_string())*/,
-            DisplayMode::Warning => Mode::Warning/*(SAME_STATE.to_string())*/,
-            DisplayMode::Notify => Mode::Notify/*(SAME_STATE.to_string())*/,
-            DisplayMode::Info => Mode::Info/*(SAME_STATE.to_string())*/,
+            DisplayMode::Error => Mode::Error,
+            DisplayMode::Warning => Mode::Warning,
+            DisplayMode::Notify => Mode::Notify,
+            DisplayMode::Info => Mode::Info,
             DisplayMode::Ignore => Mode::Insert,
         },
         "som\nmor\noth\n", 
@@ -245,22 +234,20 @@ use crate::tests::view_actions::test_view_action;
             keybinds: default_keybinds()
         },
         ViewAction::CenterVerticallyAroundCursor, 
-        //CursorSemantics::Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 1, width: 3, height: 4}, 
         Mode::View,
         "idk\nyet\nsome\nmore\nother\nshit\n", 
         vec![
-            //(8, 9, None)
-            Selection::new_unchecked(Range::new(8, 9), None, /*None*/0),
+            Selection::new_unchecked(8..9, None, 0),
         ], 
         0, 
         match SAME_STATE_DISPLAY_MODE{
-            DisplayMode::Error => Mode::Error/*(SAME_STATE.to_string())*/,
-            DisplayMode::Warning => Mode::Warning/*(SAME_STATE.to_string())*/,
-            DisplayMode::Notify => Mode::Notify/*(SAME_STATE.to_string())*/,
-            DisplayMode::Info => Mode::Info/*(SAME_STATE.to_string())*/,
+            DisplayMode::Error => Mode::Error,
+            DisplayMode::Warning => Mode::Warning,
+            DisplayMode::Notify => Mode::Notify,
+            DisplayMode::Info => Mode::Info,
             DisplayMode::Ignore => Mode::Insert,
         },
         "yet\nsom\nmor\noth\n", 
@@ -286,22 +273,20 @@ use crate::tests::view_actions::test_view_action;
             keybinds: default_keybinds()
         },
         ViewAction::CenterVerticallyAroundCursor, 
-        //CursorSemantics::Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 1, width: 3, height: 4}, 
         Mode::View,
         "idk\nyet\nsome\nmore\nother\nshit\n", 
         vec![
-            //(13, 14, None)
-            Selection::new_unchecked(Range::new(13, 14), None, /*None*/0),
+            Selection::new_unchecked(13..14, None, 0),
         ], 
         0, 
         match SAME_STATE_DISPLAY_MODE{
-            DisplayMode::Error => Mode::Error/*(SAME_STATE.to_string())*/,
-            DisplayMode::Warning => Mode::Warning/*(SAME_STATE.to_string())*/,
-            DisplayMode::Notify => Mode::Notify/*(SAME_STATE.to_string())*/,
-            DisplayMode::Info => Mode::Info/*(SAME_STATE.to_string())*/,
+            DisplayMode::Error => Mode::Error,
+            DisplayMode::Warning => Mode::Warning,
+            DisplayMode::Notify => Mode::Notify,
+            DisplayMode::Info => Mode::Info,
             DisplayMode::Ignore => Mode::Insert,
         },
         "yet\nsom\nmor\noth\n", 

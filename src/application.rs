@@ -18,7 +18,6 @@ use crate::{
     action::{Action, EditorAction, SelectionAction, EditAction, ViewAction, UtilAction},
     mode_stack::ModeStack,
     ui::{UserInterface, util_bar::*},
-    range::Range,
     buffer::Buffer,
     display_area::{self, DisplayArea, DisplayAreaError},
     selection::{self, Selection, CursorSemantics},
@@ -87,8 +86,8 @@ impl Application{
                 vec![
                     Selection::new_from_range(
                         match config.semantics.clone(){
-                            CursorSemantics::Bar => Range::new(0, 0),
-                            CursorSemantics::Block => Range::new(0, buffer.next_grapheme_char_index(0))
+                            CursorSemantics::Bar => /*Range::new(0, 0)*/0..0,
+                            CursorSemantics::Block => /*Range::new(0, buffer.next_grapheme_char_index(0))*/0..buffer.next_grapheme_char_index(0)
                         },
                         None, 
                         &buffer, 
@@ -2153,7 +2152,8 @@ pub fn search(
             let start_char_index = buffer.byte_to_char(search_match.start());
             let end_char_index = buffer.byte_to_char(search_match.end());
             let new_selection = Selection::new_from_range(
-                Range::new(start_char_index, end_char_index), 
+                //Range::new(start_char_index, end_char_index), 
+                start_char_index..end_char_index,
                 if buffer.next_grapheme_char_index(start_char_index) == end_char_index{None}    //this works for block semantics only...
                 else{Some(selection::Direction::Forward)}, 
                 buffer, 
@@ -2242,7 +2242,8 @@ pub fn split_selection(
                 // Iter over each split, and push the retained selection before it, if any...       TODO: test split at start of selection
                 for split in regex.find_iter(&buffer./*inner.*/to_string()[selection.range.start..selection.range.end.min(buffer.len_chars())]){
                     found_split = true;
-                    let selection_range = Range::new(start, split.start().saturating_add(selection.range.start));
+                    //let selection_range = Range::new(start, split.start().saturating_add(selection.range.start));
+                    let selection_range = start..split.start().saturating_add(selection.range.start);
                     if selection_range.start < selection_range.end{
                         let mut new_selection = selection.clone();
                         new_selection.range.start = selection_range.start;
@@ -2303,7 +2304,7 @@ mod search_tests{
     use crate::{
         selection::{Selection, Direction, CursorSemantics},
         selections::Selections,
-        range::Range,
+        //range::Range,
         buffer::Buffer,
         application::search_selection,
         application::split_selection,
@@ -2320,8 +2321,8 @@ mod search_tests{
         assert_eq!(
             Selections::new(
                 vec![
-                    Selection::new_unchecked(Range::new(0, 0+input.chars().count()), Some(Direction::Forward), /*None*/buffer.offset_from_line_start(0+input.chars().count().saturating_sub(1))),  //-1 for block semantics
-                    Selection::new_unchecked(Range::new(14, 14+input.chars().count()), Some(Direction::Forward), /*None*/buffer.offset_from_line_start(14+input.chars().count().saturating_sub(1)))
+                    Selection::new_unchecked(/*Range::new(0, 0+input.chars().count())*/0..0+input.chars().count(), Some(Direction::Forward), /*None*/buffer.offset_from_line_start(0+input.chars().count().saturating_sub(1))),  //-1 for block semantics
+                    Selection::new_unchecked(/*Range::new(14, 14+input.chars().count())*/14..14+input.chars().count(), Some(Direction::Forward), /*None*/buffer.offset_from_line_start(14+input.chars().count().saturating_sub(1)))
                 ], 
                 0, 
                 &buffer, 
@@ -2336,11 +2337,11 @@ mod search_tests{
         let buffer_text = "\tidk\nsome\nshit\n";
         let buffer = Buffer::new(buffer_text, None, false);
         let semantics = CursorSemantics::Block;
-        let selection = Selection::new_unchecked(Range::new(0, buffer.chars().count()), Some(Direction::Forward), /*None*/buffer.offset_from_line_start(buffer.chars().count().saturating_sub(1)));
+        let selection = Selection::new_unchecked(/*Range::new(0, buffer.chars().count())*/0..buffer.chars().count(), Some(Direction::Forward), /*None*/buffer.offset_from_line_start(buffer.chars().count().saturating_sub(1)));
         let selections = Selections::new(vec![selection], 0, &buffer, semantics.clone());
         let expected_selections = vec![
             //Selection::new_unchecked(Range::new(0, 1), None, None)
-            Selection::new_unchecked(Range::new(0, "\t".chars().count()), None, /*None*/0)
+            Selection::new_unchecked(/*Range::new(0, "\t".chars().count())*/0.."\t".chars().count(), None, /*None*/0)
         ];
         let expected_selections = Selections::new(expected_selections, 0, &buffer, semantics.clone());
         assert_eq!(expected_selections, search_selection(&selections, "\t", &buffer, semantics).unwrap());
@@ -2351,14 +2352,15 @@ mod search_tests{
         let buffer = Buffer::new(buffer_text, None, false);
         let semantics = CursorSemantics::Block;
         let selection = Selection::new_unchecked(
-            Range::new(0, buffer_text.chars().count()), 
+            //Range::new(0, buffer_text.chars().count()), 
+            0..buffer_text.chars().count(),
             Some(Direction::Forward), 
             /*None*/buffer.offset_from_line_start(buffer_text.chars().count().saturating_sub(1))
         );
         let selections = Selections::new(vec![selection], 0, &buffer, semantics.clone());
         let expected_selections = vec![
             //Selection::new_unchecked(Range::new(0, 2), None, None)    //a̐ is 2 chars(unicode code points)
-            Selection::new_unchecked(Range::new(0, "a̐".chars().count()), None, /*None*/0)
+            Selection::new_unchecked(/*Range::new(0, "a̐".chars().count())*/0.."a̐".chars().count(), None, /*None*/0)
         ];
         let expected_selections = Selections::new(expected_selections, 0, &buffer, semantics.clone());
         assert_eq!(expected_selections, search_selection(&selections, "a̐", &buffer, semantics).unwrap());

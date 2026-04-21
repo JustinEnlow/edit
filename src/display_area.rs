@@ -3,8 +3,7 @@
 //could pass buffer, expansions, + display_area into DisplayMap::new()...
 //DisplayMap would need to be updated any time those inputs are modified
 
-//use ropey::Rope;
-use crate::range::Range;
+use crate::range::Intersects;
 use crate::selection::{CursorSemantics, Selection};
 use crate::selection2d::Selection2d;
 use crate::selections::Selections;
@@ -210,7 +209,7 @@ impl DisplayArea{
     // should this include newlines('\n') in its width calculation? maybe pass in include_newline bool?
     // we want to highlight newlines as well
     // but that may mess with the logic for "empty" lines...idk
-    #[must_use] pub fn view_blocks(&self, buffer: &crate::buffer::Buffer, include_newline: bool) -> Vec<Range>{
+    #[must_use] pub fn view_blocks(&self, buffer: &crate::buffer::Buffer, include_newline: bool) -> Vec<std::ops::Range<usize>>{
         let mut view_blocks = Vec::new();
         let vertical_range = self.vertical_start..self.vertical_start + self.height;
 
@@ -231,7 +230,7 @@ impl DisplayArea{
                 else if line_end < view_end{
                     view_end = line_end;
                 }
-                view_blocks.push(Range::new(view_start, view_end));
+                view_blocks.push(/*Range::new(view_start, view_end)*/view_start..view_end);
             }
         }
 

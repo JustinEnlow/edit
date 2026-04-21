@@ -1,10 +1,9 @@
 use crate::{
     action::ViewAction,
     mode::Mode,
-    range::Range,
     selection::{Selection, CursorSemantics::Block},
     display_area::DisplayArea,
-    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, /*SAME_STATE, */Config},
+    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, Config},
     keybind::default_keybinds
 };
 use crate::tests::view_actions::test_view_action;
@@ -27,15 +26,13 @@ use crate::tests::view_actions::test_view_action;
             keybinds: default_keybinds()
         },
         ViewAction::ScrollUp, 
-        //CursorSemantics::Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 1, width: 2, height: 2}, 
         Mode::View,
         "idk\nsome\nshit\n", 
         vec![
-            //(0, 1, None)
-            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
+            Selection::new_unchecked(0..1, None, 0),
         ], 
         0, 
         Mode::View, 
@@ -60,15 +57,13 @@ use crate::tests::view_actions::test_view_action;
             keybinds: default_keybinds()
         },
         ViewAction::ScrollUp, 
-        //CursorSemantics::Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 1, width: 2, height: 2}, 
         Mode::Insert,
         "idk\nsome\nshit\n", 
         vec![
-            //(0, 1, None)
-            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
+            Selection::new_unchecked(0..1, None, 0),
         ], 
         0, 
         Mode::Insert, 
@@ -93,22 +88,20 @@ use crate::tests::view_actions::test_view_action;
             keybinds: default_keybinds()
         },
         ViewAction::ScrollUp, 
-        //CursorSemantics::Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 2, height: 2}, 
         Mode::View,
         "idk\nsome\nshit\n", 
         vec![
-            //(0, 1, None)
-            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
+            Selection::new_unchecked(0..1, None, 0),
         ], 
         0, 
         match SAME_STATE_DISPLAY_MODE{
-            DisplayMode::Error => Mode::Error/*(SAME_STATE.to_string())*/,
-            DisplayMode::Warning => Mode::Warning/*(SAME_STATE.to_string())*/,
-            DisplayMode::Notify => Mode::Notify/*(SAME_STATE.to_string())*/,
-            DisplayMode::Info => Mode::Info/*(SAME_STATE.to_string())*/,
+            DisplayMode::Error => Mode::Error,
+            DisplayMode::Warning => Mode::Warning,
+            DisplayMode::Notify => Mode::Notify,
+            DisplayMode::Info => Mode::Info,
             DisplayMode::Ignore => Mode::Insert,
         }, 
         "id\nso\n", 
@@ -129,22 +122,20 @@ use crate::tests::view_actions::test_view_action;
             keybinds: default_keybinds()
         },
         ViewAction::ScrollUp, 
-        //CursorSemantics::Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 2, height: 2}, 
         Mode::Command,
         "idk\nsome\nshit\n", 
         vec![
-            //(0, 1, None)
-            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
+            Selection::new_unchecked(0..1, None, 0),
         ], 
         0, 
         match SAME_STATE_DISPLAY_MODE{
-            DisplayMode::Error => Mode::Error/*(SAME_STATE.to_string())*/,
-            DisplayMode::Warning => Mode::Warning/*(SAME_STATE.to_string())*/,
-            DisplayMode::Notify => Mode::Notify/*(SAME_STATE.to_string())*/,
-            DisplayMode::Info => Mode::Info/*(SAME_STATE.to_string())*/,
+            DisplayMode::Error => Mode::Error,
+            DisplayMode::Warning => Mode::Warning,
+            DisplayMode::Notify => Mode::Notify,
+            DisplayMode::Info => Mode::Info,
             DisplayMode::Ignore => Mode::Insert,
         }, 
         "id\nso\n", 

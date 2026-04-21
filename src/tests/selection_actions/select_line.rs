@@ -1,10 +1,9 @@
 use crate::{
     action::SelectionAction::SelectLine,
     mode::Mode,
-    range::Range,
-    selection::{Selection, CursorSemantics::Block, /*Extension*/Direction},
+    selection::{Selection, CursorSemantics::Block, Direction},
     display_area::DisplayArea,
-    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, /*SAME_STATE, */SPANS_MULTIPLE_LINES_DISPLAY_MODE, /*SPANS_MULTIPLE_LINES, */Config},
+    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, SPANS_MULTIPLE_LINES_DISPLAY_MODE, Config},
     keybind::default_keybinds
 };
 use crate::tests::selection_actions::test_selection_action;
@@ -24,7 +23,6 @@ use crate::tests::selection_actions::test_selection_action;
             keybinds: default_keybinds()
         },
         SelectLine, 
-        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
@@ -38,10 +36,8 @@ use crate::tests::selection_actions::test_selection_action;
             // s h i t ⏎
             //
 
-            //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
-            //(4, 5, None)
-            Selection::new_unchecked(Range::new(4, 5), None, /*None*/0),
+            Selection::new_unchecked(0..1, None, 0),
+            Selection::new_unchecked(4..5, None, 0),
         ], 
         0, 
         1, 
@@ -55,10 +51,8 @@ use crate::tests::selection_actions::test_selection_action;
             // s h i t ⏎
             //
 
-            //(0, 4, None),
-            Selection::new_unchecked(Range::new(0, 4), Some(Direction::Forward), /*None*/3),
-            //(4, 9, None)
-            Selection::new_unchecked(Range::new(4, 9), Some(Direction::Forward), /*None*/4),
+            Selection::new_unchecked(0..4, Some(Direction::Forward), 3),
+            Selection::new_unchecked(4..9, Some(Direction::Forward), 4),
         ], 
         0
     );
@@ -76,25 +70,20 @@ use crate::tests::selection_actions::test_selection_action;
             keybinds: default_keybinds()
         },
         SelectLine, 
-        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
-            //(4, 12, None)
-            Selection::new_unchecked(Range::new(4, 12), Some(Direction::Forward), /*None*/2),
+            Selection::new_unchecked(0..1, None, 0),
+            Selection::new_unchecked(4..12, Some(Direction::Forward), 2),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
-            //(0, 4, None),
-            Selection::new_unchecked(Range::new(0, 4), Some(Direction::Forward), /*None*/3),
-            //(4, 12, None)
-            Selection::new_unchecked(Range::new(4, 12), Some(Direction::Forward), /*None*/2),
+            Selection::new_unchecked(0..4, Some(Direction::Forward), 3),
+            Selection::new_unchecked(4..12, Some(Direction::Forward), 2),
         ], 
         0
     );
@@ -113,27 +102,24 @@ use crate::tests::selection_actions::test_selection_action;
             keybinds: default_keybinds()
         },
         SelectLine, 
-        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            //(4, 12, None)
-            Selection::new_unchecked(Range::new(4, 12), Some(Direction::Forward), /*None*/2),
+            Selection::new_unchecked(4..12, Some(Direction::Forward), 2),
         ], 
         0, 
         1, 
         match SPANS_MULTIPLE_LINES_DISPLAY_MODE{
-            DisplayMode::Error => {Mode::Error/*(SPANS_MULTIPLE_LINES.to_string())*/},
-            DisplayMode::Warning => {Mode::Warning/*(SPANS_MULTIPLE_LINES.to_string())*/},
-            DisplayMode::Notify => {Mode::Notify/*(SPANS_MULTIPLE_LINES.to_string())*/},
-            DisplayMode::Info => {Mode::Info/*(SPANS_MULTIPLE_LINES.to_string())*/},
+            DisplayMode::Error => {Mode::Error},
+            DisplayMode::Warning => {Mode::Warning},
+            DisplayMode::Notify => {Mode::Notify},
+            DisplayMode::Info => {Mode::Info},
             DisplayMode::Ignore => {Mode::Insert},
         }, 
         vec![
-            //(4, 12, None)
-            Selection::new_unchecked(Range::new(4, 12), Some(Direction::Forward), /*None*/2),
+            Selection::new_unchecked(4..12, Some(Direction::Forward), 2),
         ], 
         0
     );
@@ -153,27 +139,24 @@ use crate::tests::selection_actions::test_selection_action;
             keybinds: default_keybinds()
         },
         SelectLine, 
-        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            //(0, 4, None)
-            Selection::new_unchecked(Range::new(0, 4), Some(Direction::Forward), /*None*/3),
+            Selection::new_unchecked(0..4, Some(Direction::Forward), 3),
         ], 
         0, 
         1, 
         match SAME_STATE_DISPLAY_MODE{
-            DisplayMode::Error => {Mode::Error/*(SAME_STATE.to_string())*/},
-            DisplayMode::Warning => {Mode::Warning/*(SAME_STATE.to_string())*/},
-            DisplayMode::Notify => {Mode::Notify/*(SAME_STATE.to_string())*/},
-            DisplayMode::Info => {Mode::Info/*(SAME_STATE.to_string())*/},
+            DisplayMode::Error => {Mode::Error},
+            DisplayMode::Warning => {Mode::Warning},
+            DisplayMode::Notify => {Mode::Notify},
+            DisplayMode::Info => {Mode::Info},
             DisplayMode::Ignore => {Mode::Insert},
         }, 
         vec![
-            //(0, 4, None)
-            Selection::new_unchecked(Range::new(0, 4), Some(Direction::Forward), /*None*/3),
+            Selection::new_unchecked(0..4, Some(Direction::Forward), 3),
         ], 
         0
     );
@@ -193,27 +176,24 @@ use crate::tests::selection_actions::test_selection_action;
             keybinds: default_keybinds()
         },
         SelectLine, 
-        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            //(14, 15, None)
-            Selection::new_unchecked(Range::new(14, 15), None, /*None*/0),
+            Selection::new_unchecked(14..15, None, 0),
         ], 
         0, 
         1, 
         match SAME_STATE_DISPLAY_MODE{
-            DisplayMode::Error => {Mode::Error/*(SAME_STATE.to_string())*/},
-            DisplayMode::Warning => {Mode::Warning/*(SAME_STATE.to_string())*/},
-            DisplayMode::Notify => {Mode::Notify/*(SAME_STATE.to_string())*/},
-            DisplayMode::Info => {Mode::Info/*(SAME_STATE.to_string())*/},
+            DisplayMode::Error => {Mode::Error},
+            DisplayMode::Warning => {Mode::Warning},
+            DisplayMode::Notify => {Mode::Notify},
+            DisplayMode::Info => {Mode::Info},
             DisplayMode::Ignore => {Mode::Insert},
         }, 
         vec![
-            //(14, 15, None)
-            Selection::new_unchecked(Range::new(14, 15), None, /*None*/0),
+            Selection::new_unchecked(14..15, None, 0),
         ], 
         0
     );

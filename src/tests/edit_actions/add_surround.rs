@@ -3,7 +3,6 @@
 use crate::{
     action::EditAction::AddSurround,
     mode::Mode,
-    range::Range,
     selection::{Selection, CursorSemantics::Block, Direction},
     display_area::DisplayArea,
     config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, /*READ_ONLY_BUFFER, */INVALID_INPUT_DISPLAY_MODE, /*INVALID_INPUT, */Config},
@@ -12,18 +11,6 @@ use crate::{
 use crate::tests::edit_actions::test_edit_action;
 
 #[test] fn with_single_selection(){
-    //test(
-    //    CursorSemantics::Block, 
-    //    "idk\nsome\nshit\n", 
-    //    vec![
-    //        (0, 3, None)
-    //    ], 0, 
-    //    '{', '}', 
-    //    "{idk}\nsome\nshit\n", 
-    //    vec![
-    //        (5, 6, Some(5))
-    //    ], 0
-    //);
     test_edit_action(
         Config{
             semantics: Block, 
@@ -36,23 +23,20 @@ use crate::tests::edit_actions::test_edit_action;
             keybinds: default_keybinds()
         },
         AddSurround('{', '}'), 
-        //Block, 
         false, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            //(0, 3, None)
-            Selection::new_unchecked(Range::new(0, 3), Some(Direction::Forward)/*ExtensionDirection::Forward*/, /*None*/2),
+            Selection::new_unchecked(0..3, Some(Direction::Forward), 2),
         ], 
         0, 
         "", 
-        "{idk}\nsome\nshit\n", 
         Mode::Insert, 
+        "{idk}\nsome\nshit\n", 
         vec![
-            //(5, 6, Some(5))
-            Selection::new_unchecked(Range::new(5, 6), /*ExtensionDirection::*/None, /*Some(5)*/5),
+            Selection::new_unchecked(5..6, None, 5),
         ], 
         0, 
         ""
@@ -64,20 +48,6 @@ use crate::tests::edit_actions::test_edit_action;
 //TODO: test with selection over newline(should be the same, but worth verifying...)
 
 #[test] fn with_valid_selection_and_cursor_at_end_of_doc(){
-    //test(
-    //    CursorSemantics::Block, 
-    //    "idk\nsome\nshit\n", 
-    //    vec![
-    //        (9, 11, None),
-    //        (14, 15, None)
-    //    ], 0, 
-    //    '<', '>', 
-    //    "idk\nsome\n<sh>it\n", 
-    //    vec![
-    //        (13, 14, Some(4)),
-    //        (16, 17, None)
-    //    ], 0
-    //);
     test_edit_action(
         Config{
             semantics: Block, 
@@ -90,27 +60,22 @@ use crate::tests::edit_actions::test_edit_action;
             keybinds: default_keybinds()
         },
         AddSurround('<', '>'), 
-        //Block, 
         false, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            //(9, 11, None),
-            Selection::new_unchecked(Range::new(9, 11), Some(Direction::Forward)/*ExtensionDirection::Forward*/, /*None*/1),
-            //(14, 15, None)
-            Selection::new_unchecked(Range::new(14, 15), /*ExtensionDirection::*/None, /*None*/0),
+            Selection::new_unchecked(9..11, Some(Direction::Forward), 1),
+            Selection::new_unchecked(14..15, None, 0),
         ], 
         0, 
         "", 
-        "idk\nsome\n<sh>it\n", 
         Mode::Insert, 
+        "idk\nsome\n<sh>it\n", 
         vec![
-            //(13, 14, Some(4)),
-            Selection::new_unchecked(Range::new(13, 14), /*ExtensionDirection::*/None, /*Some(4)*/4),
-            //(16, 17, None)
-            Selection::new_unchecked(Range::new(16, 17), /*ExtensionDirection::*/None, /*None*/0),
+            Selection::new_unchecked(13..14, None, 4),
+            Selection::new_unchecked(16..17, None, 0),
         ], 
         0, 
         ""
@@ -118,14 +83,6 @@ use crate::tests::edit_actions::test_edit_action;
 }
 
 #[test] fn errors_when_single_cursor_at_end_of_document(){
-    //test_error(
-    //    CursorSemantics::Block, 
-    //    "idk\nsome\nshit\n", 
-    //    vec![
-    //        (14, 15, None)
-    //    ], 0, 
-    //    '{', '}'
-    //);
     test_edit_action(
         Config{
             semantics: Block, 
@@ -138,19 +95,16 @@ use crate::tests::edit_actions::test_edit_action;
             keybinds: default_keybinds()
         },
         AddSurround('{', '}'), 
-        //Block, 
         false, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            //(14, 15, None)
-            Selection::new_unchecked(Range::new(14, 15), /*ExtensionDirection::*/None, /*None*/0),
+            Selection::new_unchecked(14..15, None, 0),
         ], 
         0, 
         "", 
-        "idk\nsome\nshit\n", 
         match INVALID_INPUT_DISPLAY_MODE{
             DisplayMode::Error => {Mode::Error}
             DisplayMode::Warning => {Mode::Warning}
@@ -158,9 +112,9 @@ use crate::tests::edit_actions::test_edit_action;
             DisplayMode::Info => {Mode::Info}
             DisplayMode::Ignore => {Mode::Insert}
         }, 
+        "idk\nsome\nshit\n", 
         vec![
-            //(14, 15, None)
-            Selection::new_unchecked(Range::new(14, 15), /*ExtensionDirection::*/None, /*None*/0),
+            Selection::new_unchecked(14..15, None, 0),
         ], 
         0, 
         ""
@@ -180,21 +134,17 @@ use crate::tests::edit_actions::test_edit_action;
             keybinds: default_keybinds()
         },
         AddSurround('[', ']'), 
-        //Block, 
         false, 
         false, 
         true, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "some\nshit\n", 
         vec![
-            //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), /*ExtensionDirection::*/None, /*None*/0),
-            //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), /*ExtensionDirection::*/None, /*None*/0),
+            Selection::new_unchecked(0..1, None, 0),
+            Selection::new_unchecked(5..6, None, 0),
         ], 
         0, 
         "",
-        "some\nshit\n", 
         match READ_ONLY_BUFFER_DISPLAY_MODE{
             DisplayMode::Error => {Mode::Error}
             DisplayMode::Warning => {Mode::Warning}
@@ -202,11 +152,10 @@ use crate::tests::edit_actions::test_edit_action;
             DisplayMode::Info => {Mode::Info}
             DisplayMode::Ignore => {Mode::Insert}
         }, 
+        "some\nshit\n", 
         vec![
-            //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), /*ExtensionDirection::*/None, /*None*/0),
-            //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), /*ExtensionDirection::*/None, /*None*/0),
+            Selection::new_unchecked(0..1, None, 0),
+            Selection::new_unchecked(5..6, None, 0),
         ], 
         0,
         ""

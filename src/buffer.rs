@@ -1,3 +1,4 @@
+//TODO: switch to byte offsets instead of char offsets
 // This should probably use a zed editor style rope, built on a sum_tree
 
 use unicode_segmentation::UnicodeSegmentation;

@@ -777,7 +777,6 @@ pub fn decrement_primary_selection(selections: &Selections) -> Result<Selections
 #[cfg(test)]
 mod tests{
     use crate::{
-        range::Range,
         selection::{Selection, CursorSemantics, Direction},
         selections::Selections,
         buffer::Buffer
@@ -786,30 +785,30 @@ mod tests{
     #[test] fn non_extended_bar_semantics(){
         let semantics = CursorSemantics::Bar;
         let buffer = Buffer::new("idk\nsome\nshit\n", None, false);
-        let selection = Selection::new_from_range(Range::new(0, 0), None, &buffer, semantics.clone());
+        let selection = Selection::new_from_range(0..0, None, &buffer, semantics.clone());
         let selections = Selections::new(vec![selection], 0, &buffer, semantics.clone());
         assert_eq!("|>idk\nsome\nshit\n", selections.debug_over_buffer_content(&buffer, semantics));
     }
     #[test] fn forward_extended_bar_semantics(){
         let semantics = CursorSemantics::Bar;
         let buffer = Buffer::new("idk\nsome\nshit\n", None, false);
-        let selection = Selection::new_from_range(Range::new(2, 6), Some(Direction::Forward), &buffer, semantics.clone());
+        let selection = Selection::new_from_range(2..6, Some(Direction::Forward), &buffer, semantics.clone());
         let selections = Selections::new(vec![selection], 0, &buffer, semantics.clone());
         assert_eq!("id|k\nso>me\nshit\n", selections.debug_over_buffer_content(&buffer, semantics));
     }
     #[test] fn backward_extended_bar_semantics(){
         let semantics = CursorSemantics::Bar;
         let buffer = Buffer::new("idk\nsome\nshit\n", None, false);
-        let selection = Selection::new_from_range(Range::new(2, 6), Some(Direction::Backward), &buffer, semantics.clone());
+        let selection = Selection::new_from_range(2..6, Some(Direction::Backward), &buffer, semantics.clone());
         let selections = Selections::new(vec![selection], 0, &buffer, semantics.clone());
         assert_eq!("id<k\nso|me\nshit\n", selections.debug_over_buffer_content(&buffer, semantics));
     }
     #[test] fn selections_with_all_extension_directions_bar_semantics(){
         let semantics = CursorSemantics::Bar;
         let buffer = Buffer::new("idk\nsome\nshit\n", None, false);
-        let selection_1 = Selection::new_from_range(Range::new(0, 4), Some(Direction::Forward), &buffer, semantics.clone());
-        let selection_2 = Selection::new_from_range(Range::new(6, 6), None, &buffer, semantics.clone());
-        let selection_3 = Selection::new_from_range(Range::new(8, 12), Some(Direction::Backward), &buffer, semantics.clone());
+        let selection_1 = Selection::new_from_range(0..4, Some(Direction::Forward), &buffer, semantics.clone());
+        let selection_2 = Selection::new_from_range(6..6, None, &buffer, semantics.clone());
+        let selection_3 = Selection::new_from_range(8..12, Some(Direction::Backward), &buffer, semantics.clone());
         let selections = Selections::new(vec![selection_1, selection_2, selection_3], 0, &buffer, semantics.clone());
         assert_eq!("|idk\n>so|>me<\nshi|t\n", selections.debug_over_buffer_content(&buffer, semantics));
     }
@@ -817,30 +816,30 @@ mod tests{
     #[test] fn non_extended_block_semantics(){
         let semantics = CursorSemantics::Block;
         let buffer = Buffer::new("idk\nsome\nshit\n", None, false);
-        let selection = Selection::new_from_range(Range::new(0, 1), None, &buffer, semantics.clone());
+        let selection = Selection::new_from_range(0..1, None, &buffer, semantics.clone());
         let selections = Selections::new(vec![selection], 0, &buffer, semantics.clone());
         assert_eq!("|:i>dk\nsome\nshit\n", selections.debug_over_buffer_content(&buffer, semantics));
     }
     #[test] fn forward_extended_block_semantics(){
         let semantics = CursorSemantics::Block;
         let buffer = Buffer::new("idk\nsome\nshit\n", None, false);
-        let selection = Selection::new_from_range(Range::new(2, 6), Some(Direction::Forward), &buffer, semantics.clone());
+        let selection = Selection::new_from_range(2..6, Some(Direction::Forward), &buffer, semantics.clone());
         let selections = Selections::new(vec![selection], 0, &buffer, semantics.clone());
         assert_eq!("id|k\ns:o>me\nshit\n", selections.debug_over_buffer_content(&buffer, semantics));
     }
     #[test] fn backward_extended_block_semantics(){
         let semantics = CursorSemantics::Block;
         let buffer = Buffer::new("idk\nsome\nshit\n", None, false);
-        let selection = Selection::new_from_range(Range::new(2, 6), Some(Direction::Backward), &buffer, semantics.clone());
+        let selection = Selection::new_from_range(2..6, Some(Direction::Backward), &buffer, semantics.clone());
         let selections = Selections::new(vec![selection], 0, &buffer, semantics.clone());
         assert_eq!("id<k\nso|me\nshit\n", selections.debug_over_buffer_content(&buffer, semantics));
     }
     #[test] fn selections_with_all_extension_directions_block_semantics(){
         let semantics = CursorSemantics::Block;
         let buffer = Buffer::new("idk\nsome\nshit\n", None, false);
-        let selection_1 = Selection::new_from_range(Range::new(0, 4), Some(Direction::Forward), &buffer, semantics.clone());
-        let selection_2 = Selection::new_from_range(Range::new(6, 7), None, &buffer, semantics.clone());
-        let selection_3 = Selection::new_from_range(Range::new(8, 12), Some(Direction::Backward), &buffer, semantics.clone());
+        let selection_1 = Selection::new_from_range(0..4, Some(Direction::Forward), &buffer, semantics.clone());
+        let selection_2 = Selection::new_from_range(6..7, None, &buffer, semantics.clone());
+        let selection_3 = Selection::new_from_range(8..12, Some(Direction::Backward), &buffer, semantics.clone());
         let selections = Selections::new(vec![selection_1, selection_2, selection_3], 0, &buffer, semantics.clone());
         assert_eq!("|idk:\n>so|:m>e<\nshi|t\n", selections.debug_over_buffer_content(&buffer, semantics));
     }

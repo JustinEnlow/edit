@@ -1,7 +1,6 @@
 use crate::{
     action::EditAction::InsertNewline,
     mode::Mode,
-    range::Range,
     selection::{Selection, CursorSemantics::Block},
     display_area::DisplayArea,
     config::{DisplayMode, READ_ONLY_BUFFER_DISPLAY_MODE, /*READ_ONLY_BUFFER, */Config},
@@ -22,27 +21,22 @@ use crate::tests::edit_actions::test_edit_action;
             keybinds: default_keybinds()
         },
         InsertNewline, 
-        //CursorSemantics::Block, 
         false, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "some\nshit\n", 
         vec![
-            //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
-            //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), None, /*None*/0),
+            Selection::new_unchecked(0..1, None, 0),
+            Selection::new_unchecked(5..6, None, 0),
         ], 
         0, 
         "",
-        "\nsome\n\nshit\n", 
         Mode::Insert, 
+        "\nsome\n\nshit\n", 
         vec![
-            //(1, 2, Some(0)),
-            Selection::new_unchecked(Range::new(1, 2), None, /*Some(0)*/0),
-            //(7, 8, Some(0))
-            Selection::new_unchecked(Range::new(7, 8), None, /*Some(0)*/0),
+            Selection::new_unchecked(1..2, None, 0),
+            Selection::new_unchecked(7..8, None, 0),
         ], 
         0,
         ""
@@ -62,33 +56,28 @@ use crate::tests::edit_actions::test_edit_action;
             keybinds: default_keybinds()
         },
         InsertNewline, 
-        //CursorSemantics::Block, 
         false, 
         false, 
         true, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "some\nshit\n", 
         vec![
-            //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
-            //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), None, /*None*/0),
+            Selection::new_unchecked(0..1, None, 0),
+            Selection::new_unchecked(5..6, None, 0),
         ], 
         0, 
         "",
-        "some\nshit\n", 
         match READ_ONLY_BUFFER_DISPLAY_MODE{
-            DisplayMode::Error => {Mode::Error/*(READ_ONLY_BUFFER.to_string())*/}
-            DisplayMode::Warning => {Mode::Warning/*(READ_ONLY_BUFFER.to_string())*/}
-            DisplayMode::Notify => {Mode::Notify/*(READ_ONLY_BUFFER.to_string())*/}
-            DisplayMode::Info => {Mode::Info/*(READ_ONLY_BUFFER.to_string())*/}
+            DisplayMode::Error => {Mode::Error}
+            DisplayMode::Warning => {Mode::Warning}
+            DisplayMode::Notify => {Mode::Notify}
+            DisplayMode::Info => {Mode::Info}
             DisplayMode::Ignore => {Mode::Insert}
         }, 
+        "some\nshit\n", 
         vec![
-            //(0, 1, None),
-            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
-            //(5, 6, None)
-            Selection::new_unchecked(Range::new(5, 6), None, /*None*/0),
+            Selection::new_unchecked(0..1, None, 0),
+            Selection::new_unchecked(5..6, None, 0),
         ], 
         0,
         ""

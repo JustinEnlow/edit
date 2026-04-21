@@ -1,10 +1,9 @@
 use crate::{
     action::SelectionAction::ExtendSelectionLeft,
     mode::Mode,
-    range::Range,
-    selection::{Selection, CursorSemantics::Block, /*Extension*/Direction},
+    selection::{Selection, CursorSemantics::Block, Direction},
     display_area::DisplayArea,
-    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, /*SAME_STATE, */Config},
+    config::{DisplayMode, SAME_STATE_DISPLAY_MODE, Config},
     keybind::default_keybinds
 };
 use crate::tests::selection_actions::test_selection_action;
@@ -30,21 +29,18 @@ use crate::tests::selection_actions::test_selection_action;
             keybinds: default_keybinds()
         },
         ExtendSelectionLeft, 
-        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            //(13, 14, None)
-            Selection::new_unchecked(Range::new(13, 14), None, /*None*/4),
+            Selection::new_unchecked(13..14, None, 4),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
-            //(13, 12, Some(3))
-            Selection::new_unchecked(Range::new(12, 14), Some(Direction::Backward), /*Some(3)*/3),
+            Selection::new_unchecked(12..14, Some(Direction::Backward), 3),
         ], 
         0
     );
@@ -63,21 +59,18 @@ use crate::tests::selection_actions::test_selection_action;
             keybinds: default_keybinds()
         },
         ExtendSelectionLeft, 
-        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            //(1, 2, None)
-            Selection::new_unchecked(Range::new(1, 2), None, /*None*/1),
+            Selection::new_unchecked(1..2, None, 1),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
-            //(2, 0, Some(0))
-            Selection::new_unchecked(Range::new(0, 2), Some(Direction::Backward), /*Some(0)*/0),
+            Selection::new_unchecked(0..2, Some(Direction::Backward), 0),
         ], 
         0
     );
@@ -100,21 +93,18 @@ use crate::tests::selection_actions::test_selection_action;
             keybinds: default_keybinds()
         },
         ExtendSelectionLeft, 
-        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            //(0, 14, None)
-            Selection::new_unchecked(Range::new(0, 14), Some(Direction::Forward), /*None*/4),
+            Selection::new_unchecked(0..14, Some(Direction::Forward), 4),
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
-            //(0, 13, Some(3))
-            Selection::new_unchecked(Range::new(0, 13), Some(Direction::Forward), /*Some(3)*/3),
+            Selection::new_unchecked(0..13, Some(Direction::Forward), 3),
         ], 
         0
     );
@@ -145,13 +135,13 @@ use crate::tests::selection_actions::test_selection_action;
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            Selection::new_unchecked(Range::new(14, 15), None, /*None*/0)
+            Selection::new_unchecked(14..15, None, 0)
         ], 
         0, 
         1, 
         Mode::Insert, 
         vec![
-            Selection::new_unchecked(Range::new(13, 14), None, /*Some(4)*/4)
+            Selection::new_unchecked(13..14, None, 4)
         ], 
         0
     );
@@ -170,27 +160,24 @@ use crate::tests::selection_actions::test_selection_action;
             keybinds: default_keybinds()
         },
         ExtendSelectionLeft, 
-        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            //(0, 1, None)
-            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
+            Selection::new_unchecked(0..1, None, 0),
         ], 
         0, 
         1, 
         match SAME_STATE_DISPLAY_MODE{
-            DisplayMode::Error => {Mode::Error/*(SAME_STATE.to_string())*/},
-            DisplayMode::Warning => {Mode::Warning/*(SAME_STATE.to_string())*/},
-            DisplayMode::Notify => {Mode::Notify/*(SAME_STATE.to_string())*/},
-            DisplayMode::Info => {Mode::Info/*(SAME_STATE.to_string())*/},
+            DisplayMode::Error => {Mode::Error},
+            DisplayMode::Warning => {Mode::Warning},
+            DisplayMode::Notify => {Mode::Notify},
+            DisplayMode::Info => {Mode::Info},
             DisplayMode::Ignore => {Mode::Insert},
         }, 
         vec![
-            //(0, 1, None)
-            Selection::new_unchecked(Range::new(0, 1), None, /*None*/0),
+            Selection::new_unchecked(0..1, None, 0),
         ], 
         0
     );
@@ -209,27 +196,24 @@ use crate::tests::selection_actions::test_selection_action;
             keybinds: default_keybinds()
         },
         ExtendSelectionLeft, 
-        //Block, 
         false, 
         false, 
         DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
         "idk\nsome\nshit\n", 
         vec![
-            //(14, 0, None)
-            Selection::new_unchecked(Range::new(0, 14), Some(Direction::Backward), /*None*/0),
+            Selection::new_unchecked(0..14, Some(Direction::Backward), 0),
         ], 
         0, 
         1, 
         match SAME_STATE_DISPLAY_MODE{
-            DisplayMode::Error => {Mode::Error/*(SAME_STATE.to_string())*/},
-            DisplayMode::Warning => {Mode::Warning/*(SAME_STATE.to_string())*/},
-            DisplayMode::Notify => {Mode::Notify/*(SAME_STATE.to_string())*/},
-            DisplayMode::Info => {Mode::Info/*(SAME_STATE.to_string())*/},
+            DisplayMode::Error => {Mode::Error},
+            DisplayMode::Warning => {Mode::Warning},
+            DisplayMode::Notify => {Mode::Notify},
+            DisplayMode::Info => {Mode::Info},
             DisplayMode::Ignore => {Mode::Insert},
         }, 
         vec![
-            //(14, 0, None)
-            Selection::new_unchecked(Range::new(0, 14), Some(Direction::Backward), /*None*/0),
+            Selection::new_unchecked(0..14, Some(Direction::Backward), 0),
         ], 
         0
     );
