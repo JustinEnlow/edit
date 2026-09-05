@@ -1,20 +1,11 @@
-//TODO: switch to byte offsets instead of char offsets
 // This should probably use a zed editor style rope, built on a sum_tree
 
 use unicode_segmentation::UnicodeSegmentation;
 use std::path::PathBuf;
+use std::ops::Range;
 use ropey::Rope;
-//
-use crate::{
-    selection::{Selection, CursorSemantics},
-    history::{Change, Operation},
-};
-//
 
-//TODO: index rope by utf8 bytes. set flag chunk_contains_multibyte_grapheme. if flag not set, we can save processing next_grapheme_byte_index and just += 1
-//selection range will index by utf8 bytes too...
-
-//TODO: use explicit index type in fns  //index = from start of buffer, offset = from start of line
+//TODO: use explicit index type in fns  //index = from start of buffer, offset = from start of slice
 //struct IndexByteUtf8(usize)
 //struct IndexChar(usize);          //IndexCodePoint
 //struct IndexGrapheme(usize);
@@ -23,13 +14,8 @@ use crate::{
 //struct IndexDisplayCell(usize);   //0 based column for terminal cell
 //struct IndexTemporal(usize, TimeStamp)    //this would be like zed "Anchor"s. resolves to another index type for the current buffer state
 
-//struct Bytes
-//struct Chars
-//struct Graphemes
-//struct Lines
-
 /// Abstraction over a stringy data type, to allow for the underlying data type to be changed as desired
-// passing this structure as a reference has no added cost compared to passing inner as a reference. they are both just the architecture pointer size
+// passing this structure as a reference should have no added cost compared to passing inner as a reference. they are both just the architecture pointer size
 #[derive(Clone, Debug, PartialEq)]
 pub struct Buffer{
     inner: Rope, 
@@ -53,7 +39,14 @@ impl Buffer{
 
     pub fn file_path(&self) -> Option<String>{
         match &self.file_path{
-            Some(path) => {Some(path.to_string_lossy().to_string())}
+            //Some(path) => {Some(path.to_string_lossy().to_string())}
+            Some(path) => { //does this cause problems anywhere?...
+                let mut file_path = path.to_string_lossy().to_string();
+                if path.is_dir(){
+                    file_path.push('/');
+                }
+                Some(file_path)
+            }
             None => None
         }
         //self.file_path.as_ref().map(|path| path.to_string_lossy().to_string())
@@ -62,7 +55,14 @@ impl Buffer{
         match &self.file_path{
             Some(path) => {
                 match path.file_name(){
-                    Some(file_name) => {Some(file_name.to_string_lossy().to_string())}
+                    //Some(file_name) => {Some(file_name.to_string_lossy().to_string())}
+                    Some(file_name) => {    //does this cause problems anywhere?...
+                        let mut name = file_name.to_string_lossy().to_string();
+                        if path.is_dir(){
+                            name.push('/');
+                        }
+                        Some(name)
+                    }
                     None => None
                 }
                 //path.file_name().map(|file_name| file_name.to_string_lossy().to_string())
@@ -74,8 +74,6 @@ impl Buffer{
     pub fn is_modified(&self) -> bool{
         match &self.file_path{
             Some(path) => {
-                //let file_text = Rope::from(std::fs::read_to_string(path).unwrap());
-                //self.inner != file_text
                 if path.is_file(){
                     let file_text = Rope::from(std::fs::read_to_string(path).unwrap());
                     self.inner != file_text
@@ -88,118 +86,161 @@ impl Buffer{
         }
     }
 
-    //TODO: replace ropey specific return types
-    pub fn line(&self, line_idx: usize) -> ropey::RopeSlice<'_>{    //-> String?
-        self.inner.line(line_idx)
+    //TODO: offset_to_point, point_to_offset
+
+    ///```should_panic
+    /// # use edit::buffer::Buffer;
+    /// 
+    /// let buffer = Buffer::new("idk\nsome\nshit\n", None, true);
+    /// assert_eq!("idk\n", buffer.line(0), "first line");
+    /// assert_eq!("some\n", buffer.line(1), "second line");
+    /// assert_eq!("shit\n", buffer.line(2), "third line");
+    /// assert_eq!("", buffer.line(3), "last line");
+    /// let _ = buffer.line(4); //any line after will panic
+    ///```
+    pub fn line(&self, line_idx: usize) -> String{
+        self.inner.line(line_idx).to_string()
     }
-    //fn get_line(&self, line_idx: usize) -> Option<ropey::RopeSlice<'_>>{
-    //    self.inner.get_line(line_idx)
-    //}
-    pub fn lines(&self) -> ropey::iter::Lines<'_>{  //-> Vec<String>?
-        self.inner.lines()
+    ///```
+    /// # use edit::buffer::Buffer;
+    /// 
+    /// let text = "idk\nsome\nshit\n";
+    /// let buffer = Buffer::new(text, None, true);
+    /// assert_eq!(
+    ///     vec![
+    ///         String::from("idk\n"),
+    ///         String::from("some\n"),
+    ///         String::from("shit\n"),
+    ///         String::new()
+    ///     ], 
+    ///     buffer.lines()
+    /// );
+    ///```
+    pub fn lines(&self) -> Vec<String>{
+        self.inner.lines().map(|line| line.to_string()).collect()
     }
+    /// ```
+    /// # use edit::buffer::Buffer;
+    /// 
+    /// let buffer = Buffer::new("idk\nsome\nshit\n", None, true);
+    /// assert_eq!(4, buffer.len_lines());
+    /// ```
     pub fn len_lines(&self) -> usize{
         self.inner.len_lines()
     }
-    pub fn len_chars(&self) -> usize{
-        self.inner.len_chars()
+
+    pub fn len_bytes(&self) -> usize{
+        self.inner.len_bytes()
     }
-    pub fn char_to_line(&self, char_idx: usize) -> usize{
-        self.inner.char_to_line(char_idx)   //would try_char_to_line be worth the extra work?...
+    pub fn byte_to_line(&self, byte_offset: usize) -> usize{
+        self.inner.byte_to_line(byte_offset)
     }
-    pub fn line_to_char(&self, line_idx: usize) -> usize{
-        self.inner.line_to_char(line_idx)
+    pub fn line_to_byte(&self, line_idx: usize) -> usize{
+        self.inner.line_to_byte(line_idx)
     }
-    //pub fn insert(&mut self, char_idx: usize, insert_text: &str){
-    //    self.inner.insert(char_idx, insert_text);
-    //}
-    //pub fn remove(&mut self, start_char_idx: usize, exclusive_end_char_idx: usize){
-    //    self.inner.remove(start_char_idx..exclusive_end_char_idx);
-    //}
-    pub fn slice(&self, start: usize, end: usize) -> String{    //this really prob ought to be &str, which is a slice
+    pub fn insert(&mut self, byte_offset: usize, insert_text: &str){
+        let char_idx = self.inner.byte_to_char(byte_offset);
+        self.inner.insert(char_idx, insert_text);
+    }
+    pub fn remove(&mut self, byte_range: Range<usize>){
+        let start_char_idx = self.inner.byte_to_char(byte_range.start);
+        let exclusive_end_char_idx = self.inner.byte_to_char(byte_range.end);
+        self.inner.remove(start_char_idx..exclusive_end_char_idx);
+    }
+    pub fn slice(&self, byte_range: Range<usize>) -> String{    //this really prob ought to be &str, which is a slice
+        let start = self.inner.byte_to_char(byte_range.start);
+        let end = self.inner.byte_to_char(byte_range.end);
         self.inner.slice(start..end).to_string()
     }
     //TODO: should really be getting a byte or a grapheme(potentially multiple chars(unicode codepoints))
     pub fn char(&self, char_idx: usize) -> char{
         self.inner.char(char_idx)
     }
-    //TODO: should really be getting a byte or a grapheme(potentially multiple chars(unicode codepoints))
-    pub fn get_char(&self, char_idx: usize) -> Option<char>{
-        self.inner.get_char(char_idx)
-    }
-    pub fn chars(&self) -> ropey::iter::Chars<'_>{
-        self.inner.chars()
+    pub fn bytes(&self) -> ropey::iter::Bytes<'_>{
+        self.inner.bytes()
     }
     pub fn write_to<T>(&mut self, writer: T) -> std::io::Result<()>
         where T: std::io::Write
     {
         self.inner.write_to(writer)
     }
-    pub fn byte_to_char(&self, byte_idx: usize) -> usize{
-        self.inner.byte_to_char(byte_idx)
-    }
-    //TODO: char_to_grapheme    //the combo of these two fns could let us assert char indices are aligned to a grapheme
-    //TODO: grapheme_to_char
 
-    /// Returns the count of chars in a line of text.
-    #[must_use] pub fn line_width_chars(&self, line_idx: usize, include_newline: bool) -> usize{
+
+
+    /// Returns the count of bytes in a line of text.
+    #[must_use] pub fn line_width_bytes(&self, line_idx: usize, include_newline: bool) -> usize{
         let mut line_width = 0;
-        for char in self.line(line_idx).chars(){
-            if include_newline || char != '\n'{
+        for byte in self.line(line_idx).bytes(){
+            if include_newline || byte != b'\n'{
                 line_width += 1;
             }
         }
         line_width
     }
-    //TODO?: line_width_bytes
     //TODO?: line_width_graphemes
-    // returns the count of display cells a line of text inhabits
-    pub fn line_width_display_cells(&self, line_idx: usize, include_newline: bool) -> usize{
+    /// Returns the count of display cells a line of text inhabits.
+    /// ```
+    /// # use edit::buffer::Buffer;
+    /// 
+    /// let buffer = Buffer::new("何\nidk\n", None, true);
+    /// assert_eq!(2, buffer.line_width_terminal_cells(0, false), "何");
+    /// assert_eq!(3, buffer.line_width_terminal_cells(0, true), "{:?}", "何\n");
+    /// assert_eq!(3, buffer.line_width_terminal_cells(1, false), "idk");
+    /// assert_eq!(4, buffer.line_width_terminal_cells(1, true), "{:?}", "idk\n");
+    /// assert_eq!(0, buffer.line_width_terminal_cells(2, false), "end of buffer");
+    /// assert_eq!(0, buffer.line_width_terminal_cells(2, true), "end of buffer");
+    /// ```
+    // this may really belong in display_area/display_map since this is more of a visual thing...
+    pub fn line_width_terminal_cells(&self, line_idx: usize, include_newline: bool) -> usize{
         let mut line_width = 0;
         for grapheme in self.line(line_idx).to_string().graphemes(true){
             if include_newline || grapheme != "\n"{
-                //determine grapheme width
-                line_width += 1;    //TODO: += grapheme width
+                //TODO: may need to specially handle "\t"...
+                line_width += unicode_width::UnicodeWidthStr::width(grapheme);
             }
         }
         line_width
     }
 
-    /// Returns the offset of the first non space char from the start of a line of text.
-    #[must_use] pub fn first_non_space_char_offset(&self, line_idx: usize) -> usize{  //-> Option<usize>?
-        let line = self.line(line_idx).to_string();
+    /// Returns the byte offset of the first non space grapheme from the start of a line of text.
+    /// ```
+    /// # use edit::buffer::Buffer;
+    /// 
+    /// let buffer = Buffer::new("  idk\n", None, true);
+    /// assert_eq!(2, buffer.first_non_space_byte_offset(0));   //line, not byte offset
+    /// assert_eq!(0, buffer.first_non_space_byte_offset(1));   //line, not byte offset
+    /// ```
+    // should this be terminal cells, graphemes, or bytes?...
+    #[must_use] pub fn first_non_space_byte_offset(&self, line_idx: usize) -> usize{  //-> Option<usize>?
+        let line = self.line(line_idx);
         if line.is_empty(){return 0;}
-        for (index, char) in line.chars().enumerate(){
-            if char != ' '{return index;}
+        for (i, grapheme) in line.grapheme_indices(true){
+            #[cfg(test) ]println!("grapheme: {:?}, byte: {:?}", grapheme, i);
+            //if grapheme != " "{return i;}
+            if grapheme == " "{continue;}
+            else{return i;}
         }
         0   //if no non space chars, return no offset
     }
 
     /// Returns true if slice contains only spaces.
-    #[must_use] pub fn slice_is_all_spaces(&self, start: usize, end: usize) -> bool{
-        let slice = self.slice(start, end);
-        for char in slice.chars(){
-            if char != ' '{
+    /// ```
+    /// # use edit::buffer::Buffer;
+    /// 
+    /// let buffer = Buffer::new("    idk", None, true);
+    /// assert_eq!(true, buffer.slice_is_all_spaces(0..4));
+    /// assert_eq!(false, buffer.slice_is_all_spaces(2..6));
+    /// assert_eq!(false, buffer.slice_is_all_spaces(4..buffer.len_bytes()));
+    /// ```
+    //TODO?: could take slice: &str instead of byte_range...
+    #[must_use] pub fn slice_is_all_spaces(&self, byte_range: Range<usize>) -> bool{
+        let slice = self.slice(byte_range);
+        for grapheme in slice.graphemes(true){
+            if grapheme != " "{
                 return false;
             }
         }
         true
-    }
-
-    /// Returns the char distance to next multiple of tab width.
-    // should this be visual distance(terminal cells)/graphemes?
-    #[must_use] pub fn distance_to_next_multiple_of_tab_width(
-        &self,
-        selection: &crate::selection::Selection,    //maybe this should take a char_idx instead?...
-        semantics: crate::selection::CursorSemantics, 
-        tab_width: usize
-    ) -> usize{
-        let next_tab_distance = self.offset_from_line_start(selection.cursor(self, semantics)) % tab_width;
-        if next_tab_distance != 0{
-            tab_width.saturating_sub(next_tab_distance)
-        }else{
-            0
-        }
     }
 
     /// Returns the char offset of a given char from the start of a line of text.
@@ -209,71 +250,193 @@ impl Buffer{
     //    point.saturating_sub(line_start)
     //}
     //this should give us offset in terminal cells...
-    #[must_use] pub fn offset_from_line_start(&self, point: usize) -> usize{
-        let line_start = self.line_to_char(self.char_to_line(point));
-        let slice = self.slice(line_start, point);
+    /// ```
+    /// # use edit::buffer::Buffer;
+    /// # use unicode_segmentation::UnicodeSegmentation;
+    /// 
+    /// let text = "何idk";
+    /// let buffer = Buffer::new(text, None, true);
+    /// for grapheme in text.graphemes(true){
+    ///     println!("grapheme: {:?}, byte_count: {}", grapheme, grapheme.bytes().count());
+    /// }
+    /// assert_eq!(0, buffer.offset_from_line_start(0), "first byte of 何");
+    /// assert_eq!(0, buffer.offset_from_line_start(1), "second byte of 何");
+    /// assert_eq!(0, buffer.offset_from_line_start(2), "third byte of 何");
+    /// assert_eq!(2, buffer.offset_from_line_start(3), "i");
+    /// assert_eq!(3, buffer.offset_from_line_start(4), "d");
+    /// assert_eq!(4, buffer.offset_from_line_start(5), "k");
+    /// assert_eq!(5, buffer.offset_from_line_start(6), "out of buffer bounds");    //why does this extra work?...
+    /// //assert_eq!(0, buffer.offset_from_line_start(7), "out of buffer bounds"); //this should panic...and does
+    /// ```
+    #[must_use] pub fn offset_from_line_start(&self, byte_offset: usize) -> usize{
+        //TODO: assert byte_offset is grapheme boundary
+        let line_start = self.line_to_byte(self.byte_to_line(byte_offset));
+        let slice = self.slice(line_start..byte_offset);
         let mut offset: usize = 0;
-        for grapheme in slice.graphemes(true){
+        for (_i, grapheme) in slice.grapheme_indices(true){
             //TODO: maybe need to handle \t specially, since it can be expanded visually...
             offset = offset.saturating_add(unicode_width::UnicodeWidthStr::width(grapheme));
         }
         offset
     }
 
-    //TODO: should this eventually be Option<usize>?, and not saturate at buffer end
-    #[must_use] pub fn next_grapheme_char_index(&self, current_index: usize) -> usize{
-        //let text = self.inner.slice(current_index..).to_string();
-        //let mut grapheme_indices = text.grapheme_indices(true).skip(1);
-        //let diff = match grapheme_indices.next(){
-        //    Some((byte_idx, _str)) => self.inner.byte_to_char(byte_idx),
-        //    None => 1   //+1 to allow for the additional space after text end for new text insertion
-        //};
-        //current_index.saturating_add(diff).min(self.inner.len_chars().saturating_add(1))
-        let sub_string = self.inner.slice(current_index..).to_string();
-        let mut grapheme_indices = sub_string.grapheme_indices(true);
-        let _skip_first = grapheme_indices.next();  //because first would be our current grapheme, and we want the next
-        let char_diff = match grapheme_indices.next(){
-            Some((_byte_idx, str)) => str.chars().count(),
-            None => 1   //+1 to allow for the additional space after text end for new text insertion
-        };
-        let new_char_index = current_index.saturating_add(char_diff);
-        let max_chars = self.inner.len_chars().saturating_add(1);   //+1 to allow for the additional space after text end for new text insertion
-        usize::min(new_char_index, max_chars)
-    }
-    
-    //TODO: should this eventually be Option<usize>?, and not saturate at buffer start
-    #[must_use] pub fn previous_grapheme_char_index(&self, current_index: usize) -> usize{
-        if current_index == self.len_chars().saturating_add(1){return current_index.saturating_sub(1);}
-        //let text = self.inner.slice(..current_index).to_string();
-        //let mut rev_grapheme_indices = text.grapheme_indices(true).rev();
-        //match rev_grapheme_indices.next(){
-        //    Some((byte_idx, _str)) => self.inner.byte_to_char(byte_idx),
-        //    None => 0
+    /// Returns the distance to next tab_stop.
+    /// ```
+    /// # use edit::buffer::Buffer;
+    /// # use unicode_segmentation::UnicodeSegmentation;
+    /// # use unicode_width::UnicodeWidthStr;
+    /// 
+    /// let text = "何idk";
+    /// let buffer = Buffer::new(text, None, true);
+    /// for grapheme in text.graphemes(true){
+    ///     println!("grapheme: {:?}, byte count: {}, grapheme width: {}", grapheme, grapheme.bytes().count(), UnicodeWidthStr::width(grapheme));
+    /// }
+    /// assert_eq!(4, buffer.distance_to_next_tab_stop(0, /*tab_width*/4), "first byte of 何");
+    /// assert_eq!(4, buffer.distance_to_next_tab_stop(1, /*tab_width*/4), "second byte of 何");
+    /// assert_eq!(4, buffer.distance_to_next_tab_stop(2, /*tab_width*/4), "third byte of 何");
+    /// assert_eq!(2, buffer.distance_to_next_tab_stop(3, /*tab_width*/4), "i");
+    /// assert_eq!(1, buffer.distance_to_next_tab_stop(4, /*tab_width*/4), "d");
+    /// assert_eq!(4, buffer.distance_to_next_tab_stop(5, /*tab_width*/4), "k"); //although maybe won't get full tab width because buffer ends...
+    /// assert_eq!(3, buffer.distance_to_next_tab_stop(6, 4), "out of buffer bounds");    //why does this extra work?...
+    /// //assert_eq!(2, buffer.distance_to_next_tab_stop(7, 4), "out of buffer bounds");  //this should panic...and does
+    /// ```
+    // should this be terminal cells, graphemes, or bytes?...
+    #[must_use] pub fn distance_to_next_tab_stop(&self, byte_offset: usize, tab_width: usize) -> usize{
+        let next_tab_distance = self.offset_from_line_start(byte_offset) % tab_width;
+        //if next_tab_distance != 0{
+        //    tab_width.saturating_sub(next_tab_distance)
+        //}else{
+        //    0
         //}
-        let sub_string = self.inner.slice(..current_index).to_string();
-        let mut rev_grapheme_indices = sub_string.grapheme_indices(true).rev();
-        let char_diff = match rev_grapheme_indices.next(){
-            Some((_byte_idx, str)) => str.chars().count(),
-            None => 0
-        };
-        current_index.saturating_sub(char_diff)
+        tab_width.saturating_sub(next_tab_distance)
+    }
+
+    /// ```
+    /// # use edit::buffer::Buffer;
+    /// 
+    /// let buffer = Buffer::new("何 idk\n", None, true);
+    /// assert_eq!(true, buffer.is_grapheme_boundary(0), "first byte of 何");
+    /// assert_eq!(false, buffer.is_grapheme_boundary(1), "second byte of 何");
+    /// assert_eq!(false, buffer.is_grapheme_boundary(2), "third byte of 何");
+    /// assert_eq!(true, buffer.is_grapheme_boundary(3), "{:?}", " ");
+    /// ```
+    //TODO: for repeated checks, maybe cache grapheme boundaries, and update on insert/remove/etc...
+    pub fn is_grapheme_boundary(&self, byte_offset: usize) -> bool{
+        self.slice(0..self.len_bytes())
+            .grapheme_indices(true)
+            .any(|(i, _g)| i == byte_offset)
+    }
+
+    /// ```
+    /// # use edit::buffer::Buffer;
+    /// # use unicode_segmentation::UnicodeSegmentation;
+    /// 
+    /// let text = "何 idk\n";
+    /// let buffer = Buffer::new(text, None, true);
+    /// println!("buffer_text: {:?}", text);
+    /// for grapheme in text.graphemes(true){
+    ///     println!("grapheme: {:?}, grapheme bytes: {:?}", grapheme, grapheme.as_bytes());
+    /// }
+    /// assert_eq!(3, buffer.next_grapheme_boundary_byte_offset(0), "{:?}", "first byte of 何");
+    /// assert_eq!(3, buffer.next_grapheme_boundary_byte_offset(1), "{:?}", "second byte of 何");
+    /// assert_eq!(3, buffer.next_grapheme_boundary_byte_offset(2), "{:?}", "third byte of 何");
+    /// assert_eq!(4, buffer.next_grapheme_boundary_byte_offset(3), "{:?}", " ");
+    /// assert_eq!(5, buffer.next_grapheme_boundary_byte_offset(4), "{:?}", "i");
+    /// assert_eq!(6, buffer.next_grapheme_boundary_byte_offset(5), "{:?}", "d");
+    /// assert_eq!(7, buffer.next_grapheme_boundary_byte_offset(6), "{:?}", "k");
+    /// assert_eq!(8, buffer.next_grapheme_boundary_byte_offset(7), "{:?}", "\n");
+    /// assert_eq!(9, buffer.next_grapheme_boundary_byte_offset(8), "{:?}", "");    //why does this work?...
+    /// //assert_eq!(10, buffer.next_grapheme_boundary_byte_offset(9), "{:?}", "out of buffer bounds"); //this should panic...and does
+    /// ```
+    //TODO: should this eventually be Option<usize>?, and not saturate at buffer end
+    #[must_use] pub fn next_grapheme_boundary_byte_offset(&self, byte_offset: usize) -> usize{  //-> Option<usize>  //then let selections,etc handle buffer overshoot logic
+        //if byte_offset == self.len_bytes(){return None;}  //if we decide to return Option
+        if self.is_grapheme_boundary(byte_offset){  //although, our selections are supposed to always have valid ranges...
+            let sub_string = self.slice(byte_offset..self.len_bytes());
+            let byte_diff = match sub_string.grapheme_indices(true).next(){
+                //can't use _byte_idx directly because we are in a substring of the overall buffer...
+                Some((_byte_idx, grapheme)) => grapheme.bytes().count(),
+                None => 1   //+1 to allow for the additional space after text end for new text insertion    //will change if we return Option
+            };
+            //self.len_bytes()+1 to allow for the additional space after text end for new text insertion    //will change if we return Option
+            usize::min(byte_offset.saturating_add(byte_diff), self.len_bytes().saturating_add(1))
+        }else{  //nudge our offset until we are at a valid grapheme boundary
+            let mut i = byte_offset;
+            //<= self.len_bytes() to allow for the additional space after text end for new text insertion   //will change if we return Option
+            while i <= self.len_bytes() && !self.is_grapheme_boundary(i){
+                i+=1;
+            }
+            i
+        }
     }
     
+    /// ```
+    /// # use edit::buffer::Buffer;
+    /// # use unicode_segmentation::UnicodeSegmentation;
+    /// 
+    /// let text = "\nidk 何";
+    /// let buffer = Buffer::new(text, None, true);
+    /// println!("buffer_text: {:?}", text);
+    /// for grapheme in text.graphemes(true){
+    ///     println!("grapheme: {:?}, grapheme bytes: {:?}", grapheme, grapheme.as_bytes());
+    /// }
+    /// //assert_eq!(9, buffer.previous_grapheme_boundary_byte_offset(10), "out of buffer bounds"); //this should panic...and does
+    /// assert_eq!(8, buffer.previous_grapheme_boundary_byte_offset(9), "{:?}", "");    //why does this work?...
+    /// assert_eq!(5, buffer.previous_grapheme_boundary_byte_offset(8), "{:?}", "third byte of 何");
+    /// assert_eq!(5, buffer.previous_grapheme_boundary_byte_offset(7), "{:?}", "second byte of 何");
+    /// assert_eq!(5, buffer.previous_grapheme_boundary_byte_offset(6), "{:?}", "first byte of 何");
+    /// assert_eq!(4, buffer.previous_grapheme_boundary_byte_offset(5), "{:?}", " ");
+    /// assert_eq!(3, buffer.previous_grapheme_boundary_byte_offset(4), "{:?}", "k");
+    /// assert_eq!(2, buffer.previous_grapheme_boundary_byte_offset(3), "{:?}", "d");
+    /// assert_eq!(1, buffer.previous_grapheme_boundary_byte_offset(2), "{:?}", "i");
+    /// assert_eq!(0, buffer.previous_grapheme_boundary_byte_offset(1), "{:?}", "\n");
+    /// ```
+    //TODO: should this eventually be Option<usize>?, and not saturate at buffer start
+    #[must_use] pub fn previous_grapheme_boundary_byte_offset(&self, byte_offset: usize) -> usize{  //-> Option<usize>  //then let selections,etc handle buffer overshoot logic
+        if byte_offset == self.len_bytes().saturating_add(1){return byte_offset.saturating_sub(1);}
+        if self.is_grapheme_boundary(byte_offset){  //although, our selections are supposed to always have valid ranges...
+            let sub_string = self.slice(0..byte_offset);
+            let byte_diff = match sub_string.grapheme_indices(true).rev().next(){
+                Some((_byte_idx, grapheme)) => grapheme.bytes().count(),
+                None => 0
+            };
+            byte_offset.saturating_sub(byte_diff)
+        }else{  //nudge our offset until we are at a valid grapheme boundary
+            let mut i = byte_offset;
+            while !self.is_grapheme_boundary(i){
+                i-=1;
+            }
+            i
+        }
+    }
+    
+
     /// Returns the index of the next word boundary
-    #[must_use] pub fn next_word_boundary(&self, current_position: usize) -> usize{   //should this be Option<usize>?
+    /// ```
+    /// # use edit::buffer::Buffer;
+    /// 
+    /// let buffer = Buffer::new("idk some\nshit\n", None, true);
+    /// assert_eq!(3, buffer.next_word_end_boundary(0), "from 0 to end of {:?}", "idk");
+    /// assert_eq!(8, buffer.next_word_end_boundary(3), "from end of {:?} to end of {:?}", "idk", "some");
+    /// assert_eq!(13, buffer.next_word_end_boundary(8), "from end of {:?} to end of {:?}", "some", "shit");
+    /// assert_eq!(14, buffer.next_word_end_boundary(13), "from end of {:?} to end of buffer", "shit");
+    /// assert_eq!(14, buffer.next_word_end_boundary(14), "currently saturates, but may return None instead...");
+    /// ```
+    //TODO: these next two functions rely on char, and shouldn't, if possible
+    #[must_use] pub fn next_word_end_boundary(&self, current_position: usize) -> usize{   //should this be Option<usize>?   //then let selections,etc handle buffer overshoot logic
         // if current_position == text.len_chars(){return None;}
         
         let mut index = current_position;
     
         // Skip any leading whitespace
-        while index < self.len_chars() && is_whitespace(self.inner.char(index)){
-            index = self.next_grapheme_char_index(index);
+        while index < self.len_bytes() && is_whitespace(self.char(index)){
+            index = self.next_grapheme_boundary_byte_offset(index);
         }
     
         // Skip to end of word chars, if any
         let mut found_word_char = false;
-        while index < self.len_chars() && is_word_char(self.inner.char(index)){
-            index = self.next_grapheme_char_index(index);
+        while index < self.len_bytes() && is_word_char(self.char(index)){
+            index = self.next_grapheme_boundary_byte_offset(index);
             found_word_char = true;
         }
     
@@ -286,43 +449,52 @@ impl Buffer{
         //    }
         //}
         if !found_word_char
-        && index < self.len_chars()
-        && !is_word_char(self.inner.char(index))
-        && !is_whitespace(self.inner.char(index)){
-            index = self.next_grapheme_char_index(index);
+        && index < self.len_bytes()
+        && !is_word_char(self.char(index))
+        && !is_whitespace(self.char(index)){
+            index = self.next_grapheme_boundary_byte_offset(index);
         }
     
-        if index < self.len_chars(){
+        if index < self.len_bytes(){
             index
         }else{
-            self.len_chars()
+            self.len_bytes()
         }
     }
     
     /// Returns the index of the previous word boundary
-    #[must_use] pub fn previous_word_boundary(&self, current_position: usize) -> usize{   //should this be Option<usize>?
+    /// ```
+    /// # use edit::buffer::Buffer;
+    /// 
+    /// let buffer = Buffer::new("idk some\nshit\n", None, true);
+    /// assert_eq!(9, buffer.previous_word_start_boundary(14), "from end of buffer to start of {:?}", "shit");
+    /// assert_eq!(4, buffer.previous_word_start_boundary(9), "from start of {:?} to start of {:?}", "shit", "some");
+    /// assert_eq!(0, buffer.previous_word_start_boundary(4), "from start of {:?} to start of {:?}", "some", "idk");
+    /// assert_eq!(0, buffer.previous_word_start_boundary(0), "currently saturates, but may return None instead...");
+    /// ```
+    #[must_use] pub fn previous_word_start_boundary(&self, current_position: usize) -> usize{   //should this be Option<usize>?   //then let selections,etc handle buffer overshoot logic
         // if current_position == 0{return None;}
         
         let mut index = current_position;
     
         // Skip any trailing whitespace
-        while index > 0 && is_whitespace(self.inner.char(self.previous_grapheme_char_index(index))){
-            index = self.previous_grapheme_char_index(index);
+        while index > 0 && is_whitespace(self.char(self.previous_grapheme_boundary_byte_offset(index))){
+            index = self.previous_grapheme_boundary_byte_offset(index);
         }
     
         // Skip to start of word chars, if any
         let mut found_word_char = false;
-        while index > 0 && is_word_char(self.inner.char(self.previous_grapheme_char_index(index))){
-            index = self.previous_grapheme_char_index(index);
+        while index > 0 && is_word_char(self.char(self.previous_grapheme_boundary_byte_offset(index))){
+            index = self.previous_grapheme_boundary_byte_offset(index);
             found_word_char = true;
         }
     
         // if no word chars, set index before next single non word char
         if !found_word_char{    //&& !found_whitespace
             if index > 0
-            && !is_word_char(self.inner.char(self.previous_grapheme_char_index(index))) 
-            && !is_whitespace(self.inner.char(self.previous_grapheme_char_index(index))){
-                index = self.previous_grapheme_char_index(index);
+            && !is_word_char(self.char(self.previous_grapheme_boundary_byte_offset(index))) 
+            && !is_whitespace(self.char(self.previous_grapheme_boundary_byte_offset(index))){
+                index = self.previous_grapheme_boundary_byte_offset(index);
             }
         }
     
@@ -331,119 +503,6 @@ impl Buffer{
         }else{
             0
         }
-    }
-
-
-    //TODO: maybe these apply methods should be impled in application.rs, take a &mut App, handle multiple selections, and handle pushing to history...
-    //or impl that and support with apply_replace_single, for single selection, and error if in some invalid state
-    // TODO: test. should test rope is edited correctly and selection is moved correctly, not necessarily the returned change. behavior, not impl
-    pub fn apply_replace(
-        &mut self, 
-        replacement_text: &str, 
-        selection: &mut Selection, 
-        semantics: CursorSemantics
-    ) -> Change{ //TODO: Error if replacement_text is empty(or if selection empty? is this possible?)
-        let old_selection = selection.clone();
-        let delete_change = self.apply_delete(selection, semantics.clone());
-        let replaced_text = if let Operation::Insert{inserted_text} = delete_change.inverse(){inserted_text}else{unreachable!();};  // inverse of delete change should always be insert
-        let _ = self.apply_insert(replacement_text, selection, semantics.clone());   //intentionally discard returned Change
-
-        Change::new(
-            Operation::Replace{replacement_text: replacement_text.to_string()}, 
-            old_selection, 
-            selection.clone(), 
-            Operation::Replace{replacement_text: replaced_text}
-        )
-    }
-    // TODO: test. should test rope is edited correctly and selection is moved correctly, not necessarily the returned change. behavior, not impl
-    //TODO: string lengths need to use char count, not length in bytes
-    pub fn apply_insert(
-        &mut self, 
-        string: &str, 
-        selection: &mut Selection, 
-        semantics: CursorSemantics
-    ) -> Change{    //TODO: Error if string is empty
-        let old_selection = selection.clone();
-        //self.insert(selection.cursor(self, semantics.clone()), string);
-        self.inner.insert(selection.cursor(self, semantics.clone()), string);
-        //for _ in 0..string.len(){
-        for _ in 0..string.chars().count(){
-            if let Ok(new_selection) = crate::selection::move_cursor_right(selection, 1, self, None, semantics.clone()){
-                *selection = new_selection;
-            }
-        }
-
-        Change::new(
-            Operation::Insert{inserted_text: string.to_string()}, 
-            old_selection, 
-            selection.clone(), 
-            Operation::Delete
-        )
-    }
-    // TODO: test. should test rope is edited correctly and selection is moved correctly, not necessarily the returned change. behavior, not impl
-    pub fn apply_delete(
-        &mut self, 
-        selection: &mut Selection, 
-        semantics: CursorSemantics
-    ) -> Change{  //TODO: Error if cursor and anchor at end of text
-        use std::cmp::Ordering;
-        
-        let old_selection = selection.clone();
-        let original_text = self.clone();
-
-        let (start, end, new_cursor) = match selection.cursor(self, semantics.clone()).cmp(&selection.anchor()){
-            Ordering::Less => {
-                (selection.head(), selection.anchor(), selection.cursor(self, semantics.clone()))
-            }
-            Ordering::Greater => {
-                match semantics{
-                    CursorSemantics::Bar => {
-                        (selection.anchor(), selection.head(), selection.anchor())
-                    }
-                    CursorSemantics::Block => {
-                        if selection.cursor(self, semantics.clone()) == self.len_chars(){
-                            (selection.anchor(), selection.cursor(self, semantics.clone()), selection.anchor())
-                        }else{
-                            (selection.anchor(), selection.head(), selection.anchor())
-                        }
-                    }
-                }
-            }
-            Ordering::Equal => {
-                if selection.cursor(self, semantics.clone()) == self.len_chars(){ //do nothing    //or preferrably return error   //could have condition check in calling fn
-                    return Change::new(
-                        Operation::Delete, 
-                        old_selection, 
-                        selection.clone(), 
-                        Operation::Insert{inserted_text: String::new()}
-                    );   //change suggested by clippy lint
-                }
-                
-                match semantics.clone(){
-                    CursorSemantics::Bar => {
-                        (selection.head(), selection.head().saturating_add(1), selection.anchor())
-                    }
-                    CursorSemantics::Block => {
-                        (selection.anchor(), selection.head(), selection.anchor())
-                    }
-                }
-            }
-        };
-
-        let change_text = original_text.slice(start, end);
-        //buffer.remove(start..end);
-        //self.remove(start, end);
-        self.inner.remove(start..end);
-        if let Ok(new_selection) = selection.put_cursor(new_cursor, &original_text, crate::selection::Movement::Move, semantics, true){
-            *selection = new_selection;
-        }
-
-        Change::new(
-            Operation::Delete, 
-            old_selection, 
-            selection.clone(), 
-            Operation::Insert{inserted_text: change_text.to_string()}
-        )
     }
 }
 impl std::fmt::Display for Buffer{
@@ -455,7 +514,6 @@ impl std::fmt::Display for Buffer{
 fn is_word_char(char: char) -> bool{
     char.is_alphabetic() || char.is_numeric()/* || char == '_'*/
 }
-
 fn is_whitespace(char: char) -> bool{
     char == ' ' || char == '\t' || char == '\n'
 }
@@ -467,6 +525,8 @@ mod tests{
     #[test] fn verify_unicode_width_behaves_as_expected(){
         assert_eq!(1, "a̐".width());
         assert_eq!(1, "\r\n".width());
+        assert_eq!(2, "何".width());
+        assert_eq!(2, "🏴‍☠️".width());    //can any single grapheme be wider than 2?...
         //TODO: zero width grapheme
         //TODO: wide grapheme
     }

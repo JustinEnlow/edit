@@ -101,7 +101,11 @@ use crate::tests::edit_actions::test_edit_action;
         Mode::Insert, 
         "idk⏎\nsome\nshit\n", 
         vec![
-            Selection::new_unchecked(4..5, None, 4)
+            //Selection::new_unchecked(4..5, None, 4)
+            //01236 7               //bytes
+            //idk⏎\nsome\nshit\n
+            //01234 0               //line offset
+            Selection::new_unchecked(6..7, None, 4)
         ], 
         0, 
         ""
@@ -128,7 +132,11 @@ use crate::tests::edit_actions::test_edit_action;
         Mode::Insert, 
         "⏎\nsome\nshit\n", 
         vec![
-            Selection::new_unchecked(1..2, None, 1)   //although, i am considering having selections after replacement be equivalent to before, with replacement text still selected...
+            //Selection::new_unchecked(1..2, None, 1)   //although, i am considering having selections after replacement be equivalent to before, with replacement text still selected...
+            //03 456            //bytes
+            //⏎\nsome\nshit\n
+            //01 23             //line offset
+            Selection::new_unchecked(3..4, None, 1)
         ], 
         0, 
         ""

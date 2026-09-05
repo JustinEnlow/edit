@@ -163,8 +163,30 @@ use crate::tests::selection_actions::test_selection_action;
         0
     );
 }
-#[ignore] #[test] fn works_with_non_alphanumeric_graphemes(){
-    todo!()
+/*#[ignore] */#[test] fn works_with_non_alphanumeric_graphemes(){
+    //todo!()
+    test_selection_action(
+        Config{
+            semantics: Block, 
+            use_full_file_path: false, 
+            use_hard_tab: false, 
+            tab_width: 4, 
+            view_scroll_amount: 1, 
+            show_cursor_column: false, 
+            show_cursor_line: false,
+            keybinds: default_keybinds()
+        }, 
+        ExtendSelectionWordBoundaryBackward, 
+        false, false, 
+        DisplayArea{horizontal_start: 0, vertical_start: 0, width: 80, height: 50}, 
+        "何idk", 
+        vec![Selection::new_unchecked(3..4, None, 3)], 
+        0, 
+        1, 
+        Mode::Insert, 
+        vec![Selection::new_unchecked(0..4, Some(Direction::Backward), 0)], 
+        0
+    );
 }
 
 

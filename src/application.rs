@@ -62,6 +62,7 @@ pub struct Application{
     pub undo_stack: Vec<ChangeSet>,   //maybe have separate buffer and selections undo/redo stacks?...
     pub redo_stack: Vec<ChangeSet>,
     pub selections: Selections,
+    //TODO: we should prob use system clipboard for this, and have registers for purely internal cut/copy/paste data
     pub clipboard: String,
 }
 impl Application{
@@ -84,19 +85,19 @@ impl Application{
             redo_stack: Vec::new(),
             selections: Selections::new(
                 vec![
-                    Selection::new_from_range(
-                        match config.semantics.clone(){
-                            CursorSemantics::Bar => /*Range::new(0, 0)*/0..0,
-                            CursorSemantics::Block => /*Range::new(0, buffer.next_grapheme_char_index(0))*/0..buffer.next_grapheme_char_index(0)
+                    Selection::new(
+                        match config.semantics{
+                            CursorSemantics::Bar => 0..0,
+                            CursorSemantics::Block => 0..buffer.next_grapheme_boundary_byte_offset(0)
                         },
                         None, 
                         &buffer, 
-                        config.semantics.clone()
+                        config.semantics
                     )
                 ], 
                 0, 
                 &buffer, 
-                config.semantics.clone()
+                config.semantics
             ),
             buffer_horizontal_start: 0,
             buffer_vertical_start: 0,
@@ -173,11 +174,11 @@ impl Application{
     }
     /// Set only data related to selections in document viewport UI.
     fn update_ui_data_selections(&mut self){
-        self.ui.document_viewport.highlighter.primary_cursor = self.buffer_display_area().primary_cursor_position(&self.buffer, &self.selections, self.config.semantics.clone());
-        self.ui.document_viewport.highlighter.cursors = self.buffer_display_area().cursor_positions(&self.buffer, &self.selections, self.config.semantics.clone());
+        self.ui.document_viewport.highlighter.primary_cursor = self.buffer_display_area().primary_cursor_position(&self.buffer, &self.selections, self.config.semantics);
+        self.ui.document_viewport.highlighter.cursors = self.buffer_display_area().cursor_positions(&self.buffer, &self.selections, self.config.semantics);
         self.ui.document_viewport.highlighter.selections = self.buffer_display_area().selections(&self.selections, &self.buffer);
         self.ui.status_bar.selections_widget.text = format!("selections: {}/{}", &self.selections.primary_selection_index() + 1, &self.selections.count());
-        let cursor_position = &self.selections.primary.selection_to_selection2d(&self.buffer, self.config.semantics.clone()).head().clone();
+        let cursor_position = &self.selections.primary.selection_to_selection2d(&self.buffer, self.config.semantics).head().clone();
         self.ui.status_bar.cursor_position_widget.text = format!("cursor: {}:{}", cursor_position.y + 1, cursor_position.x + 1)
     }
     fn update_ui_data_mode(&mut self){self.ui.status_bar.mode_widget.text = format!("{:?}: {:#?}", self.mode(), self.mode_stack.len());}
@@ -185,8 +186,8 @@ impl Application{
     fn update_ui_data_util_bar(&mut self){
         let text_box = &self.ui.util_bar.utility_widget.text_box;
         let text_box_display_area = self.text_box_display_area();
-        if text_box_display_area.should_scroll(&text_box.selection, &text_box.buffer, self.config.semantics.clone()){
-            let DisplayArea{horizontal_start, vertical_start, width: _width, height: _height} = text_box_display_area.scroll_following_cursor(&text_box.selection, &text_box.buffer, self.config.semantics.clone());
+        if text_box_display_area.should_scroll(&text_box.selection, &text_box.buffer, self.config.semantics){
+            let DisplayArea{horizontal_start, vertical_start, width: _width, height: _height} = text_box_display_area.scroll_following_cursor(&text_box.selection, &text_box.buffer, self.config.semantics);
             self.ui.util_bar.utility_widget.text_box.display_area_horizontal_start = horizontal_start;
             self.ui.util_bar.utility_widget.text_box.display_area_vertical_start = vertical_start;
         }//else{/*keep current view*/}
@@ -194,17 +195,17 @@ impl Application{
         let text_box = &self.ui.util_bar.utility_widget.text_box;
         let text_box_display_area = self.text_box_display_area();
         let selections = Selections::new(
-            vec![text_box.selection.clone()], 0, &text_box.buffer, self.config.semantics.clone()
+            vec![text_box.selection.clone()], 0, &text_box.buffer, self.config.semantics
         );
         self.ui.util_bar.highlighter.selection = text_box_display_area.selections(&selections, &text_box.buffer).first().cloned();
-        self.ui.util_bar.highlighter.cursor = text_box_display_area.primary_cursor_position(&text_box.buffer, &selections, self.config.semantics.clone());
+        self.ui.util_bar.highlighter.cursor = text_box_display_area.primary_cursor_position(&text_box.buffer, &selections, self.config.semantics);
     }
     fn checked_scroll_and_update<F, A>(&mut self, cursor_to_follow: &Selection, scroll_response_fn: F, non_scroll_response_fn: A)
         where F: Fn(&mut Application), A: Fn(&mut Application)
     {
         let buffer = &self.buffer;
-        if self.buffer_display_area().should_scroll(cursor_to_follow, buffer, self.config.semantics.clone()){
-            let DisplayArea{horizontal_start, vertical_start, width: _width, height: _height} = self.buffer_display_area().scroll_following_cursor(cursor_to_follow, buffer, self.config.semantics.clone());
+        if self.buffer_display_area().should_scroll(cursor_to_follow, buffer, self.config.semantics){
+            let DisplayArea{horizontal_start, vertical_start, width: _width, height: _height} = self.buffer_display_area().scroll_following_cursor(cursor_to_follow, buffer, self.config.semantics);
             self.buffer_horizontal_start = horizontal_start;
             self.buffer_vertical_start = vertical_start;
             scroll_response_fn(self);
@@ -1092,7 +1093,6 @@ impl Application{
                         self.layout();
                         self.update_ui_data_document();
                     }
-                    //could become a command: evaluate_command %val{selection}
                     EditorAction::EvaluateSelectionAsCommand => {
                         if self.mode() != Mode::Insert{pop_to_insert(self);}    //handle insert fallthrough
                         //TODO: figure out best way to handle multiple selections...
@@ -1119,6 +1119,10 @@ impl Application{
                         if self.mode() != Mode::Insert{pop_to_insert(self);}    //handle insert fallthrough
                         //TODO: figure out best way to handle multiple selections...
                         if self.selections.count() > 1{
+                            //or, if all selections' content is the same, we could increment the primary selection
+                            //and maybe a shift+evaluate_selection_as_look_object to decrement primary selection
+                            //all instances would still remain selected
+                            //if an instance has been removed, then only inc/dec primary in remaining instances?...
                             handle_application_error(self, ApplicationError::SelectionsError(SelectionsError::MultipleSelections));
                         }else{
                             //expand selection, if not extended
@@ -1131,7 +1135,8 @@ impl Application{
                             let current_primary = &self.selections.primary;
                             let input = &self.selections.primary.to_string(&self.buffer);
                             let input = input.trim();   //handle calling with '\n' or ' '. should not be necessary when .is_extended() checked...
-                            match search(input, &self.buffer, self.config.semantics.clone()){
+                            //TODO: this will currently resolve a regex(if that is our selection), and not just do an exact text search. this is prob not ideal...
+                            match search(input, &self.buffer, self.config.semantics){
                                 Err(error) => handle_application_error(self, ApplicationError::SelectionsError(error)),
                                 Ok(mut new_selections) => {
                                     //figure out new primary selection here, so that we don't pollute search fn with the idea that this needs to always happen
@@ -1139,12 +1144,10 @@ impl Application{
                                     //there is prob a more efficient way to accomplish this
                                     for (i, new_selection) in new_selections.clone().iter().enumerate(){
                                         if new_selection.range == current_primary.range{
-                                            new_selections = Selections::new(new_selections.flatten(), i, &self.buffer, self.config.semantics.clone());
+                                            new_selections = Selections::new(new_selections.flatten(), i, &self.buffer, self.config.semantics);
                                         }
                                     }
-                                    //TODO: this is failing to trigger because stored line offset in new_selections is None.
-                                    //when we transition to sum_tree style buffer, stored_line_offset will not be part of Selection,
-                                    //and instead be part of DisplayMap, so this should be resolved
+                                    //TODO: maybe same_state selections should be checked in search impl
                                     if new_selections == self.selections{handle_application_error(self, ApplicationError::SelectionsError(SelectionsError::ResultsInSameState));}
                                     else{
                                         self.selections = new_selections;
@@ -1161,54 +1164,53 @@ impl Application{
                 }
             }
             Action::SelectionAction(selection_action, count) => {
-                //use crate::utilities::*;
                 //possible modes are Insert and Object + any mode with fallthrough to insert
                 assert!(matches!(self.mode(), Mode::Insert | Mode::Object | Mode::Warning | Mode::Notify | Mode::Info));
                 enum SelectionToFollow{Primary,First,Last}
 
                 let (result, selection_to_follow) = match selection_action{
-                    SelectionAction::MoveCursorUp => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), selection::move_cursor_up), SelectionToFollow::Primary)}
-                    SelectionAction::MoveCursorDown => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), selection::move_cursor_down), SelectionToFollow::Primary)}
-                    SelectionAction::MoveCursorLeft => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), selection::move_cursor_left), SelectionToFollow::Primary)}
-                    SelectionAction::MoveCursorRight => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), selection::move_cursor_right), SelectionToFollow::Primary)}
-                    SelectionAction::MoveCursorWordBoundaryForward => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), selection::move_cursor_word_boundary_forward), SelectionToFollow::Primary)}
-                    SelectionAction::MoveCursorWordBoundaryBackward => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), selection::move_cursor_word_boundary_backward), SelectionToFollow::Primary)}
-                    SelectionAction::MoveCursorLineEnd => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), selection::move_cursor_line_end), SelectionToFollow::Primary)}
-                    SelectionAction::MoveCursorHome => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), selection::move_cursor_home), SelectionToFollow::Primary)}
-                    SelectionAction::MoveCursorBufferStart => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), selection::move_cursor_buffer_start), SelectionToFollow::Primary)}
-                    SelectionAction::MoveCursorBufferEnd => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), selection::move_cursor_buffer_end), SelectionToFollow::Primary)}
-                    SelectionAction::MoveCursorPageUp => {(self.selections.move_selection(count, &self.buffer, Some(&self.buffer_display_area()), self.config.semantics.clone(), selection::move_cursor_page_up), SelectionToFollow::Primary)}
-                    SelectionAction::MoveCursorPageDown => {(self.selections.move_selection(count, &self.buffer, Some(&self.buffer_display_area()), self.config.semantics.clone(), selection::move_cursor_page_down), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionUp => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), selection::extend_selection_up), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionDown => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), selection::extend_selection_down), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionLeft => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), selection::extend_selection_left), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionRight => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), selection::extend_selection_right), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionWordBoundaryBackward => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), selection::extend_selection_word_boundary_backward), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionWordBoundaryForward => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics.clone(), selection::extend_selection_word_boundary_forward), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionLineEnd => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), selection::extend_selection_line_end), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionHome => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), selection::extend_selection_home), SelectionToFollow::Primary)}                    
-                    SelectionAction::ExtendSelectionBufferStart => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), selection::extend_selection_buffer_start), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionBufferEnd => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), selection::extend_selection_buffer_end), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionPageUp => {(self.selections.move_selection(count, &self.buffer, Some(&self.buffer_display_area()), self.config.semantics.clone(), selection::extend_selection_page_up), SelectionToFollow::Primary)}
-                    SelectionAction::ExtendSelectionPageDown => {(self.selections.move_selection(count, &self.buffer, Some(&self.buffer_display_area()), self.config.semantics.clone(), selection::extend_selection_page_down), SelectionToFollow::Primary)}                    
-                    SelectionAction::SelectLine => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics.clone(), selection::select_line), SelectionToFollow::Primary)}
-                    SelectionAction::SelectAll => {(self.selections.move_cursor_clearing_non_primary(&self.buffer, self.config.semantics.clone(), selection::select_all), SelectionToFollow::Primary)}
-                    SelectionAction::CollapseSelectionToAnchor => {(self.selections.move_cursor_non_overlapping(&self.buffer, self.config.semantics.clone(), selection::collapse_selection_to_anchor), SelectionToFollow::Primary)}
-                    SelectionAction::CollapseSelectionToCursor => {(self.selections.move_cursor_non_overlapping(&self.buffer, self.config.semantics.clone(), selection::collapse_selection_to_cursor), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorUp => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics, selection::move_cursor_up), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorDown => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics, selection::move_cursor_down), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorLeft => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics, selection::move_cursor_left), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorRight => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics, selection::move_cursor_right), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorWordBoundaryForward => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics, selection::move_cursor_word_boundary_forward), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorWordBoundaryBackward => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics, selection::move_cursor_word_boundary_backward), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorLineEnd => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics, selection::move_cursor_line_end), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorHome => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics, selection::move_cursor_home), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorBufferStart => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics, selection::move_cursor_buffer_start), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorBufferEnd => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics, selection::move_cursor_buffer_end), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorPageUp => {(self.selections.move_selection(count, &self.buffer, Some(&self.buffer_display_area()), self.config.semantics, selection::move_cursor_page_up), SelectionToFollow::Primary)}
+                    SelectionAction::MoveCursorPageDown => {(self.selections.move_selection(count, &self.buffer, Some(&self.buffer_display_area()), self.config.semantics, selection::move_cursor_page_down), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionUp => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics, selection::extend_selection_up), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionDown => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics, selection::extend_selection_down), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionLeft => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics, selection::extend_selection_left), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionRight => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics, selection::extend_selection_right), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionWordBoundaryBackward => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics, selection::extend_selection_word_boundary_backward), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionWordBoundaryForward => {(self.selections.move_selection(count, &self.buffer, None, self.config.semantics, selection::extend_selection_word_boundary_forward), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionLineEnd => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics, selection::extend_selection_line_end), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionHome => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics, selection::extend_selection_home), SelectionToFollow::Primary)}                    
+                    SelectionAction::ExtendSelectionBufferStart => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics, selection::extend_selection_buffer_start), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionBufferEnd => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics, selection::extend_selection_buffer_end), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionPageUp => {(self.selections.move_selection(count, &self.buffer, Some(&self.buffer_display_area()), self.config.semantics, selection::extend_selection_page_up), SelectionToFollow::Primary)}
+                    SelectionAction::ExtendSelectionPageDown => {(self.selections.move_selection(count, &self.buffer, Some(&self.buffer_display_area()), self.config.semantics, selection::extend_selection_page_down), SelectionToFollow::Primary)}                    
+                    SelectionAction::SelectLine => {(self.selections.move_cursor_potentially_overlapping(&self.buffer, self.config.semantics, selection::select_line), SelectionToFollow::Primary)}
+                    SelectionAction::SelectAll => {(self.selections.move_cursor_clearing_non_primary(&self.buffer, self.config.semantics, selection::select_all), SelectionToFollow::Primary)}
+                    SelectionAction::CollapseSelectionToAnchor => {(self.selections.move_cursor_non_overlapping(&self.buffer, self.config.semantics, selection::collapse_selection_to_anchor), SelectionToFollow::Primary)}
+                    SelectionAction::CollapseSelectionToCursor => {(self.selections.move_cursor_non_overlapping(&self.buffer, self.config.semantics, selection::collapse_selection_to_cursor), SelectionToFollow::Primary)}
                     SelectionAction::ClearNonPrimarySelections => {(selections::clear_non_primary_selections(&self.selections), SelectionToFollow::Primary)}
-                    SelectionAction::AddSelectionAbove => {(selections::add_selection_above(&self.selections, &self.buffer, self.config.semantics.clone()), SelectionToFollow::First)}
-                    SelectionAction::AddSelectionBelow => {(selections::add_selection_below(&self.selections, &self.buffer, self.config.semantics.clone()), SelectionToFollow::Last)}
+                    SelectionAction::AddSelectionAbove => {(selections::add_selection_above(&self.selections, &self.buffer, self.config.semantics), SelectionToFollow::First)}
+                    SelectionAction::AddSelectionBelow => {(selections::add_selection_below(&self.selections, &self.buffer, self.config.semantics), SelectionToFollow::Last)}
                     SelectionAction::RemovePrimarySelection => {(selections::remove_primary_selection(&self.selections), SelectionToFollow::Primary)}
                     SelectionAction::IncrementPrimarySelection => {(selections::increment_primary_selection(&self.selections), SelectionToFollow::Primary)}
                     SelectionAction::DecrementPrimarySelection => {(selections::decrement_primary_selection(&self.selections), SelectionToFollow::Primary)}
-                    SelectionAction::Surround => {(selections::surround(&self.selections, &self.buffer, self.config.semantics.clone()), SelectionToFollow::Primary)},
-                    SelectionAction::FlipDirection => {(self.selections.move_cursor_non_overlapping(&self.buffer, self.config.semantics.clone(), selection::flip_direction), SelectionToFollow::Primary)},
+                    SelectionAction::Surround => {(selections::surround(&self.selections, &self.buffer, self.config.semantics), SelectionToFollow::Primary)},
+                    SelectionAction::FlipDirection => {(self.selections.move_cursor_non_overlapping(&self.buffer, self.config.semantics, selection::flip_direction), SelectionToFollow::Primary)},
                 
                         //These may technically be distinct from the other selection actions, because they could be called from object mode, and would need to pop the mode stack after calling...
                         //TODO: SelectionAction::Word => {self.document.word()}
                         //TODO: SelectionAction::Sentence => {self.document.sentence()}
                         //TODO: SelectionAction::Paragraph => {self.document.paragraph()}
-                    SelectionAction::SurroundingPair => {(selections::nearest_surrounding_pair(&self.selections, &self.buffer, self.config.semantics.clone()), SelectionToFollow::Primary)}  //TODO: rename SurroundingBracketPair
+                    SelectionAction::SurroundingPair => {(selections::nearest_surrounding_pair(&self.selections, &self.buffer, self.config.semantics), SelectionToFollow::Primary)}  //TODO: rename SurroundingBracketPair
                         //TODO: SelectionAction::QuotePair => {self.document.nearest_quote_pair()}                      //TODO: rename SurroundingQuotePair
                         //TODO: SelectionAction::ExclusiveSurroundingPair => {self.document.exclusive_surrounding_pair()}
                         //TODO: SelectionAction::InclusiveSurroundingPair => {self.document.inclusive_surrounding_pair()}
@@ -1253,7 +1255,7 @@ impl Application{
                         // check if any selection is outside of view
                         let mut selection_out_of_view = false;
                         for selection in self.selections.iter(){
-                            if self.buffer_display_area().should_scroll(selection, &self.buffer, self.config.semantics.clone()){
+                            if self.buffer_display_area().should_scroll(selection, &self.buffer, self.config.semantics){
                                 selection_out_of_view = true;
                             }
                         }
@@ -1277,16 +1279,16 @@ impl Application{
                 if self.buffer.read_only{handle_message(self, READ_ONLY_BUFFER_DISPLAY_MODE, READ_ONLY_BUFFER);}
                 else{
                     let result = match edit_action{
-                        EditAction::InsertChar(c) => insert_string(self, &c.to_string(), self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
-                        EditAction::InsertNewline => insert_string(self, "\n", self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
-                        EditAction::InsertTab => insert_string(self, "\t", self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
-                        EditAction::Delete => delete(self, self.config.semantics.clone()),
-                        EditAction::Backspace => backspace(self, self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
-                        EditAction::Cut => cut(self, self.config.semantics.clone()),
-                        EditAction::Paste => paste(self, self.config.use_hard_tab, self.config.tab_width, self.config.semantics.clone()),
-                        EditAction::Undo => undo(self, self.config.semantics.clone()),   // TODO: undo takes a long time to undo when whole text deleted. see if this can be improved
-                        EditAction::Redo => redo(self, self.config.semantics.clone()),
-                        EditAction::AddSurround(l, t) => add_surrounding_pair(self, l, t, self.config.semantics.clone()),
+                        EditAction::InsertChar(c) => insert_string(self, &c.to_string(), self.config.use_hard_tab, self.config.tab_width, self.config.semantics),
+                        EditAction::InsertNewline => insert_string(self, "\n", self.config.use_hard_tab, self.config.tab_width, self.config.semantics),
+                        EditAction::InsertTab => insert_string(self, "\t", self.config.use_hard_tab, self.config.tab_width, self.config.semantics),
+                        EditAction::Delete => delete(self, self.config.semantics),
+                        EditAction::Backspace => backspace(self, self.config.use_hard_tab, self.config.tab_width, self.config.semantics),
+                        EditAction::Cut => cut(self, self.config.semantics),
+                        EditAction::Paste => paste(self, self.config.use_hard_tab, self.config.tab_width, self.config.semantics),
+                        EditAction::Undo => undo(self, self.config.semantics),   // TODO: undo takes a long time to undo when whole text deleted. see if this can be improved
+                        EditAction::Redo => redo(self, self.config.semantics),
+                        EditAction::AddSurround(l, t) => add_surrounding_pair(self, l, t, self.config.semantics),
                     };
                     match result{
                         Ok(()) => {
@@ -1317,7 +1319,7 @@ impl Application{
                             // check if any selection is outside of view
                             let mut selection_out_of_view = false;
                             for selection in self.selections.iter(){
-                                if self.buffer_display_area().should_scroll(selection, &self.buffer, self.config.semantics.clone()){
+                                if self.buffer_display_area().should_scroll(selection, &self.buffer, self.config.semantics){
                                     selection_out_of_view = true;
                                 }
                             }
@@ -1336,14 +1338,13 @@ impl Application{
                 }
             }
             Action::ViewAction(view_action) => {
-                //use crate::utilities::*;
                 //possible modes are Insert and View + any mode with fallthrough to insert
                 assert!(matches!(self.mode(), Mode::Insert | Mode::View | Mode::Warning | Mode::Notify | Mode::Info));
                 let mut should_exit = false;
                 let result = match view_action{
                     ViewAction::CenterVerticallyAroundCursor => {
                         should_exit = true;
-                        display_area::center_view_vertically_around_cursor(&self.buffer_display_area(), &self.selections.primary, &self.buffer, self.config.semantics.clone())
+                        display_area::center_view_vertically_around_cursor(&self.buffer_display_area(), &self.selections.primary, &self.buffer, self.config.semantics)
                     }
                     ViewAction::ScrollUp => {
                         display_area::scroll_view_up(&self.buffer_display_area(), self.config.view_scroll_amount)
@@ -1392,15 +1393,17 @@ impl Application{
                     UtilAction::MoveLeft => text_box.move_cursor_left(),
                     UtilAction::MoveRight => text_box.move_cursor_right(),
                     UtilAction::Cut => {
-                        self.clipboard = text_box.buffer.slice(text_box.selection.range.start, text_box.selection.range.end).to_string();
+                        self.clipboard = text_box.buffer.slice(text_box.selection.range.start..text_box.selection.range.end);//.to_string();
                         text_box.delete();
                     }
-                    UtilAction::Copy => {self.clipboard = text_box.buffer.slice(text_box.selection.range.start, text_box.selection.range.end).to_string();}
+                    UtilAction::Copy => {self.clipboard = text_box.buffer.slice(text_box.selection.range.start..text_box.selection.range.end);/*.to_string();*/}
                     UtilAction::Paste => {
                         if text_box.selection.is_extended(){
-                            text_box.buffer.apply_replace(&self.clipboard, &mut text_box.selection, self.config.semantics.clone());
+                            apply_replace(&mut text_box.buffer, &self.clipboard, &mut text_box.selection, self.config.semantics);
+                            //text_box.buffer.apply_replace(&self.clipboard, &mut text_box.selection, self.config.semantics);
                         }else{
-                            text_box.buffer.apply_insert(&self.clipboard, &mut text_box.selection, self.config.semantics.clone());
+                            apply_insert(&mut text_box.buffer, &self.clipboard, &mut text_box.selection, self.config.semantics);
+                            //text_box.buffer.apply_insert(&self.clipboard, &mut text_box.selection, self.config.semantics);
                         }
                     }
                     UtilAction::Accept => {
@@ -1417,7 +1420,7 @@ impl Application{
                                                 if let Ok(new_selections) = selections::clear_non_primary_selections(&self.selections){self.selections = new_selections;}    //intentionally ignoring any errors
                                             }
                                             //match crate::utilities::move_to_line_number::selection_impl(self.selections.primary(), line_number, &self.buffer, crate::selection::Movement::Move, self.config.semantics.clone()){
-                                            match selection::move_to_line_number(&self.selections.primary, line_number, &self.buffer, selection::Movement::Move, self.config.semantics.clone()){
+                                            match selection::move_to_line_number(&self.selections.primary, line_number, &self.buffer, selection::Movement::Move, self.config.semantics){
                                                 Ok(new_selection) => {
                                                     //*self.selections.primary_mut() = new_selection;
                                                     self.selections.primary = new_selection;
@@ -1429,7 +1432,7 @@ impl Application{
                                                     self.update(Action::EditorAction(EditorAction::ModePop));
                                                     // center view vertically around new primary, if possible
                                                     //if let Ok(new_view) = crate::utilities::center_view_vertically_around_cursor::view_impl(&self.buffer_display_area(), self.selections.primary(), &self.buffer, self.config.semantics.clone()){
-                                                    if let Ok(new_view) = display_area::center_view_vertically_around_cursor(&self.buffer_display_area(), &self.selections.primary, &self.buffer, self.config.semantics.clone()){
+                                                    if let Ok(new_view) = display_area::center_view_vertically_around_cursor(&self.buffer_display_area(), &self.selections.primary, &self.buffer, self.config.semantics){
                                                         self.buffer_horizontal_start = new_view.horizontal_start;
                                                         self.buffer_vertical_start = new_view.vertical_start;
                                                         self.update_ui_data_document();
@@ -1516,12 +1519,12 @@ impl Application{
                         Mode::Goto => {
                             // run text validity check
                             let mut is_numeric = true;
-                            for char in self.ui.util_bar.utility_widget.text_box.buffer.chars(){
-                                if !char.is_ascii_digit(){is_numeric = false;}
-                            }
+                            //for char in self.ui.util_bar.utility_widget.text_box.buffer.chars(){
+                            //    if !char.is_ascii_digit(){is_numeric = false;}
+                            //}
                             let exceeds_doc_length = match self.ui.util_bar.utility_widget.text_box.buffer.to_string().parse::<usize>(){
                                 Ok(line_number) => {line_number > self.buffer.len_lines()}
-                                Err(_) => false //TODO: very large numeric input strings aren't parseable to usize, thus set exceeds_doc_length to false...
+                                Err(_) => {is_numeric = false; false}//false //TODO: very large numeric input strings aren't parseable to usize, thus set exceeds_doc_length to false...
                             };
                             self.ui.util_bar.utility_widget.text_box.text_is_valid = is_numeric && !exceeds_doc_length;
                         }
@@ -1532,7 +1535,7 @@ impl Application{
                                         selections_before_search, 
                                         &self.ui.util_bar.utility_widget.text_box.buffer.to_string(),
                                         &self.buffer, 
-                                        self.config.semantics.clone()
+                                        self.config.semantics
                                     ){
                                         Ok(new_selections) => {
                                             self.selections = new_selections;
@@ -1559,7 +1562,7 @@ impl Application{
                                         selections_before_split, 
                                         &self.ui.util_bar.utility_widget.text_box.buffer.to_string(),
                                         &self.buffer, 
-                                        self.config.semantics.clone()
+                                        self.config.semantics
                                     ){
                                         Ok(new_selections) => {
                                             self.selections = new_selections;
@@ -1629,7 +1632,7 @@ impl Application{
     }
 }
 
-fn handle_message(app: &mut Application, display_mode: DisplayMode, message: &/*'static */str){ //-> Action
+fn handle_message(app: &mut Application, display_mode: DisplayMode, message: &str){ //-> Action
     match display_mode{
         DisplayMode::Error => app.update(Action::EditorAction(EditorAction::ModePush(Mode::Error, Some(message.to_string())))),
         DisplayMode::Warning => app.update(Action::EditorAction(EditorAction::ModePush(Mode::Warning, Some(message.to_string())))),
@@ -1844,7 +1847,7 @@ fn execute_command(app: &mut Application, command: &str) -> Result<(), String>{ 
             let regex = parser.rest();
             if regex.is_empty(){return Err(String::from("too few arguments: search <regex>"));}
             //search <regex>
-            match search(regex, &app.buffer, app.config.semantics.clone()){
+            match search(regex, &app.buffer, app.config.semantics){
                 Err(_) => return Err(String::from("no matching regex")),
                 Ok(new_selections) => {
                     app.selections = new_selections;
@@ -1860,7 +1863,7 @@ fn execute_command(app: &mut Application, command: &str) -> Result<(), String>{ 
             let regex = parser.rest();
             if regex.is_empty(){return Err(String::from("too few arguments: search_selection <regex>"));}
             //search_selection <regex>
-            match search_selection(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
+            match search_selection(&app.selections, &regex, &app.buffer, app.config.semantics){
                 Err(_) => return Err(String::from("no matching regex")),
                 Ok(new_selections) => {
                     app.selections = new_selections;
@@ -1877,7 +1880,7 @@ fn execute_command(app: &mut Application, command: &str) -> Result<(), String>{ 
             let regex = parser.rest();
             if regex.is_empty(){return Err(String::from("too few arguments: split_selection <regex>"));}
             //split_selection <regex>
-            match split_selection(&app.selections, &regex, &app.buffer, app.config.semantics.clone()){
+            match split_selection(&app.selections, &regex, &app.buffer, app.config.semantics){
                 Err(_) => return Err(String::from("no matching regex")),
                 Ok(new_selections) => {
                     app.selections = new_selections;
@@ -2147,17 +2150,21 @@ pub fn search(
     if input.is_empty(){return Err(SelectionsError::NoSearchMatches);}
     let mut new_selections = Vec::new();
     if let Ok(regex) = regex::Regex::new(input){
-        //regex returns byte indices, and the current Selection impl uses char indices...
         for search_match in regex.find_iter(&buffer.to_string()[..]){
-            let start_char_index = buffer.byte_to_char(search_match.start());
-            let end_char_index = buffer.byte_to_char(search_match.end());
-            let new_selection = Selection::new_from_range(
-                //Range::new(start_char_index, end_char_index), 
-                start_char_index..end_char_index,
-                if buffer.next_grapheme_char_index(start_char_index) == end_char_index{None}    //this works for block semantics only...
-                else{Some(selection::Direction::Forward)}, 
+            let start_byte_offset = search_match.start();
+            let end_byte_offset = search_match.end();
+            let new_selection = Selection::new(
+                start_byte_offset..end_byte_offset,
+                if buffer.next_grapheme_boundary_byte_offset(   //TODO?: maybe put this logic in selection.rs as default_direction(range, semantics)...
+                    start_byte_offset
+                ) == end_byte_offset{
+                    None
+                }    //this works for block semantics only...
+                else{
+                    Some(selection::Direction::Forward)
+                },
                 buffer, 
-                semantics.clone()
+                semantics
             );
             new_selections.push(new_selection);
         }
@@ -2191,14 +2198,16 @@ pub fn search_selection(
             let start = selection.range.start;
             if let Ok(regex) = regex::Regex::new(input){
                 //regex returns byte indices, and the current Selection impl uses char indices...
-                for search_match in regex.find_iter(&buffer.to_string()[start..selection.range.end.min(buffer.len_chars())]){
+                for search_match in regex.find_iter(
+                    &buffer.to_string()[start..selection.range.end.min(buffer.len_bytes())]
+                ){
                     let mut new_selection = selection.clone();
-                    new_selection.range.start = buffer.byte_to_char(search_match.start()).saturating_add(start);
-                    new_selection.range.end = buffer.byte_to_char(search_match.end()).saturating_add(start);
-                    new_selection.extension_direction = if buffer.next_grapheme_char_index(new_selection.range.start) == new_selection.range.end{None}
+                    new_selection.range.start = search_match.start().saturating_add(start);
+                    new_selection.range.end = search_match.end().saturating_add(start);
+                    new_selection.extension_direction = if buffer.next_grapheme_boundary_byte_offset(new_selection.range.start) == new_selection.range.end{None}
                     else{Some(selection::Direction::Forward)};
                     //
-                    new_selection.preferred_visual_offset = buffer.offset_from_line_start(new_selection.cursor(buffer, semantics.clone()));
+                    new_selection.preferred_column = buffer.offset_from_line_start(new_selection.cursor(buffer, semantics));
                     //
                     match_selections.push(new_selection);
                 }
@@ -2240,19 +2249,19 @@ pub fn split_selection(
                 let mut start = selection.range.start; //0;
                 let mut found_split = false;
                 // Iter over each split, and push the retained selection before it, if any...       TODO: test split at start of selection
-                for split in regex.find_iter(&buffer./*inner.*/to_string()[selection.range.start..selection.range.end.min(buffer.len_chars())]){
+                for split in regex.find_iter(
+                    &buffer.to_string()[selection.range.start..selection.range.end.min(buffer.len_bytes())]
+                ){
                     found_split = true;
-                    //let selection_range = Range::new(start, split.start().saturating_add(selection.range.start));
                     let selection_range = start..split.start().saturating_add(selection.range.start);
                     if selection_range.start < selection_range.end{
                         let mut new_selection = selection.clone();
                         new_selection.range.start = selection_range.start;
                         new_selection.range.end = selection_range.end;
-                        //new_selection.extension_direction = Some(Direction::Forward);
-                        new_selection.extension_direction = if buffer.next_grapheme_char_index(new_selection.range.start) == new_selection.range.end{None}
+                        new_selection.extension_direction = if buffer.next_grapheme_boundary_byte_offset(new_selection.range.start) == new_selection.range.end{None}
                         else{Some(selection::Direction::Forward)};
                         //
-                        new_selection.preferred_visual_offset = buffer.offset_from_line_start(new_selection.cursor(buffer, semantics.clone()));
+                        new_selection.preferred_column = buffer.offset_from_line_start(new_selection.cursor(buffer, semantics));
                         //
                         match_selections.push(new_selection);
                     }
@@ -2260,14 +2269,14 @@ pub fn split_selection(
                 }
                 // Handle any remaining text after the last split
                 //if split found and end of last split < selection end
-                if found_split && start < selection.range.end.min(buffer.len_chars()){
+                if found_split && start < selection.range.end.min(buffer.len_bytes()){
                     let mut new_selection = selection.clone();
                     new_selection.range.start = start;
-                    new_selection.range.end = selection.range.end.min(buffer.len_chars());
-                    new_selection.extension_direction = if buffer.next_grapheme_char_index(new_selection.range.start) == new_selection.range.end{None}
+                    new_selection.range.end = selection.range.end.min(buffer.len_bytes());
+                    new_selection.extension_direction = if buffer.next_grapheme_boundary_byte_offset(new_selection.range.start) == new_selection.range.end{None}
                     else{Some(selection::Direction::Forward)};
                     //
-                    new_selection.preferred_visual_offset = buffer.offset_from_line_start(new_selection.cursor(buffer, semantics.clone()));
+                    new_selection.preferred_column = buffer.offset_from_line_start(new_selection.cursor(buffer, semantics));
                     //
                     match_selections.push(new_selection);
                 }
@@ -2293,7 +2302,7 @@ pub fn split_selection(
         }
     }
 
-    let new_selections = Selections::new(new_selections, primary_selection_index, buffer, semantics.clone());
+    let new_selections = Selections::new(new_selections, primary_selection_index, buffer, semantics);
     if new_selections == *selections{return Err(SelectionsError::ResultsInSameState);}
 
     Ok(new_selections)
@@ -2304,7 +2313,6 @@ mod search_tests{
     use crate::{
         selection::{Selection, Direction, CursorSemantics},
         selections::Selections,
-        //range::Range,
         buffer::Buffer,
         application::search_selection,
         application::split_selection,
@@ -2321,12 +2329,12 @@ mod search_tests{
         assert_eq!(
             Selections::new(
                 vec![
-                    Selection::new_unchecked(/*Range::new(0, 0+input.chars().count())*/0..0+input.chars().count(), Some(Direction::Forward), /*None*/buffer.offset_from_line_start(0+input.chars().count().saturating_sub(1))),  //-1 for block semantics
-                    Selection::new_unchecked(/*Range::new(14, 14+input.chars().count())*/14..14+input.chars().count(), Some(Direction::Forward), /*None*/buffer.offset_from_line_start(14+input.chars().count().saturating_sub(1)))
+                    Selection::new_unchecked(0..0+input.bytes().count(), Some(Direction::Forward), buffer.offset_from_line_start(0+input.bytes().count().saturating_sub(1))),  //-1 for block semantics
+                    Selection::new_unchecked(14..14+input.bytes().count(), Some(Direction::Forward), buffer.offset_from_line_start(14+input.bytes().count().saturating_sub(1)))
                 ], 
                 0, 
                 &buffer, 
-                semantics.clone()
+                semantics
             ),
             search(input, &buffer, semantics).unwrap()
         );
@@ -2337,13 +2345,13 @@ mod search_tests{
         let buffer_text = "\tidk\nsome\nshit\n";
         let buffer = Buffer::new(buffer_text, None, false);
         let semantics = CursorSemantics::Block;
-        let selection = Selection::new_unchecked(/*Range::new(0, buffer.chars().count())*/0..buffer.chars().count(), Some(Direction::Forward), /*None*/buffer.offset_from_line_start(buffer.chars().count().saturating_sub(1)));
-        let selections = Selections::new(vec![selection], 0, &buffer, semantics.clone());
+        let selection = Selection::new_unchecked(0..buffer.bytes().count(), Some(Direction::Forward), buffer.offset_from_line_start(buffer.bytes().count().saturating_sub(1)));
+        let selections = Selections::new(vec![selection], 0, &buffer, semantics);
         let expected_selections = vec![
             //Selection::new_unchecked(Range::new(0, 1), None, None)
-            Selection::new_unchecked(/*Range::new(0, "\t".chars().count())*/0.."\t".chars().count(), None, /*None*/0)
+            Selection::new_unchecked(0.."\t".bytes().count(), None, 0)
         ];
-        let expected_selections = Selections::new(expected_selections, 0, &buffer, semantics.clone());
+        let expected_selections = Selections::new(expected_selections, 0, &buffer, semantics);
         assert_eq!(expected_selections, search_selection(&selections, "\t", &buffer, semantics).unwrap());
     }
 
@@ -2352,17 +2360,16 @@ mod search_tests{
         let buffer = Buffer::new(buffer_text, None, false);
         let semantics = CursorSemantics::Block;
         let selection = Selection::new_unchecked(
-            //Range::new(0, buffer_text.chars().count()), 
-            0..buffer_text.chars().count(),
+            0..buffer_text.bytes().count(),
             Some(Direction::Forward), 
-            /*None*/buffer.offset_from_line_start(buffer_text.chars().count().saturating_sub(1))
+            buffer.offset_from_line_start(buffer_text.bytes().count().saturating_sub(1))
         );
-        let selections = Selections::new(vec![selection], 0, &buffer, semantics.clone());
+        let selections = Selections::new(vec![selection], 0, &buffer, semantics);
         let expected_selections = vec![
             //Selection::new_unchecked(Range::new(0, 2), None, None)    //a̐ is 2 chars(unicode code points)
-            Selection::new_unchecked(/*Range::new(0, "a̐".chars().count())*/0.."a̐".chars().count(), None, /*None*/0)
+            Selection::new_unchecked(0.."a̐".bytes().count(), None, 0)
         ];
-        let expected_selections = Selections::new(expected_selections, 0, &buffer, semantics.clone());
+        let expected_selections = Selections::new(expected_selections, 0, &buffer, semantics);
         assert_eq!(expected_selections, search_selection(&selections, "a̐", &buffer, semantics).unwrap());
     }
 
@@ -2378,23 +2385,26 @@ pub fn insert_string(app: &mut Application, string: &str, use_hard_tab: bool, ta
     fn handle_insert_replace(app: &mut Application, current_selection_index: usize, semantics: CursorSemantics, new_text: &str) -> Change{
         use std::cmp::Ordering;
         let selection = app.selections.nth_mut(current_selection_index);
-        //let change = Application::apply_replace(&mut app.buffer, new_text, selection, semantics);
-        let change = app.buffer.apply_replace(new_text, selection, semantics);
+        let change = apply_replace(&mut app.buffer, new_text, selection, semantics);
+        //let change = app.buffer.apply_replace(new_text, selection, semantics);
         if let Operation::Replace{replacement_text} = change.inverse(){
             //match replacement_text.len().cmp(&new_text.len()){    //old selected text vs new text
-            match replacement_text.chars().count().cmp(&new_text.chars().count()){
+            //match replacement_text.chars().count().cmp(&new_text.chars().count()){
+            match replacement_text.bytes().count().cmp(&new_text.bytes().count()){
                 Ordering::Greater => {
                     app.selections.shift_subsequent_selections_backward(
                         current_selection_index, 
                         //replacement_text.len().saturating_sub(new_text.len())
-                        replacement_text.chars().count().saturating_sub(new_text.chars().count())
+                        //replacement_text.chars().count().saturating_sub(new_text.chars().count())
+                        replacement_text.bytes().count().saturating_sub(new_text.bytes().count())
                     );
                 }
                 Ordering::Less => {
                     app.selections.shift_subsequent_selections_forward(
                         current_selection_index, 
                         //new_text.len().saturating_sub(replacement_text.len())
-                        new_text.chars().count().saturating_sub(replacement_text.chars().count())
+                        //new_text.chars().count().saturating_sub(replacement_text.chars().count())
+                        new_text.bytes().count().saturating_sub(replacement_text.bytes().count())
                     );
                 }
                 Ordering::Equal => {}   // no change to subsequent selections
@@ -2405,10 +2415,11 @@ pub fn insert_string(app: &mut Application, string: &str, use_hard_tab: bool, ta
     //TODO: string lengths need to use char count, not length in bytes
     fn handle_insert(app: &mut Application, string: &str, current_selection_index: usize, semantics: CursorSemantics) -> Change{
         let selection = app.selections.nth_mut(current_selection_index);
-        //let change = Application::apply_insert(&mut app.buffer, string, selection, semantics);
-        let change = app.buffer.apply_insert(string, selection, semantics);
+        let change = apply_insert(&mut app.buffer, string, selection, semantics);
+        //let change = app.buffer.apply_insert(string, selection, semantics);
         //app.selections.shift_subsequent_selections_forward(current_selection_index, string.len());
-        app.selections.shift_subsequent_selections_forward(current_selection_index, string.chars().count());
+        //app.selections.shift_subsequent_selections_forward(current_selection_index, string.chars().count());
+        app.selections.shift_subsequent_selections_forward(current_selection_index, string.bytes().count());
         change
     }
     if app.buffer.read_only{return Err(ApplicationError::ReadOnlyBuffer);}
@@ -2423,22 +2434,23 @@ pub fn insert_string(app: &mut Application, string: &str, use_hard_tab: bool, ta
             //"\n" => {}    //handle behavior specific to pressing "enter". auto-indent, etc... //TODO: create tests for newline behavior...
             "\t" => {   //handle behavior specific to pressing "tab".
                 if use_hard_tab{
-                    if selection.is_extended(){handle_insert_replace(app, i, semantics.clone(), "\t")}
-                    else{handle_insert(app, "\t", i, semantics.clone())}
+                    if selection.is_extended(){handle_insert_replace(app, i, semantics, "\t")}
+                    else{handle_insert(app, "\t", i, semantics)}
                 }
                 else{
-                    let tab_distance = app.buffer.distance_to_next_multiple_of_tab_width(selection, semantics.clone(), tab_width);
+                    //let tab_distance = app.buffer.distance_to_next_multiple_of_tab_width(selection, semantics.clone(), tab_width);
+                    let tab_distance = app.buffer.distance_to_next_tab_stop(selection.cursor(&app.buffer, semantics), tab_width);
                     let modified_tab_width = if tab_distance > 0 && tab_distance < tab_width{tab_distance}else{tab_width};
                     let soft_tab = " ".repeat(modified_tab_width);
 
-                    if selection.is_extended(){handle_insert_replace(app, i, semantics.clone(), &soft_tab)}
-                    else{handle_insert(app, &soft_tab, i, semantics.clone())}
+                    if selection.is_extended(){handle_insert_replace(app, i, semantics, &soft_tab)}
+                    else{handle_insert(app, &soft_tab, i, semantics)}
                 }
             }
             //handle any other inserted string
             _ => {
-                if selection.is_extended(){handle_insert_replace(app, i, semantics.clone(), string)}
-                else{handle_insert(app, string, i, semantics.clone())}
+                if selection.is_extended(){handle_insert_replace(app, i, semantics, string)}
+                else{handle_insert(app, string, i, semantics)}
             }
         };
 
@@ -2463,17 +2475,18 @@ pub fn delete(app: &mut Application, semantics: CursorSemantics) -> Result<(), A
     for i in 0..app.selections.count(){
         let selection = app.selections.nth_mut(i);
         //handles cursor at doc end
-        if selection.anchor() == app.buffer.len_chars() && selection.cursor(&app.buffer, semantics.clone()) == app.buffer.len_chars(){
+        if selection.anchor() == app.buffer.len_bytes() && selection.cursor(&app.buffer, semantics) == app.buffer.len_bytes(){
             cannot_delete = true; //don't modify text buffer here...
             let change = Change::new(Operation::NoOp, selection.clone(), selection.clone(), Operation::NoOp);
             changes.push(change);
         }
         else{   //apply the delete
-            //let change = Application::apply_delete(&mut app.buffer, selection, semantics.clone());
-            let change = app.buffer.apply_delete(selection, semantics.clone());
+            let change = apply_delete(&mut app.buffer, selection, semantics);
+            //let change = app.buffer.apply_delete(selection, semantics);
             if let Operation::Insert{inserted_text} = change.inverse(){
                 //app.selections.shift_subsequent_selections_backward(i, inserted_text.len());
-                app.selections.shift_subsequent_selections_backward(i, inserted_text.chars().count());
+                //app.selections.shift_subsequent_selections_backward(i, inserted_text.chars().count());
+                app.selections.shift_subsequent_selections_backward(i, inserted_text.bytes().count());
             }
             changes.push(change);
         }
@@ -2506,14 +2519,16 @@ pub fn backspace(app: &mut Application, _use_hard_tab: bool, _tab_width: usize, 
     for i in 0..app.selections.count(){
         let selection = app.selections.nth_mut(i);
         if selection.is_extended(){
-            let change = app.buffer.apply_delete(selection, semantics.clone());
+            let change = apply_delete(&mut app.buffer, selection, semantics);
+            //let change = app.buffer.apply_delete(selection, semantics);
             if let Operation::Insert{inserted_text} = change.inverse(){
                 //app.selections.shift_subsequent_selections_backward(i, inserted_text.len());
-                app.selections.shift_subsequent_selections_backward(i, inserted_text.chars().count());
+                //app.selections.shift_subsequent_selections_backward(i, inserted_text.chars().count());
+                app.selections.shift_subsequent_selections_backward(i, inserted_text.bytes().count());
             }
             changes.push(change);
         }else{
-            if selection.anchor() == 0 && selection.cursor(&app.buffer, semantics.clone()) == 0{
+            if selection.anchor() == 0 && selection.cursor(&app.buffer, semantics) == 0{
                 cannot_delete = true; //don't modify text buffer here...
                 let change = Change::new(Operation::NoOp, selection.clone(), selection.clone(), Operation::NoOp);
                 changes.push(change);
@@ -2539,10 +2554,11 @@ pub fn backspace(app: &mut Application, _use_hard_tab: bool, _tab_width: usize, 
                 //}
                 //else{
                     //if let Ok(new_selection) = crate::utilities::move_cursor_left::selection_impl(selection, 1, &app.buffer, None, semantics.clone()){
-                    if let Ok(new_selection) = selection::move_cursor_left(selection, 1, &app.buffer, None, semantics.clone()){
+                    if let Ok(new_selection) = selection::move_cursor_left(selection, 1, &app.buffer, None, semantics){
                         *selection = new_selection;
                     }   //TODO: handle error    //first for loop guarantees no selection is at doc bounds, so this should be ok to ignore...
-                    changes.push(app.buffer.apply_delete(selection, semantics.clone()));
+                    changes.push(apply_delete(&mut app.buffer, selection, semantics));
+                    //changes.push(app.buffer.apply_delete(selection, semantics));
                     app.selections.shift_subsequent_selections_backward(i, 1);
                 //}
             }
@@ -2577,7 +2593,7 @@ pub fn cut(app: &mut Application, semantics: CursorSemantics) -> Result<(), Appl
     //let selection = app.selections.primary_mut();
     let selection = &app.selections.primary;
     // Copy the selected text to the clipboard
-    app.clipboard = app.buffer.slice(selection.range.start, selection.range.end).to_string();
+    app.clipboard = app.buffer.slice(selection.range.start..selection.range.end);//.to_string();
     delete(app, semantics)   //notice this is returning the result from delete
 }
 
@@ -2601,41 +2617,54 @@ pub fn undo(app: &mut Application, semantics: CursorSemantics) -> Result<(), App
             match change.operation(){
                 Operation::Insert{inserted_text} => {
                     //selection.shift_and_extend(inserted_text.len(), &app.buffer, semantics.clone());
-                    selection.shift_and_extend(inserted_text.chars().count(), &app.buffer, semantics.clone());
-                    //let _ = Application::apply_delete(&mut app.buffer, selection, semantics.clone());
-                    let _ = app.buffer.apply_delete(selection, semantics.clone());
+                    //selection.shift_and_extend(inserted_text.chars().count(), &app.buffer, semantics);
+                    selection.shift_and_extend(inserted_text.bytes().count(), &app.buffer, semantics);
+                    let _ = apply_delete(&mut app.buffer, selection, semantics);
+                    //let _ = app.buffer.apply_delete(selection, semantics);
                     //app.selections.shift_subsequent_selections_backward(i, inserted_text.len());
-                    app.selections.shift_subsequent_selections_backward(i, inserted_text.chars().count());
+                    //app.selections.shift_subsequent_selections_backward(i, inserted_text.chars().count());
+                    app.selections.shift_subsequent_selections_backward(i, inserted_text.bytes().count());
                 }
                 Operation::Delete => {
                     if let Operation::Insert{inserted_text} = change.inverse(){
-                        //let _ = Application::apply_insert(&mut app.buffer, &inserted_text, selection, semantics.clone());   //apply inverse operation
-                        let _ = app.buffer.apply_insert(&inserted_text, selection, semantics.clone());  //apply inverse operation
+                        let _ = apply_insert(&mut app.buffer, &inserted_text, selection, semantics);   //apply inverse operation
+                        //let _ = app.buffer.apply_insert(&inserted_text, selection, semantics);  //apply inverse operation
                         //app.selections.shift_subsequent_selections_forward(i, inserted_text.len());
-                        app.selections.shift_subsequent_selections_forward(i, inserted_text.chars().count());
+                        //app.selections.shift_subsequent_selections_forward(i, inserted_text.chars().count());
+                        app.selections.shift_subsequent_selections_forward(i, inserted_text.bytes().count());
                     }
                 }
                 Operation::Replace{replacement_text} => {
                     let inserted_text = replacement_text;
                     if let Operation::Replace{replacement_text} = change.inverse(){
                         //selection.shift_and_extend(inserted_text.len(), &app.buffer, semantics.clone());
-                        selection.shift_and_extend(inserted_text.chars().count(), &app.buffer, semantics.clone());
-                        //let _ = Application::apply_replace(&mut app.buffer, &replacement_text, selection, semantics.clone());
-                        let _ = app.buffer.apply_replace(&replacement_text, selection, semantics.clone());
+                        //selection.shift_and_extend(inserted_text.chars().count(), &app.buffer, semantics);
+                        selection.shift_and_extend(inserted_text.bytes().count(), &app.buffer, semantics);
+                        let _ = apply_replace(&mut app.buffer, &replacement_text, selection, semantics);
+                        //let _ = app.buffer.apply_replace(&replacement_text, selection, semantics);
                         //match inserted_text.len().cmp(&replacement_text.len()){    //old selected text vs new text
-                        match inserted_text.chars().count().cmp(&replacement_text.chars().count()){
+                        //match inserted_text.chars().count().cmp(&replacement_text.chars().count()){
+                        match inserted_text.bytes().count().cmp(&replacement_text.bytes().count()){
                             Ordering::Greater => {
                                 //app.selections.shift_subsequent_selections_backward(i, inserted_text.len().saturating_sub(replacement_text.len()));
+                                //app.selections.shift_subsequent_selections_backward(
+                                //    i, 
+                                //    inserted_text.chars().count().saturating_sub(replacement_text.chars().count())
+                                //);
                                 app.selections.shift_subsequent_selections_backward(
                                     i, 
-                                    inserted_text.chars().count().saturating_sub(replacement_text.chars().count())
+                                    inserted_text.bytes().count().saturating_sub(replacement_text.bytes().count())
                                 );
                             }
                             Ordering::Less => {
                                 //app.selections.shift_subsequent_selections_forward(i, replacement_text.len().saturating_sub(inserted_text.len()));
+                                //app.selections.shift_subsequent_selections_forward(
+                                //    i, 
+                                //    replacement_text.chars().count().saturating_sub(inserted_text.chars().count())
+                                //);
                                 app.selections.shift_subsequent_selections_forward(
                                     i, 
-                                    replacement_text.chars().count().saturating_sub(inserted_text.chars().count())
+                                    replacement_text.bytes().count().saturating_sub(inserted_text.bytes().count())
                                 );
                             }
                             Ordering::Equal => {}   // no change to subsequent selections
@@ -2806,39 +2835,50 @@ pub fn redo(app: &mut Application, semantics: CursorSemantics) -> Result<(), App
             let selection = app.selections.nth_mut(i);
             match change.operation(){
                 Operation::Insert{inserted_text} => {
-                    //let _ = Application::apply_insert(&mut app.buffer, &inserted_text, selection, semantics.clone());
-                    let _ = app.buffer.apply_insert(&inserted_text, selection, semantics.clone());
+                    let _ = apply_insert(&mut app.buffer, &inserted_text, selection, semantics);
+                    //let _ = app.buffer.apply_insert(&inserted_text, selection, semantics);
                     //app.selections.shift_subsequent_selections_forward(i, inserted_text.len());
-                    app.selections.shift_subsequent_selections_forward(i, inserted_text.chars().count());
+                    //app.selections.shift_subsequent_selections_forward(i, inserted_text.chars().count());
+                    app.selections.shift_subsequent_selections_forward(i, inserted_text.bytes().count());
                 }
                 Operation::Delete => {
                     *selection = change.selection_before_change();
-                    //let change = Application::apply_delete(&mut app.buffer, selection, semantics.clone());
-                    let change = app.buffer.apply_delete(selection, semantics.clone());
+                    let change = apply_delete(&mut app.buffer, selection, semantics);
+                    //let change = app.buffer.apply_delete(selection, semantics);
                     if let Operation::Insert{inserted_text} = change.inverse(){
                         //app.selections.shift_subsequent_selections_backward(i, inserted_text.len());
-                        app.selections.shift_subsequent_selections_backward(i, inserted_text.chars().count());
+                        //app.selections.shift_subsequent_selections_backward(i, inserted_text.chars().count());
+                        app.selections.shift_subsequent_selections_backward(i, inserted_text.bytes().count());
                     }
                 }
                 Operation::Replace{replacement_text} => {
                     let inserted_text = replacement_text;
-                    //let change = Application::apply_replace(&mut app.buffer, &inserted_text, selection, semantics.clone());
-                    let change = app.buffer.apply_replace(&inserted_text, selection, semantics.clone());
+                    let change = apply_replace(&mut app.buffer, &inserted_text, selection, semantics);
+                    //let change = app.buffer.apply_replace(&inserted_text, selection, semantics);
                     if let Operation::Replace{replacement_text} = change.inverse(){   //destructure to get currently selected text
                         //match replacement_text.len().cmp(&inserted_text.len()){    //old selected text vs new text
-                        match replacement_text.chars().count().cmp(&inserted_text.chars().count()){
+                        //match replacement_text.chars().count().cmp(&inserted_text.chars().count()){
+                        match replacement_text.bytes().count().cmp(&inserted_text.bytes().count()){
                             Ordering::Greater => {
                                 //app.selections.shift_subsequent_selections_backward(i, replacement_text.len().saturating_sub(inserted_text.len()));
+                                //app.selections.shift_subsequent_selections_backward(
+                                //    i, 
+                                //    replacement_text.chars().count().saturating_sub(inserted_text.chars().count())
+                                //);
                                 app.selections.shift_subsequent_selections_backward(
                                     i, 
-                                    replacement_text.chars().count().saturating_sub(inserted_text.chars().count())
+                                    replacement_text.bytes().count().saturating_sub(inserted_text.bytes().count())
                                 );
                             }
                             Ordering::Less => {
                                 //app.selections.shift_subsequent_selections_forward(i, inserted_text.len().saturating_sub(replacement_text.len()));
+                                //app.selections.shift_subsequent_selections_forward(
+                                //    i, 
+                                //    inserted_text.chars().count().saturating_sub(replacement_text.chars().count())
+                                //);
                                 app.selections.shift_subsequent_selections_forward(
                                     i, 
-                                    inserted_text.chars().count().saturating_sub(replacement_text.chars().count())
+                                    inserted_text.bytes().count().saturating_sub(replacement_text.bytes().count())
                                 );
                             }
                             Ordering::Equal => {}   // no change to subsequent selections
@@ -2872,7 +2912,7 @@ pub fn add_surrounding_pair(app: &mut Application, leading_char: char, trailing_
     for i in 0..app.selections.count(){
         let selection = app.selections.nth_mut(i);
         //handles cursor at doc end
-        if selection.anchor() == app.buffer.len_chars() && selection.cursor(&app.buffer, semantics.clone()) == app.buffer.len_chars(){
+        if selection.anchor() == app.buffer.len_bytes() && selection.cursor(&app.buffer, semantics) == app.buffer.len_bytes(){
             cannot_add_surrounding_pair = true; //don't modify text buffer here...
             let change = Change::new(Operation::NoOp, selection.clone(), selection.clone(), Operation::NoOp);
             changes.push(change);
@@ -2882,8 +2922,8 @@ pub fn add_surrounding_pair(app: &mut Application, leading_char: char, trailing_
             let mut contents = selection.to_string(&app.buffer);
             contents.insert(0, leading_char);
             contents.push(trailing_char);
-            //let change = Application::apply_replace(&mut app.buffer, &contents, selection, CursorSemantics::Block);
-            let change = app.buffer.apply_replace(&contents, selection, semantics.clone());
+            let change = apply_replace(&mut app.buffer, &contents, selection, semantics);
+            //let change = app.buffer.apply_replace(&contents, selection, semantics);
             changes.push(change);
             app.selections.shift_subsequent_selections_forward(i, 2);  //TODO: could this be handled inside apply_replace and similar functions?...
         }
@@ -2917,7 +2957,7 @@ pub fn copy(app: &mut Application) -> Result<(), ApplicationError>{
     
     let selection = app.selections.primary.clone();
     // Copy the selected text to the clipboard
-    app.clipboard = app.buffer.slice(selection.range.start, selection.range.end).to_string();
+    app.clipboard = app.buffer.slice(selection.range.start..selection.range.end);//.to_string();
 
     Ok(())
 }
@@ -3072,6 +3112,111 @@ pub fn save(app: &mut Application) -> Result<(), /*Box<dyn Error>*/String>{
     }
     
     Ok(())
+}
+
+
+
+
+//TODO?: could these take a &mut App, handle multiple selections, and handle pushing to history...
+//or impl that and support with apply_replace_single, for single selection, and error if in some invalid state
+// TODO: test. should test rope is edited correctly and selection is moved correctly, not necessarily the returned change. behavior, not impl
+pub fn apply_replace(
+    buffer: &mut Buffer, 
+    replacement_text: &str, 
+    selection: &mut Selection, 
+    semantics: CursorSemantics
+) -> Change{ //TODO: Error if replacement_text is empty(or if selection empty? is this possible?)
+    let old_selection = selection.clone();
+    let delete_change = apply_delete(buffer, selection, semantics);
+    let replaced_text = if let Operation::Insert{inserted_text} = delete_change.inverse(){inserted_text}else{unreachable!();};  // inverse of delete change should always be insert
+    let _ = apply_insert(buffer, replacement_text, selection, semantics);   //intentionally discard returned Change
+    Change::new(
+        Operation::Replace{replacement_text: replacement_text.to_string()}, 
+        old_selection, 
+        selection.clone(), 
+        Operation::Replace{replacement_text: replaced_text}
+    )
+}
+// TODO: test. should test rope is edited correctly and selection is moved correctly, not necessarily the returned change. behavior, not impl
+pub fn apply_insert(
+    buffer: &mut Buffer, 
+    string: &str, 
+    selection: &mut Selection, //TODO: maybe these should take a byte_offset or range instead...
+    semantics: CursorSemantics
+) -> Change{    //TODO: Error if string is empty
+    use unicode_segmentation::UnicodeSegmentation;
+    let old_selection = selection.clone();
+    buffer.insert(selection.cursor(buffer, semantics), string);
+    //TODO: set selection to encompass inserted text (with wide graphemes, cannot assume selected byte range will remain constant)
+    for _ in 0..string.graphemes(true).count(){
+        if let Ok(new_selection) = crate::selection::move_cursor_right(selection, 1, buffer, None, semantics){
+            *selection = new_selection;
+        }
+    }
+    Change::new(
+        Operation::Insert{inserted_text: string.to_string()}, 
+        old_selection, 
+        selection.clone(), 
+        Operation::Delete
+    )
+}
+// TODO: test. should test rope is edited correctly and selection is moved correctly, not necessarily the returned change. behavior, not impl
+pub fn apply_delete(
+    buffer: &mut Buffer, 
+    selection: &mut Selection, 
+    semantics: CursorSemantics
+) -> Change{  //TODO: Error if cursor and anchor at end of text
+    use std::cmp::Ordering;        
+    let old_selection = selection.clone();
+    let original_text = buffer.clone();
+    let (start, end, new_cursor) = match selection.cursor(buffer, semantics).cmp(&selection.anchor()){
+        Ordering::Less => {
+            (selection.head(), selection.anchor(), selection.cursor(buffer, semantics))
+        }
+        Ordering::Greater => {
+            match semantics{
+                CursorSemantics::Bar => {
+                    (selection.anchor(), selection.head(), selection.anchor())
+                }
+                CursorSemantics::Block => {
+                    if selection.cursor(buffer, semantics) == buffer.len_bytes(){
+                        (selection.anchor(), selection.cursor(buffer, semantics), selection.anchor())
+                    }else{
+                        (selection.anchor(), selection.head(), selection.anchor())
+                    }
+                }
+            }
+        }
+        Ordering::Equal => {
+            if selection.cursor(buffer, semantics) == buffer.len_bytes(){ //do nothing    //or preferrably return error   //could have condition check in calling fn
+                return Change::new(
+                    Operation::Delete, 
+                    old_selection, 
+                    selection.clone(), 
+                    Operation::Insert{inserted_text: String::new()}
+                );   //change suggested by clippy lint
+            }
+            match semantics{
+                CursorSemantics::Bar => {
+                    (selection.head(), selection.head().saturating_add(1), selection.anchor())
+                }
+                CursorSemantics::Block => {
+                    (selection.anchor(), selection.head(), selection.anchor())
+                }
+            }
+        }
+    };
+    let change_text = original_text.slice(start..end);
+    buffer.remove(start..end);
+    if let Ok(new_selection) = selection.put_cursor(new_cursor, &original_text, crate::selection::Movement::Move, semantics, true){
+        *selection = new_selection;
+    }
+    Change::new(
+        Operation::Delete, 
+        old_selection, 
+        selection.clone(), 
+        Operation::Insert{inserted_text: change_text.to_string()}
+    )
 }
 
 

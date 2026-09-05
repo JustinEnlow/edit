@@ -16,38 +16,43 @@ use std::ops::Range;
     InvalidRange,
 }
 
+//TODO: this could be complicated by byte indexing, because extension direction may need to be based on extensions 
+//over graphemes and not extensions over bytes...
+//i.e:
+//  |:何>       is a non extended selection, when block semantics, even though the selection is over several bytes
+//  |何id:k>    is an extended selection, when block semantics
+//  |:i>dk      is a non extended selection, when block semantics
+//  |id:k>      is an extended selection, when block semantics
 #[derive(PartialEq, Clone, Debug)] pub enum Direction{Forward, Backward}    //ExtensionDirection{Forward, Backward, None}
 #[derive(PartialEq)] pub enum Movement{Extend, Move}
-#[derive(Debug, PartialEq, Clone)] pub enum CursorSemantics{Bar, Block}   //TODO?: change to SelectionSemantics{Exclusive, Inclusive}, or RangeSemantics?...
+#[derive(Debug, PartialEq, Clone, Copy)] pub enum CursorSemantics{Bar, Block}   //TODO?: change to SelectionSemantics{Exclusive, Inclusive}, or RangeSemantics?...
 #[derive(Debug, PartialEq)] pub enum SelectionError{
     ResultsInSameState,
     NoOverlap,
     SpansMultipleLines,
     DirectionMismatch
 }
-//TODO: currently indices over collection of chars. should prob be over collection of bytes
-#[derive(PartialEq, Clone, Debug)]
-pub struct Selection{
-    pub range: Range<usize>,
+#[derive(PartialEq, Clone, Debug)] pub struct Selection{
+    pub range: Range<usize>,    //maybe R: RangeBounds<usize> in new() fns, and convert to standard Range...
     pub extension_direction: Option<Direction>,
     /// offset of the cursor from line start, counted in terminal cells (may appear as less than this value, if moved to shorter line)
-    pub preferred_visual_offset: usize,
+    pub preferred_column: usize,
 }
 impl Selection{
     // only use in tests, because this does not assert invariants
     #[cfg(test)] #[must_use] pub fn new_unchecked(range: Range<usize>, extension_direction: Option<Direction>, preferred_visual_offset: usize) -> Self{
-        Self{range, extension_direction, preferred_visual_offset}
+        Self{range, extension_direction, preferred_column: preferred_visual_offset}
     }
     
-    pub fn new_from_range(range: Range<usize>, extension_direction: Option<Direction>, buffer: &Buffer, semantics: CursorSemantics) -> Self{
+    pub fn new(range: Range<usize>, extension_direction: Option<Direction>, buffer: &Buffer, semantics: CursorSemantics) -> Self{
         let instance = Self{
             range: range.clone(), 
             extension_direction: extension_direction.clone(), 
-            preferred_visual_offset: buffer.offset_from_line_start(
+            preferred_column: buffer.offset_from_line_start(
                 match extension_direction{
                     None | Some(Direction::Forward) => match semantics{
                         CursorSemantics::Bar => range.end,
-                        CursorSemantics::Block => buffer.previous_grapheme_char_index(range.end),
+                        CursorSemantics::Block => buffer.previous_grapheme_boundary_byte_offset(range.end),
                     }
                     Some(Direction::Backward) => range.start
                 }
@@ -95,113 +100,158 @@ impl Selection{
     pub fn invariants_hold(&self, buffer: &Buffer, semantics: CursorSemantics) -> Result<(), InvariantError>{
         //TODO: can we make any guarantees about stored_line_offset?...should be <= line.len_chars()
         if self.range.start > self.range.end{return Err(InvariantError::InvalidRange);}
+        //
+//        if !buffer.is_grapheme_boundary(self.anchor()){return Err(InvariantError::InvalidRange);}
+//        if !buffer.is_grapheme_boundary(self.head()){return Err(InvariantError::InvalidRange);}
+//        if !buffer.is_grapheme_boundary(self.cursor(buffer, semantics)){return Err(InvariantError::InvalidRange);}
+        //
+        if self.cursor(buffer, semantics) > buffer.len_bytes(){
+            return Err(InvariantError::SelectionCursorPastBufferEnd);
+        }
         match semantics{
             CursorSemantics::Bar => {
-                if self.anchor() > buffer.len_chars(){return Err(InvariantError::SelectionAnchorPastBufferEnd);}
-                if self.head() > buffer.len_chars(){return Err(InvariantError::SelectionHeadPastBufferEnd);}
+                if self.anchor() > buffer.len_bytes(){
+                    return Err(InvariantError::SelectionAnchorPastBufferEnd);
+                }
+                if self.head() > buffer.len_bytes(){
+                    return Err(InvariantError::SelectionHeadPastBufferEnd);
+                }
                 //
-                if self.range.start == self.range.end{if self.extension_direction.is_some(){return Err(InvariantError::ExtensionDirectionIsSomeAndShouldBeNone);}}
-                else if self.cursor(buffer, semantics.clone()) < self.anchor(){if self.extension_direction != Some(Direction::Backward){return Err(InvariantError::ExtensionDirectionShouldBeBackward);}}
-                else{if self.extension_direction != Some(Direction::Forward){return Err(InvariantError::ExtensionDirectionShouldBeForward);}}
+                if self.range.start == self.range.end{
+                    if self.extension_direction.is_some(){
+                        return Err(InvariantError::ExtensionDirectionIsSomeAndShouldBeNone);
+                    }
+                }else if self.cursor(buffer, semantics) < self.anchor(){
+                    if self.extension_direction != Some(Direction::Backward){
+                        return Err(InvariantError::ExtensionDirectionShouldBeBackward);
+                    }
+                }else{
+                    if self.extension_direction != Some(Direction::Forward){
+                        return Err(InvariantError::ExtensionDirectionShouldBeForward);
+                    }
+                }
             }
             CursorSemantics::Block => {
                 if self.is_extended(){
-                    if self.anchor() > buffer.len_chars(){return Err(InvariantError::SelectionAnchorPastBufferEnd);}
-                    if self.head() > buffer.len_chars(){return Err(InvariantError::SelectionHeadPastBufferEnd);}
+                    if self.anchor() > buffer.len_bytes(){
+                        return Err(InvariantError::SelectionAnchorPastBufferEnd);
+                    }
+                    if self.head() > buffer.len_bytes(){
+                        return Err(InvariantError::SelectionHeadPastBufferEnd);
+                    }
                 }else{
-                    if self.anchor() > buffer.len_chars().saturating_add(1){return Err(InvariantError::SelectionAnchorPastBufferEnd);}
-                    if self.head() > buffer.len_chars().saturating_add(1){return Err(InvariantError::SelectionHeadPastBufferEnd);}
+                    if self.anchor() > buffer.len_bytes().saturating_add(1){
+                        return Err(InvariantError::SelectionAnchorPastBufferEnd);
+                    }
+                    if self.head() > buffer.len_bytes().saturating_add(1){
+                        return Err(InvariantError::SelectionHeadPastBufferEnd);
+                    }
                 }
-                if self.anchor() == self.head(){return Err(InvariantError::BlockSelectionAnchorSameAsHead);}
+                if self.anchor() == self.head(){
+                    return Err(InvariantError::BlockSelectionAnchorSameAsHead);
+                }
                 //
-                if buffer.next_grapheme_char_index(self.range.start) == self.range.end{if self.extension_direction.is_some(){return Err(InvariantError::ExtensionDirectionIsSomeAndShouldBeNone);}}
-                else if self.cursor(buffer, semantics.clone()) < self.anchor(){if self.extension_direction != Some(Direction::Backward){return Err(InvariantError::ExtensionDirectionShouldBeBackward);}}
-                else{if self.extension_direction != Some(Direction::Forward){return Err(InvariantError::ExtensionDirectionShouldBeForward);}}
+                if buffer.next_grapheme_boundary_byte_offset(self.range.start) == self.range.end{
+                    if self.extension_direction.is_some(){
+                        return Err(InvariantError::ExtensionDirectionIsSomeAndShouldBeNone);
+                    }
+                }
+                //else if self.cursor(buffer, semantics) < self.anchor(){
+                else if self.cursor(buffer, semantics) < buffer.previous_grapheme_boundary_byte_offset(self.anchor()){
+                    if self.extension_direction != Some(Direction::Backward){
+                        return Err(InvariantError::ExtensionDirectionShouldBeBackward);
+                    }
+                }
+                //else{
+                else if self.cursor(buffer, semantics) > buffer.next_grapheme_boundary_byte_offset(self.anchor()){
+                    if self.extension_direction != Some(Direction::Forward){
+                        return Err(InvariantError::ExtensionDirectionShouldBeForward);
+                    }
+                }
                 //
             }
         }
-        if self.cursor(buffer, semantics) > buffer.len_chars(){return Err(InvariantError::SelectionCursorPastBufferEnd);}
     
         Ok(())
     }
 
     pub fn to_string(&self, buffer: &Buffer) -> String{     //maybe this should just be Result<String, ()> instead...
-        if self.range.start >= buffer.len_chars() && self.range.end >= buffer.len_chars(){
+        if self.range.start >= buffer.len_bytes() && self.range.end >= buffer.len_bytes(){
             String::new()
         }else{
-            let start = usize::min(self.range.start, buffer.len_chars());
-            let end = usize::min(self.range.end, buffer.len_chars());
-            buffer.slice(start, end)
+            let start = usize::min(self.range.start, buffer.len_bytes());
+            let end = usize::min(self.range.end, buffer.len_bytes());
+            buffer.slice(start..end)
         }
     }
 
-    #[cfg(test)] pub fn debug_over_buffer_content(&self, buffer: &Buffer, semantics: CursorSemantics) -> String{
-        //use unicode_segmentation::UnicodeSegmentation;
+    #[cfg(test)] pub fn debug_over_buffer_content(&self, buffer: &Buffer, semantics: CursorSemantics, debug: bool) -> String{
+        use unicode_segmentation::UnicodeSegmentation;
 
-        #[cfg(test)] println!("buffer char count: {}", buffer.len_chars());
+        if debug{println!("buffer byte count: {}", buffer.len_bytes());}
         let mut debug_string = String::new();
-        for (i, char) in buffer./*inner.*/chars().enumerate(){
+        //for (i, char) in buffer.chars().enumerate(){
         //for (i, grapheme) in buffer.to_string().graphemes(true).enumerate(){
-            #[cfg(test)] println!("considering char: {:?}, at char index: {}", char, i);
+        for (i, grapheme) in buffer.to_string().grapheme_indices(true){
+            if debug{println!("considering grapheme: {:?}, at byte index: {}", grapheme, i);}
             if self.anchor() == i{
                 debug_string.push('|');
-                #[cfg(test)] println!("added char: {}", '|');
+                if debug{println!("added anchor: {}", '|');}
             }
             if semantics == CursorSemantics::Block && (self.extension_direction == None || self.extension_direction == Some(Direction::Forward)){
-                if self.cursor(buffer, semantics.clone()) == i{
+                if self.cursor(buffer, semantics) == i{
                     debug_string.push(':');
-                    #[cfg(test)] println!("added char: {}", ':');
+                    if debug{println!("added cursor: {}", ':');}
                 }
             }
             if self.head() == i{
                 match self.extension_direction{
                     None | Some(Direction::Forward) => {
                         debug_string.push('>');
-                        #[cfg(test)] println!("added char: {}", '>');
+                        if debug{println!("added head: {}", '>');}
                     }
                     Some(Direction::Backward) => {
                         debug_string.push('<');
-                        #[cfg(test)] println!("added char: {}", '<');
+                        if debug{println!("added head: {}", '<');}
                     }
                 }
             }
-            debug_string.push(char);
-            #[cfg(test)] println!("added char: {:?}", char);
-            //debug_string.push_str(grapheme);
+            debug_string.push_str(grapheme);
+            if debug{println!("added grapheme: {:?}", grapheme);}
         }
         // handle cursor past buffer end
-        if self.anchor() == buffer.len_chars(){
+        if self.anchor() == buffer.len_bytes(){
             debug_string.push('|');
-            #[cfg(test)] println!("added char: {}", '|');
+            if debug{println!("added anchor: {}", '|');}
         }
-        if self.head() == buffer.len_chars(){
+        if self.head() == buffer.len_bytes(){
             debug_string.push('>');
-            #[cfg(test)] println!("added char: {}", '>');
+            if debug{println!("added head: {}", '>');}
         }
-        if self.head() == buffer.len_chars().saturating_add(1){
+        if self.head() == buffer.len_bytes().saturating_add(1){
             debug_string.push(':');
-            #[cfg(test)] println!("added char: {}", ':');
+            if debug{println!("added cursor: {}", ':');}
             debug_string.push(' ');
-            #[cfg(test)] println!("added char: {}", ' ');
+            if debug{println!("added blank: {}", ' ');}
             debug_string.push('>');
-            #[cfg(test)] println!("added char: {}", '>');
+            if debug{println!("added head: {}", '>');}
         }
         //
         debug_string
     }
 
     //TODO
-    pub fn convert_semantics(&self, from: CursorSemantics) -> Selection{    //not intended for use in TUI
-        match from{
-            CursorSemantics::Bar => {}
-            CursorSemantics::Block => {
-                //no extension          //head and anchor = anchor
-                //extension forward     //anchor = anchor, head = head
-                //extension backward    //head = head, anchor = anchor
-            }
-        }
-        self.clone()
-    }
+    //pub fn convert_semantics(&self, from: CursorSemantics) -> Selection{    //not intended for use in TUI
+    //    match from{
+    //        CursorSemantics::Bar => {}
+    //        CursorSemantics::Block => {
+    //            //no extension          //head and anchor = anchor
+    //            //extension forward     //anchor = anchor, head = head
+    //            //extension backward    //head = head, anchor = anchor
+    //        }
+    //    }
+    //    self.clone()
+    //}
 
     pub fn anchor(&self) -> usize{
         match self.extension_direction{
@@ -219,14 +269,14 @@ impl Selection{
         match self.extension_direction{
             None | Some(Direction::Forward) => match semantics{
                 CursorSemantics::Bar => self.head(),
-                CursorSemantics::Block => buffer.previous_grapheme_char_index(self.head()),
+                CursorSemantics::Block => buffer.previous_grapheme_boundary_byte_offset(self.head()),
             }
             Some(Direction::Backward) => self.head()
         }
     }
     /// Returns the char index of the start of the [`Selection`] from left to right.
     // note: not tested in selection_tests, and i don't think it should be because all relevant tests are done in range_tests module
-    #[must_use] pub fn start(&self) -> usize{self.range.start}      //only needed for Selections::sort. figure out how to make that work without this...
+    //#[must_use] pub fn start(&self) -> usize{self.range.start}      //only needed for Selections::sort. figure out how to make that work without this...
 
     /// If self.anchor and self.cursor are known, this can be used to determine the correct extension direction
     pub fn direction(&self, buffer: &Buffer, semantics: CursorSemantics) -> Option<Direction>{//ExtensionDirection{
@@ -239,7 +289,7 @@ impl Selection{
                 else{self.extension_direction.clone()}
             }
             CursorSemantics::Block => {
-                if buffer.next_grapheme_char_index(self.range.start) == self.range.end{None}
+                if buffer.next_grapheme_boundary_byte_offset(self.range.start) == self.range.end{None}
                 else{self.extension_direction.clone()}
             }
         }
@@ -252,12 +302,12 @@ impl Selection{
 
     pub fn spans_multiple_lines(&self, buffer: &Buffer) -> bool{
         // ensure the selection does not exceed the length of the text
-        if self.range.end > buffer.len_chars(){
+        if self.range.end > buffer.len_bytes(){
             return false;
         }
 
-        let start_line = buffer./*inner.*/char_to_line(self.range.start);
-        let end_line = buffer./*inner.*/char_to_line(self.range.end);
+        let start_line = buffer.byte_to_line(self.range.start);
+        let end_line = buffer.byte_to_line(self.range.end);
 
         // if selection is not extended or is extended on the same line
         if !self.is_extended() || 
@@ -266,7 +316,7 @@ impl Selection{
         }
         // if selection extends to a newline char, but doesn't span multiple lines
         if end_line.saturating_sub(start_line) == 1 && 
-        buffer./*inner.*/line_to_char(end_line) == self.range.end{
+        buffer.line_to_byte(end_line) == self.range.end{
             return false;
         }
 
@@ -281,7 +331,7 @@ impl Selection{
         if self.range.overlaps(&other.range){
             // perform indiscriminate merge to get selection range
             let new_range = self.range.merge(&other.range);
-            let mut selection = Selection::new_from_range(
+            let mut selection = Selection::new(
                 //Range::new(new_range.start, new_range.end), 
                 new_range,
                 match (self.extension_direction.clone(), other.extension_direction.clone()){
@@ -296,9 +346,9 @@ impl Selection{
                     (Some(Direction::Backward), Some(Direction::Backward)) => Some(Direction::Backward)
                 }, 
                 buffer, 
-                semantics.clone()
+                semantics
             );
-            selection.preferred_visual_offset = /*Some(*/buffer.offset_from_line_start(selection.cursor(buffer, semantics.clone()))/*)*/;
+            selection.preferred_column = /*Some(*/buffer.offset_from_line_start(selection.cursor(buffer, semantics))/*)*/;
             
             // return merged selection
             Ok(selection)
@@ -309,16 +359,16 @@ impl Selection{
     //TODO: should this pass up possible errors from move/extend calls?
     pub fn shift_and_extend(&mut self, amount: usize, buffer: &Buffer, semantics: CursorSemantics){ //-> Result<(), SelectionError>{
         for _ in 0..amount{
-            if let Ok(new_selection) = move_cursor_left(self, 1, buffer, None, semantics.clone()){
+            if let Ok(new_selection) = move_cursor_left(self, 1, buffer, None, semantics){
                 *self = new_selection;
             }
         }
         if amount > 1{
-            for _ in match semantics.clone(){   //match semantics to determine our iter range
+            for _ in match semantics{   //match semantics to determine our iter range
                 CursorSemantics::Bar => 0..amount,
                 CursorSemantics::Block => 0..amount.saturating_sub(1)
             }{
-                if let Ok(new_selection) = extend_selection_right(self, 1, buffer, None, semantics.clone()){
+                if let Ok(new_selection) = extend_selection_right(self, 1, buffer, None, semantics){
                     *self = new_selection;
                 }
             }
@@ -328,11 +378,11 @@ impl Selection{
     /// Translates a [`Selection`] to a [Selection2d].
     //TODO: create buffer_offset_to_display_position() fn in display_area, and pass self.range.start and self.range.end instead...
     #[must_use] pub fn selection_to_selection2d(&self, buffer: &Buffer, semantics: CursorSemantics) -> crate::selection2d::Selection2d{
-        let line_number_head = buffer./*inner.*/char_to_line(self.cursor(buffer, semantics.clone()));
-        let line_number_anchor = buffer./*inner.*/char_to_line(self.anchor());
+        let line_number_head = buffer.byte_to_line(self.cursor(buffer, semantics));
+        let line_number_anchor = buffer.byte_to_line(self.anchor());
 
-        let head_line_start_idx = buffer./*inner.*/line_to_char(line_number_head);
-        let anchor_line_start_idx = buffer./*inner.*/line_to_char(line_number_anchor);
+        let head_line_start_idx = buffer.line_to_byte(line_number_head);
+        let anchor_line_start_idx = buffer.line_to_byte(line_number_anchor);
 
         //let mut column_head = 0;
         //for grapheme in text.slice(head_line_start_idx..self.cursor(semantics)).to_string().graphemes(true){
@@ -373,17 +423,18 @@ impl Selection{
         
         let mut selection = self.clone();
         
-        let current_line = buffer.char_to_line(self.cursor(buffer, semantics.clone()));
+        let current_line = buffer.byte_to_line(self.cursor(buffer, semantics));
         let goal_line_number = match direction{
             Direction::Forward => (current_line + amount).min(buffer.len_lines().saturating_sub(1)),
             Direction::Backward => current_line.saturating_sub(amount),
         };
 
-        let start_of_line = buffer.line_to_char(goal_line_number);
-        let line_width = buffer.line_width_chars(goal_line_number, false);
+        let start_of_line = buffer.line_to_byte(goal_line_number);
+        //let line_width = buffer.line_width_chars(goal_line_number, false);
+        let line_width = buffer.line_width_terminal_cells(goal_line_number, false);
     
         // Use the stored line offset or calculate it if None
-        let stored_line_offset = self.preferred_visual_offset/*.unwrap_or_else(|| {
+        let stored_line_offset = self.preferred_column/*.unwrap_or_else(|| {
             buffer.offset_from_line_start(self.cursor(buffer, semantics.clone()))
         })*/;
 
@@ -394,8 +445,8 @@ impl Selection{
             start_of_line + line_width
         };
 
-        selection.preferred_visual_offset = /*Some(*/stored_line_offset/*)*/;
-        selection.put_cursor(new_position, buffer, movement, semantics.clone(), false)
+        selection.preferred_column = /*Some(*/stored_line_offset/*)*/;
+        selection.put_cursor(new_position, buffer, movement, semantics, false)
     }
 
     /// Returns a new instance of [`Selection`] with the cursor moved horizontally by specified amount.
@@ -405,25 +456,25 @@ impl Selection{
         
         let new_position = match direction{
             Direction::Forward => {
-                let mut index = self.cursor(buffer, semantics.clone());
+                let mut index = self.cursor(buffer, semantics);
                 for _ in 0..amount{
-                    let next_grapheme_boundary_index = buffer.next_grapheme_char_index(index);
+                    let next_grapheme_boundary_index = buffer.next_grapheme_boundary_byte_offset(index);
                     if index == next_grapheme_boundary_index{break;} //break out of loop early if we are already on the last grapheme
                     index = next_grapheme_boundary_index;
                 }
-                index.min(buffer.len_chars()) //ensures this does not move past text end      //could match on semantics, and ensure extend does index.min(previous_grapheme_index(text.len_chars()))
+                index.min(buffer.len_bytes()) //ensures this does not move past text end      //could match on semantics, and ensure extend does index.min(previous_grapheme_index(text.len_chars()))
             }
             Direction::Backward => {
-                let mut index = self.cursor(buffer, semantics.clone());
+                let mut index = self.cursor(buffer, semantics);
                 for _ in 0..amount{
-                    let previous_grapheme_boundary_index = buffer.previous_grapheme_char_index(index);
+                    let previous_grapheme_boundary_index = buffer.previous_grapheme_boundary_byte_offset(index);
                     if index == previous_grapheme_boundary_index{break;}    //break out of loop early if we are already on the first grapheme
                     index = previous_grapheme_boundary_index;
                 }
                 index
             }
         };
-        self.put_cursor(new_position, buffer, movement, semantics.clone(), true)
+        self.put_cursor(new_position, buffer, movement, semantics, true)
     }
 
     /// Returns a new instance of [`Selection`] with cursor at specified char index in rope.
@@ -434,16 +485,16 @@ impl Selection{
     pub fn put_cursor(&self, to: usize, buffer: &Buffer, movement: Movement, semantics: CursorSemantics, update_stored_line_position: bool) -> Result<Self, SelectionError>{
         use core::cmp::Ord;
         let mut selection = self.clone();
-        match (semantics.clone(), movement){
+        match (semantics, movement){
             (CursorSemantics::Bar, Movement::Move) => {
-                let to = Ord::min(to, buffer.len_chars());
+                let to = Ord::min(to, buffer.len_bytes());
                 //Selection::new(Range::new(to, to), ExtensionDirection::None)
                 selection.range.start = to;
                 selection.range.end = to;
                 selection.extension_direction = None;
             }
             (CursorSemantics::Bar, Movement::Extend) => {
-                let to = Ord::min(to, buffer.len_chars());
+                let to = Ord::min(to, buffer.len_bytes());
                 let (start, end, direction) = if to < self.anchor(){
                     (to, self.anchor(), Some(Direction::Backward))
                 }else{
@@ -455,25 +506,25 @@ impl Selection{
                 selection.extension_direction = direction;
             }
             (CursorSemantics::Block, Movement::Move) => {
-                let to = Ord::min(to, buffer.len_chars());
+                let to = Ord::min(to, buffer.len_bytes());
                 //Selection::new(Range::new(to, buffer.next_grapheme_boundary_index(to).min(buffer.len_chars().saturating_add(1))), ExtensionDirection::None)
                 selection.range.start = to;
-                selection.range.end = Ord::min(buffer.next_grapheme_char_index(to), buffer.len_chars().saturating_add(1));
+                selection.range.end = Ord::min(buffer.next_grapheme_boundary_byte_offset(to), buffer.len_bytes().saturating_add(1));
                 selection.extension_direction = None;
             }
             (CursorSemantics::Block, Movement::Extend) => {
-                let to = Ord::min(to, buffer.previous_grapheme_char_index(buffer.len_chars()));
+                let to = Ord::min(to, buffer.previous_grapheme_boundary_byte_offset(buffer.len_bytes()));
                 let new_anchor = match self.extension_direction{
                     None | Some(Direction::Forward) => {
                         if to < self.anchor(){  //could also do self.range.start
                             //if let Some(char_at_cursor) = buffer.get_char(self.cursor(buffer, semantics.clone())){
                             //    if char_at_cursor == '\n'{self.anchor()}
                             //    else{buffer.next_grapheme_boundary_index(self.anchor()).min(buffer.len_chars())}
-                            /*}else{*/buffer.next_grapheme_char_index(self.anchor()).min(buffer.len_chars())//}
+                            /*}else{*/buffer.next_grapheme_boundary_byte_offset(self.anchor()).min(buffer.len_bytes())//}
                         }else{self.anchor()}
                     }
                     Some(Direction::Backward) => {
-                        if to >= self.anchor(){buffer.previous_grapheme_char_index(self.anchor())} //could also do self.range.end
+                        if to >= self.anchor(){buffer.previous_grapheme_boundary_byte_offset(self.anchor())} //could also do self.range.end
                         else{self.anchor()}
                     }
                 };
@@ -481,25 +532,25 @@ impl Selection{
                 if new_anchor <= to{    //allowing one more char past text.len_chars() for block cursor
                     //Selection::new(Range::new(new_anchor, buffer.next_grapheme_boundary_index(to).min(buffer.len_chars().saturating_add(1))), ExtensionDirection::Forward)
                     selection.range.start = new_anchor;
-                    selection.range.end = Ord::min(buffer.next_grapheme_char_index(to), buffer.len_chars().saturating_add(1));
+                    selection.range.end = Ord::min(buffer.next_grapheme_boundary_byte_offset(to), buffer.len_bytes().saturating_add(1));
                     //selection.direction = ExtensionDirection::Forward;
-                    selection.extension_direction = if buffer.next_grapheme_char_index(selection.range.start) == selection.range.end{None}
+                    selection.extension_direction = if buffer.next_grapheme_boundary_byte_offset(selection.range.start) == selection.range.end{None}
                     else{Some(Direction::Forward)}
                 }else{
                     //Selection::new(Range::new(to, new_anchor), ExtensionDirection::Backward)
                     selection.range.start = to;
                     selection.range.end = new_anchor;
                     //selection.direction = ExtensionDirection::Backward;
-                    selection.extension_direction = if buffer.next_grapheme_char_index(selection.range.start) == selection.range.end{None}
+                    selection.extension_direction = if buffer.next_grapheme_boundary_byte_offset(selection.range.start) == selection.range.end{None}
                     else{Some(Direction::Backward)}
                 }
             }
         };
 
-        selection.preferred_visual_offset = if update_stored_line_position{    //TODO: this really ought to be handled by calling fn...
-            /*Some(*/buffer.offset_from_line_start(selection.cursor(buffer, semantics.clone()))/*)*/
+        selection.preferred_column = if update_stored_line_position{    //TODO: this really ought to be handled by calling fn...
+            /*Some(*/buffer.offset_from_line_start(selection.cursor(buffer, semantics))/*)*/
         }else{
-            self.preferred_visual_offset
+            self.preferred_column
         };
 
         //selection.assert_invariants(buffer, semantics.clone());   //TODO: invariants_hold fn should be called by caller of this fn...
@@ -515,12 +566,12 @@ pub fn move_to_line_number(
     movement: Movement, 
     semantics: CursorSemantics
 ) -> Result<Selection, SelectionError>{
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
     assert!(line_number < buffer.len_lines());
 
-    if line_number == buffer.char_to_line(selection.cursor(buffer, semantics.clone())){return Err(SelectionError::ResultsInSameState);}
+    if line_number == buffer.byte_to_line(selection.cursor(buffer, semantics)){return Err(SelectionError::ResultsInSameState);}
     
-    let current_line = buffer.char_to_line(selection.cursor(buffer, semantics.clone()));
+    let current_line = buffer.byte_to_line(selection.cursor(buffer, semantics));
     let (amount, direction) = if line_number < current_line{
         (current_line.saturating_sub(line_number), Direction::Backward)
     }else{
@@ -660,8 +711,8 @@ pub fn move_cursor_up(
 ) -> Result<Selection, SelectionError>{
     if count < 1{return Err(SelectionError::ResultsInSameState);}
     assert!(display_area.is_none());
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
-    if buffer.char_to_line(selection.cursor(buffer, semantics.clone())) == 0{
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
+    if buffer.byte_to_line(selection.cursor(buffer, semantics)) == 0{
         return Err(SelectionError::ResultsInSameState);
     }
     selection.move_vertically(count, buffer, Movement::Move, Direction::Backward, semantics)
@@ -677,9 +728,9 @@ pub fn move_cursor_down(
 ) -> Result<Selection, SelectionError>{
     if count < 1{return Err(SelectionError::ResultsInSameState);}
     assert!(display_area.is_none());
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
     
-    if buffer.char_to_line(selection.cursor(buffer, semantics.clone())) == buffer.len_lines().saturating_sub(1){
+    if buffer.byte_to_line(selection.cursor(buffer, semantics)) == buffer.len_lines().saturating_sub(1){
         return Err(SelectionError::ResultsInSameState);
     }
     selection.move_vertically(count, buffer, Movement::Move, Direction::Forward, semantics)
@@ -695,9 +746,9 @@ pub fn move_cursor_left(
 ) -> Result<Selection, SelectionError>{
     if count < 1{return Err(SelectionError::ResultsInSameState);}
     assert!(display_area.is_none());
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
     
-    if !selection.is_extended() && selection.cursor(buffer, semantics.clone()) == 0{
+    if !selection.is_extended() && selection.cursor(buffer, semantics) == 0{
         return Err(SelectionError::ResultsInSameState);
     }
     selection.move_horizontally(count, buffer, Movement::Move, Direction::Backward, semantics)
@@ -713,9 +764,9 @@ pub fn move_cursor_right(
 ) -> Result<Selection, SelectionError>{
     if count < 1{return Err(SelectionError::ResultsInSameState);}
     assert!(display_area.is_none());
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
     
-    if selection.cursor(buffer, semantics.clone()) == buffer.len_chars(){
+    if selection.cursor(buffer, semantics) == buffer.len_bytes(){
         return Err(SelectionError::ResultsInSameState);
     }
     selection.move_horizontally(count, buffer, Movement::Move, Direction::Forward, semantics)
@@ -731,13 +782,13 @@ pub fn move_cursor_word_boundary_forward(
 ) -> Result<Selection, SelectionError>{
     if count < 1{return Err(SelectionError::ResultsInSameState);}
     assert!(display_area.is_none());
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
-    if selection.cursor(buffer, semantics.clone()) == buffer.len_chars(){return Err(SelectionError::ResultsInSameState);}
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
+    if selection.cursor(buffer, semantics) == buffer.len_bytes(){return Err(SelectionError::ResultsInSameState);}
     
     //let goal_index = buffer.next_word_boundary(selection.head());
     let mut goal_index = selection.head();
     for _ in 0..count{
-        let next_word_boundary = buffer.next_word_boundary(selection.head());
+        let next_word_boundary = buffer.next_word_end_boundary(selection.head());
         //goal_index = buffer.next_word_boundary(selection.head());
         if goal_index == next_word_boundary{break;} //break out of loop early if we are already on the last grapheme
         goal_index = next_word_boundary;
@@ -747,10 +798,10 @@ pub fn move_cursor_word_boundary_forward(
             selection.put_cursor(goal_index, buffer, Movement::Move, semantics, true)
         }
         CursorSemantics::Block => {
-            if goal_index == buffer.len_chars(){
+            if goal_index == buffer.len_bytes(){
                 selection.put_cursor(goal_index, buffer, Movement::Move, semantics, true)
             }else{
-                selection.put_cursor(buffer.previous_grapheme_char_index(goal_index), buffer, Movement::Move, semantics, true)
+                selection.put_cursor(buffer.previous_grapheme_boundary_byte_offset(goal_index), buffer, Movement::Move, semantics, true)
             }
         }
     }
@@ -766,13 +817,13 @@ pub fn move_cursor_word_boundary_backward(
 ) -> Result<Selection, SelectionError>{
     if count < 1{return Err(SelectionError::ResultsInSameState);}
     assert!(display_area.is_none());
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
-    if selection.cursor(buffer, semantics.clone()) == 0{return Err(SelectionError::ResultsInSameState);}
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
+    if selection.cursor(buffer, semantics) == 0{return Err(SelectionError::ResultsInSameState);}
     
     //let goal_index = buffer.previous_word_boundary(selection.cursor(buffer, semantics.clone()));
-    let mut goal_index = selection.cursor(buffer, semantics.clone());
+    let mut goal_index = selection.cursor(buffer, semantics);
     for _ in 0..count{
-        let previous_word_boundary = buffer.previous_word_boundary(selection.cursor(buffer, semantics.clone()));
+        let previous_word_boundary = buffer.previous_word_start_boundary(selection.cursor(buffer, semantics));
         //goal_index = buffer.previous_word_boundary(selection.cursor(buffer, semantics.clone()));
         if goal_index == previous_word_boundary{break;}  //break out of loop early if we are already on the first grapheme
         goal_index = previous_word_boundary;
@@ -784,25 +835,26 @@ pub fn move_cursor_word_boundary_backward(
 //TODO: maybe rename to move_cursor_line_text_end
 pub fn move_cursor_line_end(selection: &Selection, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> Result<Selection, SelectionError>{
     let mut selection = selection.clone();
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
     
-    let line_number = buffer.char_to_line(selection.cursor(buffer, semantics.clone()));
-    let line_width = buffer.line_width_chars(line_number, false);
-    let line_start = buffer.line_to_char(line_number);
+    let line_number = buffer.byte_to_line(selection.cursor(buffer, semantics));
+    //let line_width = buffer.line_width_chars(line_number, false);
+    let line_width = buffer.line_width_terminal_cells(line_number, false);
+    let line_start = buffer.line_to_byte(line_number);
     let line_end = line_start.saturating_add(line_width);   //nth_next_grapheme_index(line_start, line_width, text)?
 
-    if selection.cursor(buffer, semantics.clone()) == line_end{return Err(SelectionError::ResultsInSameState);}
+    if selection.cursor(buffer, semantics) == line_end{return Err(SelectionError::ResultsInSameState);}
     //selection.put_cursor(line_end, text, Movement::Move, semantics, true)
     
     selection.range.start = line_end;
-    selection.range.end = match semantics.clone(){
-        CursorSemantics::Bar => line_end.min(buffer.len_chars()),
-        CursorSemantics::Block => buffer.next_grapheme_char_index(line_end).min(buffer.len_chars().saturating_add(1))
+    selection.range.end = match semantics{
+        CursorSemantics::Bar => line_end.min(buffer.len_bytes()),
+        CursorSemantics::Block => buffer.next_grapheme_boundary_byte_offset(line_end).min(buffer.len_bytes().saturating_add(1))
     };
     selection.extension_direction = None;
-    selection.preferred_visual_offset = /*Some(*/buffer.offset_from_line_start(selection.cursor(buffer, semantics.clone()))/*)*/;
+    selection.preferred_column = /*Some(*/buffer.offset_from_line_start(selection.cursor(buffer, semantics))/*)*/;
     
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
 
     Ok(selection)
 }
@@ -813,12 +865,12 @@ pub fn move_cursor_line_start(
     buffer: &Buffer, 
     semantics: CursorSemantics
 ) -> Result<Selection, SelectionError>{
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
-    let line_number = buffer.char_to_line(selection.cursor(buffer, semantics.clone()));
-    let line_start = buffer.line_to_char(line_number);
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
+    let line_number = buffer.byte_to_line(selection.cursor(buffer, semantics));
+    let line_start = buffer.line_to_byte(line_number);
 
-    if selection.cursor(buffer, semantics.clone()) == line_start && !selection.is_extended(){return Err(SelectionError::ResultsInSameState);}
-    selection.put_cursor(line_start, buffer, Movement::Move, semantics.clone(), true)
+    if selection.cursor(buffer, semantics) == line_start && !selection.is_extended(){return Err(SelectionError::ResultsInSameState);}
+    selection.put_cursor(line_start, buffer, Movement::Move, semantics, true)
 }
 //#[cfg(test)]
 //mod move_cursor_line_start_tests{
@@ -928,14 +980,14 @@ pub fn move_cursor_line_text_start(
     buffer: &Buffer, 
     semantics: CursorSemantics
 ) -> Result<Selection, SelectionError>{
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
     
-    let line_number = buffer.char_to_line(selection.cursor(buffer, semantics.clone()));
-    let line_start = buffer.line_to_char(line_number);
-    let text_start_offset = buffer.first_non_space_char_offset(line_number);
+    let line_number = buffer.byte_to_line(selection.cursor(buffer, semantics));
+    let line_start = buffer.line_to_byte(line_number);
+    let text_start_offset = buffer.first_non_space_byte_offset(line_number);
     let text_start = line_start.saturating_add(text_start_offset);  //nth_next_grapheme_index(line_start, text_start_offset, text)?
 
-    if selection.cursor(buffer, semantics.clone()) == text_start && !selection.is_extended(){return Err(SelectionError::ResultsInSameState);}
+    if selection.cursor(buffer, semantics) == text_start && !selection.is_extended(){return Err(SelectionError::ResultsInSameState);}
     selection.put_cursor(text_start, buffer, Movement::Move, semantics, true)
 }
 //#[cfg(test)]
@@ -1049,14 +1101,14 @@ pub fn move_cursor_home(
     buffer: &Buffer, 
     semantics: CursorSemantics
 ) -> Result<Selection, SelectionError>{
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
     
-    let line_number = buffer.char_to_line(selection.cursor(buffer, semantics.clone()));
-    let line_start = buffer.line_to_char(line_number);
-    let text_start_offset = buffer.first_non_space_char_offset(line_number);
+    let line_number = buffer.byte_to_line(selection.cursor(buffer, semantics));
+    let line_start = buffer.line_to_byte(line_number);
+    let text_start_offset = buffer.first_non_space_byte_offset(line_number);
     let text_start = line_start.saturating_add(text_start_offset);  //nth_next_grapheme_index(line_start, text_start_offset, text)?
 
-    if selection.cursor(buffer, semantics.clone()) == text_start{crate::selection::move_cursor_line_start(selection, buffer, semantics)}
+    if selection.cursor(buffer, semantics) == text_start{crate::selection::move_cursor_line_start(selection, buffer, semantics)}
     else{crate::selection::move_cursor_line_text_start(selection, buffer, semantics)}
 }
 
@@ -1066,8 +1118,8 @@ pub fn move_cursor_buffer_start(
     buffer: &Buffer, 
     semantics: CursorSemantics
 ) -> Result<Selection, SelectionError>{
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
-    if selection.cursor(buffer, semantics.clone()) == 0{return Err(SelectionError::ResultsInSameState);}
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
+    if selection.cursor(buffer, semantics) == 0{return Err(SelectionError::ResultsInSameState);}
     selection.put_cursor(0, buffer, Movement::Move, semantics, true)
 }
 
@@ -1077,9 +1129,9 @@ pub fn move_cursor_buffer_end(
     buffer: &Buffer, 
     semantics: CursorSemantics
 ) -> Result<Selection, SelectionError>{
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
-    if selection.cursor(buffer, semantics.clone()) == buffer.len_chars(){return Err(SelectionError::ResultsInSameState);}
-    selection.put_cursor(buffer.len_chars(), buffer, Movement::Move, semantics, true)
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
+    if selection.cursor(buffer, semantics) == buffer.len_bytes(){return Err(SelectionError::ResultsInSameState);}
+    selection.put_cursor(buffer.len_bytes(), buffer, Movement::Move, semantics, true)
 }
 
 /// Returns a new instance of [`Selection`] with the cursor moved up by the height of `client_view`.
@@ -1094,8 +1146,8 @@ pub fn move_cursor_page_up(
         Some(client_view) => client_view,
         None => return Err(SelectionError::ResultsInSameState), //maybe need a better error
     };
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
-    if buffer.char_to_line(selection.cursor(buffer, semantics.clone())) == 0{return Err(SelectionError::ResultsInSameState);}
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
+    if buffer.byte_to_line(selection.cursor(buffer, semantics)) == 0{return Err(SelectionError::ResultsInSameState);}
     selection.move_vertically(
         count.saturating_mul(client_view.height.saturating_sub(1)),
         buffer, 
@@ -1117,8 +1169,8 @@ pub fn move_cursor_page_down(
         Some(client_view) => client_view,
         None => return Err(SelectionError::ResultsInSameState), //maybe need a better error
     };
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
-    if buffer.char_to_line(selection.cursor(buffer, semantics.clone())) == buffer.len_lines().saturating_sub(1){return Err(SelectionError::ResultsInSameState);}
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
+    if buffer.byte_to_line(selection.cursor(buffer, semantics)) == buffer.len_lines().saturating_sub(1){return Err(SelectionError::ResultsInSameState);}
     selection.move_vertically(
         count.saturating_mul(client_view.height.saturating_sub(1)),
         buffer, 
@@ -1138,8 +1190,8 @@ pub fn extend_selection_up(
 ) -> Result<Selection, SelectionError>{
     if count < 1{return Err(SelectionError::ResultsInSameState);}
     assert!(display_area.is_none());
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
-    if buffer.char_to_line(selection.cursor(buffer, semantics.clone())) == 0{return Err(SelectionError::ResultsInSameState);}
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
+    if buffer.byte_to_line(selection.cursor(buffer, semantics)) == 0{return Err(SelectionError::ResultsInSameState);}
     selection.move_vertically(count, buffer, Movement::Extend, Direction::Backward, semantics)
 }
 
@@ -1153,11 +1205,11 @@ pub fn extend_selection_down(
 ) -> Result<Selection, SelectionError>{
     if count < 1{return Err(SelectionError::ResultsInSameState);}
     assert!(display_area.is_none());
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
     let last_line = buffer.len_lines().saturating_sub(1);
-    if buffer.char_to_line(selection.range.start) == last_line
-    || buffer.char_to_line(selection.range.end) == last_line
-    || buffer.char_to_line(selection.cursor(buffer, semantics.clone())) == last_line{return Err(SelectionError::ResultsInSameState);}
+    if buffer.byte_to_line(selection.range.start) == last_line
+    || buffer.byte_to_line(selection.range.end) == last_line
+    || buffer.byte_to_line(selection.cursor(buffer, semantics)) == last_line{return Err(SelectionError::ResultsInSameState);}
 
     selection.move_vertically(count, buffer, Movement::Extend, Direction::Forward, semantics)
 }
@@ -1171,9 +1223,9 @@ pub fn extend_selection_left(
 ) -> Result<Selection, SelectionError>{
     if count < 1{return Err(SelectionError::ResultsInSameState);}
     assert!(display_area.is_none());
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
     
-    if selection.cursor(buffer, semantics.clone()) == 0{return Err(SelectionError::ResultsInSameState);}
+    if selection.cursor(buffer, semantics) == 0{return Err(SelectionError::ResultsInSameState);}
     selection.move_horizontally(count, buffer, Movement::Extend, Direction::Backward, semantics)
 }
 
@@ -1186,12 +1238,12 @@ pub fn extend_selection_right(
 ) -> Result<Selection, SelectionError>{
     if count < 1{return Err(SelectionError::ResultsInSameState);}
     assert!(display_area.is_none());
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
 
     if (
-        selection.range.start == buffer.len_chars() || 
-        selection.range.end == buffer.len_chars() || 
-        selection.cursor(buffer, semantics.clone()) == buffer.len_chars()
+        selection.range.start == buffer.len_bytes() || 
+        selection.range.end == buffer.len_bytes() || 
+        selection.cursor(buffer, semantics) == buffer.len_bytes()
     ) && (    //needs to be able to shrink selection if extension_direction is Backward
         selection.extension_direction.is_none() ||
         selection.extension_direction == Some(Direction::Forward)
@@ -1209,13 +1261,13 @@ pub fn extend_selection_word_boundary_backward(
 ) -> Result<Selection, SelectionError>{
     if count < 1{return Err(SelectionError::ResultsInSameState);}
     assert!(display_area.is_none());
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
-    if selection.cursor(buffer, semantics.clone()) == 0{return Err(SelectionError::ResultsInSameState);}
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
+    if selection.cursor(buffer, semantics) == 0{return Err(SelectionError::ResultsInSameState);}
     
     //let goal_index = buffer.previous_word_boundary(selection.cursor(buffer, semantics.clone()));
-    let mut goal_index = selection.cursor(buffer, semantics.clone());
+    let mut goal_index = selection.cursor(buffer, semantics);
     for _ in 0..count{
-        let previous_word_boundary = buffer.previous_word_boundary(selection.cursor(buffer, semantics.clone()));
+        let previous_word_boundary = buffer.previous_word_start_boundary(selection.cursor(buffer, semantics));
         //goal_index = buffer.previous_word_boundary(selection.cursor(buffer, semantics.clone()));
         if goal_index == previous_word_boundary{break;}  //break out of loop early if we are already on the first grapheme
         goal_index = previous_word_boundary;
@@ -1235,15 +1287,15 @@ pub fn extend_selection_word_boundary_forward(
 ) -> Result<Selection, SelectionError>{  //TODO: ensure this can't extend past doc text end
     if count < 1{return Err(SelectionError::ResultsInSameState);}
     assert!(display_area.is_none());
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
-    if selection.range.start == buffer.len_chars()
-    || selection.range.end == buffer.len_chars()
-    || selection.cursor(buffer, semantics.clone()) == buffer.len_chars(){return Err(SelectionError::ResultsInSameState);}
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
+    if selection.range.start == buffer.len_bytes()
+    || selection.range.end == buffer.len_bytes()
+    || selection.cursor(buffer, semantics) == buffer.len_bytes(){return Err(SelectionError::ResultsInSameState);}
         
     //let goal_index = buffer.next_word_boundary(selection.head());
     let mut goal_index = selection.head();
     for _ in 0..count{
-        let next_word_boundary = buffer.next_word_boundary(selection.head());
+        let next_word_boundary = buffer.next_word_end_boundary(selection.head());
         //goal_index = buffer.next_word_boundary(selection.head());
         if goal_index == next_word_boundary{break;} //break out of loop early if we are already on the last grapheme
         goal_index = next_word_boundary;
@@ -1253,12 +1305,12 @@ pub fn extend_selection_word_boundary_forward(
             selection.put_cursor(goal_index, buffer, Movement::Extend, semantics, true)
         }
         CursorSemantics::Block => {
-            if goal_index == buffer.len_chars(){
+            if goal_index == buffer.len_bytes(){
                 //self.put_cursor(goal_index, text, Movement::Extend, semantics, true)
-                selection.put_cursor(buffer.previous_grapheme_char_index(buffer.len_chars()), buffer, Movement::Extend, semantics, true)
+                selection.put_cursor(buffer.previous_grapheme_boundary_byte_offset(buffer.len_bytes()), buffer, Movement::Extend, semantics, true)
             }else{
                 selection.put_cursor(
-                    buffer.previous_grapheme_char_index(goal_index), 
+                    buffer.previous_grapheme_boundary_byte_offset(goal_index), 
                     buffer, 
                     Movement::Extend, 
                     semantics, 
@@ -1276,28 +1328,29 @@ pub fn extend_selection_line_end(
     buffer: &Buffer, 
     semantics: CursorSemantics
 ) -> Result<Selection, SelectionError>{    //TODO: ensure this can't extend past doc text end
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
-    let line_number = buffer.char_to_line(selection.cursor(buffer, semantics.clone()));
-    let line_width = buffer.line_width_chars(line_number, false);    //doesn't include newline
-    let line_start = buffer.line_to_char(line_number);
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
+    let line_number = buffer.byte_to_line(selection.cursor(buffer, semantics));
+    //let line_width = buffer.line_width_chars(line_number, false);    //doesn't include newline
+    let line_width = buffer.line_width_terminal_cells(line_number, false);
+    let line_start = buffer.line_to_byte(line_number);
     let line_end = line_start.saturating_add(line_width);   //index at end of line text, not including newline  //nth_next_grapheme_index(line_start, line_width, text)?
 
     match semantics{
         CursorSemantics::Bar => {
-            if selection.cursor(buffer, semantics.clone()) == line_end{return Err(SelectionError::ResultsInSameState);}
+            if selection.cursor(buffer, semantics) == line_end{return Err(SelectionError::ResultsInSameState);}
             selection.put_cursor(line_end, buffer, Movement::Extend, semantics, true)
         }
         CursorSemantics::Block => {
             //if self.cursor(semantics) == line_end.saturating_sub(1)
-            if selection.cursor(buffer, semantics.clone()) == buffer.previous_grapheme_char_index(line_end)
-            || selection.cursor(buffer, semantics.clone()) == line_end{return Err(SelectionError::ResultsInSameState);}
-            let start_line = buffer.char_to_line(selection.range.start);
-            let end_line = buffer.char_to_line(selection.range.end);
-            if selection.cursor(buffer, semantics.clone()) == selection.range.start && end_line > start_line{
+            if selection.cursor(buffer, semantics) == buffer.previous_grapheme_boundary_byte_offset(line_end)
+            || selection.cursor(buffer, semantics) == line_end{return Err(SelectionError::ResultsInSameState);}
+            let start_line = buffer.byte_to_line(selection.range.start);
+            let end_line = buffer.byte_to_line(selection.range.end);
+            if selection.cursor(buffer, semantics) == selection.range.start && end_line > start_line{
                 selection.put_cursor(line_end, buffer, Movement::Extend, semantics, true)  //put cursor over newline, if extending from a line below
             }else{
                 //self.put_cursor(line_end.saturating_sub(1), text, Movement::Extend, semantics, true)
-                selection.put_cursor(buffer.previous_grapheme_char_index(line_end), buffer, Movement::Extend, semantics, true)
+                selection.put_cursor(buffer.previous_grapheme_boundary_byte_offset(line_end), buffer, Movement::Extend, semantics, true)
             }
         }
     }
@@ -1309,11 +1362,11 @@ pub fn extend_selection_line_start(
     buffer: &Buffer, 
     semantics: CursorSemantics
 ) -> Result<Selection, SelectionError>{
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
-    let line_number = buffer.char_to_line(selection.cursor(buffer, semantics.clone()));
-    let line_start = buffer.line_to_char(line_number);
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
+    let line_number = buffer.byte_to_line(selection.cursor(buffer, semantics));
+    let line_start = buffer.line_to_byte(line_number);
 
-    if selection.cursor(buffer, semantics.clone()) == line_start{return Err(SelectionError::ResultsInSameState);}
+    if selection.cursor(buffer, semantics) == line_start{return Err(SelectionError::ResultsInSameState);}
     selection.put_cursor(line_start, buffer, Movement::Extend, semantics, true)
 }
 //#[cfg(test)]
@@ -1466,13 +1519,13 @@ pub fn extend_selection_line_text_start(
     buffer: &Buffer, 
     semantics: CursorSemantics
 ) -> Result<Selection, SelectionError>{
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
-    let line_number = buffer.char_to_line(selection.cursor(buffer, semantics.clone()));
-    let line_start = buffer.line_to_char(line_number);
-    let text_start_offset = buffer.first_non_space_char_offset(line_number);
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
+    let line_number = buffer.byte_to_line(selection.cursor(buffer, semantics));
+    let line_start = buffer.line_to_byte(line_number);
+    let text_start_offset = buffer.first_non_space_byte_offset(line_number);
     let text_start = line_start.saturating_add(text_start_offset);  //nth_next_grapheme_index(line_start, text_start_offset, text)?
 
-    if selection.cursor(buffer, semantics.clone()) == text_start{return Err(SelectionError::ResultsInSameState);}
+    if selection.cursor(buffer, semantics) == text_start{return Err(SelectionError::ResultsInSameState);}
     selection.put_cursor(text_start, buffer, Movement::Extend, semantics, true)
 }
 //#[cfg(test)]
@@ -1625,28 +1678,28 @@ pub fn extend_selection_home(
     buffer: &Buffer, 
     semantics: CursorSemantics
 ) -> Result<Selection, SelectionError>{
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
-    let line_number = buffer.char_to_line(selection.cursor(buffer, semantics.clone()));
-    let line_start = buffer.line_to_char(line_number);
-    let text_start_offset = buffer.first_non_space_char_offset(line_number);
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
+    let line_number = buffer.byte_to_line(selection.cursor(buffer, semantics));
+    let line_start = buffer.line_to_byte(line_number);
+    let text_start_offset = buffer.first_non_space_byte_offset(line_number);
     let text_start = line_start.saturating_add(text_start_offset);  //nth_next_grapheme_index(line_start, text_start_offset, text)?
 
-    if selection.cursor(buffer, semantics.clone()) == text_start{extend_selection_line_start(selection, buffer, semantics.clone())}
+    if selection.cursor(buffer, semantics) == text_start{extend_selection_line_start(selection, buffer, semantics)}
     else{extend_selection_line_text_start(selection, buffer, semantics)}
 }
 
 /// Returns a new instance of [`Selection`] with the selection extended to the start of the buffer.
 pub fn extend_selection_buffer_start(selection: &Selection, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> Result<Selection, SelectionError>{
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
-    if selection.cursor(buffer, semantics.clone()) == 0{return Err(SelectionError::ResultsInSameState);}
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
+    if selection.cursor(buffer, semantics) == 0{return Err(SelectionError::ResultsInSameState);}
     selection.put_cursor(0, buffer, Movement::Extend, semantics, true)
 }
 
 /// Returns a new instance of [`Selection`] with the selection extended to the end of the buffer.
 pub fn extend_selection_buffer_end(selection: &Selection, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> Result<Selection, SelectionError>{
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
-    if selection.cursor(buffer, semantics.clone()) == buffer.len_chars(){return Err(SelectionError::ResultsInSameState);}
-    selection.put_cursor(buffer.len_chars(), buffer, Movement::Extend, semantics, true)
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
+    if selection.cursor(buffer, semantics) == buffer.len_bytes(){return Err(SelectionError::ResultsInSameState);}
+    selection.put_cursor(buffer.len_bytes(), buffer, Movement::Extend, semantics, true)
 }
 
 /// Returns a new instance of [`Selection`] with the selection extended up by the height of `client_view`.
@@ -1655,8 +1708,8 @@ pub fn extend_selection_page_up(selection: &Selection, count: usize, buffer: &cr
         Some(client_view) => client_view,
         None => return Err(SelectionError::ResultsInSameState), //maybe need a better error
     };
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
-    if buffer.char_to_line(selection.cursor(buffer, semantics.clone())) == 0{return Err(SelectionError::ResultsInSameState);}
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
+    if buffer.byte_to_line(selection.cursor(buffer, semantics)) == 0{return Err(SelectionError::ResultsInSameState);}
     selection.move_vertically(
         count.saturating_mul(client_view.height.saturating_sub(1)),
         buffer, 
@@ -1672,8 +1725,8 @@ pub fn extend_selection_page_down(selection: &Selection, count: usize, buffer: &
         Some(client_view) => client_view,
         None => return Err(SelectionError::ResultsInSameState), //maybe need a better error
     };
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
-    if buffer.char_to_line(selection.cursor(buffer, semantics.clone())) == buffer.len_lines().saturating_sub(1){return Err(SelectionError::ResultsInSameState);}
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
+    if buffer.byte_to_line(selection.cursor(buffer, semantics)) == buffer.len_lines().saturating_sub(1){return Err(SelectionError::ResultsInSameState);}
     selection.move_vertically(
         count.saturating_mul(client_view.height.saturating_sub(1)),
         buffer, 
@@ -1691,14 +1744,15 @@ pub fn select_line(
     buffer: &Buffer, 
     semantics: CursorSemantics
 ) -> Result<Selection, SelectionError>{
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
     //vs code selects all spanned lines...  maybe caller can make that determination...
     if selection.spans_multiple_lines(buffer){return Err(SelectionError::SpansMultipleLines);}    //make specific error. SpansMultipleLines or something...
-    if buffer.char_to_line(selection.cursor(buffer, semantics.clone())) == buffer.len_lines().saturating_sub(1){return Err(SelectionError::ResultsInSameState);}
+    if buffer.byte_to_line(selection.cursor(buffer, semantics)) == buffer.len_lines().saturating_sub(1){return Err(SelectionError::ResultsInSameState);}
 
-    let line = buffer.char_to_line(selection.range.start);
-    let line_start = buffer.line_to_char(line);
-    let line_end = line_start + buffer.line_width_chars(line, true);
+    let line = buffer.byte_to_line(selection.range.start);
+    let line_start = buffer.line_to_byte(line);
+    //let line_end = line_start + buffer.line_width_chars(line, true);
+    let line_end = line_start + buffer.line_width_terminal_cells(line, true);
 
     if selection.range.start == line_start && selection.range.end == line_end{Err(SelectionError::ResultsInSameState)}
     else{
@@ -1707,7 +1761,7 @@ pub fn select_line(
         selection.range.end = line_end;
         selection.extension_direction = Some(Direction::Forward);
         //
-        selection.preferred_visual_offset = buffer.offset_from_line_start(selection.cursor(buffer, semantics));
+        selection.preferred_column = buffer.offset_from_line_start(selection.cursor(buffer, semantics));
         //
         //TODO?: maybe update stored line offset?...
         Ok(selection)
@@ -1720,18 +1774,18 @@ pub fn select_all(
     buffer: &Buffer, 
     semantics: CursorSemantics
 ) -> Result<Selection, SelectionError>{  //TODO: ensure this can't extend past doc text end
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
     if selection.range.start == 0 
     && (
-        selection.range.end == buffer.len_chars() || 
-        selection.range.end == buffer.len_chars().saturating_add(1)
+        selection.range.end == buffer.len_bytes() || 
+        selection.range.end == buffer.len_bytes().saturating_add(1)
     ){return Err(SelectionError::ResultsInSameState);}
     
-    let selection = selection.put_cursor(0, buffer, Movement::Move, semantics.clone(), true)?;
+    let selection = selection.put_cursor(0, buffer, Movement::Move, semantics, true)?;
     selection.put_cursor(
         match semantics{
-            CursorSemantics::Bar => buffer.len_chars(), 
-            CursorSemantics::Block => buffer.previous_grapheme_char_index(buffer.len_chars())
+            CursorSemantics::Bar => buffer.len_bytes(), 
+            CursorSemantics::Block => buffer.previous_grapheme_boundary_byte_offset(buffer.len_bytes())
         }, 
         buffer, 
         Movement::Extend, 
@@ -1746,8 +1800,8 @@ pub fn flip_direction(
     semantics: CursorSemantics
 ) -> Result<Selection, SelectionError>{
     //use crate::selection::ExtensionDirection;
-    //selection.assert_invariants(buffer, semantics.clone());
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
+    //selection.assert_invariants(buffer, semantics);
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
     if !selection.is_extended(){return Err(SelectionError::ResultsInSameState)}
     //Ok(
     //    Selection::new(
@@ -1764,7 +1818,7 @@ pub fn flip_direction(
         Some(Direction::Forward)/*ExtensionDirection::Forward*/ => Some(Direction::Backward)/*ExtensionDirection::Backward*/,
         Some(Direction::Backward)/*ExtensionDirection::Backward*/ => Some(Direction::Forward)/*ExtensionDirection::Forward*/
     };
-    new_selection.preferred_visual_offset = /*Some(*/buffer.offset_from_line_start(new_selection.cursor(buffer, semantics))/*)*/;
+    new_selection.preferred_column = /*Some(*/buffer.offset_from_line_start(new_selection.cursor(buffer, semantics))/*)*/;
     Ok(new_selection)
 }
 
@@ -1777,22 +1831,22 @@ pub fn flip_direction(
 ) -> Vec<Selection>{
     //TODO: selection.assert_invariants(text, semantics);
     let mut surround_selections = Vec::new();
-    if selection.range.start == buffer.len_chars(){return surround_selections;}
+    if selection.range.start == buffer.len_bytes(){return surround_selections;}
     //let first_selection = Selection::new(Range::new(selection.range.start, text_util::next_grapheme_index(selection.range.start, text)), Direction::Forward);
     let mut first_selection = selection.clone();
     first_selection.range.start = selection.range.start;
-    first_selection.range.end = buffer.next_grapheme_char_index(selection.range.start);
+    first_selection.range.end = buffer.next_grapheme_boundary_byte_offset(selection.range.start);
     first_selection.extension_direction = None;//crate::selection::ExtensionDirection::None;
     //
-    first_selection.preferred_visual_offset = buffer.offset_from_line_start(first_selection.cursor(buffer, semantics.clone()));
+    first_selection.preferred_column = buffer.offset_from_line_start(first_selection.cursor(buffer, semantics));
     //
     //let second_selection = Selection::new(Range::new(selection.range.end, text_util::next_grapheme_index(selection.range.end, text)), Direction::Forward);
     let mut second_selection = selection.clone();
     second_selection.range.start = selection.range.end;
-    second_selection.range.end = buffer.next_grapheme_char_index(selection.range.end);
+    second_selection.range.end = buffer.next_grapheme_boundary_byte_offset(selection.range.end);
     second_selection.extension_direction = None;//crate::selection::ExtensionDirection::None;
     //
-    second_selection.preferred_visual_offset = buffer.offset_from_line_start(second_selection.cursor(buffer, semantics.clone()));
+    second_selection.preferred_column = buffer.offset_from_line_start(second_selection.cursor(buffer, semantics));
     //
 
     surround_selections.push(first_selection);
@@ -1836,18 +1890,18 @@ pub fn flip_direction(
                         else{
                             let mut first_selection = selection.clone();
                             first_selection.range.start = rev_search_index;
-                            first_selection.range.end = buffer.next_grapheme_char_index(rev_search_index);
+                            first_selection.range.end = buffer.next_grapheme_boundary_byte_offset(rev_search_index);
                             first_selection.extension_direction = None;//crate::selection::ExtensionDirection::None;
                             //
-                            first_selection.preferred_visual_offset = buffer.offset_from_line_start(first_selection.cursor(buffer, semantics.clone()));
+                            first_selection.preferred_column = buffer.offset_from_line_start(first_selection.cursor(buffer, semantics));
                             //
 
                             let mut second_selection = selection.clone();
                             second_selection.range.start = search_index;
-                            second_selection.range.end = buffer.next_grapheme_char_index(search_index);
+                            second_selection.range.end = buffer.next_grapheme_boundary_byte_offset(search_index);
                             second_selection.extension_direction = None;//crate::selection::ExtensionDirection::None;
                             //
-                            second_selection.preferred_visual_offset = buffer.offset_from_line_start(second_selection.cursor(buffer, semantics.clone()));
+                            second_selection.preferred_column = buffer.offset_from_line_start(second_selection.cursor(buffer, semantics));
                             //
                             return vec![
                                 //Selection::new(Range::new(rev_search_index, text_util::next_grapheme_index(rev_search_index, text)), Direction::Forward),
@@ -1869,18 +1923,18 @@ pub fn flip_direction(
                             if search_index >= selection.range.start{
                                 let mut first_selection = selection.clone();
                                 first_selection.range.start = rev_search_index;
-                                first_selection.range.end = buffer.next_grapheme_char_index(rev_search_index);
+                                first_selection.range.end = buffer.next_grapheme_boundary_byte_offset(rev_search_index);
                                 first_selection.extension_direction = None;//crate::selection::ExtensionDirection::None;
                                 //
-                                first_selection.preferred_visual_offset = buffer.offset_from_line_start(first_selection.cursor(buffer, semantics.clone()));
+                                first_selection.preferred_column = buffer.offset_from_line_start(first_selection.cursor(buffer, semantics));
                                 //
 
                                 let mut second_selection = selection.clone();
                                 second_selection.range.start = search_index;
-                                second_selection.range.end = buffer.next_grapheme_char_index(search_index);
+                                second_selection.range.end = buffer.next_grapheme_boundary_byte_offset(search_index);
                                 second_selection.extension_direction = None;//crate::selection::ExtensionDirection::None;
                                 //
-                                second_selection.preferred_visual_offset = buffer.offset_from_line_start(second_selection.cursor(buffer, semantics));
+                                second_selection.preferred_column = buffer.offset_from_line_start(second_selection.cursor(buffer, semantics));
                                 //
                                 return vec![
                                     //Selection::new(Range::new(rev_search_index, text_util::next_grapheme_index(rev_search_index, text)), Direction::Forward),
@@ -1897,7 +1951,7 @@ pub fn flip_direction(
                     
                 search_index = search_index + 1;
 
-                if search_index >= buffer.len_chars(){break 'outer;}
+                if search_index >= buffer.len_bytes(){break 'outer;}
             }
         }
         //else{ //is else really needed here?...
@@ -2003,9 +2057,9 @@ pub fn collapse_selection_to_cursor(
     buffer: &Buffer, 
     semantics: CursorSemantics
 ) -> Result<Selection, SelectionError>{
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
     if !selection.is_extended(){return Err(SelectionError::ResultsInSameState);}
-    selection.put_cursor(selection.cursor(buffer, semantics.clone()), buffer, Movement::Move, semantics, true)
+    selection.put_cursor(selection.cursor(buffer, semantics), buffer, Movement::Move, semantics, true)
 }
 
 /// Returns a new instance of [`Selection`] with `cursor` aligned with anchor.
@@ -2015,22 +2069,22 @@ pub fn collapse_selection_to_anchor(
     semantics: CursorSemantics
 ) -> Result<Selection, SelectionError>{
     //selection.assert_invariants(buffer, semantics.clone());
-    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
+    assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
     if !selection.is_extended(){return Err(SelectionError::ResultsInSameState);}
     let result = selection.put_cursor(
-        if selection.direction(buffer, semantics.clone()) == Some(crate::selection::Direction::Backward){
-            buffer.previous_grapheme_char_index(selection.anchor())
+        if selection.direction(buffer, semantics) == Some(crate::selection::Direction::Backward){
+            buffer.previous_grapheme_boundary_byte_offset(selection.anchor())
         }else{
             selection.anchor()
         }, 
         buffer, 
         Movement::Move, 
-        semantics.clone(), 
+        semantics, 
         true
     );
     match result{
         Ok(selection) => {
-            assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics.clone()));
+            assert_eq!(Ok(()), selection.invariants_hold(buffer, semantics));
             Ok(selection)
         }
         Err(e) => Err(e)

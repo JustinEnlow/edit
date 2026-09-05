@@ -1,4 +1,4 @@
-#[derive(Clone)] pub enum EditorAction{
+#[derive(Debug, Clone)] pub enum EditorAction{
     ModePop,
     ModePush(crate::mode::Mode, Option<String>),
     NoOpKeypress,
@@ -119,7 +119,7 @@ impl SelectionAction{
         name.to_string()
     }
 }
-#[derive(Clone)] pub enum EditAction{
+#[derive(Debug, Clone)] pub enum EditAction{
         //TODO: AlignSelectedTextVertically,
     InsertChar(char),
     InsertNewline,
@@ -149,7 +149,7 @@ impl EditAction{
         name.to_string()
     }
 }
-#[derive(Clone)] pub enum ViewAction{
+#[derive(Debug, Clone)] pub enum ViewAction{
     CenterVerticallyAroundCursor,
         //TODO: CenterHorizontallyAroundCursor,
         //TODO: AlignWithCursorAtTop,
@@ -171,7 +171,7 @@ impl ViewAction{
         name.to_string()
     }
 }
-#[derive(Clone)] pub enum UtilAction{
+#[derive(Debug, Clone)] pub enum UtilAction{
     Backspace,
     Delete,
     InsertChar(char),
@@ -214,7 +214,7 @@ impl UtilAction{
         name.to_string()
     }
 }
-#[derive(Clone)] pub enum Action{
+#[derive(Debug, Clone)] pub enum Action{
     EditorAction(EditorAction),
     SelectionAction(SelectionAction, usize),
     EditAction(EditAction),

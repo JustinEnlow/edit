@@ -20,7 +20,7 @@ use edit::{
     //config::CURSOR_STYLE
 };
 
-
+//TODO: if no file path provided, we could just open current dir...
 
 //TODO: support navigating to specific locations by appending certain characters at end of provided file name
     //edit file_name.rs:10:15
@@ -31,7 +31,6 @@ use edit::{
 //passing flags instead would support more cases
     //edit --line 10 --column 15 file_name.rs
     //edit --search <regex> file_name.rs
-    //edit --line 0 -t file_name.rs
     //edit --line 0 -t < file_name.rs
     //edit --search <regex> --tutor
 

@@ -6,6 +6,52 @@ use crate::{
     selection::{CursorSemantics, Selection}, 
     selections::Selections
 };
+use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
+
+pub fn string_stats(string: &str){
+    println!("stats for string: {:?}", string);
+    for (i, grapheme) in string.grapheme_indices(true){
+        println!(
+            "    grapheme: {:?}, byte: {}, display_width: {}", 
+            grapheme, 
+            i, 
+            grapheme.width()
+        );
+    }
+}
+
+pub fn debug_buffer_selections(buffer: &Buffer, selections: &Selections, semantics: CursorSemantics){
+    let mut debug_string = String::new();
+    for (i, grapheme) in buffer.to_string().grapheme_indices(true){
+        for selection in selections.iter(){
+            if selection.anchor() == i{
+                debug_string.push('|');
+            }
+            if semantics == CursorSemantics::Block 
+            && (
+                selection.extension_direction == None || 
+                selection.extension_direction == Some(crate::selection::Direction::Forward)
+            ){
+                if selection.cursor(buffer, semantics) == i{
+                    debug_string.push(':');
+                }
+            }
+            if selection.head() == i{
+                match selection.extension_direction{
+                    None | Some(crate::selection::Direction::Forward) => {
+                        debug_string.push('>');
+                    }
+                    Some(crate::selection::Direction::Backward) => {
+                        debug_string.push('<');
+                    }
+                }
+            }
+        }
+        debug_string.push_str(grapheme);
+    }
+    println!("{:?}", debug_string)
+}
 
 pub fn set_up_test_application(
     config: Config,
@@ -30,7 +76,7 @@ pub fn set_up_test_application(
     );
     match ratatui::Terminal::new(backend){
         Ok(terminal) => {
-            match Application::new(config, buffer_text, None, read_only,&terminal){
+            match Application::new(config, buffer_text, None, read_only, &terminal){
                 Ok(mut app) => {
                     app.buffer_horizontal_start = terminal_display_area.horizontal_start;
                     app.buffer_vertical_start = terminal_display_area.vertical_start;

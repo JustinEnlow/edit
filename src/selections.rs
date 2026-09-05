@@ -21,7 +21,7 @@ use crate::{
     pub primary: Selection,
     pub trailing: Vec<Selection>,   //TODO?: maybe VecDeque for performance     //or consider SmallVec
 }
-impl Selections{
+impl Selections{    //TODO: maybe do new() and new_unchecked() like Selection...
     /// Returns new instance of [`Selections`] from provided input.
     #[must_use] pub fn new(selections: Vec<Selection>, primary_selection_index: usize, buffer: &Buffer, semantics: CursorSemantics) -> Self{
         assert!(!selections.is_empty());
@@ -63,8 +63,8 @@ impl Selections{
         selections
     }
 
-    //TODO: should this go in buffer.rs instead? fn to_string_with_debug_selections
-    #[cfg(test)] fn debug_over_buffer_content(&self, buffer: &Buffer, semantics: CursorSemantics) -> String{
+    //TODO: remove this. better impl in src/tests/common/mod.rs
+    #[cfg(test)] pub fn debug_over_buffer_content(&self, buffer: &Buffer, semantics: CursorSemantics) -> String{
         use unicode_segmentation::UnicodeSegmentation;
 
         let mut debug_string = String::new();
@@ -74,7 +74,7 @@ impl Selections{
                     debug_string.push('|');
                 }
                 if semantics == CursorSemantics::Block && (selection.extension_direction == None || selection.extension_direction == Some(crate::selection::Direction::Forward)){
-                    if selection.cursor(buffer, semantics.clone()) == i{
+                    if selection.cursor(buffer, semantics) == i{
                         debug_string.push(':');
                     }
                 }
@@ -203,7 +203,7 @@ impl Selections{
         if self.count() < 2{return self.clone();}
 
         let mut sorted_selections = self.flatten();
-        sorted_selections.sort_unstable_by_key(Selection::start);
+        sorted_selections.sort_unstable_by_key(|selection| selection.range.start/*Selection::start*/);
     
         let primary_selection_index = sorted_selections
             .iter()
@@ -220,26 +220,16 @@ impl Selections{
         let mut primary = self.primary.clone();
         let mut new_selections = self.flatten();
         new_selections.dedup_by(|current_selection, prev_selection|{
-            //if prev_selection.overlaps(current_selection){
-                //let merged_selection = match current_selection.merge(prev_selection, text, semantics){
-                //    Ok(val) => val,
-                //    Err(_) => {return false;}
-                //};
-                //let merged_selection = match current_selection.merge_overlapping(prev_selection, text, semantics){
-                //    Ok(val) => val,
-                //    Err(_) => {return false;}
-                //};
-                let Ok(merged_selection) = current_selection.merge_overlapping(prev_selection, buffer, semantics.clone()) //change suggested by clippy lint
-                else{return false;};
+            let Ok(merged_selection) = current_selection.merge_overlapping(prev_selection, buffer, semantics) //change suggested by clippy lint
+            else{return false;};
 
-                // Update primary selection to track index in next code block // Only clone if necessary
-                if prev_selection == &primary || current_selection == &primary{
-                    primary = merged_selection.clone();
-                }
+            // Update primary selection to track index in next code block // Only clone if necessary
+            if prev_selection == &primary || current_selection == &primary{
+                primary = merged_selection.clone();
+            }
 
-                *prev_selection = merged_selection;
-                true
-            //}else{false}
+            *prev_selection = merged_selection;
+            true
         });
 
         let primary_selection_index = new_selections.iter()
@@ -280,7 +270,7 @@ impl Selections{
     {
         let mut new_selections = Vec::with_capacity(self.count());  //the maximum size this vec should ever be is num selections in self
         for selection in self.iter(){
-            match move_fn(selection, buffer, semantics.clone()){
+            match move_fn(selection, buffer, semantics){
                 Ok(new_selection) => {new_selections.push(new_selection);}
                 Err(e) => {
                     match e{
@@ -301,8 +291,8 @@ impl Selections{
                 }
             }
         }
-        let mut new_selections = Selections::new(new_selections, self.primary_selection_index(), buffer, semantics.clone());
-        if let Ok(merged_selections) = new_selections.merge_overlapping(buffer, semantics.clone()){
+        let mut new_selections = Selections::new(new_selections, self.primary_selection_index(), buffer, semantics);
+        if let Ok(merged_selections) = new_selections.merge_overlapping(buffer, semantics){
             new_selections = merged_selections;
         }
         if &new_selections == self{return Err(SelectionsError::ResultsInSameState);}    //this should handle multicursor at doc end and another extend all the way right at text and, and no same state error
@@ -316,7 +306,7 @@ impl Selections{
         let mut new_selections = Vec::with_capacity(self.count());  //the maximum size this vec should ever be is num selections in self
         let mut movement_succeeded = false;
         for selection in self.iter(){
-            match move_fn(selection, buffer, semantics.clone()){
+            match move_fn(selection, buffer, semantics){
                 Ok(new_selection) => {
                     new_selections.push(new_selection);
                     movement_succeeded = true;
@@ -333,7 +323,7 @@ impl Selections{
             }
         }
         if !movement_succeeded{return Err(SelectionsError::ResultsInSameState)}
-        let new_selections = Selections::new(new_selections, self.primary_selection_index(), buffer, semantics.clone());
+        let new_selections = Selections::new(new_selections, self.primary_selection_index(), buffer, semantics);
         Ok(new_selections)
     }
     
@@ -345,7 +335,7 @@ impl Selections{
         let mut new_selections = self.clone();
         //if let Ok(primary_only) = crate::utilities::clear_non_primary_selections::selections_impl(self){new_selections = primary_only;} //intentionally ignoring any errors
         if let Ok(primary_only) = clear_non_primary_selections(self){new_selections = primary_only;}    //intentionally ignoring any errors
-        match move_fn(&new_selections.primary.clone(), buffer, semantics.clone()){
+        match move_fn(&new_selections.primary.clone(), buffer, semantics){
             Ok(new_selection) => {
                 new_selections = Selections::new(vec![new_selection], 0, buffer, semantics);
             }
@@ -422,7 +412,7 @@ impl Selections{
         }
         */
         for selection in self.iter(){
-            match move_fn(selection, count, buffer, display_area, semantics.clone()){
+            match move_fn(selection, count, buffer, display_area, semantics){
                 Ok(new_selection) => {new_selections.push(new_selection);}
                 Err(e) => {
                     match e{
@@ -443,8 +433,8 @@ impl Selections{
                 }
             }
         }
-        let mut new_selections = Selections::new(new_selections, self.primary_selection_index(), buffer, semantics.clone());
-        if let Ok(merged_selections) = new_selections.merge_overlapping(buffer, semantics.clone()){
+        let mut new_selections = Selections::new(new_selections, self.primary_selection_index(), buffer, semantics);
+        if let Ok(merged_selections) = new_selections.merge_overlapping(buffer, semantics){
             new_selections = merged_selections;
         }
         if &new_selections == self{return Err(SelectionsError::ResultsInSameState);}    //this should handle multicursor at doc end and another extend all the way right at text and, and no same state error
@@ -466,7 +456,7 @@ pub fn surround(
     let mut primary_selection_index = selections.primary_selection_index();
     for selection in &selections.flatten(){
         //let surrounds = selection_impl(selection, buffer);
-        let surrounds = crate::selection::surround(selection, buffer, semantics.clone());
+        let surrounds = crate::selection::surround(selection, buffer, semantics);
         //if selection == primary_selection{
         //    primary_selection_index = num_pushed;//.saturating_sub(1);
         //}
@@ -511,7 +501,7 @@ pub fn nearest_surrounding_pair(
     let mut primary_selection_index = selections.primary_selection_index();
     for selection in &selections.flatten(){
         //let surrounds = selection_impl(selection, buffer);
-        let surrounds = crate::selection::nearest_surrounding_pair(selection, buffer, semantics.clone());
+        let surrounds = crate::selection::nearest_surrounding_pair(selection, buffer, semantics);
         if selection == primary_selection{
             primary_selection_index = num_pushed;
         }
@@ -529,7 +519,7 @@ pub fn nearest_surrounding_pair(
     if new_selections.is_empty() || new_selections == selections.flatten(){Err(SelectionsError::ResultsInSameState)}
     else{
         //Ok(Selections::new(new_selections, primary_selection_index, text))
-        Selections::new(new_selections, primary_selection_index, buffer, semantics.clone()).sort().merge_overlapping(buffer, semantics)
+        Selections::new(new_selections, primary_selection_index, buffer, semantics).sort().merge_overlapping(buffer, semantics)
     }
 }
 
@@ -563,7 +553,7 @@ pub fn add_selection_above(
     assert!(selections.count() > 0);  //ensure at least one selection in selections
 
     let top_selection = selections.first();
-    let top_selection_line = buffer.char_to_line(top_selection.range.start);
+    let top_selection_line = buffer.byte_to_line(top_selection.range.start);
     if top_selection_line == 0{return Err(SelectionsError::CannotAddSelectionAbove);}
     // should error if any selection spans multiple lines. //callee can determine appropriate response behavior in this case        //vscode behavior is to extend topmost selection up one line if any selection spans multiple lines
     for selection in &selections.flatten(){  //self.selections.iter(){   //change suggested by clippy lint
@@ -574,14 +564,16 @@ pub fn add_selection_above(
     let start_offset = buffer.offset_from_line_start(selections.primary.range.start);
     let end_offset = start_offset.saturating_add(selections.primary.range.end.saturating_sub(selections.primary.range.start));  //start_offset + (end char index - start char index)
     let line_above = top_selection_line.saturating_sub(1);
-    let line_start = buffer.line_to_char(line_above);
-    let line_text = buffer./*inner.*/line(line_above);
-    let line_width = buffer.line_width_chars(line_above, false);
-    let line_width_including_newline = buffer.line_width_chars(line_above, true);
+    let line_start = buffer.line_to_byte(line_above);
+    let line_text = buffer.line(line_above);
+    //let line_width = buffer.line_width_chars(line_above, false);
+    let line_width = buffer.line_width_terminal_cells(line_above, false);
+    //let line_width_including_newline = buffer.line_width_chars(line_above, true);
+    let line_width_including_newline = buffer.line_width_terminal_cells(line_above, true);
     let (start, end) = if line_text.to_string().is_empty() || line_text == "\n"{    //should be impossible for the text in the line above first selection to be empty. is_empty() check is redundant here...
         match semantics{
             CursorSemantics::Bar => (line_start, line_start),
-            CursorSemantics::Block => (line_start, buffer.next_grapheme_char_index(line_start))
+            CursorSemantics::Block => (line_start, buffer.next_grapheme_boundary_byte_offset(line_start))
         }
     }
     else if selections.primary.is_extended(){
@@ -592,14 +584,14 @@ pub fn add_selection_above(
             // currently same as non extended. this might change...
             match semantics{    //ensure adding the offsets doesn't make this go past line width
                 CursorSemantics::Bar => (line_start.saturating_add(start_offset.min(line_width)), line_start.saturating_add(start_offset.min(line_width))),
-                CursorSemantics::Block => (line_start.saturating_add(start_offset.min(line_width)), buffer.next_grapheme_char_index(line_start.saturating_add(start_offset.min(line_width))))
+                CursorSemantics::Block => (line_start.saturating_add(start_offset.min(line_width)), buffer.next_grapheme_boundary_byte_offset(line_start.saturating_add(start_offset.min(line_width))))
             }
         }
     }
     else{  //not extended
         match semantics{    //ensure adding the offsets doesn't make this go past line width
             CursorSemantics::Bar => (line_start.saturating_add(start_offset.min(line_width)), line_start.saturating_add(start_offset.min(line_width))),
-            CursorSemantics::Block => (line_start.saturating_add(start_offset.min(line_width)), buffer.next_grapheme_char_index(line_start.saturating_add(start_offset.min(line_width))))
+            CursorSemantics::Block => (line_start.saturating_add(start_offset.min(line_width)), buffer.next_grapheme_boundary_byte_offset(line_start.saturating_add(start_offset.min(line_width))))
         }
     };
 
@@ -607,7 +599,7 @@ pub fn add_selection_above(
     selection.range.start = start;
     selection.range.end = end;
     //
-    selection.preferred_visual_offset = buffer.offset_from_line_start(selection.cursor(buffer, semantics));
+    selection.preferred_column = buffer.offset_from_line_start(selection.cursor(buffer, semantics));
     //
     Ok(selections.push_front(selection, false))
 }
@@ -623,7 +615,7 @@ pub fn add_selection_below(
     assert!(selections.count() > 0);  //ensure at least one selection in selections
 
     let bottom_selection = selections.last();
-    let bottom_selection_line = buffer.char_to_line(bottom_selection.range.start);
+    let bottom_selection_line = buffer.byte_to_line(bottom_selection.range.start);
     //bottom_selection_line must be zero based, and text.len_lines() one based...   //TODO: verify
     if bottom_selection_line >= buffer.len_lines().saturating_sub(1){return Err(SelectionsError::CannotAddSelectionBelow);}
     // should error if any selection spans multiple lines. //callee can determine appropriate response behavior in this case        //vscode behavior is to extend topmost selection down one line if any selection spans multiple lines
@@ -635,14 +627,16 @@ pub fn add_selection_below(
     let start_offset = buffer.offset_from_line_start(selections.primary.range.start);
     let end_offset = start_offset.saturating_add(selections.primary.range.end.saturating_sub(selections.primary.range.start));  //start_offset + (end char index - start char index)
     let line_below = bottom_selection_line.saturating_add(1);
-    let line_start = buffer.line_to_char(line_below);
+    let line_start = buffer.line_to_byte(line_below);
     let line_text = buffer./*inner.*/line(line_below);
-    let line_width = buffer.line_width_chars(line_below, false);
-    let line_width_including_newline = buffer.line_width_chars(line_below, true);
+    //let line_width = buffer.line_width_chars(line_below, false);
+    let line_width = buffer.line_width_terminal_cells(line_below, false);
+    //let line_width_including_newline = buffer.line_width_chars(line_below, true);
+    let line_width_including_newline = buffer.line_width_terminal_cells(line_below, true);
     let (start, end) = if line_text.to_string().is_empty() || line_text == "\n"{    //should be impossible for the text in the line above first selection to be empty. is_empty() check is redundant here...
         match semantics{
             CursorSemantics::Bar => (line_start, line_start),
-            CursorSemantics::Block => (line_start, buffer.next_grapheme_char_index(line_start))
+            CursorSemantics::Block => (line_start, buffer.next_grapheme_boundary_byte_offset(line_start))
         }
     }
     else if selections.primary.is_extended(){
@@ -653,14 +647,14 @@ pub fn add_selection_below(
             // currently same as non extended. this might change...
             match semantics{    //ensure adding the offsets doesn't make this go past line width
                 CursorSemantics::Bar => (line_start.saturating_add(start_offset.min(line_width)), line_start.saturating_add(start_offset.min(line_width))),
-                CursorSemantics::Block => (line_start.saturating_add(start_offset.min(line_width)), buffer.next_grapheme_char_index(line_start.saturating_add(start_offset.min(line_width))))
+                CursorSemantics::Block => (line_start.saturating_add(start_offset.min(line_width)), buffer.next_grapheme_boundary_byte_offset(line_start.saturating_add(start_offset.min(line_width))))
             }
         }
     }
     else{  //not extended
         match semantics{    //ensure adding the offsets doesn't make this go past line width
             CursorSemantics::Bar => (line_start.saturating_add(start_offset.min(line_width)), line_start.saturating_add(start_offset.min(line_width))),
-            CursorSemantics::Block => (line_start.saturating_add(start_offset.min(line_width)), buffer.next_grapheme_char_index(line_start.saturating_add(start_offset.min(line_width))))
+            CursorSemantics::Block => (line_start.saturating_add(start_offset.min(line_width)), buffer.next_grapheme_boundary_byte_offset(line_start.saturating_add(start_offset.min(line_width))))
         }
     };
 
@@ -671,9 +665,9 @@ pub fn add_selection_below(
     let mut selection = selections.primary.clone();
     selection.range.start = start;
     selection.range.end = end;
-    selection.extension_direction = selection.direction(buffer, semantics.clone());
+    selection.extension_direction = selection.direction(buffer, semantics);
     //
-    selection.preferred_visual_offset = buffer.offset_from_line_start(selection.cursor(buffer, semantics));
+    selection.preferred_column = buffer.offset_from_line_start(selection.cursor(buffer, semantics));
     //
     Ok(selections.push(selection, false))
 }
@@ -782,65 +776,143 @@ mod tests{
         buffer::Buffer
     };
 
+    //new
     #[test] fn non_extended_bar_semantics(){
         let semantics = CursorSemantics::Bar;
         let buffer = Buffer::new("idk\nsome\nshit\n", None, false);
-        let selection = Selection::new_from_range(0..0, None, &buffer, semantics.clone());
-        let selections = Selections::new(vec![selection], 0, &buffer, semantics.clone());
+        let selection = Selection::new(0..0, None, &buffer, semantics);
+        let selections = Selections::new(vec![selection], 0, &buffer, semantics);
         assert_eq!("|>idk\nsome\nshit\n", selections.debug_over_buffer_content(&buffer, semantics));
     }
     #[test] fn forward_extended_bar_semantics(){
         let semantics = CursorSemantics::Bar;
         let buffer = Buffer::new("idk\nsome\nshit\n", None, false);
-        let selection = Selection::new_from_range(2..6, Some(Direction::Forward), &buffer, semantics.clone());
-        let selections = Selections::new(vec![selection], 0, &buffer, semantics.clone());
+        let selection = Selection::new(2..6, Some(Direction::Forward), &buffer, semantics);
+        let selections = Selections::new(vec![selection], 0, &buffer, semantics);
         assert_eq!("id|k\nso>me\nshit\n", selections.debug_over_buffer_content(&buffer, semantics));
     }
     #[test] fn backward_extended_bar_semantics(){
         let semantics = CursorSemantics::Bar;
         let buffer = Buffer::new("idk\nsome\nshit\n", None, false);
-        let selection = Selection::new_from_range(2..6, Some(Direction::Backward), &buffer, semantics.clone());
-        let selections = Selections::new(vec![selection], 0, &buffer, semantics.clone());
+        let selection = Selection::new(2..6, Some(Direction::Backward), &buffer, semantics);
+        let selections = Selections::new(vec![selection], 0, &buffer, semantics);
         assert_eq!("id<k\nso|me\nshit\n", selections.debug_over_buffer_content(&buffer, semantics));
     }
     #[test] fn selections_with_all_extension_directions_bar_semantics(){
         let semantics = CursorSemantics::Bar;
         let buffer = Buffer::new("idk\nsome\nshit\n", None, false);
-        let selection_1 = Selection::new_from_range(0..4, Some(Direction::Forward), &buffer, semantics.clone());
-        let selection_2 = Selection::new_from_range(6..6, None, &buffer, semantics.clone());
-        let selection_3 = Selection::new_from_range(8..12, Some(Direction::Backward), &buffer, semantics.clone());
-        let selections = Selections::new(vec![selection_1, selection_2, selection_3], 0, &buffer, semantics.clone());
+        let selection_1 = Selection::new(0..4, Some(Direction::Forward), &buffer, semantics);
+        let selection_2 = Selection::new(6..6, None, &buffer, semantics);
+        let selection_3 = Selection::new(8..12, Some(Direction::Backward), &buffer, semantics);
+        let selections = Selections::new(vec![selection_1, selection_2, selection_3], 0, &buffer, semantics);
         assert_eq!("|idk\n>so|>me<\nshi|t\n", selections.debug_over_buffer_content(&buffer, semantics));
     }
     
     #[test] fn non_extended_block_semantics(){
         let semantics = CursorSemantics::Block;
         let buffer = Buffer::new("idk\nsome\nshit\n", None, false);
-        let selection = Selection::new_from_range(0..1, None, &buffer, semantics.clone());
-        let selections = Selections::new(vec![selection], 0, &buffer, semantics.clone());
+        let selection = Selection::new(0..1, None, &buffer, semantics);
+        let selections = Selections::new(vec![selection], 0, &buffer, semantics);
         assert_eq!("|:i>dk\nsome\nshit\n", selections.debug_over_buffer_content(&buffer, semantics));
     }
     #[test] fn forward_extended_block_semantics(){
         let semantics = CursorSemantics::Block;
         let buffer = Buffer::new("idk\nsome\nshit\n", None, false);
-        let selection = Selection::new_from_range(2..6, Some(Direction::Forward), &buffer, semantics.clone());
-        let selections = Selections::new(vec![selection], 0, &buffer, semantics.clone());
+        let selection = Selection::new(2..6, Some(Direction::Forward), &buffer, semantics);
+        let selections = Selections::new(vec![selection], 0, &buffer, semantics);
         assert_eq!("id|k\ns:o>me\nshit\n", selections.debug_over_buffer_content(&buffer, semantics));
     }
     #[test] fn backward_extended_block_semantics(){
         let semantics = CursorSemantics::Block;
         let buffer = Buffer::new("idk\nsome\nshit\n", None, false);
-        let selection = Selection::new_from_range(2..6, Some(Direction::Backward), &buffer, semantics.clone());
-        let selections = Selections::new(vec![selection], 0, &buffer, semantics.clone());
+        let selection = Selection::new(2..6, Some(Direction::Backward), &buffer, semantics);
+        let selections = Selections::new(vec![selection], 0, &buffer, semantics);
         assert_eq!("id<k\nso|me\nshit\n", selections.debug_over_buffer_content(&buffer, semantics));
     }
     #[test] fn selections_with_all_extension_directions_block_semantics(){
         let semantics = CursorSemantics::Block;
         let buffer = Buffer::new("idk\nsome\nshit\n", None, false);
-        let selection_1 = Selection::new_from_range(0..4, Some(Direction::Forward), &buffer, semantics.clone());
-        let selection_2 = Selection::new_from_range(6..7, None, &buffer, semantics.clone());
-        let selection_3 = Selection::new_from_range(8..12, Some(Direction::Backward), &buffer, semantics.clone());
-        let selections = Selections::new(vec![selection_1, selection_2, selection_3], 0, &buffer, semantics.clone());
+        let selection_1 = Selection::new(0..4, Some(Direction::Forward), &buffer, semantics);
+        let selection_2 = Selection::new(6..7, None, &buffer, semantics);
+        let selection_3 = Selection::new(8..12, Some(Direction::Backward), &buffer, semantics);
+        let selections = Selections::new(vec![selection_1, selection_2, selection_3], 0, &buffer, semantics);
         assert_eq!("|idk:\n>so|:m>e<\nshi|t\n", selections.debug_over_buffer_content(&buffer, semantics));
     }
+
+    //from_flattened
+    #[test] fn from_flattened(){
+        let text = "\t何 idk\n";
+        let buffer = Buffer::new(text, None, true);
+        let semantics = CursorSemantics::Block;
+        
+        let flat = vec![
+            Selection::new(0..1, None, &buffer, semantics)
+        ];
+        assert_eq!(
+            Selections::new(flat.clone(), 0, &buffer, semantics),
+            Selections::from_flattened(flat, 0),
+            "with single selection"
+        )
+
+        //with multiple selections
+        //with unsorted selections
+        //with overlapping selections
+    }
+
+    //normalized
+
+    //flatten
+
+    //flatten_non_primary
+
+    //debug_over_buffer_content
+
+    //count
+    
+    //iter
+    
+    //iter_mut
+    
+    //pop
+
+    //push_front
+    
+    //push
+    
+    //primary_selection_index
+    
+    //first
+    
+    //last
+    
+    //nth_mut
+
+    //sort
+    #[test] fn sort(){
+        use unicode_segmentation::UnicodeSegmentation;
+        let text = "idk𘀀\n";
+        for (i, grapheme) in text.grapheme_indices(true){
+            println!("grapheme: {:?}, byte: {:?}", grapheme, i);
+        }
+        let buffer = Buffer::new(text, None, true);
+        let semantics = CursorSemantics::Block;
+        let flat = vec![
+            Selection::new(3..7, None, &buffer, semantics),
+            Selection::new(0..1, None, &buffer, semantics),  //preserve this selection as primary
+        ];
+        let expected = vec![
+            Selection::new(0..1, None, &buffer, semantics),
+            Selection::new(3..7, None, &buffer, semantics),
+        ];
+        assert_eq!(
+            Selections::from_flattened(expected, 0),
+            Selections::from_flattened(flat, 1).sort()
+        );
+    }
+
+    //merge_overlapping
+
+    //shift_subsequent_selections_forward
+
+    //shift_subsequent_selections_backward
 }

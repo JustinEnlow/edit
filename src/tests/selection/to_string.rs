@@ -7,21 +7,21 @@ use crate::{
 #[test] fn with_ascii_string(){
     let semantics = CursorSemantics::Block;
     let buffer = Buffer::new("idk\nsome\nshit\n", None, false);
-    let selection = Selection::new_from_range(
+    let selection = Selection::new(
         0..14,
         Some(Direction::Forward), 
         &buffer, 
         semantics.clone()
     );
     assert_eq!("idk\nsome\nshit\n".to_string(), selection.to_string(&buffer));
-    let selection = Selection::new_from_range(
+    let selection = Selection::new(
         0..4,
         Some(Direction::Forward), 
         &buffer, 
         semantics.clone()
     );
     assert_eq!("idk\n".to_string(), selection.to_string(&buffer));
-    let selection = Selection::new_from_range(
+    let selection = Selection::new(
         9..14,
         Some(Direction::Forward), 
         &buffer, 

@@ -24,8 +24,8 @@ impl Default for InteractiveTextBox{
         Self{
             buffer: buffer.clone(),
             text_is_valid: false,
-            selection: Selection::new_from_range(
-                0..buffer.next_grapheme_char_index(0),
+            selection: Selection::new(
+                0..buffer.next_grapheme_boundary_byte_offset(0),
                 None,
                 &buffer, 
                 CursorSemantics::Block
@@ -56,9 +56,11 @@ impl InteractiveTextBox{
 
         // figure out how to use buffer.apply_insert/replace here...
         if self.selection.is_extended(){
-            self.buffer.apply_replace(&char.to_string(), &mut self.selection, CursorSemantics::Block);
+            //self.buffer.apply_replace(&char.to_string(), &mut self.selection, CursorSemantics::Block);
+            crate::application::apply_replace(&mut self.buffer, &char.to_string(), &mut self.selection, CursorSemantics::Block);
         }else{
-            self.buffer.apply_insert(&char.to_string(), &mut self.selection, CursorSemantics::Block);
+            //self.buffer.apply_insert(&char.to_string(), &mut self.selection, CursorSemantics::Block);
+            crate::application::apply_insert(&mut self.buffer, &char.to_string(), &mut self.selection, CursorSemantics::Block);
         }
         //
     }
@@ -130,7 +132,8 @@ impl InteractiveTextBox{
         //        }
         //    }
         //}
-        self.buffer.apply_delete(&mut self.selection, CursorSemantics::Block);
+        //self.buffer.apply_delete(&mut self.selection, CursorSemantics::Block);
+        crate::application::apply_delete(&mut self.buffer, &mut self.selection, CursorSemantics::Block);
         //
     }
     #[allow(clippy::collapsible_else_if)]

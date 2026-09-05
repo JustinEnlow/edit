@@ -3,6 +3,73 @@
 //could pass buffer, expansions, + display_area into DisplayMap::new()...
 //DisplayMap would need to be updated any time those inputs are modified
 
+//buffer:
+//0123456789012345678901234567890
+//extra long line⏎idk⏎some⏎shit⏎
+//wrap at: 10(terminal cell)
+//inlay: "fuckin' ", at: 6(byte offset), fg_color: Color, bg_color: Color, tag/id: String
+//fold: range: 1..3(buffer lines), replacement_text: "...", tag/id: String
+    //retain until last grapheme in first line, exclude last line. is this spec behavior for LSPs and such?...
+
+//virtual buffer:
+    //folded:
+    //extra long line
+    //idk                   //("..." to be added in inlay/expansion step?) (for each fold, add "..." to inlays?...)
+    //shit
+    //
+
+    //inlayed:      //would also expand tabs here...
+    //extra fuckin' long line
+    //idk...
+    //shit
+    //
+
+    //wrapped:  
+    //if wrap accounts for word boundaries:     otherwise:
+    //extra                                     //extra fuck
+    //fuckin'                                   //in' long l
+    //long line                                 //ine
+    //idk...                                    //idk...
+    //shit                                      //shit
+    //                                          //
+//
+
+//text_buffer_byte_offset(1d)       12          get nth byte in text buffer
+//          ↓
+//text_buffer_coord(2d)             (0, 12)     sum '\n's up to nth byte, then count bytes in line until nth byte
+//          ↓
+//virtual_coord(2d)                 (?, ?)      discard folded lines, add inlays + expansions, add wrapped lines
+//          ↓
+//screen/terminal_coord(2d)         (?, ?)      map viewport(only visible lines)
+//apply selection highlights + custom highlights
+
+//we have move_cursor_up fn, but will need a move_cursor_up_visual when wrapping added
+//normal: buffer_offset -> buffer_coord -> + buffer_coord.line+=1   (could also use virtual_coord, but effectively same)
+//visual: buffer_offset -> buffer_coord -> virtual_coord -> virtual_coord.line+=1
+
+/*
+enum SpanType{
+    //what if wide grapheme at line end can't be fully displayed?...maybe replace with unknown grapheme
+    BufferText{range: Range<usize>, fg_color: Color, bg_color: Color},  //handle selection/highlighting here?...using separate spans?...
+    Inlay{content: String, fg_color: Color, bg_color: Color},
+    //replace a range in the text buffer with some content (maybe folds"...", tabs"  ", etc)
+    Replacement{range: Range<usize>, content: String, fg_color: Color, bg_color: Color}
+}
+struct VisualLine{              //logical line with inlays added, expansions handled, and cut off at wrap points
+    content: Vec<SpanType>,
+}
+struct DisplayMap{              //logical lines with fold regions discarded, inlays added, expansion handled, wrapped lines added
+    lines: Vec<VisualLine>,
+}
+impl DisplayMap{
+    fn new(buffer, inlays, selections, highlights, tab_width, wrap_width, display_area) -> DisplayMap;
+    fn buffer_to_screen() -> Option<Coord>;
+    fn screen_to_buffer() -> usize;
+    fn text() -> String;
+    fn update();    //buffer/inlays/folds/expansions/etc changed or width/height changed
+}
+*/
+
 use crate::range::Intersects;
 use crate::selection::{CursorSemantics, Selection};
 use crate::selection2d::Selection2d;
@@ -56,7 +123,7 @@ impl DisplayArea{
     /// # Panics
     /// when `selection` is invalid.
     #[must_use] pub fn should_scroll(&self, selection: &Selection, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> bool{
-        assert!(selection.cursor(buffer, semantics.clone()) <= buffer.len_chars());
+        assert!(selection.cursor(buffer, semantics) <= buffer.len_bytes());
 
         let cursor = selection.selection_to_selection2d(buffer, semantics);
         let cursor_y = cursor.head().y;
@@ -74,7 +141,7 @@ impl DisplayArea{
     /// # Panics
     /// when `selection` is invalid.
     #[must_use] pub fn scroll_following_cursor(&self, selection: &Selection, buffer: &crate::buffer::Buffer, semantics: CursorSemantics) -> Self{
-        assert!(selection.cursor(buffer, semantics.clone()) <= buffer.len_chars());
+        assert!(selection.cursor(buffer, semantics) <= buffer.len_bytes());
 
         let cursor = selection.selection_to_selection2d(buffer, semantics);
         let cursor_y = cursor.head().y;
@@ -138,7 +205,7 @@ impl DisplayArea{
 
         for view_block in &view_blocks{ //view_blocks.iter(){   //change suggested by clippy lint
             //client_view_text.push_str(&buffer.inner.slice(view_block.start..view_block.end).to_string());
-            client_view_text.push_str(&buffer.slice(view_block.start, view_block.end));
+            client_view_text.push_str(&buffer.slice(view_block.start..view_block.end));
             client_view_text.push('\n');
         }
     
@@ -159,7 +226,7 @@ impl DisplayArea{
 
         let vertical_range = self.vertical_start..self.vertical_start + self.height;
 
-        for (y, _) in buffer./*inner.*/lines().enumerate(){
+        for (y, _) in buffer.lines().iter().enumerate(){
             if vertical_range.contains(&y){
                 line_numbers_vec.push((y + 1).to_string()); // Convert number to string
             }
@@ -213,11 +280,13 @@ impl DisplayArea{
         let mut view_blocks = Vec::new();
         let vertical_range = self.vertical_start..self.vertical_start + self.height;
 
-        for (y, _) in buffer.lines().enumerate(){
+        for (y, _) in buffer.lines().iter().enumerate(){
             // only include lines in vertical bounds
             if vertical_range.contains(&y){
-                let line_start = buffer.line_to_char(y);
-                let line_width = buffer.line_width_chars(y, include_newline);
+                let line_start = buffer.line_to_byte(y);
+                //let line_width = buffer.line_width_chars(y, include_newline);
+                //let line_width = buffer.line_width_terminal_cells(y, include_newline);
+                let line_width = buffer.line_width_bytes(y, include_newline);
                 let line_end = line_start + line_width;
                 
                 let mut view_start = line_start + self.horizontal_start;    //start view at horizontal offset of view
@@ -230,7 +299,7 @@ impl DisplayArea{
                 else if line_end < view_end{
                     view_end = line_end;
                 }
-                view_blocks.push(/*Range::new(view_start, view_end)*/view_start..view_end);
+                view_blocks.push(view_start..view_end);
             }
         }
 
@@ -267,7 +336,7 @@ impl DisplayArea{
     #[must_use] pub fn cursor_positions(&self, buffer: &crate::buffer::Buffer, selections: &Selections, semantics: CursorSemantics) -> Vec<Position>{
         selections.iter()
             .filter_map(|cursor|{
-                Self::cursor_position(&cursor.selection_to_selection2d(buffer, semantics.clone()), self)
+                Self::cursor_position(&cursor.selection_to_selection2d(buffer, semantics), self)
             })
             .collect()
     }
@@ -325,8 +394,8 @@ pub fn scroll_view_right(view: &DisplayArea, amount: usize, buffer: &crate::buff
 
     // TODO: cache longest as a field in [`View`] struct to eliminate having to calculate this on each call
     // Calculate the longest line width in a single pass
-    let longest = buffer./*inner.*/lines().enumerate()
-        .map(|(i, _)| buffer.line_width_chars(i, false))
+    let longest = buffer.lines().iter().enumerate()
+        .map(|(i, _)| /*buffer.line_width_chars(i, false)*/buffer.line_width_terminal_cells(i, false))
         .max()
         .unwrap_or(0); // Handle the case where there are no lines
 
@@ -352,10 +421,10 @@ pub fn center_view_vertically_around_cursor(
     buffer: &crate::buffer::Buffer, 
     semantics: CursorSemantics
 ) -> Result<DisplayArea, DisplayAreaError>{
-    assert!(selection.cursor(buffer, semantics.clone()) <= buffer.len_chars());    //ensure selection is valid
+    assert!(selection.cursor(buffer, semantics) <= buffer.len_bytes());    //ensure selection is valid
     assert!(buffer.len_lines() > 0);  //ensure text is not empty
         
-    let current_line = buffer.char_to_line(selection.cursor(buffer, semantics.clone()));
+    let current_line = buffer.byte_to_line(selection.cursor(buffer, semantics));
     //let view_is_even_numbered = self.height % 2 == 0;
     let half_view_height = view.height / 2; //current impl will be biased towards the bottom of the view, if view is even numbered
 

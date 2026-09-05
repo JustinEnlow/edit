@@ -2,7 +2,7 @@ use crate::selection::CursorSemantics;
 use ratatui::style::Color;
 
 //this should contain config options that could be changed at runtime
-#[derive(Clone)] pub struct Config{
+#[derive(Debug, Clone)] pub struct Config{
     pub semantics: CursorSemantics,
     pub use_full_file_path: bool,
     pub use_hard_tab: bool, //TODO: replace to "replace_tabs_with_spaces". NOTE: the meaning is the exact opposite, so don't just rename...
